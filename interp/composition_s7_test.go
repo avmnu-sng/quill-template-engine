@@ -71,6 +71,105 @@ func TestSetMapDestructureMissingLenient(t *testing.T) {
 	}
 }
 
+// --- sequence destructuring in @set (spec 01 Section 3.2) ---
+
+// list builds a sequence-shaped runtime value from values, for fixture data.
+func list(vals ...runtime.Value) runtime.Value {
+	a := runtime.NewArray()
+	for i, v := range vals {
+		a.SetInt(int64(i), v)
+	}
+	return runtime.Arr(a)
+}
+
+func TestSetListDestructureExact(t *testing.T) {
+	eng := newStub(nil)
+	got := renderStub(t, eng, "@set [a, b] = xs\n{{ a }}/{{ b }}",
+		map[string]runtime.Value{"xs": list(runtime.Int(1), runtime.Int(2))})
+	if got != "1/2" {
+		t.Fatalf("exact-supply destructure: %q", got)
+	}
+}
+
+// Over/under-supply must error by default rather than pad or drop (the de-PHP-ified
+// generator-correctness default, spec 01 Section 3.2).
+func TestSetListDestructureArityErrors(t *testing.T) {
+	cases := []struct {
+		name string
+		xs   runtime.Value
+	}{
+		{"under-supply", list(runtime.Int(1))},
+		{"over-supply", list(runtime.Int(1), runtime.Int(2), runtime.Int(3))},
+		{"empty", list()},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			eng := newStub(nil)
+			_, err := renderStubErr(t, eng, "@set [a, b] = xs\n{{ a }}/{{ b }}",
+				map[string]runtime.Value{"xs": tc.xs})
+			if err == nil || !strings.Contains(err.Error(), "sequence destructuring expects") {
+				t.Fatalf("arity mismatch must error, got %v", err)
+			}
+		})
+	}
+}
+
+// A trailing "...rest" captures the remaining elements as a new sequence; the tail
+// may be empty and over-supply past the fixed slots is then legal.
+func TestSetListDestructureTail(t *testing.T) {
+	cases := []struct {
+		name string
+		xs   runtime.Value
+		want string
+	}{
+		{"multi-tail", list(runtime.Int(1), runtime.Int(2), runtime.Int(3)), "1|[2,3]"},
+		{"single-tail", list(runtime.Int(1), runtime.Int(2)), "1|[2]"},
+		{"empty-tail", list(runtime.Int(1)), "1|[]"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			eng := newStub(nil)
+			got := renderStub(t, eng, "@set [a, ...rest] = xs\n{{ a }}|{{ rest|json }}",
+				map[string]runtime.Value{"xs": tc.xs})
+			if got != tc.want {
+				t.Fatalf("tail capture: got %q want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// A tail with too few elements to fill the fixed slots is still an error.
+func TestSetListDestructureTailUnderSupply(t *testing.T) {
+	eng := newStub(nil)
+	_, err := renderStubErr(t, eng, "@set [a, b, ...rest] = xs\n{{ a }}",
+		map[string]runtime.Value{"xs": list(runtime.Int(1))})
+	if err == nil || !strings.Contains(err.Error(), "at least 2 element") {
+		t.Fatalf("tail under-supply must error, got %v", err)
+	}
+}
+
+// A nested list pattern recurses into the corresponding element.
+func TestSetListDestructureNested(t *testing.T) {
+	eng := newStub(nil)
+	got := renderStub(t, eng, "@set [a, [b, c]] = xs\n{{ a }}/{{ b }}/{{ c }}",
+		map[string]runtime.Value{"xs": list(
+			runtime.Int(1), list(runtime.Int(9), runtime.Int(8)))})
+	if got != "1/9/8" {
+		t.Fatalf("nested list destructure: %q", got)
+	}
+}
+
+// A nested map pattern recurses into the corresponding element.
+func TestSetListDestructureNestedMap(t *testing.T) {
+	eng := newStub(nil)
+	inner := arr(runtime.Pair{Key: runtime.Str("k"), Val: runtime.Str("v")})
+	got := renderStub(t, eng, "@set [a, {k}] = xs\n{{ a }}/{{ k }}",
+		map[string]runtime.Value{"xs": list(runtime.Int(1), inner)})
+	if got != "1/v" {
+		t.Fatalf("nested map destructure: %q", got)
+	}
+}
+
 // --- @use traits (spec 01 Section 5.4) ---
 
 func traitEngine() *stubEngine {

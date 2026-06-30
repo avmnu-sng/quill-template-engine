@@ -449,25 +449,67 @@ func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Conte
 	}
 }
 
-// bindListPattern binds a sequence-destructuring pattern positionally.
+// bindListPattern binds a sequence-destructuring pattern positionally (spec 01
+// Section 3.2). Each fixed slot binds one element by position; a nested list/map
+// pattern recurses; a trailing "...rest" slot captures the remaining elements as
+// a new sequence (possibly empty). Over/under-supply is an error by default: a
+// pattern without a tail must match the element count exactly (a generator should
+// not silently pad with null nor drop trailing elements). A tail slot makes
+// over-supply legal -- the fixed slots are the minimum.
 func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Context) error {
 	if v.Kind != runtime.KArray || v.Arr == nil {
 		return posErr(pat, errors.New(errors.KindRuntime,
 			"destructuring expects a sequence"))
 	}
 	ps := v.Arr.Pairs()
-	for i, slot := range pat.Children {
-		if slot == nil { // elided slot
+
+	// Separate the fixed slots from an optional trailing "...rest" tail. The parser
+	// guarantees a KindSpread slot is last (listToPattern), so at most one exists
+	// and it is the final child.
+	fixed := pat.Children
+	var tail *ast.Node
+	if k := len(fixed); k > 0 && fixed[k-1] != nil && fixed[k-1].Kind == ast.KindSpread {
+		tail = fixed[k-1]
+		fixed = fixed[:k-1]
+	}
+
+	// Enforce arity. Without a tail the counts must match exactly; with a tail the
+	// supplied count must cover at least the fixed slots.
+	if tail == nil {
+		if len(ps) != len(fixed) {
+			return posErr(pat, errors.New(errors.KindRuntime,
+				"sequence destructuring expects %d element(s) but got %d",
+				len(fixed), len(ps)))
+		}
+	} else if len(ps) < len(fixed) {
+		return posErr(pat, errors.New(errors.KindRuntime,
+			"sequence destructuring with a tail expects at least %d element(s) but got %d",
+			len(fixed), len(ps)))
+	}
+
+	for i, slot := range fixed {
+		if slot == nil { // elided slot: skip its position
 			continue
 		}
-		var val runtime.Value = runtime.Null()
-		if i < len(ps) {
-			val = ps[i].Val
+		val := ps[i].Val // arity checked above, so the index is in range
+		switch slot.Kind {
+		case ast.KindName, ast.KindTarget:
+			ctx.Set(slot.Str, val)
+		case ast.KindListPattern, ast.KindMapPattern:
+			if err := in.bindPattern(slot, val, ctx); err != nil {
+				return err
+			}
 		}
-		name := slot.Str
-		if slot.Kind == ast.KindName || slot.Kind == ast.KindTarget {
-			ctx.Set(name, val)
+	}
+
+	if tail != nil {
+		// Collect the elements past the fixed slots into a fresh sequence and bind it
+		// to the tail name (KindSpread child 0 is the captured KindName).
+		rest := runtime.NewArray()
+		for _, p := range ps[len(fixed):] {
+			rest.SetInt(int64(rest.Len()), p.Val)
 		}
+		ctx.Set(tail.Child(0).Str, runtime.Arr(rest))
 	}
 	return nil
 }

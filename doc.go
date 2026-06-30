@@ -16,7 +16,10 @@
 //   - Optional and elided destructuring slots ([a, b?] and [, b]); the LHS is
 //     parsed as an expression and a trailing "?" reads as the ternary, so these
 //     two slot forms report a parse error today (a later slice adds a dedicated
-//     target grammar). Sequence and map/object destructuring otherwise work.
+//     target grammar). Sequence destructuring otherwise works fully -- flat slots,
+//     a "...rest" tail capture, and nested list/map patterns -- and enforces
+//     arity (over/under-supply is an error, not silent padding); map/object
+//     destructuring works for shorthand and rename forms.
 //
 // Application-specific functions are intentionally not built in: they are
 // registered by the host through the extension surface
@@ -32,10 +35,13 @@
 // memoizes it under the (template-namespaced) key in the engine's pluggable
 // in-memory cache, and on a hit re-emits the cached body without re-rendering;
 // ttl is a documented no-op for the non-expiring in-memory cache and tags drive
-// optional tag-invalidation (spec 01 Section 4.7). @set now supports map/object
+// optional tag-invalidation (spec 01 Section 4.7). @set supports map/object
 // destructuring -- shorthand {name} and rename {key: alias} -- reading each slot
 // through the same dotted access as a.b so the right-hand side may be a mapping or
-// a host object (spec 01 Sections 2.1, 3.2). Previously implemented: the @escape
+// a host object, and full sequence destructuring -- positional slots, a "...rest"
+// tail capture binding the remaining elements as a new sequence, and nested
+// list/map patterns -- with arity enforced so over/under-supply errors rather than
+// silently padding with null or dropping elements (spec 01 Sections 2.1, 3.2). Previously implemented: the @escape
 // block region accepts any of the six strategies (html, js, css, html_attr,
 // html_attr_relaxed, url) plus off/raw and applies it to its body, sharing the
 // same escapers as the escape()/e() filter. Nested regions and the module default
