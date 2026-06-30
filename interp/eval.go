@@ -63,6 +63,8 @@ func (in *interp) eval(n *ast.Node, ctx *runtime.Context, allowAbsent bool) (run
 		return in.evalElvis(n, ctx)
 	case ast.KindAssign:
 		return in.evalAssign(n, ctx)
+	case ast.KindArrow:
+		return in.evalArrow(n, ctx)
 	default:
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"cannot evaluate %s expression", n.Kind))

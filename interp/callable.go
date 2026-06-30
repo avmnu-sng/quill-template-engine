@@ -32,7 +32,7 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 			if err != nil {
 				return runtime.Null(), err
 			}
-			return in.invokeFunction(n, fn, args)
+			return in.invokeFunction(n, fn, ctx, args)
 		}
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"unknown function or macro %q", name))
@@ -267,8 +267,8 @@ func (in *interp) injectFilter(f *ext.Filter, ctx *runtime.Context, args []runti
 	return in.inject(f.NeedsEnvironment, f.NeedsContext, f.NeedsCharset, ctx, args)
 }
 
-func (in *interp) invokeFunction(n *ast.Node, f *ext.Function, args []runtime.Value) (runtime.Value, error) {
-	args = in.inject(f.NeedsEnvironment, f.NeedsContext, f.NeedsCharset, nil, args)
+func (in *interp) invokeFunction(n *ast.Node, f *ext.Function, ctx *runtime.Context, args []runtime.Value) (runtime.Value, error) {
+	args = in.inject(f.NeedsEnvironment, f.NeedsContext, f.NeedsCharset, ctx, args)
 	res, err := f.Fn(args)
 	if err != nil {
 		return runtime.Null(), posErr(n, err)
@@ -276,13 +276,14 @@ func (in *interp) invokeFunction(n *ast.Node, f *ext.Function, args []runtime.Va
 	return res, nil
 }
 
-// inject builds the prepended engine-value slice. The environment and context
-// are carried as host Objects so a callable can reach back into the engine
-// (used by include/block). ctx may be nil for a function call, in which case the
-// live context for needs_context comes from the call site is unavailable and a
-// nil placeholder is passed; the core stdlib functions registered here do not
-// set needs_context, and the engine-registered include/block supply it
-// explicitly through a bound closure.
+// inject builds the prepended engine-value slice. The environment is carried as
+// a host Object so a callable can reach back into the engine (used by include/
+// source/template_from_string); the context is materialized as an *Array of the
+// live bindings for needs_context callables (include with_context, dump,
+// template_from_string). ctx is the live call-site scope, threaded from
+// evalCall/evalFilter, so a needs_context function sees the variables in scope
+// where it was called. A nil ctx (no scope available) materializes as an empty
+// mapping.
 func (in *interp) inject(needsEnv, needsCtx, needsCharset bool, ctx *runtime.Context, args []runtime.Value) []runtime.Value {
 	var pre []runtime.Value
 	if needsEnv {

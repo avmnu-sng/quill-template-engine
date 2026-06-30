@@ -51,14 +51,22 @@ type Test struct {
 	Fn   func(args []runtime.Value) (bool, error)
 }
 
-// ExtensionSet is the callable registry: three name-keyed maps, one per kind.
-// Lookups are by exact name; the parser already resolved two-word spellings and
-// aliases to a canonical single name where it could, and the registry also holds
-// explicit alias entries the stdlib installs.
+// ExtensionSet is the callable registry: three name-keyed maps, one per kind,
+// plus the host-supplied constant and enumeration tables the constant/enum
+// callables read (spec 03 Sections 3.2, 4). Lookups are by exact name; the
+// parser already resolved two-word spellings and aliases to a canonical single
+// name where it could, and the registry also holds explicit alias entries the
+// stdlib installs.
 type ExtensionSet struct {
 	filters   map[string]*Filter
 	functions map[string]*Function
 	tests     map[string]*Test
+
+	// constants holds named host/global constants resolved by the constant()
+	// function and the `is constant` test (spec 03 Sections 3.2, 4). enums holds
+	// named host enumerations (ordered case lists) backing enum()/enum_cases().
+	constants map[string]runtime.Value
+	enums     map[string][]runtime.Value
 }
 
 // NewExtensionSet returns an empty registry.
@@ -67,7 +75,31 @@ func NewExtensionSet() *ExtensionSet {
 		filters:   map[string]*Filter{},
 		functions: map[string]*Function{},
 		tests:     map[string]*Test{},
+		constants: map[string]runtime.Value{},
+		enums:     map[string][]runtime.Value{},
 	}
+}
+
+// AddConstant registers a named constant the constant() function and the
+// `is constant` test resolve (spec 03 Section 3.2).
+func (s *ExtensionSet) AddConstant(name string, v runtime.Value) { s.constants[name] = v }
+
+// Constant looks up a registered constant by name.
+func (s *ExtensionSet) Constant(name string) (runtime.Value, bool) {
+	v, ok := s.constants[name]
+	return v, ok
+}
+
+// AddEnum registers a named host enumeration as its ordered case list, backing
+// enum() (first case) and enum_cases() (all cases), spec 03 Section 3.2.
+func (s *ExtensionSet) AddEnum(name string, cases []runtime.Value) {
+	s.enums[name] = append([]runtime.Value(nil), cases...)
+}
+
+// Enum looks up a registered enumeration's case list by name.
+func (s *ExtensionSet) Enum(name string) ([]runtime.Value, bool) {
+	c, ok := s.enums[name]
+	return c, ok
 }
 
 // AddFilter registers (or shadows) a filter by name. A later registration of the
@@ -118,6 +150,12 @@ func (s *ExtensionSet) Clone() *ExtensionSet {
 	}
 	for k, v := range s.tests {
 		cp.tests[k] = v
+	}
+	for k, v := range s.constants {
+		cp.constants[k] = v
+	}
+	for k, v := range s.enums {
+		cp.enums[k] = v
 	}
 	return cp
 }

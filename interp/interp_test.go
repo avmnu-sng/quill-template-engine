@@ -42,6 +42,18 @@ func (s *stubEngine) LoadTemplate(name string) (*Template, error) {
 	return Prepare(name, mod), nil
 }
 
+func (s *stubEngine) RawSource(name string) (string, bool) {
+	body, ok := s.tmpls[name]
+	return body, ok
+}
+func (s *stubEngine) CompileString(name, body string) (*Template, error) {
+	mod, err := parse.ParseString(name, body)
+	if err != nil {
+		return nil, err
+	}
+	return Prepare(name, mod), nil
+}
+
 func errNotFound(name string) error { return &notFoundErr{name} }
 
 type notFoundErr struct{ name string }

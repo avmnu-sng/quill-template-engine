@@ -1,28 +1,30 @@
 package ext
 
 import (
-	"sort"
 	"strings"
 
 	"github.com/avmnusng/quill-template-engine/errors"
 	"github.com/avmnusng/quill-template-engine/runtime"
 )
 
-// Core builds an ExtensionSet holding the stdlib SUBSET this milestone ships
-// (spec 03). It is the floor real templates need, not the full catalogue; the
-// deferred entries are listed in the package and slice notes. The include/block
-// family is registered by the engine facade (it needs the environment handle and
-// loader), so it is NOT installed here.
-//
-// Filters: upper, lower, default, length, join, trim, replace, raw, escape,
-// first, last, keys, reverse, sort, merge, slice.
-// Functions: range, max, min. (include is registered by the engine.)
-// Tests: defined, null/none, empty, even, odd, iterable, same as.
+// Core builds an ExtensionSet holding the full spec-03 standard-library
+// catalogue. The core subset (the most-used string/collection/math filters, the
+// aggregate functions, and the basic tests) is registered here directly; the
+// remaining catalogue (the higher-order collection filters, the encoding/date/
+// source filters, the access/registry functions, and the remaining tests) is
+// installed by registerStdlib below. The include/source/dump/
+// template_from_string callables that need the engine handle are registered by
+// the engine facade (they need the environment and loader), so they are NOT
+// installed here.
 func Core() *ExtensionSet {
 	s := NewExtensionSet()
 	registerCoreFilters(s)
 	registerCoreFunctions(s)
 	registerCoreTests(s)
+	// registerStdlib installs the remaining spec-03 catalogue (the higher-order
+	// collection filters, the math/encoding/date/source filters, the access and
+	// registry functions, and the remaining tests) on top of the core subset.
+	registerStdlib(s)
 	return s
 }
 
@@ -41,7 +43,7 @@ func registerCoreFilters(s *ExtensionSet) {
 	s.AddFilter(&Filter{Name: "last", Fn: filterLast})
 	s.AddFilter(&Filter{Name: "keys", Fn: filterKeys})
 	s.AddFilter(&Filter{Name: "reverse", Fn: filterReverse})
-	s.AddFilter(&Filter{Name: "sort", Fn: filterSort})
+	s.AddFilter(&Filter{Name: "sort", Fn: filterSortArrow})
 	s.AddFilter(&Filter{Name: "merge", Fn: filterMerge})
 	s.AddFilter(&Filter{Name: "slice", Fn: filterSlice})
 }
@@ -175,9 +177,9 @@ func filterRaw(args []runtime.Value) (runtime.Value, error) {
 }
 
 // filterEscape escapes for a named strategy (default html) and returns a Safe
-// value. Only the html strategy is implemented this slice; the remaining five
-// strategies are deferred (spec 03 Section 5.5). A value that is already Safe is
-// returned unchanged.
+// value. The six strategies are html, js, css, html_attr, html_attr_relaxed,
+// and url (spec 03 Section 5.5). A value that is already Safe is returned
+// unchanged.
 func filterEscape(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	if v.Kind == runtime.KSafe {
@@ -195,13 +197,11 @@ func filterEscape(args []runtime.Value) (runtime.Value, error) {
 	if err != nil {
 		return runtime.Null(), err
 	}
-	switch strategy {
-	case "html":
-		return runtime.Safe(EscapeHTML(text)), nil
-	default:
-		return runtime.Null(), errors.New(errors.KindRuntime,
-			"escape strategy %q is not implemented; only \"html\" is available", strategy)
+	out, err := Escape(strategy, text)
+	if err != nil {
+		return runtime.Null(), errors.New(errors.KindRuntime, "%s", err.Error())
 	}
+	return runtime.Safe(out), nil
 }
 
 // --- collection filters ---
@@ -371,34 +371,6 @@ func filterReverse(args []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"reverse expects a string or collection, got %s", v.Kind)
 	}
-}
-
-// filterSort sorts a collection by the one total ordering, key-preserving (spec
-// 03 Section 2.2). The optional comparator arrow is deferred this slice.
-func filterSort(args []runtime.Value) (runtime.Value, error) {
-	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
-		return runtime.Null(), errors.New(errors.KindRuntime,
-			"sort expects a collection, got %s", v.Kind)
-	}
-	ps := v.Arr.Pairs()
-	var sortErr error
-	sort.SliceStable(ps, func(i, j int) bool {
-		c, err := runtime.Order(ps[i].Val, ps[j].Val)
-		if err != nil {
-			sortErr = err
-			return false
-		}
-		return c < 0
-	})
-	if sortErr != nil {
-		return runtime.Null(), sortErr
-	}
-	out := runtime.NewArray()
-	for _, p := range ps {
-		out.SetKey(p.Key, p.Val)
-	}
-	return runtime.Arr(out), nil
 }
 
 // filterMerge appends integer-keyed values (reindexed) and overwrites

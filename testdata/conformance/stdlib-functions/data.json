@@ -1,0 +1,6 @@
+{
+  "items": ["x", "y", "z"],
+  "labels": ["odd", "even"],
+  "config": {"host": "local", "port": 8080},
+  "ts": 0
+}

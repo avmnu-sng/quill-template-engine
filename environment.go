@@ -106,6 +106,27 @@ func (e *Environment) TemplateExists(name string) bool {
 	return e.loader.Exists(name)
 }
 
+// RawSource returns the unparsed source text of the named template, backing the
+// source() function (interp.Engine, spec 03 Section 3.2).
+func (e *Environment) RawSource(name string) (string, bool) {
+	src, err := e.loader.Get(name)
+	if err != nil {
+		return "", false
+	}
+	return src.Code(), true
+}
+
+// CompileString parses and prepares an ad-hoc template body, backing
+// template_from_string (interp.Engine, spec 03 Section 3.3). The body is not
+// added to the loader; inheritance/include targets in it still resolve by name.
+func (e *Environment) CompileString(name, body string) (*interp.Template, error) {
+	mod, err := parse.Parse(source.New(name, body))
+	if err != nil {
+		return nil, err
+	}
+	return interp.PrepareChecked(name, mod)
+}
+
 // Render loads the named template and renders it with vars, returning the output.
 func (e *Environment) Render(name string, vars map[string]runtime.Value) (string, error) {
 	tmpl, err := e.LoadTemplate(name)

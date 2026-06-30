@@ -46,6 +46,13 @@ type Engine interface {
 	// TemplateExists reports whether the named template can be loaded, for
 	// candidate lists and ignore-missing.
 	TemplateExists(name string) bool
+	// RawSource returns the unparsed source text of the named template, backing
+	// the source() function (spec 03 Section 3.2). ok is false on a miss.
+	RawSource(name string) (string, bool)
+	// CompileString parses and prepares an ad-hoc template body under the given
+	// name, backing template_from_string (spec 03 Section 3.3). The body is not
+	// added to the loader.
+	CompileString(name, body string) (*Template, error)
 }
 
 // Sink is the push-based output target. The interpreter writes rendered bytes as

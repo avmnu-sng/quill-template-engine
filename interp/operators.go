@@ -313,7 +313,8 @@ func (in *interp) evalPower(n *ast.Node, ctx *runtime.Context) (runtime.Value, e
 
 // evalMembership implements in / not in / matches / starts with / ends with /
 // has some / has every (spec 04 Section 4.3). The regex matches operator uses
-// the stdlib RE2 engine; has some / has every are deferred and reported as such.
+// the stdlib RE2 engine; the quantifiers apply an arrow predicate to each
+// element of the left collection.
 func (in *interp) evalMembership(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
 	left, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
@@ -339,10 +340,46 @@ func (in *interp) evalMembership(n *ast.Node, ctx *runtime.Context) (runtime.Val
 		return in.affix(n, left, right, false)
 	case "matches":
 		return in.matches(n, left, right)
+	case "has some":
+		return in.quantify(n, left, right, false)
+	case "has every":
+		return in.quantify(n, left, right, true)
 	default:
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"the %q operator is not implemented in this milestone", n.Str))
 	}
+}
+
+// quantify implements the `has some` / `has every` quantifiers: it applies the
+// right-hand arrow predicate to each element of the left collection. "has some"
+// is the existential (true iff the predicate holds for at least one element);
+// "has every" is the universal (true iff it holds for all). An empty collection
+// makes "has every" vacuously true and "has some" false, matching the standard
+// quantifier identities (spec 04 Section 4.3). The predicate receives the value
+// and, if it declares a second parameter, the key.
+func (in *interp) quantify(n *ast.Node, coll, pred runtime.Value, universal bool) (runtime.Value, error) {
+	if !runtime.IsCallable(pred) {
+		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+			"the %q operator expects an arrow predicate on the right", n.Str))
+	}
+	pairs, err := runtime.EnsureTraversable(coll, in.eng.StrictVariables() == false)
+	if err != nil {
+		return runtime.Null(), posErr(n, err)
+	}
+	for _, p := range pairs {
+		res, err := runtime.Call(pred, []runtime.Value{p.Val, p.Key})
+		if err != nil {
+			return runtime.Null(), posErr(n, err)
+		}
+		hit := runtime.Truthy(res)
+		if universal && !hit {
+			return runtime.Bool(false), nil
+		}
+		if !universal && hit {
+			return runtime.Bool(true), nil
+		}
+	}
+	return runtime.Bool(universal), nil
 }
 
 // affix implements starts with / ends with as byte-prefix/suffix tests over the
