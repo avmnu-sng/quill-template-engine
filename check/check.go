@@ -68,6 +68,33 @@ func errAt(n *ast.Node, format string, args ...any) error {
 	return e
 }
 
+// absenceError tags a check diagnostic as belonging to the "absence" class: a
+// member miss on a typed Object or an undefined-name read. Only these errors are
+// suppressed by the whole-chain absence-suppression tools (?? / default /
+// `is defined`, spec 04 Section 6); a genuine type error (a bad arithmetic, a
+// non-renderable concat) is NOT absence and must surface even under those tools.
+// The wrapped error keeps its message and position via Unwrap so callers that do
+// surface it (the strict access path) report it unchanged.
+type absenceError struct{ err error }
+
+func (a *absenceError) Error() string { return a.err.Error() }
+func (a *absenceError) Unwrap() error { return a.err }
+
+// errAbsent builds a positioned absence-class diagnostic (a member/name miss).
+func errAbsent(n *ast.Node, format string, args ...any) error {
+	return &absenceError{err: errAt(n, format, args...)}
+}
+
+// isAbsence reports whether err is an absence-class miss (the only error class
+// the absence-suppression tools swallow).
+func isAbsence(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*absenceError)
+	return ok
+}
+
 // indexCallables records the macro and block signatures the template defines, so
 // a call to a forward-declared macro/block is checked against its contract.
 func (c *checker) indexCallables(mod *ast.Node) {

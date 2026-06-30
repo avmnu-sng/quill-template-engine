@@ -14,7 +14,9 @@ func (c *checker) binaryType(n *ast.Node, sc *scope) (*Type, error) {
 		return c.arithType(n, n.Str, sc)
 	case "~":
 		return c.concatType(n, sc)
-	case "==", "!=", "===", "<", ">", "<=", ">=":
+	case "==", "!=", "===":
+		// Equality is total and cross-kind-false (spec 04 Section 3.1): never an
+		// error, even on statically-incompatible kinds. Only type for embedded errors.
 		if _, err := c.exprType(n.Child(0), sc); err != nil {
 			return Any, err
 		}
@@ -22,11 +24,13 @@ func (c *checker) binaryType(n *ast.Node, sc *scope) (*Type, error) {
 			return Any, err
 		}
 		return Bool, nil
-	case "<=>":
-		if _, err := c.exprType(n.Child(0), sc); err != nil {
+	case "<", ">", "<=", ">=":
+		if err := c.checkOrder(n, sc); err != nil {
 			return Any, err
 		}
-		if _, err := c.exprType(n.Child(1), sc); err != nil {
+		return Bool, nil
+	case "<=>":
+		if err := c.checkOrder(n, sc); err != nil {
 			return Any, err
 		}
 		return Int, nil
@@ -81,6 +85,31 @@ func (c *checker) arithType(n *ast.Node, op string, sc *scope) (*Type, error) {
 		return Int, nil
 	}
 	return Float, nil
+}
+
+// checkOrder types both operands of an ordering operator (< > <= >= <=>) and,
+// when both types are statically known (non-any), rejects a cross-kind ordering:
+// the operands must be order-comparable -- both within the number tower or both
+// string (spec 04 Section 3.2; design/type-system.md Section 7.2). This mirrors
+// the runtime, which raises KindComparison "cannot order <kind> against <kind>"
+// for unlike kinds. Equality (== != ===) is deliberately NOT routed here: it is
+// total and cross-kind-false, never an error.
+func (c *checker) checkOrder(n *ast.Node, sc *scope) error {
+	lt, err := c.exprType(n.Child(0), sc)
+	if err != nil {
+		return err
+	}
+	rt, err := c.exprType(n.Child(1), sc)
+	if err != nil {
+		return err
+	}
+	if lt.isAny() || rt.isAny() {
+		return nil
+	}
+	if (numeric(lt) && numeric(rt)) || (lt.Kind == KString && rt.Kind == KString) {
+		return nil
+	}
+	return errAt(n, "cannot order %s against %s", lt.String(), rt.String())
 }
 
 // numeric reports whether t is int or float (or a union of only numbers).
@@ -179,7 +208,10 @@ func (c *checker) ternaryType(n *ast.Node, sc *scope) (*Type, error) {
 // member miss inside `a` is not a check error here; we model that by typing the
 // left leniently (a member miss is suppressed by treating the access as any).
 func (c *checker) coalesceType(n *ast.Node, sc *scope) (*Type, error) {
-	a := c.exprTypeLenient(n.Child(0), sc)
+	a, err := c.exprTypeLenient(n.Child(0), sc)
+	if err != nil {
+		return Any, err
+	}
 	b, err := c.exprType(n.Child(1), sc)
 	if err != nil {
 		return Any, err
@@ -192,20 +224,25 @@ func (c *checker) coalesceType(n *ast.Node, sc *scope) (*Type, error) {
 // an absent member or undefined name at any hop yields any rather than a
 // check-time miss, because the runtime would yield the fallback, not an error.
 // It still surfaces a genuine type error (a non-renderable concat, a bad arith)
-// that is unrelated to absence.
-func (c *checker) exprTypeLenient(n *ast.Node, sc *scope) *Type {
+// that is unrelated to absence, because those tools suppress ONLY the strict
+// undefined/member miss -- never an arithmetic or render coercion error, which
+// the runtime raises regardless of the surrounding ?? / default / is defined.
+// The (any, err) shape lets callers propagate a non-absence error verbatim.
+func (c *checker) exprTypeLenient(n *ast.Node, sc *scope) (*Type, error) {
 	if n == nil {
-		return Any
+		return Any, nil
 	}
 	t, err := c.exprType(n, sc)
 	if err != nil {
-		// An absence/miss-class error is suppressed by the coalescing operator; we
-		// fall back to any. (A genuinely malformed expression still rendered an
-		// error, but at a ?? site the runtime suppresses the left miss, so the
-		// checker must not be stricter than the runtime here.)
-		return Any
+		if isAbsence(err) {
+			// A member/name miss is what the coalescing tools suppress: fall to any so
+			// the checker is no stricter than the runtime, which yields the fallback.
+			return Any, nil
+		}
+		// A genuine (non-absence) type error stands: the runtime raises it too.
+		return Any, err
 	}
-	return t
+	return t, nil
 }
 
 // arrowType infers an arrow "(p...) => body": each parameter takes its declared

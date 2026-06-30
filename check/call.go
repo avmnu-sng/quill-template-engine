@@ -71,19 +71,19 @@ func (c *checker) methodCallType(attr *ast.Node, args []*ast.Node, sc *scope) (*
 // are typed generically so element types propagate through arrows; the rest use
 // the registry/built-in signature table or fall to the dynamic floor.
 func (c *checker) filterType(n *ast.Node, sc *scope) (*Type, error) {
-	piped, err := c.exprType(n.Child(0), sc)
-	if err != nil {
-		return Any, err
-	}
 	name := n.Str
 	explicit := n.Children[1:]
 
-	// The element-propagating higher-order filters get a generic rule.
-	if t, handled, err := c.higherOrderFilter(n, name, piped, explicit, sc); handled {
-		return t, err
-	}
-	// default(x, fb) coalesces: the result is (non-null x) | fb (Section 6.5).
+	// `default` is a whole-chain absence-suppression tool (spec 04 Section 6): a
+	// member miss or undefined name anywhere in the piped operand yields the
+	// fallback at runtime, never an error. So type its piped value leniently --
+	// mirroring `??` -- swallowing the absence miss while still surfacing a genuine
+	// (non-absence) type error.
 	if name == "default" {
+		piped, err := c.exprTypeLenient(n.Child(0), sc)
+		if err != nil {
+			return Any, err
+		}
 		fb := Any
 		if len(explicit) >= 1 {
 			ft, err := c.exprType(argValue(explicit[0]), sc)
@@ -93,6 +93,16 @@ func (c *checker) filterType(n *ast.Node, sc *scope) (*Type, error) {
 			fb = ft
 		}
 		return join(removeNull(piped), fb), nil
+	}
+
+	piped, err := c.exprType(n.Child(0), sc)
+	if err != nil {
+		return Any, err
+	}
+
+	// The element-propagating higher-order filters get a generic rule.
+	if t, handled, err := c.higherOrderFilter(n, name, piped, explicit, sc); handled {
+		return t, err
 	}
 
 	// A host/built-in signature: prepend the piped value as the first argument.

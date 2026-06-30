@@ -48,8 +48,9 @@ var builtinFilterSigs = map[string]*Signature{
 	"keys":   {Params: []*Type{Any}, Ret: ListOf(Any)},
 	"json":   {Params: []*Type{Any, Any}, Optional: 1, Ret: String},
 
-	// the corpus level filter: as `n | tab` it is (int) => string (FL42).
-	"tab": {Params: []*Type{Int, Int}, Optional: 1, Ret: String},
+	// tab: indentation filter; int|tab and string|tab(n) per spec 03 Section 5.1.
+	// The piped value is wide (int or string) and the optional level is int.
+	"tab": {Params: []*Type{Any, Int}, Optional: 1, Ret: String},
 }
 
 // builtinFunctionSigs is the table for core FUNCTIONS (call form, no piped

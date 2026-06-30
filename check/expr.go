@@ -75,7 +75,15 @@ func (c *checker) exprType(n *ast.Node, sc *scope) (*Type, error) {
 		return c.membershipType(n, sc)
 	case ast.KindTest:
 		// A test subject and any argument are typed; the test yields bool.
-		if _, err := c.exprType(n.Child(0), sc); err != nil {
+		// `is defined` is a whole-chain absence-suppression tool (spec 04 Section 6):
+		// it is "true/false, never throws", so an absent member/name at any hop in
+		// the subject must yield bool, not a check-time miss. Type it leniently --
+		// like ?? / default -- swallowing absence while surfacing a genuine error.
+		if n.Str == "defined" {
+			if _, err := c.exprTypeLenient(n.Child(0), sc); err != nil {
+				return Any, err
+			}
+		} else if _, err := c.exprType(n.Child(0), sc); err != nil {
 			return Any, err
 		}
 		for _, ch := range n.Children[1:] {
@@ -232,7 +240,9 @@ func (c *checker) memberOf(n *ast.Node, recv *Type, m string) (*Type, error) {
 		if t, ok := c.reg.memberType(recv.Name, m); ok {
 			return t, nil
 		}
-		return Any, errAt(n, "type %s has no member %s", recv.String(), quoteName(m))
+		// A member miss is absence-class: the strict access path surfaces it, but the
+		// suppression tools (?? / default / is defined) swallow it (Section 6).
+		return Any, errAbsent(n, "type %s has no member %s", recv.String(), quoteName(m))
 	case KMap:
 		// a.b on a map reads the value type (string key "b").
 		return recv.Val, nil

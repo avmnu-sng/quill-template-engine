@@ -66,6 +66,19 @@ func TestWellTyped(t *testing.T) {
 		{"object method ok", "@types {\n  u: Object<\"User\">\n@}\n{{ u.label(\"hi\") }}", userRegistry()},
 		{"nullsafe yields nullable", "@types {\n  u: Object<\"User\">?\n@}\n{{ u?.name ?? \"anon\" }}", userRegistry()},
 		{"object opaque without registry", "@types {\n  u: Object<\"Whatever\">\n@}\n{{ u.anything }}", nil},
+		// `default` suppresses the whole left chain's absence (Section 6): an absent
+		// member on a typed Object must not be a check error, the runtime yields "x".
+		{"default suppresses member miss", "@types {\n  u: Object<\"User\">\n@}\n{{ u.naem | default(\"x\") }}", userRegistry()},
+		// `is defined` is true/false, never throws: an absent member is fine.
+		{"is defined suppresses member miss", "@types {\n  u: Object<\"User\">\n@}\n{{ \"y\" if u.naem is defined }}", userRegistry()},
+		// tab has both spec-03 5.1 forms: string | tab(n) and int | tab.
+		{"tab string form", "@types {\n  s: string\n@}\n{{ s | tab(2) }}", nil},
+		{"tab int form", "{{ 1 | tab }}", nil},
+		// Ordering on same-kind known types is allowed.
+		{"order int lt literal", "@types {\n  n: int\n@}\n{{ \"y\" if n < 1 }}", nil},
+		// `??` still suppresses only absence, not a genuine type error on a present
+		// member, so a well-typed left chain checks fine here.
+		{"coalesce on member miss", "@types {\n  u: Object<\"User\">\n@}\n{{ u.naem ?? \"x\" }}", userRegistry()},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -103,6 +116,11 @@ func TestIllTyped(t *testing.T) {
 		{"object no member without method", "@types {\n  u: Object<\"User\">\n@}\n{{ u.label }}", userRegistry(), "no member"},
 		{"arrow param disagrees", "@types {\n  xs: list<int>\n@}\n{{ xs | map((x: string) => x) }}", nil, "declared as"},
 		{"bad default value", "@macro g(name: string = 42) {\n{{ name }}\n@}", nil, "not consistent"},
+		// `??` suppresses ONLY absence, never a genuine arithmetic error: `s + 1`
+		// with s:string is a hard type error the runtime raises regardless of ??.
+		{"coalesce keeps arith error", "@types {\n  s: string\n@}\n{{ (s + 1) ?? \"fb\" }}", nil, "requires a number"},
+		// Cross-kind ordering on statically-known incompatible types is rejected.
+		{"order string against int", "@types {\n  s: string\n  n: int\n@}\n{{ \"y\" if s < n }}", nil, "cannot order"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
