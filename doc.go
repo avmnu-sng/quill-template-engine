@@ -15,12 +15,15 @@
 // than the pattern (an absent optional nested pattern null-binds every name it
 // introduces); an elided slot consumes a source position without binding. These
 // compose with the existing "...rest" tail capture and nested list/map patterns.
+// Optionals must be trailing: once an optional slot appears, only further optionals
+// and a final "...rest" may follow, so the spec's "[a, b?]" / "[head, opt?, ...rest]"
+// shapes are accepted while an arity-ambiguous "[a?, b]" is a syntax error.
 // The arity rule is unchanged for required slots: the supplied count must cover
 // every required position (a required, non-optional, non-tail slot -- an elided
 // slot counts as required because it consumes a position), and without a tail it
 // must not exceed the fixed-slot count, so over/under-supply is still an error
-// rather than silent padding or dropping. This was the last deferral; the language
-// surface (S0-S10) is now complete.
+// rather than silent padding or dropping. With the optionals-trailing rule enforced
+// (closing the last deferral), the language surface (S0-S10) is now complete.
 //
 // Application-specific functions are intentionally not built in: they are
 // registered by the host through the extension surface

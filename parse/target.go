@@ -12,21 +12,50 @@ import (
 // (spec 01 Section 2.1, grammar.md Section 3.2 O32). It is the entry point for the
 // "[" form of an @set target and recurses for nested "[" / "{" slots.
 //
-//	SeqDestruct = "[" [ DSlot { "," DSlot } ] "]" .
-//	DSlot       = Name [ ":" Type ] | "..." Name | Target "?" | (* empty: elided *) .
+//	SeqDestruct = "[" [ Head { "," Opt } [ "," Tail ] ] "]" .
+//	Head        = Req | Opt        (* required/elided slots precede the optionals *)
+//	Req         = Target | (* empty: elided *) .
+//	Opt         = Target "?" .
+//	Tail        = "..." Name .
 //	Target      = Name [ ":" Type ] | SeqDestruct | MapDestruct .
+//
+// Once an Opt appears, only further Opt and a final Tail may follow (optionals are
+// trailing); this is enforced in the loop below, not expressible in the EBNF above
+// without duplicating the slot productions.
 //
 // A "...rest" tail capture, if present, must be the last slot (enforced here so
 // the interpreter can rely on its position). An elided slot is recorded as a nil
 // child; an optional slot is wrapped in a KindOptional; the existing arity rule
 // for required slots is enforced by the interpreter.
+//
+// Optionals must be trailing: once an optional slot appears, only further optionals
+// and a final "...rest" may follow. A required or elided slot after an optional is a
+// syntax error -- it would make arity ambiguous (the count guard cannot tell which
+// positions are mandatory) and, with positional binding, force the binder past a
+// short source. The spec's optional examples are all trailing ("[a, b?]",
+// "[head, opt?, ...rest]"), so this only rejects forms the grammar never intended.
 func (p *parser) parseSeqPattern() *ast.Node {
 	open := p.expect(lex.LBRACKET, "'[' to open a destructuring pattern")
 	pat := p.node(ast.KindListPattern, open)
+	sawOptional := false
 	for !p.at(lex.RBRACKET) && !p.at(lex.EOF) {
 		// A tail capture "...name" is legal only as the final slot; parseSeqSlot
 		// returns it as a KindSpread and we forbid anything following it.
 		slot := p.parseSeqSlot()
+		switch {
+		case slot == nil: // elided slot
+			if sawOptional {
+				p.fail("an elided slot cannot follow an optional slot; optionals must be trailing")
+			}
+		case slot.Kind == ast.KindSpread:
+			// A tail may follow optionals; its last-position rule is checked below.
+		case slot.Kind == ast.KindOptional:
+			sawOptional = true
+		default: // required slot: a name target or a nested pattern
+			if sawOptional {
+				p.fail("a required slot cannot follow an optional slot; optionals must be trailing")
+			}
+		}
 		pat.Add(slot)
 		if slot != nil && slot.Kind == ast.KindSpread && !p.at(lex.RBRACKET) {
 			p.fail("a tail capture '...name' must be the last slot")

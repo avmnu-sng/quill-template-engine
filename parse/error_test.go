@@ -22,6 +22,10 @@ func TestSyntaxErrors(t *testing.T) {
 		{"positional after named", "{{ f(a: 1, 2) }}", "positional argument may not follow"},
 		// A "...rest" tail capture is only valid as the final destructuring slot.
 		{"rest not last", "@set [...rest, a] = xs\n", "must be the last slot"},
+		// Optionals must be trailing: a required or elided slot cannot follow one.
+		{"required after optional", "@set [a?, b] = xs\n", "optionals must be trailing"},
+		{"elided after optional", "@set [a?, , c] = xs\n", "optionals must be trailing"},
+		{"nested required after optional", "@set [x, [a?, b]] = xs\n", "optionals must be trailing"},
 		{"unclosed interp", "{{ a + }}", "expected an expression"},
 		{"missing for in", "@for x xs {\n@}\n", "expected 'in'"},
 		{"elseif without if", "@elseif x {\n@}\n", "without a matching"},

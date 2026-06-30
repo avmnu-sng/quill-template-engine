@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/avmnusng/quill-template-engine/parse"
 	"github.com/avmnusng/quill-template-engine/runtime"
 )
 
@@ -260,6 +261,42 @@ func TestSetListDestructureOptionalElidedTailNested(t *testing.T) {
 		map[string]runtime.Value{"xs": list(runtime.Int(1), runtime.Int(99))})
 	if got != "1|/|[]" {
 		t.Fatalf("composed destructure (short): %q", got)
+	}
+}
+
+// Optionals must be trailing: a required or elided slot after an optional ("[a?, b]",
+// "[a?, , c]", nested "[x, [a?, b]]") is a syntax error, not a runtime crash. These
+// forms used to reach the binder and index out of range on a short source; the parser
+// now rejects them up front (spec 01 Section 2.1).
+func TestSetListDestructureOptionalNotTrailing(t *testing.T) {
+	cases := []struct {
+		name, src string
+	}{
+		{"required after optional", "@set [a?, b] = xs\n{{ a }}"},
+		{"elided after optional", "@set [a?, , c] = xs\n{{ a }}"},
+		{"nested required after optional", "@set [x, [a?, b]] = xs\n{{ x }}"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// These forms are rejected at parse time, so they must never reach the
+			// binder; parse directly and assert the syntax error rather than render.
+			_, err := parse.ParseString("test", tc.src)
+			if err == nil || !strings.Contains(err.Error(), "optionals must be trailing") {
+				t.Fatalf("non-trailing optional must be a syntax error, got %v", err)
+			}
+		})
+	}
+}
+
+// Over-supply without a tail is an error even when a slot is optional: "[a, b?]"
+// accepts one or two elements but not three (spec 01 Section 2.1 -- a generator must
+// not silently drop trailing elements). This locks the over-supply error wording.
+func TestSetListDestructureOptionalOverSupply(t *testing.T) {
+	eng := newStub(nil)
+	_, err := renderStubErr(t, eng, "@set [a, b?] = xs\n{{ a }}",
+		map[string]runtime.Value{"xs": list(runtime.Int(1), runtime.Int(2), runtime.Int(3))})
+	if err == nil || !strings.Contains(err.Error(), "expects 2 element(s) but got 3") {
+		t.Fatalf("optional over-supply must error, got %v", err)
 	}
 }
 

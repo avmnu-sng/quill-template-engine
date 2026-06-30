@@ -517,16 +517,26 @@ func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.C
 			continue
 		}
 		target := slot
-		// An optional slot binds null when the source ran out; otherwise it binds the
-		// element through its wrapped target (KindOptional child 0).
-		if slot.Kind == ast.KindOptional {
+		optional := slot.Kind == ast.KindOptional
+		if optional {
 			target = slot.Child(0)
-			if i >= len(ps) {
-				// Source is short: an optional name binds null; an optional nested
-				// pattern null-binds every name it introduces.
+		}
+		// Guard the source index for BOTH slot kinds. A short source past this slot is
+		// the expected case for an optional slot (null-pad) but a genuine arity error
+		// for a required slot. This guard is defense in depth: the parser forbids a
+		// required/elided slot after an optional (so a short source can only fall here
+		// on an optional), but the binder must never index out of range on the grammar
+		// the parser accepts -- index-safety here keeps the engine uncrashable.
+		if i >= len(ps) {
+			if optional {
+				// An optional name binds null; an optional nested pattern null-binds
+				// every name it introduces.
 				in.bindTargetNull(target, ctx)
 				continue
 			}
+			return posErr(pat, errors.New(errors.KindRuntime,
+				"sequence destructuring expects at least %d element(s) but got %d",
+				required, len(ps)))
 		}
 		if err := in.bindSlot(target, ps[i].Val, ctx); err != nil {
 			return err
