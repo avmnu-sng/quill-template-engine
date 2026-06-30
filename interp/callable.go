@@ -1,6 +1,8 @@
 package interp
 
 import (
+	"strings"
+
 	"github.com/avmnusng/quill-template-engine/ast"
 	"github.com/avmnusng/quill-template-engine/errors"
 	"github.com/avmnusng/quill-template-engine/ext"
@@ -57,6 +59,11 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 			return runtime.Null(), err
 		}
 		if recv.Kind == runtime.KObject {
+			// Sandbox Phase-2: gate the method by the policy via the host type-graph
+			// before invoking it (B10). A trusted shim / Safe receiver bypasses.
+			if err := in.checkMethodAllowed(recv, callee.Str); err != nil {
+				return runtime.Null(), posErr(n, err)
+			}
 			res, err := recv.Obj.CallMethod(callee.Str, args)
 			if err != nil {
 				return runtime.Null(), posErr(n, err)
@@ -90,6 +97,13 @@ func (in *interp) evalFilter(n *ast.Node, ctx *runtime.Context) (runtime.Value, 
 	}
 	args, err := in.collectArgs(n, ctx, []runtime.Value{piped})
 	if err != nil {
+		return runtime.Null(), err
+	}
+	// Sandbox arrow gating (B13): a callable passed to a higher-order filter
+	// (map/filter/sort/reduce/find) must be a template-defined arrow when the
+	// sandbox is active, so an untrusted template cannot route a collection op
+	// through an arbitrary host callable smuggled in as a value.
+	if err := in.checkArrowArgs(n, args); err != nil {
 		return runtime.Null(), err
 	}
 	args = in.injectFilter(filt, ctx, args)
@@ -380,4 +394,37 @@ func EngineFromValue(v runtime.Value) (Engine, bool) {
 		return ref.eng, true
 	}
 	return nil, false
+}
+
+// SandboxActiveFromValue reports whether the render that injected the engine
+// handle (the engineRef shim) is currently sandboxed. The function-form include
+// uses it to honor B16: a nested include inside an active sandbox stays
+// sandboxed even when the call did not pass sandboxed: true.
+func SandboxActiveFromValue(v runtime.Value) bool {
+	if v.Kind != runtime.KObject {
+		return false
+	}
+	if ref, ok := v.Obj.(*engineRef); ok && ref.in != nil {
+		return ref.in.sandboxOn
+	}
+	return false
+}
+
+// RenderSandboxed renders tmpl with the given top-level variables under a forced
+// sandbox gate, backing the function-form include's sandboxed: true flag (spec
+// 03 Section 3.2, design/escaping-safety Section 6.6). It is Render with the
+// per-render sandbox turned on regardless of the engine's global setting; the
+// Phase-1 check and runtime gates then enforce the policy for this render.
+func RenderSandboxed(eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, error) {
+	var b strings.Builder
+	in := newInterp(eng, tmpl, &b)
+	in.sandboxOn = true
+	ctx := runtime.NewContext()
+	for k, v := range vars {
+		ctx.Set(k, v)
+	}
+	if err := in.renderTemplate(tmpl, ctx); err != nil {
+		return b.String(), err
+	}
+	return b.String(), nil
 }

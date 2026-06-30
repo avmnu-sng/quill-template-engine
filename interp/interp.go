@@ -26,6 +26,7 @@ import (
 	"github.com/avmnusng/quill-template-engine/errors"
 	"github.com/avmnusng/quill-template-engine/ext"
 	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnusng/quill-template-engine/sandbox"
 )
 
 // Engine is the interpreter's view of the surrounding environment. The quill
@@ -62,6 +63,14 @@ type Engine interface {
 	// region statement (spec 01 Section 4.7). It is the pluggable cache surface;
 	// the engine default is an in-memory store.
 	RenderCache() *cache.RenderCache
+	// Policy returns the host-supplied sandbox security policy, or nil when none
+	// was configured (spec 04 Section 8.3). It is consulted only when the sandbox
+	// is active (a global toggle, the @sandbox region, or a sandboxed include).
+	Policy() *sandbox.Policy
+	// SandboxActive reports whether the sandbox is globally on for every render
+	// (the always-on activation path, design/escaping-safety Section 6.2). The
+	// @sandbox region and sandboxed includes turn it on locally regardless.
+	SandboxActive() bool
 }
 
 // Sink is the push-based output target. The interpreter writes rendered bytes as
@@ -124,6 +133,14 @@ type interp struct {
 	// matches() reuses one compile per literal pattern instead of recompiling each
 	// evaluation. Seeded from each template's Prepare-built table via absorb.
 	regexps map[*ast.Node]*regexp.Regexp
+
+	// sandboxOn is the active sandbox gate for this render (spec 04 Section 8.3,
+	// design/escaping-safety Section 6.2). It starts from the engine's global
+	// SandboxActive flag and is forced on -- and restored afterward, never off for
+	// an already-sandboxed enclosing render (B16) -- by an @sandbox region and by a
+	// sandboxed include. When on, the Phase-1 per-render callable check runs and
+	// the runtime member-access / string-coercion gates enforce the policy.
+	sandboxOn bool
 }
 
 // blockEntry is one resolved block: the template that owns the definition and
@@ -156,13 +173,14 @@ func newInterp(eng Engine, root *Template, out Sink) *interp {
 		autoesc = "html"
 	}
 	in := &interp{
-		eng:     eng,
-		out:     out,
-		root:    root,
-		blocks:  map[string]*blockEntry{},
-		macros:  map[string]*macroEntry{},
-		escape:  autoesc,
-		regexps: map[*ast.Node]*regexp.Regexp{},
+		eng:       eng,
+		out:       out,
+		root:      root,
+		blocks:    map[string]*blockEntry{},
+		macros:    map[string]*macroEntry{},
+		escape:    autoesc,
+		regexps:   map[*ast.Node]*regexp.Regexp{},
+		sandboxOn: eng.SandboxActive(),
 	}
 	in.absorb(root)
 	return in
@@ -187,6 +205,13 @@ func (in *interp) absorb(t *Template) {
 // strategy. A Safe value is never escaped (it is already-safe content); raw text
 // under the off strategy is byte-exact (spec 04 Sections 5, 8).
 func (in *interp) emit(v runtime.Value) error {
+	// Sandbox Phase-2 string-coercion gate (B12): coercing a host Object to text
+	// requires its stringify member be permitted by the policy. The gate runs
+	// before ToText so a disallowed object never reaches its Stringify hook. A
+	// Safe value, a non-object, and a trusted shim are not gated (B14).
+	if err := in.checkStringifyAllowed(v); err != nil {
+		return err
+	}
 	text, err := runtime.ToText(v)
 	if err != nil {
 		return err
@@ -222,6 +247,16 @@ func posErr(n *ast.Node, err error) error {
 	if err == nil {
 		return nil
 	}
+	// A typed *Security error must keep its concrete type so a host can catch it
+	// with errors.As and branch on Class; attach position via its own At, which
+	// preserves the wrapper, rather than collapsing it into a generic *Error.
+	var sec *errors.Security
+	if asSecurity(err, &sec) {
+		if sec.Src() == nil && sec.Line() == 0 && n != nil {
+			return sec.At(n.Src, n.Line)
+		}
+		return sec
+	}
 	var qe *errors.Error
 	if as(err, &qe) {
 		if qe.Src == nil && qe.Line == 0 && n != nil {
@@ -239,6 +274,24 @@ func posErr(n *ast.Node, err error) error {
 func as(err error, target **errors.Error) bool {
 	for err != nil {
 		if e, ok := err.(*errors.Error); ok {
+			*target = e
+			return true
+		}
+		u, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		err = u.Unwrap()
+	}
+	return false
+}
+
+// asSecurity is the local errors.As over *errors.Security: a sandbox violation
+// carries a distinct concrete type the host catches, so posErr must recognize
+// it before the generic *Error path and keep the wrapper intact.
+func asSecurity(err error, target **errors.Security) bool {
+	for err != nil {
+		if e, ok := err.(*errors.Security); ok {
 			*target = e
 			return true
 		}

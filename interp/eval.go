@@ -214,6 +214,13 @@ func (in *interp) evalAttr(n *ast.Node, ctx *runtime.Context, allowAbsent bool) 
 			return runtime.Null(), nil
 		}
 	}
+	// Sandbox Phase-2: a property read on a host Object is gated by the policy
+	// (B11). The property is checked at the read site (property-then-method
+	// precedence: a disallowed property reports a property error here before any
+	// method fallback could apply). A Safe receiver / trusted shim bypasses.
+	if err := in.checkPropertyAllowed(recv, n.Str); err != nil {
+		return runtime.Null(), posErr(n, err)
+	}
 	v, err := runtime.GetAttribute(recv, runtime.Str(n.Str), runtime.AccessDot, allowAbsent)
 	if err != nil {
 		return runtime.Null(), posErr(n, err)

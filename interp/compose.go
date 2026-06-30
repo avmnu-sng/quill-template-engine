@@ -441,8 +441,12 @@ func (in *interp) renderInclude(n *ast.Node, ctx *runtime.Context) (string, erro
 
 	// Render the included template in a fresh sub-interp so its inheritance,
 	// blocks, and macros do not leak into the includer (design/composition 5.6).
+	// The sandbox gate propagates INTO the include: an include inside an active
+	// sandbox stays sandboxed, and that never turns the gate off for the enclosing
+	// render (B16). The sub-interp then runs its own Phase-1 check.
 	sub := newInterp(in.eng, tmpl, &captureSink{})
 	sub.escape = in.escape
+	sub.sandboxOn = sub.sandboxOn || in.sandboxOn
 	cs := sub.out.(*captureSink)
 	if err := sub.renderTemplate(tmpl, childCtx); err != nil {
 		return "", err
@@ -536,6 +540,7 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Context) error {
 
 	sub := newInterp(in.eng, tmpl, in.out)
 	sub.escape = in.escape
+	sub.sandboxOn = sub.sandboxOn || in.sandboxOn // embed inherits the active gate (B16)
 	// Build the embedded template's chain and block table, then layer the embed's
 	// inline overrides on top (most-derived).
 	chain, err := sub.buildChain(tmpl, childCtx)
@@ -556,6 +561,14 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Context) error {
 		}
 	}
 	sub.loadMacros(tmpl, childCtx)
+	// Phase-1 check for the embedded chain when the sandbox is active (B9).
+	if sub.sandboxOn {
+		for _, t := range chain {
+			if err := sub.checkSecurity(t.used); err != nil {
+				return err
+			}
+		}
+	}
 	top := chain[len(chain)-1]
 	return sub.execItems(top.Module.Children, childCtx)
 }

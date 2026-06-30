@@ -1,0 +1,8 @@
+{
+  "sandbox_active": true,
+  "sandbox": {
+    "tags": ["set", "for"],
+    "filters": ["join", "upper"],
+    "functions": ["max", "range"]
+  }
+}

@@ -11,8 +11,6 @@
 //
 //   - The gradual type checker. @types / per-variable annotations parse but are
 //     not enforced at render time (spec 04 Section 1).
-//   - The sandbox (@sandbox renders its body transparently; no policy is yet
-//     enforced), spec 01 Section 4.7.
 //   - Optional and elided destructuring slots ([a, b?] and [, b]); the LHS is
 //     parsed as an expression and a trailing "?" reads as the ternary, so these
 //     two slot forms report a parse error today (a later slice adds a dedicated
@@ -26,7 +24,27 @@
 // (ext.ExtensionSet.AddFunction), which this milestone exercises, rather than
 // shipped as engine primitives.
 //
-// Implemented this slice (composition tail): @use horizontal trait reuse merges a
+// Implemented this slice (sandbox): a host-supplied SecurityPolicy
+// (sandbox.Policy) restricts the permitted tags, filters, functions, per-type
+// methods, and per-type properties; enforcement is two-phase. Phase 1 collects
+// the statement keywords, filters, and functions a template uses at compile time
+// (the range operator ".." counts as the range function) and validates that set
+// against the policy once per render when the sandbox is active, mapping a
+// violation to its source line. Phase 2 gates host member access at the access
+// site: a method call, a property read, and the string-coercion of a host object
+// (via its Stringify hook) each consult the policy, matched against an explicit
+// host TYPE-GRAPH (sandbox.TypeGraph) rather than reflection, with case-sensitive
+// method names and property-then-method precedence; a higher-order filter rejects
+// a non-template (host) callable. Safe values and engine-internal shims bypass the
+// member checks. Allowlisting is uniform with NO grandfathering. The @sandbox
+// region forces sandboxing over its body and any templates included within it,
+// restoring the prior gate on exit and never disabling an already-sandboxed
+// enclosing render; the function-form include's sandboxed flag does the same per
+// include. Each violation class raises a distinct, host-catchable
+// *errors.Security (errors.As + a SecurityClass) carrying the offending name and,
+// for member violations, the host type name (spec 04 Section 8.3).
+//
+// Previously implemented (composition tail): @use horizontal trait reuse merges a
 // traitable template's blocks below the using template's own (trait-then-own
 // precedence), supports block aliasing/rename via "with { trait: alias }", and
 // makes parent() reach the trait version before any extends-parent; a use target

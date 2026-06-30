@@ -24,6 +24,19 @@ func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Context) error {
 	}
 	in.loadMacros(tmpl, ctx)
 
+	// Phase-1 sandbox check (B9): when the sandbox is active for this render,
+	// validate every statement keyword, filter, and function used across the
+	// template's inheritance chain against the policy in one pass, before any
+	// output. Macro names are resolved by now, so a macro callee is correctly
+	// skipped. Each template in the chain contributes its own collected set.
+	if in.sandboxOn {
+		for _, t := range chain {
+			if err := in.checkSecurity(t.used); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Render the topmost template's body: a non-inheriting template renders
 	// itself; an inheriting chain renders the root parent, whose @block sites
 	// pull from the merged table.
@@ -270,13 +283,11 @@ func (in *interp) execItem(n *ast.Node, ctx *runtime.Context) error {
 		return nil // declarations: no direct output
 	case ast.KindCache:
 		return in.execCache(n, ctx)
-	case ast.KindTypes, ast.KindDeprecated, ast.KindLine, ast.KindSandbox:
-		// Type declarations, deprecation diagnostics, line resets, and sandbox are
-		// parsed but their runtime effects are deferred this slice; they emit nothing
-		// and (for sandbox) render their body transparently.
-		if n.Kind == ast.KindSandbox {
-			return in.execItems(n.Children, ctx)
-		}
+	case ast.KindSandbox:
+		return in.execSandbox(n, ctx)
+	case ast.KindTypes, ast.KindDeprecated, ast.KindLine:
+		// Type declarations, deprecation diagnostics, and line resets are parsed but
+		// their runtime effects are deferred this slice; they emit nothing.
 		return nil
 	default:
 		return posErr(n, errors.New(errors.KindRuntime,

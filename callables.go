@@ -179,9 +179,12 @@ func dumpFn(args []runtime.Value) (runtime.Value, error) {
 }
 
 // includeFn is the function-form include: include(template, vars, with_context,
-// ...) returning the rendered output as a value (spec 03 Section 3.2). The
-// runtime prepends the environment handle and the live context per the Needs*
-// flags, so args are [env, ctx, template, vars?, with_context?, ignore_missing?].
+// ignore_missing, sandboxed) returning the rendered output as a value (spec 03
+// Section 3.2). The runtime prepends the environment handle and the live context
+// per the Needs* flags, so args are [env, ctx, template, vars?, with_context?,
+// ignore_missing?, sandboxed?]. The sandboxed flag forces the included render
+// into the sandbox; a render already inside an active sandbox stays sandboxed
+// regardless of the flag (B16, design/escaping-safety Section 6.6).
 func includeFn(args []runtime.Value) (runtime.Value, error) {
 	if len(args) < 3 {
 		return runtime.Null(), errors.New(errors.KindRuntime,
@@ -208,6 +211,12 @@ func includeFn(args []runtime.Value) (runtime.Value, error) {
 	ignoreMissing := false
 	if len(args) > 5 {
 		ignoreMissing = runtime.Truthy(args[5])
+	}
+	// sandboxed: true forces this include into the sandbox; an enclosing render
+	// that is already sandboxed keeps the include sandboxed even without the flag.
+	sandboxed := interp.SandboxActiveFromValue(envRef)
+	if len(args) > 6 {
+		sandboxed = sandboxed || runtime.Truthy(args[6])
 	}
 
 	if !eng.TemplateExists(name) {
@@ -240,7 +249,12 @@ func includeFn(args []runtime.Value) (runtime.Value, error) {
 		}
 	}
 
-	out, err := interp.Render(eng, tmpl, vars)
+	var out string
+	if sandboxed {
+		out, err = interp.RenderSandboxed(eng, tmpl, vars)
+	} else {
+		out, err = interp.Render(eng, tmpl, vars)
+	}
 	if err != nil {
 		return runtime.Null(), err
 	}

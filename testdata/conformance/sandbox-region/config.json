@@ -1,0 +1,6 @@
+{
+  "sandbox": {
+    "tags": ["for", "if"],
+    "filters": ["length", "upper"]
+  }
+}

@@ -137,6 +137,124 @@ func Wrap(kind Kind, cause error, format string, args ...any) *Error {
 	return &Error{Kind: kind, Msg: fmt.Sprintf(format, args...), Cause: cause}
 }
 
+// SecurityClass partitions a sandbox violation into the five categories the
+// spec names (spec 04 Section 8.3, design/escaping-safety Section 6.9). It is
+// carried on a *Security error so a host can branch on the exact violation
+// class without string-matching the message.
+type SecurityClass uint8
+
+const (
+	// SecTag is a disallowed statement keyword (e.g. an unlisted @for).
+	SecTag SecurityClass = iota
+	// SecFilter is a disallowed filter.
+	SecFilter
+	// SecFunction is a disallowed function (the range operator `..` counts as
+	// the range function).
+	SecFunction
+	// SecMethod is a disallowed host-object method call or string coercion.
+	SecMethod
+	// SecProperty is a disallowed host-object property read or column access.
+	SecProperty
+)
+
+// String returns a stable ASCII label for the security violation class.
+func (c SecurityClass) String() string {
+	switch c {
+	case SecTag:
+		return "tag"
+	case SecFilter:
+		return "filter"
+	case SecFunction:
+		return "function"
+	case SecMethod:
+		return "method"
+	case SecProperty:
+		return "property"
+	default:
+		return "unknown"
+	}
+}
+
+// Security is the typed sandbox-violation error. It wraps an *Error (always
+// KindSecurity) so it stays in the engine's error family -- KindOf and
+// errors.As(&Error{}) reach it via Unwrap -- while adding the offending Name,
+// the host Type name for member violations (empty for tag/filter/function), and
+// the violation Class so a host can catch with errors.As(&Security{}) and
+// switch on Class (spec 04 Section 8.3, design/escaping-safety Section 6.9). The
+// wrapped *Error is a named field rather than an embedding because the embedded
+// field name would clash with the Error() interface method.
+type Security struct {
+	Err   *Error
+	Class SecurityClass
+	Name  string // the offending tag/filter/function/method/property name
+	Type  string // the host type name for member violations; "" otherwise
+}
+
+// Error renders the wrapped *Error's message, making *Security an error.
+func (s *Security) Error() string { return s.Err.Error() }
+
+// Unwrap exposes the wrapped *Error so errors.As(&errors.Error{}) and KindOf
+// still reach a *Security.
+func (s *Security) Unwrap() error { return s.Err }
+
+// Src returns the source the violation occurred in, if known.
+func (s *Security) Src() *source.Source { return s.Err.Src }
+
+// Line returns the 1-based line of the violation, if known.
+func (s *Security) Line() int { return s.Err.Line }
+
+// security builds a *Security of the given class with an ASCII message and no
+// source position; callers attach position later with At.
+func security(class SecurityClass, typeName, name, msg string) *Security {
+	return &Security{
+		Err:   &Error{Kind: KindSecurity, Msg: msg},
+		Class: class,
+		Name:  name,
+		Type:  typeName,
+	}
+}
+
+// SecurityTag reports a disallowed statement keyword (B1).
+func SecurityTag(tag string) *Security {
+	return security(SecTag, "", tag, fmt.Sprintf("statement %q is not allowed by the sandbox policy", tag))
+}
+
+// SecurityFilter reports a disallowed filter (B2).
+func SecurityFilter(name string) *Security {
+	return security(SecFilter, "", name, fmt.Sprintf("filter %q is not allowed by the sandbox policy", name))
+}
+
+// SecurityFunction reports a disallowed function; `..` reports as range (B3).
+func SecurityFunction(name string) *Security {
+	return security(SecFunction, "", name, fmt.Sprintf("function %q is not allowed by the sandbox policy", name))
+}
+
+// SecurityMethod reports a disallowed method call or string coercion, naming
+// the host type and the method in its real (case-sensitive) spelling (B4, B12).
+func SecurityMethod(typeName, method string) *Security {
+	return security(SecMethod, typeName, method,
+		fmt.Sprintf("method %q on type %q is not allowed by the sandbox policy", method, typeName))
+}
+
+// SecurityProperty reports a disallowed property read or column access (B5,
+// B13).
+func SecurityProperty(typeName, prop string) *Security {
+	return security(SecProperty, typeName, prop,
+		fmt.Sprintf("property %q on type %q is not allowed by the sandbox policy", prop, typeName))
+}
+
+// At returns a copy of the security error annotated with a source and line,
+// leaving the receiver unchanged (the *Error.At analogue that preserves the
+// Security wrapper and its Class/Name/Type). A nil receiver yields nil.
+func (s *Security) At(src *source.Source, line int) *Security {
+	if s == nil {
+		return nil
+	}
+	cp := *s
+	cp.Err = s.Err.At(src, line)
+	return &cp
+}
+
 // KindOf reports the Kind of err if it is (or wraps) a *Error, else
 // KindRuntime. It lets a host classify any error without a type assertion.
 func KindOf(err error) Kind {

@@ -7,6 +7,7 @@ import (
 	"github.com/avmnusng/quill-template-engine/loader"
 	"github.com/avmnusng/quill-template-engine/parse"
 	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnusng/quill-template-engine/sandbox"
 	"github.com/avmnusng/quill-template-engine/source"
 )
 
@@ -29,6 +30,14 @@ type Environment struct {
 
 	randomSeed    int64
 	randomSeedSet bool
+
+	// policy is the host-supplied sandbox security policy, or nil when the host
+	// did not configure one. sandboxActive is the global activation gate: when
+	// true every render is sandboxed (spec 04 Section 8.3). The @sandbox region
+	// and the function-form include's sandboxed flag turn the sandbox on locally
+	// regardless of sandboxActive.
+	policy        *sandbox.Policy
+	sandboxActive bool
 }
 
 // Option configures an Environment at construction.
@@ -62,6 +71,23 @@ func WithRandomSeed(seed int64) Option {
 // over the core set). The provided set is used as-is.
 func WithExtensions(set *ext.ExtensionSet) Option {
 	return func(e *Environment) { e.extensions = set }
+}
+
+// WithSandboxPolicy installs the host-supplied sandbox security policy: the
+// allowlists for tags, filters, functions, per-type methods and properties, and
+// the type-graph the per-type lookups walk (spec 04 Section 8.3). It does not by
+// itself turn the sandbox on; activation is global (WithSandboxActive), per
+// @sandbox region, or per sandboxed include. A policy is required for any of
+// those to permit anything, since allowlisting is uniform with no grandfathering.
+func WithSandboxPolicy(p *sandbox.Policy) Option {
+	return func(e *Environment) { e.policy = p }
+}
+
+// WithSandboxActive turns the sandbox on globally so every render is sandboxed
+// (the always-on activation path, design/escaping-safety Section 6.2). Without a
+// policy an active sandbox denies everything.
+func WithSandboxActive(on bool) Option {
+	return func(e *Environment) { e.sandboxActive = on }
 }
 
 // New builds an Environment over a Loader with the given options. The core
@@ -104,6 +130,12 @@ func (e *Environment) RandomSeed() (int64, bool) { return e.randomSeed, e.random
 // RenderCache returns the engine's rendered-body cache, backing @cache
 // (interp.Engine, spec 01 Section 4.7).
 func (e *Environment) RenderCache() *cache.RenderCache { return e.renderCache }
+
+// Policy returns the host-supplied sandbox security policy, or nil (interp.Engine).
+func (e *Environment) Policy() *sandbox.Policy { return e.policy }
+
+// SandboxActive reports the global sandbox activation gate (interp.Engine).
+func (e *Environment) SandboxActive() bool { return e.sandboxActive }
 
 // LoadTemplate parses (memoized) and prepares the named template (interp.Engine).
 func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {

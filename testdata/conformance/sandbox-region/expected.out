@@ -1,0 +1,7 @@
+before: hello
+inside-for:
+- 2 sq=4
+- 3 sq=9
+many (2)
+upper: HELLO
+after: hello

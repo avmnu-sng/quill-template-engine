@@ -45,6 +45,31 @@ type Template struct {
 	// iteration). A dynamic (non-literal) pattern is absent here and compiled at
 	// render time.
 	regexps map[*ast.Node]*regexp.Regexp
+
+	// used is the sandbox's compile-time collection of the statement keywords,
+	// filters, and functions this template references, gathered once by Prepare
+	// (design/escaping-safety Section 6.3, B8). The per-render security check
+	// (Phase 1) validates this set against the policy in one pass when the sandbox
+	// is active, mapping any violation back to the recorded source node.
+	used usedCallables
+}
+
+// usedCallables is the statically collected set of tags/filters/functions a
+// template references, each mapped to a representative source node so a Phase-1
+// violation reports a template:line position. The range operator `..` is
+// recorded as the function "range" (B8), so allowing range gates `1..n`.
+type usedCallables struct {
+	tags      map[string]*ast.Node
+	filters   map[string]*ast.Node
+	functions map[string]*ast.Node
+}
+
+func newUsedCallables() usedCallables {
+	return usedCallables{
+		tags:      map[string]*ast.Node{},
+		filters:   map[string]*ast.Node{},
+		functions: map[string]*ast.Node{},
+	}
 }
 
 // PrepareChecked builds the composition tables from a parsed module and runs the
@@ -69,9 +94,121 @@ func Prepare(name string, mod *ast.Node) *Template {
 		blocks:  map[string]*ast.Node{},
 		macros:  map[string]*ast.Node{},
 		regexps: map[*ast.Node]*regexp.Regexp{},
+		used:    newUsedCallables(),
 	}
 	t.index(mod)
+	t.collectUsed(mod, t.used)
 	return t
+}
+
+// collectUsed walks the whole AST once, recording every statement keyword,
+// filter, and function the template references into u, mapped to a source node
+// for line reporting (design/escaping-safety Section 6.3, B8). It is the
+// compile-time half of the two-phase sandbox enforcement: the names are
+// statically known, so the per-render Phase-1 check validates this set against
+// the policy in one pass. The range operator `..` is recorded as the function
+// "range" so a policy gates `1..n` by allowing range (B8); the `parent`/`block`
+// composition builtins are recorded as functions (they are not grandfathered,
+// B6). It is also used on a node subtree to scope the @sandbox region's body
+// (collectUsed over the region's children).
+func (t *Template) collectUsed(n *ast.Node, u usedCallables) {
+	if n == nil {
+		return
+	}
+	if tag := tagKeyword(n); tag != "" {
+		if _, seen := u.tags[tag]; !seen {
+			u.tags[tag] = n
+		}
+	}
+	switch n.Kind {
+	case ast.KindFilter:
+		if _, seen := u.filters[n.Str]; !seen {
+			u.filters[n.Str] = n
+		}
+	case ast.KindApplyFilter:
+		if _, seen := u.filters[n.Str]; !seen {
+			u.filters[n.Str] = n
+		}
+	case ast.KindCall:
+		// A bare-name callee is a function (or a macro/composition builtin); macros
+		// are template-defined and not policed, so only record a name that is not a
+		// macro this template defines. The per-render check skips macro names too.
+		if callee := n.Child(0); callee != nil && callee.Kind == ast.KindName {
+			if _, seen := u.functions[callee.Str]; !seen {
+				u.functions[callee.Str] = n
+			}
+		}
+	case ast.KindMembership:
+		// `..` is the range operator; record it as the range function so allowing
+		// range gates a literal range expression (B8).
+		if n.Str == ".." {
+			if _, seen := u.functions["range"]; !seen {
+				u.functions["range"] = n
+			}
+		}
+	case ast.KindBinary:
+		if n.Str == ".." {
+			if _, seen := u.functions["range"]; !seen {
+				u.functions["range"] = n
+			}
+		}
+	}
+	for _, c := range n.Children {
+		t.collectUsed(c, u)
+	}
+}
+
+// tagKeyword maps a statement node kind to the keyword the policy allowlists by
+// name (B1). It returns "" for non-statement nodes and for the module/body/text
+// scaffolding that carries no keyword. The @sandbox region itself is not a
+// gated tag (it is the activation mechanism, always permitted to appear).
+func tagKeyword(n *ast.Node) string {
+	switch n.Kind {
+	case ast.KindIf:
+		return "if"
+	case ast.KindFor:
+		return "for"
+	case ast.KindSet, ast.KindCapture:
+		return "set"
+	case ast.KindWith:
+		return "with"
+	case ast.KindApply:
+		return "apply"
+	case ast.KindDo:
+		return "do"
+	case ast.KindFlush:
+		return "flush"
+	case ast.KindDeprecated:
+		return "deprecated"
+	case ast.KindGuard:
+		return "guard"
+	case ast.KindTypes:
+		return "types"
+	case ast.KindEscape:
+		return "escape"
+	case ast.KindLine:
+		return "line"
+	case ast.KindCache:
+		return "cache"
+	case ast.KindExtends:
+		return "extends"
+	case ast.KindBlock:
+		return "block"
+	case ast.KindMacro:
+		return "macro"
+	case ast.KindImport:
+		return "import"
+	case ast.KindFrom:
+		return "from"
+	case ast.KindUse:
+		return "use"
+	case ast.KindEmbed:
+		return "embed"
+	case ast.KindInclude:
+		return "include"
+	default:
+		return ""
+	}
 }
 
 // compileLiteralRegexps walks the entire AST (statements and the expression

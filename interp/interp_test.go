@@ -8,6 +8,7 @@ import (
 	"github.com/avmnusng/quill-template-engine/ext"
 	"github.com/avmnusng/quill-template-engine/parse"
 	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnusng/quill-template-engine/sandbox"
 )
 
 // stubEngine is a minimal Engine for interp unit tests: it holds an in-memory
@@ -21,6 +22,9 @@ type stubEngine struct {
 	seed    int64
 	seedSet bool
 	rcache  *cache.RenderCache
+
+	policy    *sandbox.Policy
+	sandboxOn bool
 }
 
 func newStub(tmpls map[string]string) *stubEngine {
@@ -64,6 +68,8 @@ func (s *stubEngine) RenderCache() *cache.RenderCache {
 	}
 	return s.rcache
 }
+func (s *stubEngine) Policy() *sandbox.Policy { return s.policy }
+func (s *stubEngine) SandboxActive() bool     { return s.sandboxOn }
 
 func errNotFound(name string) error { return &notFoundErr{name} }
 
