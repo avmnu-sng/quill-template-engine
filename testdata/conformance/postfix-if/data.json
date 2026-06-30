@@ -1,0 +1,8 @@
+{
+  "users": [
+    { "name": "ada", "admin": true },
+    { "name": "bob", "admin": false }
+  ],
+  "loud": true,
+  "quiet": false
+}

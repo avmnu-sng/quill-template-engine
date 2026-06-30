@@ -1,0 +1,1 @@
+  row: {{ label }} = {{ value }}

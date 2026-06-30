@@ -2,6 +2,7 @@ package interp
 
 import (
 	"math"
+	"regexp"
 
 	"github.com/avmnusng/quill-template-engine/ast"
 	"github.com/avmnusng/quill-template-engine/errors"
@@ -311,8 +312,8 @@ func (in *interp) evalPower(n *ast.Node, ctx *runtime.Context) (runtime.Value, e
 }
 
 // evalMembership implements in / not in / matches / starts with / ends with /
-// has some / has every (spec 04 Section 4.3). Only the subset real templates
-// need is wired; has some / has every are deferred and reported as such.
+// has some / has every (spec 04 Section 4.3). The regex matches operator uses
+// the stdlib RE2 engine; has some / has every are deferred and reported as such.
 func (in *interp) evalMembership(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
 	left, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
@@ -336,6 +337,8 @@ func (in *interp) evalMembership(n *ast.Node, ctx *runtime.Context) (runtime.Val
 		return in.affix(n, left, right, true)
 	case "ends with":
 		return in.affix(n, left, right, false)
+	case "matches":
+		return in.matches(n, left, right)
 	default:
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"the %q operator is not implemented in this milestone", n.Str))
@@ -357,6 +360,29 @@ func (in *interp) affix(n *ast.Node, l, r runtime.Value, prefix bool) (runtime.V
 		return runtime.Bool(len(ls) >= len(rs) && ls[:len(rs)] == rs), nil
 	}
 	return runtime.Bool(len(ls) >= len(rs) && ls[len(ls)-len(rs):] == rs), nil
+}
+
+// matches implements the regex membership operator using the Go RE2 dialect
+// (spec 01 Section, "Regex matches"). The right operand must be a string whose
+// contents are the RE2 pattern; the left operand is matched as its ToText
+// rendering. A subject that is not a string is a type error (a regex over a
+// number/array is a programming mistake, not a silent coercion); an invalid or
+// PCRE-only pattern is a clear runtime error rather than a panic.
+func (in *interp) matches(n *ast.Node, subject, pattern runtime.Value) (runtime.Value, error) {
+	if subject.Kind != runtime.KStr && subject.Kind != runtime.KSafe {
+		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+			"the %q operator expects a string subject, got %s", "matches", subject.Kind))
+	}
+	if pattern.Kind != runtime.KStr && pattern.Kind != runtime.KSafe {
+		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+			"the %q operator expects a string pattern, got %s", "matches", pattern.Kind))
+	}
+	re, err := regexp.Compile(pattern.S)
+	if err != nil {
+		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+			"invalid RE2 pattern %q: %v", pattern.S, err))
+	}
+	return runtime.Bool(re.MatchString(subject.S)), nil
 }
 
 func isNum(v runtime.Value) bool { return v.Kind == runtime.KInt || v.Kind == runtime.KFloat }

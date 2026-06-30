@@ -22,6 +22,7 @@ func Lex(src *source.Source) *TokenStream {
 	l := &lexer{src: src, in: src.Code()}
 	l.line, l.col = 1, 1
 	l.run()
+	applyTrims(l.out)
 	return &TokenStream{Src: src, Tokens: l.out}
 }
 

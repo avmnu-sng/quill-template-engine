@@ -938,3 +938,45 @@ func TestHeadDestructuringTarget(t *testing.T) {
 		}
 	}
 }
+
+// TestTrimModifiersRewriteText verifies that applyTrims strips the bordering
+// TEXT bytes for each modifier: '-' (hard, across newlines), '~' (line, spaces
+// and tabs only), and '+' (keep, a no-op for surrounding TEXT). The check reads
+// the TEXT token contents directly because the rewrite happens at lex time.
+func TestTrimModifiersRewriteText(t *testing.T) {
+	textTokens := func(in string) []string {
+		var out []string
+		for _, tk := range lexToks(t, in) {
+			if tk.Kind == TEXT {
+				out = append(out, tk.Text)
+			}
+		}
+		return out
+	}
+	cases := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{"open hard strips trailing ws", "a   {{- x }}", []string{"a"}},
+		{"close hard strips leading ws", "{{ x -}}   b", []string{"b"}},
+		{"open hard crosses newline", "a\n\n{{- x }}", []string{"a"}},
+		{"close hard crosses newline", "{{ x -}}\n\nb", []string{"b"}},
+		{"line trim keeps newline", "{{ x ~}}  \n  b", []string{"\n  b"}},
+		{"both sides line trim", "p  {{~ x ~}}  q", []string{"p", "q"}},
+		{"block open inner trim", "@for i in xs {~\n   body\n@}\n", []string{"body\n"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := textTokens(c.in)
+			if len(got) != len(c.want) {
+				t.Fatalf("TEXT tokens: got %q want %q", got, c.want)
+			}
+			for i := range got {
+				if got[i] != c.want[i] {
+					t.Errorf("TEXT[%d]: got %q want %q", i, got[i], c.want[i])
+				}
+			}
+		})
+	}
+}

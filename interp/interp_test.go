@@ -138,3 +138,40 @@ func TestPrepareTables(t *testing.T) {
 		t.Error("macro not indexed")
 	}
 }
+
+// TestMatchesOperator covers the regex membership operator over the stdlib RE2
+// engine: a successful match, a non-match, RE2 inline flags, an invalid pattern
+// (a clear error, not a panic), and a non-string subject (a type error).
+func TestMatchesOperator(t *testing.T) {
+	eng := newStub(nil)
+	cases := []struct {
+		body string
+		vars map[string]runtime.Value
+		want string
+	}{
+		{`{{ "err: boom" matches "^err" ? "y" : "n" }}`, nil, "y"},
+		{`{{ "ok" matches "^err" ? "y" : "n" }}`, nil, "n"},
+		{`{{ "ERR" matches "(?i)^err$" ? "y" : "n" }}`, nil, "y"},
+		{`{{ s matches "[0-9]{3}" ? "y" : "n" }}`,
+			map[string]runtime.Value{"s": runtime.Str("a123b")}, "y"},
+	}
+	for _, c := range cases {
+		t.Run(c.body, func(t *testing.T) {
+			if got := renderStub(t, eng, c.body, c.vars); got != c.want {
+				t.Errorf("got %q want %q", got, c.want)
+			}
+		})
+	}
+
+	// An invalid RE2 pattern is a clear runtime error.
+	mod, _ := parse.ParseString("t", `{{ "x" matches "(" }}`)
+	if _, err := Render(eng, Prepare("t", mod), nil); err == nil {
+		t.Error("invalid RE2 pattern must error")
+	}
+
+	// A non-string subject is a type error, not a silent coercion.
+	mod, _ = parse.ParseString("t", `{{ 42 matches "4" }}`)
+	if _, err := Render(eng, Prepare("t", mod), nil); err == nil {
+		t.Error("matches over a non-string subject must error")
+	}
+}

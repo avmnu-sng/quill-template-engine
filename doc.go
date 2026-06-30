@@ -17,9 +17,8 @@
 //     raise an explicit "not implemented" error when requested (spec 03 5.5).
 //   - The sandbox (@sandbox renders its body transparently; no policy is yet
 //     enforced) and @cache (renders its body, no caching), spec 01 Section 4.7.
-//   - Whitespace-control trim modifiers (the - / ~ / + flags) are recorded by
-//     the lexer on delimiter tokens but not yet propagated through the AST to the
-//     renderer; structural-line whitespace from the lexer IS honored.
-//   - The membership operators "matches", "has some", "has every", map
-//     destructuring in @set, and @use traits raise explicit errors where reached.
+//   - The membership operators "has some", "has every", map destructuring in
+//     @set, and @use traits raise explicit errors where reached. The regex
+//     "matches" operator (Go RE2 dialect) and the whitespace-control trim
+//     modifiers (the - / ~ / + flags) ARE implemented.
 package quill
