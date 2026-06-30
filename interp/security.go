@@ -58,7 +58,11 @@ func (in *interp) checkMethodAllowed(recv runtime.Value, method string) error {
 		return nil
 	}
 	typeName := className(recv.Obj)
-	if !in.eng.Policy().AllowsMethod(typeName, method) {
+	pol := in.eng.Policy()
+	if !pol.AllowsMethod(typeName, method) {
+		if pol.Strict && !pol.Knows(typeName) {
+			return errors.SecurityUnknownType(errors.SecMethod, typeName, method)
+		}
 		return errors.SecurityMethod(typeName, method)
 	}
 	return nil
@@ -77,7 +81,11 @@ func (in *interp) checkPropertyAllowed(recv runtime.Value, prop string) error {
 		return nil
 	}
 	typeName := className(recv.Obj)
-	if !in.eng.Policy().AllowsProperty(typeName, prop) {
+	pol := in.eng.Policy()
+	if !pol.AllowsProperty(typeName, prop) {
+		if pol.Strict && !pol.Knows(typeName) {
+			return errors.SecurityUnknownType(errors.SecProperty, typeName, prop)
+		}
 		return errors.SecurityProperty(typeName, prop)
 	}
 	return nil
@@ -97,8 +105,70 @@ func (in *interp) checkStringifyAllowed(v runtime.Value) error {
 		return nil
 	}
 	typeName := className(v.Obj)
-	if !in.eng.Policy().AllowsMethod(typeName, "Stringify") {
+	pol := in.eng.Policy()
+	if !pol.AllowsMethod(typeName, "Stringify") {
+		if pol.Strict && !pol.Knows(typeName) {
+			return errors.SecurityUnknownType(errors.SecMethod, typeName, "Stringify")
+		}
 		return errors.SecurityMethod(typeName, "Stringify")
+	}
+	return nil
+}
+
+// coercingFilters names the stdlib filters that coerce a host Object to text via
+// runtime.ToText inside package ext, where the sandbox gate is unreachable. The
+// interp-side choke point (evalFilter / execApply) pre-scans their arguments and
+// runs checkStringifyAllowed so spec 04 Section 8.3's "string-coercion is gated
+// via the Stringify hook" holds at these sites too, not only at an interpolation.
+var coercingFilters = map[string]bool{
+	"join":    true,
+	"replace": true,
+	"split":   true,
+}
+
+// checkStringifyArgs gates the host-object string-coercion the coercing filters
+// (join/replace/split) perform on their arguments. ext cannot reach the interp's
+// policy, so the interp validates here before invoking the filter: any host
+// Object reachable in an argument -- a scalar arg, a sequence element, or a map
+// key/value -- must have its Stringify member allowed, mirroring the
+// interpolation and ~ concat gates (B12). Filters not in coercingFilters are
+// untouched, so an arrow argument to map/filter/etc. is not mistaken for a
+// coercion (that path is gated by checkArrowArgs instead).
+func (in *interp) checkStringifyArgs(filter string, args []runtime.Value) error {
+	if !in.sandboxOn || !coercingFilters[filter] {
+		return nil
+	}
+	for _, a := range args {
+		if err := in.checkStringifyDeep(a); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkStringifyDeep applies the Stringify gate to v and, when v is a collection,
+// to each element and map key/value -- the elements the coercing filters render
+// through ToText. A callable Object is skipped: it is not a coercion target and
+// is governed by the arrow-gating rule, not the stringify gate.
+func (in *interp) checkStringifyDeep(v runtime.Value) error {
+	switch v.Kind {
+	case runtime.KObject:
+		if runtime.IsCallable(v) {
+			return nil
+		}
+		return in.checkStringifyAllowed(v)
+	case runtime.KArray:
+		if v.Arr == nil {
+			return nil
+		}
+		for _, p := range v.Arr.Pairs() {
+			if err := in.checkStringifyDeep(p.Key); err != nil {
+				return err
+			}
+			if err := in.checkStringifyDeep(p.Val); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

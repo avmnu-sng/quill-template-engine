@@ -106,6 +106,12 @@ func (in *interp) evalFilter(n *ast.Node, ctx *runtime.Context) (runtime.Value, 
 	if err := in.checkArrowArgs(n, args); err != nil {
 		return runtime.Null(), err
 	}
+	// String-coercion gate (B12) for the coercing filters (join/replace/split):
+	// these coerce host objects to text inside ext, beyond the policy's reach, so
+	// gate any host object in their arguments here at the choke point.
+	if err := in.checkStringifyArgs(n.Str, args); err != nil {
+		return runtime.Null(), posErr(n, err)
+	}
 	args = in.injectFilter(filt, ctx, args)
 	res, err := filt.Fn(args)
 	if err != nil {

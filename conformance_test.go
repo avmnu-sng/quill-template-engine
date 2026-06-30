@@ -70,6 +70,14 @@ type conformanceConfig struct {
 	// the allow/deny enforcement against rendered output (spec 04 Section 8.3).
 	Sandbox       *sandboxConfig `json:"sandbox"`
 	SandboxActive bool           `json:"sandbox_active"`
+	// Strict, when the sandbox is active, sets the policy's strict-vs-lenient
+	// member-access reporting mode (spec 04 Section 8.3). Defaults to lenient.
+	SandboxStrict bool `json:"sandbox_strict"`
+	// ErrorContains, when non-empty, marks a DENY fixture: the render must FAIL
+	// and the error string must contain this substring. expected.out is then
+	// ignored (a deny fixture proves a violation is rejected, not a golden body).
+	// This is what lets the sandbox slice ship deny fixtures, not only allow ones.
+	ErrorContains string `json:"error_contains"`
 }
 
 // sandboxConfig is the JSON shape of a fixture's sandbox policy: the five
@@ -163,7 +171,9 @@ func runFixture(t *testing.T, dir string) {
 		opts = append(opts, WithRandomSeed(*cfg.RandomSeed))
 	}
 	if cfg.Sandbox != nil {
-		opts = append(opts, WithSandboxPolicy(buildPolicy(cfg.Sandbox)))
+		pol := buildPolicy(cfg.Sandbox)
+		pol.Strict = cfg.SandboxStrict
+		opts = append(opts, WithSandboxPolicy(pol))
 		if cfg.SandboxActive {
 			opts = append(opts, WithSandboxActive(true))
 		}
@@ -193,6 +203,18 @@ func runFixture(t *testing.T, dir string) {
 
 	env := New(loader.NewArrayLoader(tmpls), opts...)
 	got, err := env.Render(main, vars)
+
+	// A deny fixture (error_contains set) asserts the render FAILS with a matching
+	// error and ignores expected.out; an allow fixture asserts golden output.
+	if cfg.ErrorContains != "" {
+		if err == nil {
+			t.Fatalf("expected a render error containing %q, got output %q", cfg.ErrorContains, got)
+		}
+		if !strings.Contains(err.Error(), cfg.ErrorContains) {
+			t.Fatalf("render error %q does not contain %q", err.Error(), cfg.ErrorContains)
+		}
+		return
+	}
 	if err != nil {
 		t.Fatalf("render error: %v", err)
 	}

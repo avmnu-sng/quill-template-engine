@@ -272,6 +272,124 @@ func TestSandboxedInclude(t *testing.T) {
 	wantSecurity(t, err, errors.SecFilter, "upper")
 }
 
+// TestSandboxStringifyGateConcat covers the string-coercion gate at the `~`
+// concat site (B12, spec 04 Section 8.3): coercing a host object to text in a
+// concat consults the policy just like an interpolation does. Without the gate a
+// sandboxed template with an empty policy could read the object's Stringify
+// output via `{{ "" ~ u }}` -- a sandbox escape.
+func TestSandboxStringifyGateConcat(t *testing.T) {
+	u := runtime.Obj(&hostEntity{name: "ada"})
+
+	// Empty policy -> the concat coercion is denied.
+	eng := sandboxStub(nil, &sandbox.Policy{})
+	err := renderErr(t, eng, "t", `{{ "" ~ u }}`, map[string]runtime.Value{"u": u})
+	wantSecurity(t, err, errors.SecMethod, "Stringify")
+
+	// Stringify allowed -> the concat renders.
+	pol := &sandbox.Policy{Methods: map[string]map[string]bool{"Entity": {"Stringify": true}}}
+	eng2 := sandboxStub(nil, pol)
+	if got, err := renderStubAt(t, eng2, `{{ "x" ~ u }}`, map[string]runtime.Value{"u": u}); err != nil || got != "xada" {
+		t.Fatalf("allowed stringify in concat: got %q err %v", got, err)
+	}
+}
+
+// TestSandboxStringifyGateJoin covers the string-coercion gate at the join
+// argument site (B12): join coerces each element of its piped collection to text
+// inside ext, beyond the policy's reach, so the interp gates the elements at the
+// filter choke point. Without the gate `{{ xs | join(",") }}` over a host object
+// element leaks its Stringify output under an empty policy.
+func TestSandboxStringifyGateJoin(t *testing.T) {
+	u := runtime.Obj(&hostEntity{name: "ada"})
+	xs := runtime.Arr(runtime.NewList(u))
+
+	// join allowed but Stringify not -> the element coercion is denied.
+	eng := sandboxStub(nil, &sandbox.Policy{Filters: map[string]bool{"join": true}})
+	err := renderErr(t, eng, "t", `{{ xs | join(",") }}`, map[string]runtime.Value{"xs": xs})
+	wantSecurity(t, err, errors.SecMethod, "Stringify")
+
+	// Both allowed -> renders.
+	pol := &sandbox.Policy{
+		Filters: map[string]bool{"join": true},
+		Methods: map[string]map[string]bool{"Entity": {"Stringify": true}},
+	}
+	eng2 := sandboxStub(nil, pol)
+	if got, err := renderStubAt(t, eng2, `{{ xs | join(",") }}`, map[string]runtime.Value{"xs": xs}); err != nil || got != "ada" {
+		t.Fatalf("allowed stringify in join: got %q err %v", got, err)
+	}
+
+	// A scalar (non-object) collection is unaffected by the gate.
+	scalars := runtime.Arr(runtime.NewList(runtime.Int(1), runtime.Int(2)))
+	eng3 := sandboxStub(nil, &sandbox.Policy{Filters: map[string]bool{"join": true}})
+	if got, err := renderStubAt(t, eng3, `{{ xs | join(",") }}`, map[string]runtime.Value{"xs": scalars}); err != nil || got != "1,2" {
+		t.Fatalf("scalar join under empty member policy: got %q err %v", got, err)
+	}
+}
+
+// TestSandboxStringifyGateReplace covers the gate at a replace argument site
+// (B12): the from->to pairs map is coerced inside ext, so a host object used as a
+// pair key or value is gated here.
+func TestSandboxStringifyGateReplace(t *testing.T) {
+	u := runtime.Obj(&hostEntity{name: "ada"})
+	pairs := runtime.NewArray()
+	pairs.SetStr("x", u) // value is a host object -> coerced by replace.
+
+	eng := sandboxStub(nil, &sandbox.Policy{Filters: map[string]bool{"replace": true}})
+	err := renderErr(t, eng, "t", `{{ "x" | replace(m) }}`, map[string]runtime.Value{"m": runtime.Arr(pairs)})
+	wantSecurity(t, err, errors.SecMethod, "Stringify")
+}
+
+// TestSandboxApplyArrowGating covers B13 on the @apply filter path: a smuggled
+// host callable passed to a higher-order filter inside @apply is rejected just as
+// the inline `| map(f)` form rejects it. Without the gate the two
+// filter-application paths enforce the rule inconsistently.
+func TestSandboxApplyArrowGating(t *testing.T) {
+	pol := &sandbox.Policy{
+		Tags:    map[string]bool{"apply": true},
+		Filters: map[string]bool{"map": true},
+	}
+	eng := sandboxStub(nil, pol)
+	err := renderErr(t, eng, "t", "@apply | map(f) {\nx\n@}\n", map[string]runtime.Value{
+		"f": runtime.Obj(hostCallable{}),
+	})
+	wantSecurity(t, err, errors.SecFunction, "(non-template callable)")
+}
+
+// TestSandboxStrictUnknownType covers the strict-vs-lenient reporting difference
+// (spec 04 Section 8.3): in strict mode a member access on a type the policy does
+// not know at all reports a distinct unknown-type error, while lenient mode falls
+// through to the ordinary per-member deny.
+func TestSandboxStrictUnknownType(t *testing.T) {
+	u := runtime.Obj(&hostEntity{name: "ada"}) // ClassName "Entity", unknown to an empty policy.
+
+	// Lenient (default): the per-member property deny is reported.
+	lenient := sandboxStub(nil, &sandbox.Policy{})
+	err := renderErr(t, lenient, "t", "{{ u.secret }}", map[string]runtime.Value{"u": u})
+	wantSecurity(t, err, errors.SecProperty, "secret")
+	if got := err.Error(); !strings.Contains(got, "is not allowed by the sandbox policy") {
+		t.Errorf("lenient message = %q, want per-member deny", got)
+	}
+
+	// Strict: the same access reports the unknown-type variant naming the type.
+	strict := sandboxStub(nil, &sandbox.Policy{Strict: true})
+	err = renderErr(t, strict, "t", "{{ u.secret }}", map[string]runtime.Value{"u": u})
+	wantSecurity(t, err, errors.SecProperty, "secret")
+	if got := err.Error(); !strings.Contains(got, "unknown to the sandbox policy") {
+		t.Errorf("strict message = %q, want unknown-type variant", got)
+	}
+
+	// Strict but the type IS known (has a property entry) -> ordinary per-member
+	// deny for the unlisted member, not the unknown-type variant.
+	known := sandboxStub(nil, &sandbox.Policy{
+		Strict:     true,
+		Properties: map[string]map[string]bool{"Entity": {"name": true}},
+	})
+	err = renderErr(t, known, "t", "{{ u.secret }}", map[string]runtime.Value{"u": u})
+	wantSecurity(t, err, errors.SecProperty, "secret")
+	if got := err.Error(); strings.Contains(got, "unknown to the sandbox policy") {
+		t.Errorf("strict+known message = %q, want per-member deny", got)
+	}
+}
+
 // renderStubAt renders an ad-hoc template and returns output and error (the
 // error-returning sibling of renderStub).
 func renderStubAt(t *testing.T, eng *stubEngine, body string, vars map[string]runtime.Value) (string, error) {

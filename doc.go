@@ -34,15 +34,25 @@
 // site: a method call, a property read, and the string-coercion of a host object
 // (via its Stringify hook) each consult the policy, matched against an explicit
 // host TYPE-GRAPH (sandbox.TypeGraph) rather than reflection, with case-sensitive
-// method names and property-then-method precedence; a higher-order filter rejects
-// a non-template (host) callable. Safe values and engine-internal shims bypass the
-// member checks. Allowlisting is uniform with NO grandfathering. The @sandbox
-// region forces sandboxing over its body and any templates included within it,
-// restoring the prior gate on exit and never disabling an already-sandboxed
-// enclosing render; the function-form include's sandboxed flag does the same per
-// include. Each violation class raises a distinct, host-catchable
-// *errors.Security (errors.As + a SecurityClass) carrying the offending name and,
-// for member violations, the host type name (spec 04 Section 8.3).
+// method names and property-then-method precedence. The string-coercion gate
+// fires at EVERY coercion site, not only an interpolation: it also gates an
+// operand of "~" concat and every host object reachable as an argument of the
+// coercing filters (join, replace, split), which would otherwise stringify it
+// inside the extension layer beyond the policy's reach. A higher-order filter
+// rejects a non-template (host) callable, on both the inline "| map(f)" form and
+// the @apply filter path. Safe values and engine-internal shims bypass the member
+// checks. Allowlisting is uniform with NO grandfathering. Strict-versus-lenient
+// member-access reporting is supported (sandbox.Policy.Strict): in strict mode an
+// access on a host type the policy does not know at all -- no method/property
+// entry and absent from the type-graph -- reports a distinct unknown-type error,
+// while lenient mode falls through to the ordinary per-member deny; the
+// tag/filter/function floor is identical in both modes. The @sandbox region
+// forces sandboxing over its body and any templates included within it, restoring
+// the prior gate on exit and never disabling an already-sandboxed enclosing
+// render; the function-form include's sandboxed flag does the same per include.
+// Each violation class raises a distinct, host-catchable *errors.Security
+// (errors.As + a SecurityClass) carrying the offending name and, for member
+// violations, the host type name (spec 04 Section 8.3).
 //
 // Previously implemented (composition tail): @use horizontal trait reuse merges a
 // traitable template's blocks below the using template's own (trait-then-own

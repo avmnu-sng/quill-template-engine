@@ -269,6 +269,16 @@ func (in *interp) evalConcat(n *ast.Node, ctx *runtime.Context) (runtime.Value, 
 	if err != nil {
 		return runtime.Null(), err
 	}
+	// Sandbox string-coercion gate (B12): spec 04 Section 8.3 gates the host
+	// stringify hook at every text-coercion site, not only at an interpolation.
+	// Without gating each operand here, `{{ "" ~ host }}` would read the object's
+	// Stringify output under an empty policy -- a sandbox escape.
+	if err := in.checkStringifyAllowed(l); err != nil {
+		return runtime.Null(), posErr(n, err)
+	}
+	if err := in.checkStringifyAllowed(r); err != nil {
+		return runtime.Null(), posErr(n, err)
+	}
 	ls, err := runtime.ToText(l)
 	if err != nil {
 		return runtime.Null(), posErr(n, err)

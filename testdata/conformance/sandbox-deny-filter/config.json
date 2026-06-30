@@ -1,0 +1,7 @@
+{
+  "sandbox_active": true,
+  "sandbox": {
+    "filters": ["join"]
+  },
+  "error_contains": "filter \"upper\" is not allowed by the sandbox policy"
+}

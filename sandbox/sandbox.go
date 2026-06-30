@@ -92,9 +92,13 @@ type Policy struct {
 	// Properties maps a host type name to the property/field names allowed on it,
 	// matched across the type-graph (B5).
 	Properties map[string]map[string]bool
-	// Strict reserves the host-defined leniency knob for member-access reporting
-	// (e.g. whether an unknown TYPE is a hard error); the tag/filter/function
-	// floor is uniform in both modes, with no grandfathering (B6).
+	// Strict selects strict-versus-lenient member-access reporting (spec 04
+	// Section 8.3). In strict mode, a member access on a host type the policy does
+	// not know at all -- no method or property allowlist entry and absent from the
+	// type-graph -- reports a distinct unknown-type error (the interp consults
+	// Knows). In lenient mode that same access falls through to the ordinary
+	// per-member deny. The tag/filter/function floor is uniform in both modes, with
+	// no grandfathering (B6).
 	Strict bool
 	// Graph is the host type-graph backing the per-type method/property lookups.
 	// A nil graph matches each type only by its own name.
@@ -133,6 +137,27 @@ func (p *Policy) AllowsProperty(typeName, prop string) bool {
 	}
 	for _, t := range p.Graph.ancestors(typeName) {
 		if p.Properties[t][prop] {
+			return true
+		}
+	}
+	return false
+}
+
+// Knows reports whether the policy has any declared knowledge of the host type:
+// a method or property allowlist entry on the type or any of its declared
+// ancestors, or an edge in the type-graph. Strict mode uses this to distinguish
+// an unregistered/typo type (an unknown-type error) from a known type whose
+// specific member is merely not allowlisted (a per-member deny). A nil policy
+// knows nothing.
+func (p *Policy) Knows(typeName string) bool {
+	if p == nil {
+		return false
+	}
+	for _, t := range p.Graph.ancestors(typeName) {
+		if len(p.Methods[t]) > 0 || len(p.Properties[t]) > 0 {
+			return true
+		}
+		if p.Graph != nil && len(p.Graph.parents[t]) > 0 {
 			return true
 		}
 	}

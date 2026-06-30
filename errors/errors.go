@@ -243,6 +243,19 @@ func SecurityProperty(typeName, prop string) *Security {
 		fmt.Sprintf("property %q on type %q is not allowed by the sandbox policy", prop, typeName))
 }
 
+// SecurityUnknownType reports a member access on a host type the strict-mode
+// policy does not know at all -- it has no method or property allowlist entry
+// and is absent from the type-graph (spec 04 Section 8.3 strict-vs-lenient mode,
+// B6). Lenient mode does not raise this; it falls through to the per-member deny.
+// The class carries the same SecClass as the access (method or property) so a
+// host catches it uniformly, but the message names the unknown type so a strict
+// policy can distinguish a typo or unregistered type from a denied-but-known
+// member.
+func SecurityUnknownType(class SecurityClass, typeName, member string) *Security {
+	return security(class, typeName, member,
+		fmt.Sprintf("type %q is unknown to the sandbox policy (strict mode); access to %q is denied", typeName, member))
+}
+
 // At returns a copy of the security error annotated with a source and line,
 // leaving the receiver unchanged (the *Error.At analogue that preserves the
 // Security wrapper and its Class/Name/Type). A nil receiver yields nil.

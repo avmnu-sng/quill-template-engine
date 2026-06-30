@@ -106,3 +106,33 @@ func TestPolicyMethodsAndPropertiesViaGraph(t *testing.T) {
 		t.Error("a base type must not inherit a subtype's property entry")
 	}
 }
+
+// TestPolicyKnows covers the strict-mode unknown-type discriminator: a type is
+// known when it (or a declared ancestor) has a method/property allowlist entry or
+// an edge in the type-graph; otherwise the policy does not know it.
+func TestPolicyKnows(t *testing.T) {
+	g := NewTypeGraph()
+	g.Declare("Admin", "User")
+
+	p := &Policy{
+		Methods: map[string]map[string]bool{"Entity": {"Name": true}},
+		Graph:   g,
+	}
+	// A type with a method allowlist entry is known.
+	if !p.Knows("Entity") {
+		t.Error("type with a method entry should be known")
+	}
+	// A type present only as a type-graph edge is known.
+	if !p.Knows("Admin") {
+		t.Error("type with a type-graph edge should be known")
+	}
+	// A type the policy never mentions is unknown.
+	if p.Knows("Stranger") {
+		t.Error("unmentioned type must be unknown")
+	}
+	// A nil policy knows nothing.
+	var nilp *Policy
+	if nilp.Knows("Entity") {
+		t.Error("nil policy must know nothing")
+	}
+}

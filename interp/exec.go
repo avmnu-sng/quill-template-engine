@@ -727,6 +727,19 @@ func (in *interp) execApply(n *ast.Node, ctx *runtime.Context) error {
 			}
 			args = append(args, av)
 		}
+		// Sandbox arrow gating (B13): mirror evalFilter so the @apply filter path
+		// rejects a smuggled host callable just as the inline `| map(f)` form does.
+		// Without this the two filter-application paths enforce the rule
+		// inconsistently and `@apply | map(f) {...}` bypasses the gate.
+		if err := in.checkArrowArgs(f, args); err != nil {
+			return err
+		}
+		// String-coercion gate (B12) for the coercing filters (join/replace/split):
+		// a host object reaching these as an argument would be stringified inside
+		// ext without consulting the policy, so gate it here at the choke point.
+		if err := in.checkStringifyArgs(f.Str, args); err != nil {
+			return posErr(f, err)
+		}
 		args = in.injectFilter(filt, ctx, args)
 		v, err = filt.Fn(args)
 		if err != nil {

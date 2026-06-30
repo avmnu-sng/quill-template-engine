@@ -84,6 +84,28 @@ func TestSecurityIsCatchableAndCarriesNames(t *testing.T) {
 	}
 }
 
+func TestSecurityUnknownType(t *testing.T) {
+	e := SecurityUnknownType(SecProperty, "Stranger", "secret")
+	var sec *Security
+	if !stderrors.As(error(e), &sec) {
+		t.Fatal("errors.As did not match *Security")
+	}
+	// It carries the SAME class as the access (so a host catches it uniformly)
+	// plus the offending type and member names.
+	if sec.Class != SecProperty || sec.Type != "Stranger" || sec.Name != "secret" {
+		t.Errorf("class/type/name = %v/%q/%q", sec.Class, sec.Type, sec.Name)
+	}
+	if KindOf(e) != KindSecurity {
+		t.Errorf("KindOf = %v, want security", KindOf(e))
+	}
+	// The message distinguishes the strict unknown-type variant.
+	for _, want := range []string{"Stranger", "secret", "unknown to the sandbox policy"} {
+		if !strings.Contains(e.Error(), want) {
+			t.Errorf("message %q missing %q", e.Error(), want)
+		}
+	}
+}
+
 func TestSecurityClassLabels(t *testing.T) {
 	cases := map[SecurityClass]string{
 		SecTag: "tag", SecFilter: "filter", SecFunction: "function",
