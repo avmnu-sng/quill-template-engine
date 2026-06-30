@@ -46,6 +46,7 @@ func (in *interp) buildChain(tmpl *Template, ctx *runtime.Context) ([]*Template,
 			return nil, posErr(cur.extendsNode, err)
 		}
 		chain = append(chain, parent)
+		in.absorb(parent)
 		cur = parent
 		if len(chain) > 64 {
 			return nil, errors.New(errors.KindRuntime, "inheritance chain too deep (cycle?)")

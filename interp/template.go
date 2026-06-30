@@ -1,7 +1,10 @@
 package interp
 
 import (
+	"regexp"
+
 	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnusng/quill-template-engine/errors"
 )
 
 // Template is one parsed-and-prepared template: its module AST plus the indexed
@@ -26,19 +29,73 @@ type Template struct {
 	// imports records @import (namespace) and @from (selective) heads at file
 	// scope so the renderer can resolve the macro namespace and dotted calls.
 	imports []*ast.Node
+
+	// regexps caches the compiled RE2 for every `matches` node whose pattern is a
+	// string literal. The spec (01 Section 3, "Regex matches") requires a literal
+	// pattern to be "validated at compile time", so compileLiteralRegexps walks
+	// the whole tree during Prepare: a bad literal is an error here regardless of
+	// branch reachability, and the cached *regexp.Regexp lets render-time matches
+	// reuse one compile instead of recompiling per evaluation (e.g. per loop
+	// iteration). A dynamic (non-literal) pattern is absent here and compiled at
+	// render time.
+	regexps map[*ast.Node]*regexp.Regexp
+}
+
+// PrepareChecked builds the composition tables from a parsed module and runs the
+// compile-time validations the spec requires (currently: literal regex patterns
+// in `matches`). It returns an error so a malformed template is rejected before
+// any render. Prepare wraps it for callers that have already validated or that
+// construct synthetic modules in tests.
+func PrepareChecked(name string, mod *ast.Node) (*Template, error) {
+	t := Prepare(name, mod)
+	if err := t.compileLiteralRegexps(mod); err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 // Prepare builds the composition tables from a parsed module. It is idempotent
 // and cheap; the engine calls it once per template and caches the result.
 func Prepare(name string, mod *ast.Node) *Template {
 	t := &Template{
-		Name:   name,
-		Module: mod,
-		blocks: map[string]*ast.Node{},
-		macros: map[string]*ast.Node{},
+		Name:    name,
+		Module:  mod,
+		blocks:  map[string]*ast.Node{},
+		macros:  map[string]*ast.Node{},
+		regexps: map[*ast.Node]*regexp.Regexp{},
 	}
 	t.index(mod)
 	return t
+}
+
+// compileLiteralRegexps walks the entire AST (statements and the expression
+// subtrees they hang off) and, for every `matches` node whose right operand is a
+// plain string literal (KindString -- single-quote, backtick, or escape-only
+// double-quote; an interpolated pattern is a KindBinary "~" concat chain and
+// stays dynamic), compiles the pattern with the stdlib RE2 engine. A compile
+// failure is surfaced as a clear error at the pattern's source position, and the
+// compiled regexp is cached on the node so matches() reuses it.
+func (t *Template) compileLiteralRegexps(n *ast.Node) error {
+	if n == nil {
+		return nil
+	}
+	if n.Kind == ast.KindMembership && n.Str == "matches" {
+		pat := n.Child(1)
+		if pat != nil && pat.Kind == ast.KindString {
+			re, err := regexp.Compile(pat.Str)
+			if err != nil {
+				return errors.New(errors.KindRuntime,
+					"invalid RE2 pattern %q: %v", pat.Str, err).At(pat.Src, pat.Line)
+			}
+			t.regexps[n] = re
+		}
+	}
+	for _, c := range n.Children {
+		if err := t.compileLiteralRegexps(c); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // index walks the module, recording blocks (recursively, so nested blocks are

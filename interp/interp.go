@@ -18,6 +18,7 @@
 package interp
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/avmnusng/quill-template-engine/ast"
@@ -98,6 +99,12 @@ type interp struct {
 	// Section 5.2).
 	curBlock      *blockEntry
 	curBlockDepth int
+
+	// regexps merges the literal-`matches` regexp caches of every template that
+	// enters this render (the root, its inheritance parents, and macro homes), so
+	// matches() reuses one compile per literal pattern instead of recompiling each
+	// evaluation. Seeded from each template's Prepare-built table via absorb.
+	regexps map[*ast.Node]*regexp.Regexp
 }
 
 // blockEntry is one resolved block: the template that owns the definition and
@@ -129,13 +136,31 @@ func newInterp(eng Engine, root *Template, out Sink) *interp {
 	if eng.AutoescapeHTML() {
 		autoesc = "html"
 	}
-	return &interp{
-		eng:    eng,
-		out:    out,
-		root:   root,
-		blocks: map[string]*blockEntry{},
-		macros: map[string]*macroEntry{},
-		escape: autoesc,
+	in := &interp{
+		eng:     eng,
+		out:     out,
+		root:    root,
+		blocks:  map[string]*blockEntry{},
+		macros:  map[string]*macroEntry{},
+		escape:  autoesc,
+		regexps: map[*ast.Node]*regexp.Regexp{},
+	}
+	in.absorb(root)
+	return in
+}
+
+// absorb merges a template's literal-`matches` regexp cache into this render's
+// lookup, so matches() can find the Prepare-compiled regexp for any literal
+// pattern node reachable in the render. It is called as each template enters the
+// render (root at construction, parents in buildChain, macro homes in
+// loadMacros). Nodes absent from the lookup (dynamic patterns, or a template not
+// yet absorbed) fall back to a runtime compile.
+func (in *interp) absorb(t *Template) {
+	if t == nil {
+		return
+	}
+	for n, re := range t.regexps {
+		in.regexps[n] = re
 	}
 }
 

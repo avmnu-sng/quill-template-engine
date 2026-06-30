@@ -4,9 +4,14 @@
 //
 // The mapping is deliberately lossless where Quill's value model allows it:
 //
-//   - a JSON object becomes a string-keyed *Array, preserving the member order
-//     of the source file (decoding walks the json.Decoder token stream rather
-//     than unmarshaling into a Go map, whose iteration order is randomized);
+//   - a JSON object becomes an *Array preserving the member order of the source
+//     file (decoding walks the json.Decoder token stream rather than unmarshaling
+//     into a Go map, whose iteration order is randomized). Object keys go through
+//     the engine's one canonical key model (spec 04 Section 7): a canonical
+//     decimal-integer key name such as "0" becomes an Int slot, everything else
+//     ("01", "name", "1.0") stays a Str key. So an object whose keys happen to be
+//     "0".."n-1" is list-shaped, exactly as the key model dictates -- there is no
+//     JSON-specific exception to that rule;
 //   - a JSON array becomes a list-shaped *Array with 0-based integer keys;
 //   - a JSON number that is an exact integer becomes an Int, otherwise a Float,
 //     so {{ n }} renders 3 (not 3.0) for an integral input -- matching Quill's
@@ -132,8 +137,12 @@ func decodeObject(dec *json.Decoder) (runtime.Value, error) {
 		if err != nil {
 			return runtime.Null(), err
 		}
-		// SetStr canonicalizes a decimal-integer key to an Int slot; force the
-		// key to stay a string so an object never silently shadows array indices.
+		// Route the key through the engine's canonical key model (spec 04 Section
+		// 7): SetKey -> SetStr canonicalizes a decimal-integer name ("0", "12") to
+		// an Int slot and leaves every other name ("01", "name") a Str key. This is
+		// intentional and not JSON-specific: an object keyed "0".."n-1" is then
+		// list-shaped, just like the same keys built any other way, so the one key
+		// model holds everywhere rather than JSON objects having a private rule.
 		arr.SetKey(runtime.Str(key), val)
 	}
 	if _, err := dec.Token(); err != nil { // consume '}'

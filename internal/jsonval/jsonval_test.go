@@ -116,6 +116,53 @@ func TestObjectOrderPreserved(t *testing.T) {
 	}
 }
 
+// TestObjectNumericKeysCanonicalize pins the spec 04 Section 7 key model at the
+// JSON boundary: an object whose member names are canonical decimal integers
+// becomes Int slots (so the array is list-shaped), while non-canonical names
+// ("01", "name") stay Str keys. There is deliberately NO JSON-specific exception
+// preserving such keys as strings -- the one key model holds everywhere.
+func TestObjectNumericKeysCanonicalize(t *testing.T) {
+	v, err := Decode([]byte(`{"0":"a","1":"b"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Kind != runtime.KArray {
+		t.Fatalf("want array, got %s", v.Kind)
+	}
+	keys := v.Arr.Keys()
+	if len(keys) != 2 {
+		t.Fatalf("want 2 keys, got %d", len(keys))
+	}
+	for i, k := range keys {
+		if k.Kind != runtime.KInt || k.I != int64(i) {
+			t.Errorf("key %d: got %+v, want Int(%d)", i, k, i)
+		}
+	}
+	// All-integer 0..n-1 keys make the object list-shaped (is sequence true).
+	if !v.Arr.IsList() {
+		t.Error("object with keys 0,1 should be list-shaped")
+	}
+
+	// A mixed object keeps non-canonical names as Str keys and is NOT a list.
+	v, err = Decode([]byte(`{"0":"a","01":"b","name":"c"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys = v.Arr.Keys()
+	if keys[0].Kind != runtime.KInt || keys[0].I != 0 {
+		t.Errorf("key 0: got %+v, want Int(0)", keys[0])
+	}
+	if keys[1].Kind != runtime.KStr || keys[1].S != "01" {
+		t.Errorf(`key "01": got %+v, want Str("01")`, keys[1])
+	}
+	if keys[2].Kind != runtime.KStr || keys[2].S != "name" {
+		t.Errorf(`key "name": got %+v, want Str("name")`, keys[2])
+	}
+	if v.Arr.IsList() {
+		t.Error("object with a non-integer key must not be list-shaped")
+	}
+}
+
 func TestTrailingData(t *testing.T) {
 	if _, err := Decode([]byte(`{} extra`)); err == nil {
 		t.Error("trailing data after the root must error")

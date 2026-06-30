@@ -163,15 +163,34 @@ func TestMatchesOperator(t *testing.T) {
 		})
 	}
 
-	// An invalid RE2 pattern is a clear runtime error.
+	// An invalid LITERAL pattern is rejected at Prepare time (spec 01 Section 3,
+	// "validated at compile time"), so PrepareChecked errors before any render.
 	mod, _ := parse.ParseString("t", `{{ "x" matches "(" }}`)
-	if _, err := Render(eng, Prepare("t", mod), nil); err == nil {
-		t.Error("invalid RE2 pattern must error")
+	if _, err := PrepareChecked("t", mod); err == nil {
+		t.Error("invalid literal RE2 pattern must be rejected at compile time")
 	}
 
-	// A non-string subject is a type error, not a silent coercion.
+	// The compile-time check does not depend on branch reachability: a bad literal
+	// pattern inside a never-taken branch is still an error.
+	mod, _ = parse.ParseString("t", "@if false {\n{{ \"x\" matches \"(\" }}\n@}\ndone\n")
+	if _, err := PrepareChecked("t", mod); err == nil {
+		t.Error("bad literal pattern in an unreachable branch must still be rejected")
+	}
+
+	// A non-string subject is a type error, not a silent coercion (render time).
 	mod, _ = parse.ParseString("t", `{{ 42 matches "4" }}`)
 	if _, err := Render(eng, Prepare("t", mod), nil); err == nil {
 		t.Error("matches over a non-string subject must error")
+	}
+
+	// A dynamic (non-literal) bad pattern is not knowable at compile time, so it
+	// is a render-time error -- not rejected by PrepareChecked.
+	mod, _ = parse.ParseString("t", `{{ "x" matches p }}`)
+	tmpl, err := PrepareChecked("t", mod)
+	if err != nil {
+		t.Fatalf("dynamic pattern must not be rejected at compile time: %v", err)
+	}
+	if _, err := Render(eng, tmpl, map[string]runtime.Value{"p": runtime.Str("(")}); err == nil {
+		t.Error("invalid dynamic RE2 pattern must error at render time")
 	}
 }

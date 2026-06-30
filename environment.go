@@ -84,7 +84,7 @@ func (e *Environment) AutoescapeHTML() bool { return e.autoescapeHTML }
 // LoadTemplate parses (memoized) and prepares the named template (interp.Engine).
 func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
 	if mod, ok := e.cache.Get(name); ok {
-		return interp.Prepare(name, mod), nil
+		return interp.PrepareChecked(name, mod)
 	}
 	src, err := e.loader.Get(name)
 	if err != nil {
@@ -95,7 +95,7 @@ func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
 		return nil, err
 	}
 	e.cache.Put(name, mod)
-	return interp.Prepare(name, mod), nil
+	return interp.PrepareChecked(name, mod)
 }
 
 // TemplateExists reports whether the named template can be loaded (interp.Engine).
@@ -123,7 +123,10 @@ func (e *Environment) RenderString(name, body string, vars map[string]runtime.Va
 	if err != nil {
 		return "", err
 	}
-	tmpl := interp.Prepare(name, mod)
+	tmpl, err := interp.PrepareChecked(name, mod)
+	if err != nil {
+		return "", err
+	}
 	return interp.Render(e, tmpl, vars)
 }
 

@@ -377,10 +377,18 @@ func (in *interp) matches(n *ast.Node, subject, pattern runtime.Value) (runtime.
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"the %q operator expects a string pattern, got %s", "matches", pattern.Kind))
 	}
-	re, err := regexp.Compile(pattern.S)
-	if err != nil {
-		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
-			"invalid RE2 pattern %q: %v", pattern.S, err))
+	// A literal pattern was already validated and compiled during Prepare (spec
+	// 01 Section 3, "validated at compile time"); reuse that *regexp.Regexp so a
+	// `matches` in a loop does not recompile each iteration. A dynamic pattern
+	// (absent from the cache) is compiled here.
+	re := in.regexps[n]
+	if re == nil {
+		var err error
+		re, err = regexp.Compile(pattern.S)
+		if err != nil {
+			return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+				"invalid RE2 pattern %q: %v", pattern.S, err))
+		}
 	}
 	return runtime.Bool(re.MatchString(subject.S)), nil
 }

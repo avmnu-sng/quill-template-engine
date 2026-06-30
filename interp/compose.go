@@ -156,6 +156,9 @@ func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Context) {
 		}
 		src = t
 	}
+	// A macro imported from src may contain literal `matches` patterns; absorb
+	// src's Prepare-compiled regexp cache so those reuse one compile too.
+	in.absorb(src)
 	switch imp.Kind {
 	case ast.KindImport:
 		// @import src as alias: bind a namespace object and expose nothing by bare
