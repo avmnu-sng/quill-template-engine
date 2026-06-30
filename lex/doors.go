@@ -31,9 +31,12 @@ func (l *lexer) peekStatement() (kw string, ok bool) {
 }
 
 // peekBlockClose reports whether the cursor (at line start, on an '@') begins an
-// "@}" block close whose line has no other non-whitespace content (spec 01
-// Section 1.3: a line whose only non-whitespace content is @}). A trailing trim
-// modifier (-/~/+) is permitted between '}' and the newline.
+// "@}" block close. The close is recognized when, after the "@}" and an optional
+// trim modifier, the rest of the line is whitespace (spec 01 Section 1.3: a line
+// whose only non-whitespace content is @}) OR a continuation keyword "elseif" /
+// "else" follows on the same line. The continuation form is the anchor's
+// `@} elseif cond {` / `@} else {` spelling (spec 01 Section 4.1): the "@}" closes
+// the current branch body and the following keyword re-opens the construct.
 func (l *lexer) peekBlockClose() bool {
 	if l.pos+1 >= len(l.in) || l.in[l.pos+1] != '}' {
 		return false
@@ -43,19 +46,30 @@ func (l *lexer) peekBlockClose() bool {
 	if i < len(l.in) && isCloseTrim(l.in[i]) {
 		i++
 	}
-	// rest of line must be whitespace up to newline or EOF
-	for i < len(l.in) {
-		c := l.in[i]
-		if c == '\n' {
-			return true
-		}
-		if c == ' ' || c == '\t' || c == '\r' {
-			i++
-			continue
-		}
-		return false
+	// Skip horizontal whitespace; a newline/EOF here is the lone-@} line form.
+	for i < len(l.in) && (l.in[i] == ' ' || l.in[i] == '\t' || l.in[i] == '\r') {
+		i++
 	}
-	return true // EOF after @}
+	if i >= len(l.in) || l.in[i] == '\n' {
+		return true
+	}
+	// A same-line continuation keyword (elseif/else) is the only other content the
+	// close line may legitimately carry.
+	return l.peekContinuation(i) != ""
+}
+
+// peekContinuation reports the continuation keyword (elseif/else) that begins at
+// byte index i, at a word boundary, or "" when none does.
+func (l *lexer) peekContinuation(i int) string {
+	start := i
+	for i < len(l.in) && isWordByte(l.in[i]) {
+		i++
+	}
+	word := l.in[start:i]
+	if word == "elseif" || word == "else" {
+		return word
+	}
+	return ""
 }
 
 // scanInterp handles the "{{" ... "}}" door. It emits OPEN_INTERP (with opening
@@ -126,6 +140,23 @@ func (l *lexer) scanBlockClose() {
 	l.advance() // '}'
 	tr := l.takeCloseTrim()
 	l.emit(Token{Kind: BLOCK_CLOSE, Line: line, Col: col, TrimR: tr})
+
+	// A same-line continuation keyword (elseif/else) re-opens the construct: emit
+	// its STMT head right after the BLOCK_CLOSE (spec 01 Section 4.1). The close
+	// does NOT eat a newline in this case; the continuation head's own brace/line
+	// handling governs the following layout.
+	j := l.pos
+	for j < len(l.in) && (l.in[j] == ' ' || l.in[j] == '\t' || l.in[j] == '\r') {
+		j++
+	}
+	if kw := l.peekContinuation(j); kw != "" {
+		for l.pos < j {
+			l.advance() // skip the horizontal whitespace before the keyword
+		}
+		l.scanContinuation(kw)
+		return
+	}
+
 	if tr != TrimKeep {
 		// peekBlockClose recognized this @} as a lone-@} line (its only
 		// non-whitespace content, spec 02 R4a), so the trailing horizontal
@@ -136,6 +167,37 @@ func (l *lexer) scanBlockClose() {
 		l.eatOneNewline()
 	}
 	l.atLineStart = true
+}
+
+// scanContinuation scans an "elseif"/"else" continuation head that immediately
+// follows a "@}" on the same line. It emits the STMT token (keyword without a
+// '@', mirroring the @-led statement heads) and then the head's body-open '{' or
+// terminator, exactly like scanStatement. The cursor is positioned on the first
+// byte of the keyword.
+func (l *lexer) scanContinuation(kw string) {
+	line, col := l.line, l.col
+	for range kw {
+		l.advance()
+	}
+	l.emit(Token{Kind: STMT, Text: kw, Line: line, Col: col})
+	if l.scanCode(scanStmtHeadEnd) {
+		return
+	}
+	if l.pos < len(l.in) && l.in[l.pos] == '{' {
+		bLine, bCol := l.line, l.col
+		l.advance() // '{'
+		btr := l.takeCloseTrim()
+		l.emit(Token{Kind: BLOCK_OPEN, Line: bLine, Col: bCol, TrimR: btr})
+		if btr != TrimKeep {
+			l.atLineStart = l.eatOneNewline()
+		} else {
+			l.atLineStart = false
+		}
+		return
+	}
+	eLine, eCol := l.line, l.col
+	l.emit(Token{Kind: STMT_END, Line: eLine, Col: eCol})
+	l.atLineStart = l.eatOneNewline()
 }
 
 // scanStatement handles an @-led statement head (not verbatim). It emits the STMT

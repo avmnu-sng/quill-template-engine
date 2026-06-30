@@ -16,17 +16,108 @@ func scanInterpClose(l *lexer) bool {
 }
 
 // scanStmtHeadEnd stops a statement head at a depth-zero block-open '{', a
-// newline, or EOF. A '{' that opens a mapping literal is at depth >= 1 and so is
-// not seen by this predicate; only a depth-zero '{' (the body opener) stops here.
-// An opening-side trim before the body '{' ("{-" lives after the brace, but a
-// pre-brace trim is written as part of the head and handled by scanCode), so this
-// predicate keys on the bare '{' or the newline.
+// newline, or EOF. Most mapping-literal '{'s sit at depth >= 1 (they follow other
+// head tokens) and are never seen here. The one ambiguous case is a head whose
+// expression STARTS with a mapping literal -- "@with { x: 1 }", "@set {a} = e",
+// "@use 'x' with { b: a }" -- where the map '{' is at depth zero. mapAhead peeks
+// the balanced "{ ... }" and reports whether it is a mapping literal (it contains
+// a depth-1 ':' or '...', or is empty) rather than a body open; the head scanner
+// then keeps the map in CODE and stops only at the true body '{' or the line end.
 func scanStmtHeadEnd(l *lexer) bool {
 	if l.pos >= len(l.in) {
 		return true
 	}
 	c := l.in[l.pos]
-	return c == '{' || c == '\n'
+	if c == '\n' {
+		return true
+	}
+	if c == '{' {
+		return !l.mapAhead()
+	}
+	return false
+}
+
+// mapAhead reports whether the '{' at the cursor opens a mapping literal (CODE)
+// rather than a statement body. It scans the balanced brace span: a depth-1 ':'
+// (a keyed entry) or '...' (a spread entry), or an immediately-closing '}' (the
+// empty map), marks a mapping literal. A '{' whose body is plain template text
+// (the statement body) has none of these at depth 1 before its close, so it is a
+// body open. The scan is bounded by the matching '}' and never crosses into the
+// statement body it might precede.
+func (l *lexer) mapAhead() bool {
+	i := l.pos + 1
+	// Skip horizontal whitespace after '{'.
+	for i < len(l.in) && (l.in[i] == ' ' || l.in[i] == '\t') {
+		i++
+	}
+	if i >= len(l.in) {
+		return false
+	}
+	if l.in[i] == '}' {
+		return true // empty mapping literal "{}"
+	}
+	depth := 1
+	for i < len(l.in) && depth > 0 {
+		switch l.in[i] {
+		case '{', '(', '[':
+			depth++
+		case '}', ')', ']':
+			depth--
+			if depth == 0 {
+				// A balanced "{ ... }" with no inner map marker is a mapping/
+				// destructuring literal only when an "=" follows (a "@set {a, b} = e"
+				// destructuring target). Otherwise it was the statement body.
+				return assignFollows(l.in, i+1)
+			}
+		case '\'', '"', '`':
+			i = skipStringByte(l.in, i)
+			continue
+		case ':':
+			if depth == 1 {
+				return true
+			}
+		case '.':
+			if depth == 1 && i+2 < len(l.in) && l.in[i+1] == '.' && l.in[i+2] == '.' {
+				return true
+			}
+		case '\n':
+			// A newline inside an unbalanced "{" means this was a body open whose
+			// body is on following lines, not a single-line mapping literal.
+			return false
+		}
+		i++
+	}
+	return false
+}
+
+// assignFollows reports whether, after optional horizontal whitespace at index i,
+// the next byte is a single '=' (an assignment), distinguishing a destructuring
+// target "{a} = e" from a statement body "{ ... }". It excludes "==" so a body
+// followed by an equality expression is not misread.
+func assignFollows(s string, i int) bool {
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+		i++
+	}
+	return i < len(s) && s[i] == '=' && (i+1 >= len(s) || s[i+1] != '=')
+}
+
+// skipStringByte returns the index just past a string literal beginning at i in s
+// (the opening quote byte is s[i]). It mirrors the lexer's string forms enough to
+// skip over braces and colons inside a string during the mapAhead peek.
+func skipStringByte(s string, i int) int {
+	quote := s[i]
+	i++
+	for i < len(s) {
+		if quote != '`' && s[i] == '\\' && i+1 < len(s) {
+			i += 2
+			continue
+		}
+		if s[i] == quote {
+			return i + 1
+		}
+		i++
+	}
+	return i
 }
 
 // scanCode tokenizes CODE bytes, emitting tokens until the stop predicate fires at

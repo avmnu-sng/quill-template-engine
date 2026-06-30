@@ -841,3 +841,100 @@ func assertKinds(t *testing.T, got []Token, want []Kind) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Same-line branch continuations: "@} elseif {" / "@} else {" close one branch
+// body and re-open the construct (spec 01 Section 4.1). The lexer emits one
+// BLOCK_CLOSE per branch followed by the continuation STMT head.
+// ---------------------------------------------------------------------------
+
+func TestBlockCloseContinuation(t *testing.T) {
+	in := "@if a {\nx\n@} elseif b {\ny\n@} else {\nz\n@}\n"
+	want := []tok{
+		{kind: STMT, text: "if"},
+		{kind: NAME, text: "a"},
+		{kind: BLOCK_OPEN},
+		{kind: TEXT, text: "x\n"},
+		{kind: BLOCK_CLOSE},
+		{kind: STMT, text: "elseif"},
+		{kind: NAME, text: "b"},
+		{kind: BLOCK_OPEN},
+		{kind: TEXT, text: "y\n"},
+		{kind: BLOCK_CLOSE},
+		{kind: STMT, text: "else"},
+		{kind: BLOCK_OPEN},
+		{kind: TEXT, text: "z\n"},
+		{kind: BLOCK_CLOSE},
+		{kind: EOF},
+	}
+	assertToks(t, in, want)
+}
+
+func TestForElseContinuation(t *testing.T) {
+	in := "@for x in xs {\na\n@} else {\nb\n@}\n"
+	got := lexToks(t, in)
+	want := []Kind{STMT, NAME, NAME, NAME, BLOCK_OPEN, TEXT, BLOCK_CLOSE,
+		STMT, BLOCK_OPEN, TEXT, BLOCK_CLOSE, EOF}
+	gk := kinds(got)
+	if len(gk) != len(want) {
+		t.Fatalf("count: got %d want %d\n got: %s", len(gk), len(want), dump(got))
+	}
+	for i := range want {
+		if gk[i] != want[i] {
+			t.Fatalf("kind %d: got %s want %s\n got: %s", i, gk[i], want[i], dump(got))
+		}
+	}
+	// A lone "@}" (no continuation) still closes as before.
+	assertToks(t, "@for x in xs {\na\n@}\n", []tok{
+		{kind: STMT, text: "for"}, {kind: NAME, text: "x"}, {kind: NAME, text: "in"},
+		{kind: NAME, text: "xs"}, {kind: BLOCK_OPEN}, {kind: TEXT, text: "a\n"},
+		{kind: BLOCK_CLOSE}, {kind: EOF},
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Head map-literal disambiguation: a "{" that opens a mapping literal in a
+// statement head (a depth-zero "{" containing ":" / "..." / empty, or a "{...}="
+// destructuring target) stays CODE, while the body "{" opens the block.
+// ---------------------------------------------------------------------------
+
+func TestHeadMapLiteralVsBodyOpen(t *testing.T) {
+	// @with { x: 1 } { body } -- the first "{...}" is a map, the second is the body.
+	assertToks(t, "@with { x: 1 } {\nbody\n@}\n", []tok{
+		{kind: STMT, text: "with"},
+		{kind: LBRACE}, {kind: NAME, text: "x"}, {kind: COLON}, {kind: INT, text: "1"}, {kind: RBRACE},
+		{kind: BLOCK_OPEN},
+		{kind: TEXT, text: "body\n"},
+		{kind: BLOCK_CLOSE},
+		{kind: EOF},
+	})
+}
+
+func TestHeadEmptyMapLiteral(t *testing.T) {
+	// @with {} only { body } -- "{}" is an empty map, not a body open.
+	got := kinds(lexToks(t, "@with {} only {\nb\n@}\n"))
+	want := []Kind{STMT, LBRACE, RBRACE, NAME, BLOCK_OPEN, TEXT, BLOCK_CLOSE, EOF}
+	if len(got) != len(want) {
+		t.Fatalf("count: got %v want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("kind %d: got %s want %s", i, got[i], want[i])
+		}
+	}
+}
+
+func TestHeadDestructuringTarget(t *testing.T) {
+	// @set {id, label} = rec -- the "{...}" is a destructuring target (followed by
+	// "="), so it stays CODE rather than opening a body.
+	got := kinds(lexToks(t, "@set {id, label} = rec\n"))
+	want := []Kind{STMT, LBRACE, NAME, COMMA, NAME, RBRACE, ASSIGN, NAME, STMT_END, EOF}
+	if len(got) != len(want) {
+		t.Fatalf("count: got %v want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("kind %d: got %s want %s", i, got[i], want[i])
+		}
+	}
+}
