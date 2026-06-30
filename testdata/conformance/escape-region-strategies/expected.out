@@ -1,0 +1,11 @@
+off-default: a&b <x> 'q' "d" /p u:1@h[0]
+html-region: a&amp;b &lt;x&gt; &#39;q&#39; &quot;d&quot; /p u:1@h[0]
+js-nested: a\x26b\x20\x3Cx\x3E\x20\x27q\x27\x20\x22d\x22\x20\x2Fp\x20u\x3A1\x40h\x5B0\x5D
+css-deepest: a\26 b\20 \3C x\3E \20 \27 q\27 \20 \22 d\22 \20 \2F p\20 u\3A 1\40 h\5B 0\5D 
+js-again: a\x26b\x20\x3Cx\x3E\x20\x27q\x27\x20\x22d\x22\x20\x2Fp\x20u\x3A1\x40h\x5B0\x5D
+html-again: a&amp;b &lt;x&gt; &#39;q&#39; &quot;d&quot; /p u:1@h[0]
+raw-site: a&b <x> 'q' "d" /p u:1@h[0]
+off-default-again: a&b <x> 'q' "d" /p u:1@h[0]
+url-region: a%26b%20%3Cx%3E%20%27q%27%20%22d%22%20%2Fp%20u%3A1%40h%5B0%5D
+attr-region: a&#x26;b&#x20;&#x3C;x&#x3E;&#x20;&#x27;q&#x27;&#x20;&#x22;d&#x22;&#x20;&#x2F;p&#x20;u&#x3A;1&#x40;h&#x5B;0&#x5D;
+attr-relaxed-nested: a&#x26;b&#x20;&#x3C;x&#x3E;&#x20;&#x27;q&#x27;&#x20;&#x22;d&#x22;&#x20;&#x2F;p&#x20;u:1@h[0]

@@ -1,0 +1,7 @@
+default-html: &lt;b&gt;a &amp; b&lt;/b&gt;
+off-region: <b>a & b</b>
+html-nested: &lt;b&gt;a &amp; b&lt;/b&gt;
+off-again: <b>a & b</b>
+default-html-again: &lt;b&gt;a &amp; b&lt;/b&gt;
+js-region: \x3Cb\x3Ea\x20\x26\x20b\x3C\x2Fb\x3E
+back-to-default: &lt;b&gt;a &amp; b&lt;/b&gt;

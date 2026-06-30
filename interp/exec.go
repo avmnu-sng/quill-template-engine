@@ -359,8 +359,8 @@ func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Conte
 }
 
 // execCapture renders the body to a string-like value and binds it (spec 01
-// Section 4.3). Under escaping off it is a plain Str; under escaping on it is a
-// Safe value.
+// Section 4.3). Under escaping off it is a plain Str; under any active escape
+// strategy it is a Safe value.
 func (in *interp) execCapture(n *ast.Node, ctx *runtime.Context) error {
 	// The capture node carries an optional KindType child before the body items;
 	// skip it. The body is rendered into a fresh sink.
@@ -372,7 +372,7 @@ func (in *interp) execCapture(n *ast.Node, ctx *runtime.Context) error {
 	if err != nil {
 		return err
 	}
-	if in.escape == "html" {
+	if in.escape != "" {
 		ctx.Set(n.Str, runtime.Safe(out))
 	} else {
 		ctx.Set(n.Str, runtime.Str(out))
@@ -452,23 +452,42 @@ func (in *interp) execApply(n *ast.Node, ctx *runtime.Context) error {
 	return posErr(n, in.emit(v))
 }
 
-// execEscape sets the active strategy for the region, then restores it (spec 01
-// Section 4.7). "off" / "raw" disables escaping; "html" enables the html
-// strategy; other strategies are deferred.
+// execEscape sets the active strategy for the region body, then restores the
+// prior strategy on exit (spec 01 Section 4.7, 04 Section 8). The save/restore
+// of in.escape is the strategy STACK: a nested @escape region composes by
+// pushing its strategy and popping back to the enclosing one (the module default
+// or an outer region) when the body ends. "off"/"raw"/"none" disable escaping;
+// the six named strategies (html, js, css, html_attr, html_attr_relaxed, url)
+// each apply their escaper to every interpolated value in the body via emit.
 func (in *interp) execEscape(n *ast.Node, ctx *runtime.Context) error {
 	saved := in.escape
-	switch n.Str {
-	case "off", "raw", "none":
-		in.escape = ""
-	case "html":
-		in.escape = "html"
-	default:
-		return posErr(n, errors.New(errors.KindRuntime,
-			"escape strategy %q is not implemented; only html and off are available", n.Str))
+	strategy, err := normalizeEscapeStrategy(n.Str)
+	if err != nil {
+		return posErr(n, err)
 	}
-	err := in.execItems(n.Children, ctx)
+	in.escape = strategy
+	err = in.execItems(n.Children, ctx)
 	in.escape = saved
 	return err
+}
+
+// normalizeEscapeStrategy maps an @escape region's strategy word to the stored
+// active-strategy value: "" means escaping off, otherwise one of the six named
+// strategies. off and its synonym raw are the documented off spellings (spec 04
+// Section 8.1). An unknown word is a runtime error naming the valid set; the six
+// strategies themselves are validated against the shared ext escaper so the
+// region and the escape()/e() filter stay in lockstep.
+func normalizeEscapeStrategy(word string) (string, error) {
+	switch word {
+	case "off", "raw":
+		return "", nil
+	case "html", "js", "css", "html_attr", "html_attr_relaxed", "url":
+		return word, nil
+	default:
+		return "", errors.New(errors.KindRuntime,
+			"unknown escape strategy %q; expected one of off, html, js, css, "+
+				"html_attr, html_attr_relaxed, url", word)
+	}
 }
 
 // execGuard selects a branch on whether the named callable is registered (spec

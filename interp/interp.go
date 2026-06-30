@@ -96,9 +96,12 @@ type interp struct {
 	blocks      map[string]*blockEntry
 	parentChain []*Template
 
-	// escape is the active output strategy: "" / "off" means verbatim, "html"
-	// means the html escaper (spec 04 Section 8). It is saved/restored across an
-	// @escape region.
+	// escape is the active output strategy: "" means verbatim (off), otherwise
+	// one of the six named strategies (html, js, css, html_attr,
+	// html_attr_relaxed, url) shared with the escape()/e() filter (spec 04
+	// Section 8). It is saved/restored across an @escape region, and that
+	// save/restore is the strategy STACK that composes nested regions with the
+	// module default.
 	escape string
 
 	// macros holds the macro namespace visible to the current render: the root
@@ -183,8 +186,16 @@ func (in *interp) emit(v runtime.Value) error {
 	if err != nil {
 		return err
 	}
-	if in.escape == "html" && v.Kind != runtime.KSafe {
-		text = ext.EscapeHTML(text)
+	// A Safe value carries already-escaped content and is emitted verbatim under
+	// any active strategy. Otherwise, when a strategy is active, the value's text
+	// flows through the shared escaper for that strategy (spec 04 Section 8). The
+	// code-point strategies (js, css, html_attr, html_attr_relaxed) can raise a
+	// charset error on invalid UTF-8, surfaced here.
+	if in.escape != "" && v.Kind != runtime.KSafe {
+		text, err = ext.Escape(in.escape, text)
+		if err != nil {
+			return err
+		}
 	}
 	_, err = in.out.WriteString(text)
 	return err

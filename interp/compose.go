@@ -76,7 +76,7 @@ func (in *interp) callParent(n *ast.Node, ctx *runtime.Context) (runtime.Value, 
 	if err != nil {
 		return runtime.Null(), err
 	}
-	if in.escape == "html" {
+	if in.escape != "" {
 		return runtime.Safe(sub.b.String()), nil
 	}
 	return runtime.Str(sub.b.String()), nil
@@ -131,7 +131,7 @@ func (in *interp) callBlock(n *ast.Node, ctx *runtime.Context) (runtime.Value, e
 	if err != nil {
 		return runtime.Null(), err
 	}
-	if in.escape == "html" {
+	if in.escape != "" {
 		return runtime.Safe(sub.b.String()), nil
 	}
 	return runtime.Str(sub.b.String()), nil
@@ -325,7 +325,7 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 	if err != nil {
 		return runtime.Null(), err
 	}
-	if in.escape == "html" {
+	if in.escape != "" {
 		return runtime.Safe(out), nil
 	}
 	return runtime.Str(out), nil

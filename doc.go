@@ -15,19 +15,21 @@
 //     enforced) and @cache (renders its body, no caching), spec 01 Section 4.7.
 //   - Map destructuring in @set and @use traits raise explicit errors where
 //     reached.
-//   - The @escape block region only switches between html and off; the other
-//     strategies (js, css, html_attr, html_attr_relaxed, url) are reachable via
-//     the escape()/e() filter and error clearly as a region (spec 01 Section 4).
 //
 // Application-specific functions are intentionally not built in: they are
 // registered by the host through the extension surface
 // (ext.ExtensionSet.AddFunction), which this milestone exercises, rather than
 // shipped as engine primitives.
 //
-// Implemented this slice: the full spec-03 standard-library catalogue (every
-// remaining filter, function, and test), arrow functions evaluating through
-// map/filter/sort/reduce/find and the "has some"/"has every" quantifiers, and
-// all six escape strategies (html, js, css, html_attr, html_attr_relaxed, url).
-// The regex "matches" operator (Go RE2 dialect) and the whitespace-control trim
-// modifiers (the - / ~ / + flags) were already implemented.
+// Implemented this slice: the @escape block region now accepts any of the six
+// strategies (html, js, css, html_attr, html_attr_relaxed, url) plus off/raw and
+// applies it to its body, sharing the same escapers as the escape()/e() filter.
+// Nested regions and the module default compose via a strategy stack
+// (save/restore on region entry/exit), so an inner region restores the enclosing
+// strategy on exit, and captures/macros/blocks under any active strategy yield a
+// Safe value (spec 04 Section 8). Previously implemented: the full spec-03
+// standard-library catalogue, arrow functions through
+// map/filter/sort/reduce/find and the "has some"/"has every" quantifiers, all six
+// escape strategies via the filter, the regex "matches" operator (Go RE2
+// dialect), and the whitespace-control trim modifiers (the - / ~ / + flags).
 package quill
