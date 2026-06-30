@@ -1,0 +1,134 @@
+package quill
+
+import (
+	"github.com/avmnusng/quill-template-engine/cache"
+	"github.com/avmnusng/quill-template-engine/ext"
+	"github.com/avmnusng/quill-template-engine/interp"
+	"github.com/avmnusng/quill-template-engine/loader"
+	"github.com/avmnusng/quill-template-engine/parse"
+	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnusng/quill-template-engine/source"
+)
+
+// Environment is the engine facade: it ties a Loader, a parse cache, and the
+// callable registry together and renders templates by name or from a string. It
+// implements interp.Engine so the tree-walking renderer can load parents,
+// includes, and imports through it.
+//
+// The defaults match the spec: autoescape is OFF (the source-emission default,
+// spec 04 Section 8.1) and strict_variables is ON (the strict-by-default
+// undefined policy, spec 04 Section 6). Both are configurable via Option.
+type Environment struct {
+	loader     loader.Loader
+	cache      *cache.Cache
+	extensions *ext.ExtensionSet
+
+	autoescapeHTML  bool
+	strictVariables bool
+}
+
+// Option configures an Environment at construction.
+type Option func(*Environment)
+
+// WithAutoescapeHTML turns the default output strategy to html (off by default).
+func WithAutoescapeHTML(on bool) Option {
+	return func(e *Environment) { e.autoescapeHTML = on }
+}
+
+// WithStrictVariables sets strict-undefined handling (on by default). Setting it
+// false enables the lenient migration mode: an undefined read becomes Null and a
+// for over a non-iterable becomes an empty loop (spec 04 Section 6).
+func WithStrictVariables(on bool) Option {
+	return func(e *Environment) { e.strictVariables = on }
+}
+
+// WithExtensions replaces the callable registry (e.g. to layer host callables
+// over the core set). The provided set is used as-is.
+func WithExtensions(set *ext.ExtensionSet) Option {
+	return func(e *Environment) { e.extensions = set }
+}
+
+// New builds an Environment over a Loader with the given options. The core
+// stdlib subset is installed, then the engine-bound include/block-family
+// callables, then any host extensions supplied via WithExtensions take
+// precedence (host callables shadow core, spec 03 Section 1).
+func New(ldr loader.Loader, opts ...Option) *Environment {
+	e := &Environment{
+		loader:          ldr,
+		cache:           cache.New(),
+		extensions:      ext.Core(),
+		autoescapeHTML:  false,
+		strictVariables: true,
+	}
+	for _, opt := range opts {
+		opt(e)
+	}
+	e.registerEngineCallables()
+	return e
+}
+
+// NewWithArray is a convenience constructor over an in-memory template map.
+func NewWithArray(templates map[string]string, opts ...Option) *Environment {
+	return New(loader.NewArrayLoader(templates), opts...)
+}
+
+// Extensions returns the callable registry (interp.Engine).
+func (e *Environment) Extensions() *ext.ExtensionSet { return e.extensions }
+
+// StrictVariables reports the undefined-handling policy (interp.Engine).
+func (e *Environment) StrictVariables() bool { return e.strictVariables }
+
+// AutoescapeHTML reports the default output strategy (interp.Engine).
+func (e *Environment) AutoescapeHTML() bool { return e.autoescapeHTML }
+
+// LoadTemplate parses (memoized) and prepares the named template (interp.Engine).
+func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
+	if mod, ok := e.cache.Get(name); ok {
+		return interp.Prepare(name, mod), nil
+	}
+	src, err := e.loader.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	mod, err := parse.Parse(src)
+	if err != nil {
+		return nil, err
+	}
+	e.cache.Put(name, mod)
+	return interp.Prepare(name, mod), nil
+}
+
+// TemplateExists reports whether the named template can be loaded (interp.Engine).
+func (e *Environment) TemplateExists(name string) bool {
+	if _, ok := e.cache.Get(name); ok {
+		return true
+	}
+	return e.loader.Exists(name)
+}
+
+// Render loads the named template and renders it with vars, returning the output.
+func (e *Environment) Render(name string, vars map[string]runtime.Value) (string, error) {
+	tmpl, err := e.LoadTemplate(name)
+	if err != nil {
+		return "", err
+	}
+	return interp.Render(e, tmpl, vars)
+}
+
+// RenderString parses an ad-hoc template body (not added to the loader) and
+// renders it. Inheritance/include/import targets in the body still resolve
+// through the loader by name.
+func (e *Environment) RenderString(name, body string, vars map[string]runtime.Value) (string, error) {
+	mod, err := parse.Parse(source.New(name, body))
+	if err != nil {
+		return "", err
+	}
+	tmpl := interp.Prepare(name, mod)
+	return interp.Render(e, tmpl, vars)
+}
+
+// Display renders the named template directly into a Sink (the push model),
+// avoiding an intermediate full-output string when the caller streams.
+func (e *Environment) Display(name string, vars map[string]runtime.Value) (string, error) {
+	return e.Render(name, vars)
+}

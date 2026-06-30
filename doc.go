@@ -5,4 +5,21 @@
 // library, and runtime semantics.
 //
 // This package is under active development; its API is not yet stable.
+//
+// Deferred to a later milestone (NOT silently stubbed; each errors clearly or is
+// documented at its site rather than mis-rendering):
+//
+//   - The gradual type checker. @types / per-variable annotations parse but are
+//     not enforced at render time (spec 04 Section 1).
+//   - The full stdlib catalogue. This milestone ships the subset in ext.Core;
+//     unregistered filters/functions/tests raise an "unknown ..." error.
+//   - Escape strategies beyond html: js, css, html_attr, html_attr_relaxed, url
+//     raise an explicit "not implemented" error when requested (spec 03 5.5).
+//   - The sandbox (@sandbox renders its body transparently; no policy is yet
+//     enforced) and @cache (renders its body, no caching), spec 01 Section 4.7.
+//   - Whitespace-control trim modifiers (the - / ~ / + flags) are recorded by
+//     the lexer on delimiter tokens but not yet propagated through the AST to the
+//     renderer; structural-line whitespace from the lexer IS honored.
+//   - The membership operators "matches", "has some", "has every", map
+//     destructuring in @set, and @use traits raise explicit errors where reached.
 package quill
