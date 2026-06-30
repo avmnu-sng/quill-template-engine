@@ -264,8 +264,19 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 			return err
 		}
 	}
-	// Propagate reassignments of names that existed before the loop.
+	// Propagate reassignments of names that existed before the loop, but NEVER the
+	// loop's own control bindings (the target(s) and `loop`). Those are scoped to
+	// this loop; copying them back would clobber an enclosing loop's `loop`
+	// metadata or target with this inner loop's last value (spec 01 Section 4.2:
+	// loop metadata reflects the CURRENT loop after an inner loop returns).
+	bound := map[string]bool{target1.Str: true, "loop": true}
+	if target2 != nil {
+		bound[target2.Str] = true
+	}
 	for _, name := range pre.Names() {
+		if bound[name] {
+			continue
+		}
 		if v, ok := loopCtx.Get(name); ok {
 			pre.Set(name, v)
 		}

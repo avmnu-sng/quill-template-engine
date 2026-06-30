@@ -177,10 +177,11 @@ func (in *interp) isDefined(n *ast.Node, ctx *runtime.Context) bool {
 
 // collectArgs flattens a call/filter node's KindArg children into a positional
 // argument slice, prepended with prefix (the piped value for a filter). Named
-// and spread arguments are supported; named args are appended after positionals
-// for the simple positional-binding callables of this slice (the core stdlib
-// uses positional parameters), preserving named values so a host callable that
-// inspects them still receives them in order.
+// and spread arguments are flattened positionally. Host filters/functions/
+// methods expose no parameter-name metadata on the ext surface, so a named arg
+// to a host callable can only be passed in source order; macro calls use
+// collectArgsNamed instead to bind by parameter name (design/expressions.md
+// Section 7).
 func (in *interp) collectArgs(n *ast.Node, ctx *runtime.Context, prefix []runtime.Value) ([]runtime.Value, error) {
 	args := append([]runtime.Value(nil), prefix...)
 	for _, c := range n.Children {
@@ -207,6 +208,56 @@ func (in *interp) collectArgs(n *ast.Node, ctx *runtime.Context, prefix []runtim
 		}
 	}
 	return args, nil
+}
+
+// namedArg is one resolved name:value argument, kept ordered so a duplicate or
+// unknown name reports deterministically.
+type namedArg struct {
+	name string
+	val  runtime.Value
+}
+
+// collectArgsNamed splits a call's KindArg children into positional values and
+// named arguments, so a macro can bind named args BY PARAMETER NAME rather than
+// by source position (the silent-misbind that flattening would cause). A spread
+// of a mapping contributes named arguments by string key; a spread of a
+// sequence contributes positionals. design/expressions.md Section 7 requires
+// named args to bind by name and appear in any order.
+func (in *interp) collectArgsNamed(n *ast.Node, ctx *runtime.Context) (positional []runtime.Value, named []namedArg, err error) {
+	for _, c := range n.Children {
+		if c.Kind != ast.KindArg {
+			continue
+		}
+		switch c.Int {
+		case ast.ArgPositional:
+			v, err := in.eval(c.Child(0), ctx, false)
+			if err != nil {
+				return nil, nil, err
+			}
+			positional = append(positional, v)
+		case ast.ArgNamed:
+			v, err := in.eval(c.Child(0), ctx, false)
+			if err != nil {
+				return nil, nil, err
+			}
+			named = append(named, namedArg{name: c.Str, val: v})
+		case ast.ArgSpread:
+			v, err := in.eval(c.Child(0), ctx, false)
+			if err != nil {
+				return nil, nil, err
+			}
+			if v.Kind == runtime.KArray && v.Arr != nil {
+				for _, p := range v.Arr.Pairs() {
+					if p.Key.Kind == runtime.KStr {
+						named = append(named, namedArg{name: p.Key.S, val: p.Val})
+					} else {
+						positional = append(positional, p.Val)
+					}
+				}
+			}
+		}
+	}
+	return positional, named, nil
 }
 
 // injectFilter prepends the engine values a filter's Needs* flags request, in

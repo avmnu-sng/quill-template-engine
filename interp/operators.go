@@ -8,6 +8,100 @@ import (
 	"github.com/avmnusng/quill-template-engine/runtime"
 )
 
+// overflowErr is the uniform int64-overflow arithmetic error, naming the
+// operation and both operands (spec 04 Section 2.1: overflow is a defined error
+// across + - * // **, never a silent wrap or float promotion).
+func overflowErr(n *ast.Node, op string, a, b int64) error {
+	return posErr(n, errors.New(errors.KindArithmetic,
+		"%q overflows int64: %d and %d", op, a, b))
+}
+
+// addInt64/subInt64/mulInt64/divInt64/floorDivInt64 are checked signed-int64
+// operations: each returns (result, false) when the true result is not
+// representable in int64. They are the single source of the overflow rule so
+// every arithmetic path reports it identically.
+func addInt64(a, b int64) (int64, bool) {
+	s := a + b
+	// Overflow iff both operands share a sign and the sum's sign differs.
+	if (a > 0 && b > 0 && s < 0) || (a < 0 && b < 0 && s >= 0) {
+		return 0, false
+	}
+	return s, true
+}
+
+func subInt64(a, b int64) (int64, bool) {
+	d := a - b
+	// Overflow iff the operands' signs differ and the result's sign differs from a.
+	if (a >= 0 && b < 0 && d < 0) || (a < 0 && b > 0 && d >= 0) {
+		return 0, false
+	}
+	return d, true
+}
+
+func mulInt64(a, b int64) (int64, bool) {
+	if a == 0 || b == 0 {
+		return 0, true
+	}
+	p := a * b
+	// p/a recovers b exactly unless the product overflowed. The MinInt64 * -1
+	// case (which p/a would not catch cleanly) is covered by the explicit guard.
+	if (a == math.MinInt64 && b == -1) || (b == math.MinInt64 && a == -1) {
+		return 0, false
+	}
+	if p/a != b {
+		return 0, false
+	}
+	return p, true
+}
+
+func divInt64(a, b int64) (int64, bool) {
+	if a == math.MinInt64 && b == -1 {
+		return 0, false // the one quotient that overflows int64
+	}
+	return a / b, true
+}
+
+// floorDivInt64 floors toward negative infinity (Go's / truncates toward zero),
+// so the quotient is decremented when the division is inexact and the operands
+// have opposite signs. Shares the MinInt64/-1 overflow guard with divInt64.
+func floorDivInt64(a, b int64) (int64, bool) {
+	q, ok := divInt64(a, b)
+	if !ok {
+		return 0, false
+	}
+	if (a%b != 0) && ((a < 0) != (b < 0)) {
+		q--
+	}
+	return q, true
+}
+
+// powInt64 computes a**e for a non-negative exponent e by repeated checked
+// multiplication, returning (result, false) on int64 overflow. e is assumed
+// >= 0 (the caller routes negative exponents to the float path).
+func powInt64(a, e int64) (int64, bool) {
+	result := int64(1)
+	base := a
+	for e > 0 {
+		if e&1 == 1 {
+			p, ok := mulInt64(result, base)
+			if !ok {
+				return 0, false
+			}
+			result = p
+		}
+		e >>= 1
+		if e == 0 {
+			break
+		}
+		sq, ok := mulInt64(base, base)
+		if !ok {
+			return 0, false
+		}
+		base = sq
+	}
+	return result, true
+}
+
 // evalBinary handles the KindBinary operators: arithmetic, concat, range,
 // comparison, bitwise. Comparison routes to runtime.Equal/Order so there is one
 // equality and one ordering (spec 04 Sections 3, 4); arithmetic never coerces.
@@ -77,17 +171,29 @@ func (in *interp) arith(n *ast.Node, op string, l, r runtime.Value) (runtime.Val
 	switch op {
 	case "+":
 		if bothInt {
-			return runtime.Int(l.I + r.I), nil
+			s, ok := addInt64(l.I, r.I)
+			if !ok {
+				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+			}
+			return runtime.Int(s), nil
 		}
 		return finite(n, asF(l)+asF(r))
 	case "-":
 		if bothInt {
-			return runtime.Int(l.I - r.I), nil
+			d, ok := subInt64(l.I, r.I)
+			if !ok {
+				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+			}
+			return runtime.Int(d), nil
 		}
 		return finite(n, asF(l)-asF(r))
 	case "*":
 		if bothInt {
-			return runtime.Int(l.I * r.I), nil
+			p, ok := mulInt64(l.I, r.I)
+			if !ok {
+				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+			}
+			return runtime.Int(p), nil
 		}
 		return finite(n, asF(l)*asF(r))
 	case "/":
@@ -97,12 +203,27 @@ func (in *interp) arith(n *ast.Node, op string, l, r runtime.Value) (runtime.Val
 		// "/" yields an int when both are ints and the division is exact, else a
 		// float, keeping integer arithmetic integral where it can (spec 04 Section 2).
 		if bothInt && l.I%r.I == 0 {
-			return runtime.Int(l.I / r.I), nil
+			q, ok := divInt64(l.I, r.I)
+			if !ok {
+				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+			}
+			return runtime.Int(q), nil
 		}
 		return finite(n, asF(l)/asF(r))
 	case "//":
 		if asF(r) == 0 {
 			return runtime.Null(), posErr(n, errors.New(errors.KindArithmetic, "floor division by zero"))
+		}
+		// Two ints floor-divide in int64 so the result keeps Int kind (spec 04
+		// Section 2.1 // row): a Float here would silently break any downstream
+		// Int-only context (bitwise ops, exact-kind equality). Only MinInt64/-1
+		// overflows int64 division.
+		if bothInt {
+			q, ok := floorDivInt64(l.I, r.I)
+			if !ok {
+				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+			}
+			return runtime.Int(q), nil
 		}
 		return finite(n, math.Floor(asF(l)/asF(r)))
 	case "%":
@@ -173,14 +294,20 @@ func (in *interp) evalPower(n *ast.Node, ctx *runtime.Context) (runtime.Value, e
 		return runtime.Null(), posErr(n, errors.New(errors.KindArithmetic,
 			"** expects numbers, got %s and %s", base.Kind, exp.Kind))
 	}
-	res := math.Pow(asF(base), asF(exp))
-	// Keep an integer result integral when both operands are ints and the exponent
-	// is non-negative, matching the number tower.
-	if base.Kind == runtime.KInt && exp.Kind == runtime.KInt && exp.I >= 0 &&
-		res == math.Trunc(res) && !math.IsInf(res, 0) {
-		return runtime.Int(int64(res)), nil
+	// An Int base with a NON-NEGATIVE Int exponent yields an Int; the power is
+	// computed in int64 (NOT via math.Pow, which loses precision above 2^53 and
+	// saturates on int64 conversion) and an overflow is an ERROR, never a float
+	// promotion or a silently-truncated literal (spec 04 Section 2.1 ** row).
+	if base.Kind == runtime.KInt && exp.Kind == runtime.KInt && exp.I >= 0 {
+		p, ok := powInt64(base.I, exp.I)
+		if !ok {
+			return runtime.Null(), overflowErr(n, "**", base.I, exp.I)
+		}
+		return runtime.Int(p), nil
 	}
-	return finite(n, res)
+	// A negative integer exponent or any Float operand yields a Float (spec 04:
+	// 2 ** -1 == 0.5). A non-finite result is rejected at the finite() boundary.
+	return finite(n, math.Pow(asF(base), asF(exp)))
 }
 
 // evalMembership implements in / not in / matches / starts with / ends with /

@@ -210,11 +210,11 @@ func (in *interp) callMacro(n *ast.Node, name string, ctx *runtime.Context) (run
 	if !ok {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime, "unknown macro %q", name))
 	}
-	args, err := in.collectArgs(n, ctx, nil)
+	pos, named, err := in.collectArgsNamed(n, ctx)
 	if err != nil {
 		return runtime.Null(), err
 	}
-	return in.invokeMacro(n, entry, args)
+	return in.invokeMacro(n, entry, pos, named)
 }
 
 // callMacroIn invokes a macro defined in template home (the ns.macro() and
@@ -225,25 +225,52 @@ func (in *interp) callMacroIn(n *ast.Node, home *Template, name string, ctx *run
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"template %q has no macro %q", home.Name, name))
 	}
-	args, err := in.collectArgs(n, ctx, nil)
+	pos, named, err := in.collectArgsNamed(n, ctx)
 	if err != nil {
 		return runtime.Null(), err
 	}
-	return in.invokeMacro(n, &macroEntry{home: home, node: node}, args)
+	return in.invokeMacro(n, &macroEntry{home: home, node: node}, pos, named)
 }
 
-// invokeMacro binds the positional arguments to the macro's parameters (applying
+// invokeMacro binds positional arguments to the macro's parameters by index,
+// then overlays named arguments onto the matching parameter by NAME (applying
 // constant defaults and a variadic tail), renders the body in an isolated scope,
 // and returns the captured output as a Str (or Safe under escaping). The macro
 // namespace of the macro's home template is made visible inside the body so a
-// macro can call itself or a sibling by bare name (spec 01 Section 5.3).
-func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Value) (runtime.Value, error) {
+// macro can call itself or a sibling by bare name (spec 01 Section 5.3). Named
+// args bind by parameter name and may appear in any order; an unknown name, or a
+// name that duplicates a parameter already filled positionally, is an error
+// (design/expressions.md Section 7).
+func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Value, named []namedArg) (runtime.Value, error) {
 	params := entry.node.Child(0) // KindParams
 	scope := runtime.NewContext()
 
+	// Map each named argument to its parameter; reject unknown names up front so a
+	// typo never silently lands in the wrong slot or falls through to a default.
+	paramIndex := map[string]int{}
+	var variadicName string
+	for i, p := range params.Children {
+		paramIndex[p.Str] = i
+		if p.Bool {
+			variadicName = p.Str
+		}
+	}
+	namedByParam := map[string]runtime.Value{}
+	for _, na := range named {
+		if _, ok := paramIndex[na.name]; !ok || na.name == variadicName {
+			return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+				"macro %q has no parameter %q", entry.node.Str, na.name))
+		}
+		if _, dup := namedByParam[na.name]; dup {
+			return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+				"duplicate named argument %q", na.name))
+		}
+		namedByParam[na.name] = na.val
+	}
+
 	pi := 0
 	for _, p := range params.Children {
-		if p.Bool { // variadic ...rest captures the remaining args as a list
+		if p.Bool { // variadic ...rest captures the remaining positional args as a list
 			rest := runtime.NewArray()
 			j := int64(0)
 			for ; pi < len(args); pi++ {
@@ -253,9 +280,20 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 			scope.Set(p.Str, runtime.Arr(rest))
 			continue
 		}
+		// Positional binding takes the parameter's slot first; a named arg for the
+		// SAME parameter is then a double-bind error.
 		if pi < len(args) {
+			if _, dup := namedByParam[p.Str]; dup {
+				return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+					"parameter %q given both positionally and by name", p.Str))
+			}
 			scope.Set(p.Str, args[pi])
 			pi++
+			continue
+		}
+		// Then a named argument bound by parameter name, regardless of order.
+		if nv, ok := namedByParam[p.Str]; ok {
+			scope.Set(p.Str, nv)
 			continue
 		}
 		// Apply a constant default if present (Int has ParamHasDefault).
