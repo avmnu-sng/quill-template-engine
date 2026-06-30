@@ -71,6 +71,27 @@ func TestEqualObjectHook(t *testing.T) {
 	}
 }
 
+// TestEqualObjectHookAsymmetric pins that objectEqual consults the LEFT
+// operand's Equaler hook against the right Value as-is. A hook that matches a
+// different object type answers true left-to-right; the plain right operand has
+// no hook, so the reverse routes through identity and is false. Equal as a
+// whole is therefore only as symmetric as the host hooks make it -- the runtime
+// does not symmetrize a one-sided host hook (spec 04 Section 4.1).
+func TestEqualObjectHookAsymmetric(t *testing.T) {
+	tagged := newFieldObj("Tag", map[string]Value{"id": Int(5)})
+	left := Obj(&fieldMatchObj{fieldObj: newFieldObj("Matcher", nil), wantClass: "Tag"})
+	right := Obj(tagged)
+
+	if !Equal(left, right) {
+		t.Fatal("left hook matching the right object's class should be equal")
+	}
+	// Reverse: right is a plain fieldObj with no hook -> identity, distinct
+	// instances -> false. This asymmetry is the host's, not the runtime's.
+	if Equal(right, left) {
+		t.Fatal("plain right operand has no hook; reverse should fall to identity (false)")
+	}
+}
+
 func TestEqualArrayStructural(t *testing.T) {
 	tests := []struct {
 		name string
@@ -164,6 +185,10 @@ func TestOrder(t *testing.T) {
 		{`"abc" < "abd"`, Str("abc"), Str("abd"), -1, false},
 		{"equal strings", Str("x"), Str("x"), 0, false},
 		{"Safe orders as str", Safe("a"), Str("b"), -1, false},
+		// Safe normalizes to Str on both sides: equal content orders as 0.
+		{`Safe("x") vs Safe("x") equal`, Safe("x"), Safe("x"), 0, false},
+		// Safe normalizes to Str, and Str-vs-number is defined nowhere.
+		{`Safe("1") vs 1 error`, Safe("1"), Int(1), 0, true},
 		{`1 vs "1" error`, Int(1), Str("1"), 0, true},
 		{"null vs 0 error", Null(), Int(0), 0, true},
 		{"bool vs bool error", Bool(true), Bool(false), 0, true},
@@ -204,6 +229,10 @@ func TestIn(t *testing.T) {
 		{"substring false", Str("qq"), Str("xabz"), false, false},
 		{"empty needle true", Str(""), Str("abc"), true, false},
 		{"int needle into str renders", Int(2), Str("a2b"), true, false},
+		// An un-renderable needle (an *Array) into a Str haystack surfaces the
+		// ToText render error rather than a silent miss (spec 04 Section 4.3 /
+		// Section 5: arrays do not render as text).
+		{"array needle into str errors", Arr(NewList(Int(1))), Str("ab"), false, true},
 		{"non-collection error", Int(1), Int(1), false, true},
 	}
 	for _, tt := range tests {

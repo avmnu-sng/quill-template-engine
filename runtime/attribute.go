@@ -48,6 +48,13 @@ func getDot(recv, key Value, allowAbsent bool) (Value, error) {
 	name := key.S // dotted access always names a string member
 	switch recv.Kind {
 	case KArray:
+		// A nil *Array is a valid empty collection everywhere else in the
+		// runtime (Truthy, Empty, In, arrayEqual all guard Arr == nil); treat
+		// it as an empty array here so a benign empty value never panics.
+		if recv.Arr == nil {
+			return absent(allowAbsent, errors.New(errors.KindUndefined,
+				"no key %q (available keys: %s)", name, keyList(recv.Arr)))
+		}
 		if v, ok := recv.Arr.GetStr(name); ok {
 			return v, nil
 		}
@@ -82,6 +89,12 @@ func getIndex(recv, key Value, allowAbsent bool) (Value, error) {
 
 	switch recv.Kind {
 	case KArray:
+		// A nil *Array is a valid empty collection (mirrors the Arr == nil
+		// guards in truthy.go/iterate.go/compare.go); never dereference it.
+		if recv.Arr == nil {
+			return absent(allowAbsent, errors.New(errors.KindUndefined,
+				"no key %s (available keys: %s)", keyText(key), keyList(recv.Arr)))
+		}
 		if v, ok := recv.Arr.Get(key); ok {
 			return v, nil
 		}
@@ -146,6 +159,11 @@ func keyList(a *Array) string {
 func IsDefinedAttribute(recv, key Value, kind AccessKind) bool {
 	switch recv.Kind {
 	case KArray:
+		// A nil *Array holds no members, so every presence test is false
+		// without dereferencing (mirrors the Arr == nil guards elsewhere).
+		if recv.Arr == nil {
+			return false
+		}
 		if kind == AccessDot {
 			_, ok := recv.Arr.GetStr(key.S)
 			return ok

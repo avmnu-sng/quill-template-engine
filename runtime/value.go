@@ -140,6 +140,15 @@ func Int(i int64) Value { return Value{Kind: KInt, I: i} }
 // Float wraps a float64. Callers must reject non-finite floats at the value
 // boundary (spec 04 Section 2.1); this constructor does not validate so that
 // the boundary check has a single, explicit home (see RejectNonFinite).
+//
+// SLICE GAP (s0-runtime): RejectNonFinite is a forward primitive that is NOT
+// yet wired into any boundary in this slice -- it is exercised only by its own
+// unit test. The host-float and arithmetic boundaries that will call it land in
+// a later milestone (arithmetic operators are deferred to M2/M3). Until then a
+// caller CAN construct Float(NaN)/Float(Inf), and Equal/Order are NOT total
+// over those constructed values (Equal(Float(NaN),Float(NaN)) is false). The
+// reflexivity/totality invariant the compare.go comments cite holds only once
+// that boundary is wired; reviewers should not assume it is enforced yet.
 func Float(f float64) Value { return Value{Kind: KFloat, F: f} }
 
 // Str wraps a byte string.

@@ -106,6 +106,49 @@ func TestGetAttributeIndexObject(t *testing.T) {
 	}
 }
 
+// TestGetAttributeNilArray pins the BLOCKING fix: a Value{Kind:KArray,Arr:nil}
+// is a benign empty collection (like the Arr == nil guards in truthy/iterate/
+// compare), so dotted/index access must return a clean strict-undefined miss
+// (or Null under suppression), never panic.
+func TestGetAttributeNilArray(t *testing.T) {
+	nilArr := Value{Kind: KArray, Arr: nil}
+	cases := []struct {
+		name string
+		key  Value
+		kind AccessKind
+	}{
+		{"dot", Str("x"), AccessDot},
+		{"index int", Int(0), AccessIndex},
+		{"index str", Str("x"), AccessIndex},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// strict: a miss, not a panic
+			_, err := GetAttribute(nilArr, tc.key, tc.kind, false)
+			if errors.KindOf(err) != errors.KindUndefined {
+				t.Fatalf("strict nil-array %s: kind = %v, want undefined", tc.name, errors.KindOf(err))
+			}
+			// suppressed: Null, no error
+			got, err := GetAttribute(nilArr, tc.key, tc.kind, true)
+			if err != nil || !got.IsNull() {
+				t.Fatalf("suppressed nil-array %s = %v, %v; want null,nil", tc.name, got, err)
+			}
+		})
+	}
+}
+
+// TestIsDefinedAttributeNilArray pins that presence on a nil *Array is false
+// without dereferencing.
+func TestIsDefinedAttributeNilArray(t *testing.T) {
+	nilArr := Value{Kind: KArray, Arr: nil}
+	if IsDefinedAttribute(nilArr, Str("x"), AccessDot) {
+		t.Fatal("nil-array dot is defined should be false")
+	}
+	if IsDefinedAttribute(nilArr, Int(0), AccessIndex) {
+		t.Fatal("nil-array index is defined should be false")
+	}
+}
+
 func TestIsDefinedAttributePresenceNotValue(t *testing.T) {
 	a := NewArray()
 	a.SetStr("present", Null()) // present but Null

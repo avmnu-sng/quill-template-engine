@@ -68,3 +68,19 @@ func (o *equalObj) Equal(other Value) bool {
 	e, ok := other.Obj.(*equalObj)
 	return ok && e.id == o.id
 }
+
+// fieldMatchObj is an Equaler whose hook matches ANY object whose ClassName
+// equals wantClass -- i.e. it can answer equal across two DIFFERENT object
+// types, used to exercise the one-sided (asymmetric) hook path.
+type fieldMatchObj struct {
+	*fieldObj
+	wantClass string
+}
+
+func (o *fieldMatchObj) Equal(other Value) bool {
+	if other.Kind != KObject {
+		return false
+	}
+	c, ok := other.Obj.(ClassNamed)
+	return ok && c.ClassName() == o.wantClass
+}
