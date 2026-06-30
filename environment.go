@@ -25,6 +25,9 @@ type Environment struct {
 
 	autoescapeHTML  bool
 	strictVariables bool
+
+	randomSeed    int64
+	randomSeedSet bool
 }
 
 // Option configures an Environment at construction.
@@ -40,6 +43,18 @@ func WithAutoescapeHTML(on bool) Option {
 // for over a non-iterable becomes an empty loop (spec 04 Section 6).
 func WithStrictVariables(on bool) Option {
 	return func(e *Environment) { e.strictVariables = on }
+}
+
+// WithRandomSeed fixes the seed of the engine's randomness functions (random,
+// shuffle), making their output deterministic and reproducible. This is the
+// documented determinism mechanism for tests and golden output (spec 03 Section
+// 3.2, X15); without it the functions draw from a time-seeded source. It is a
+// host/environment knob, distinct from any template-author argument.
+func WithRandomSeed(seed int64) Option {
+	return func(e *Environment) {
+		e.randomSeed = seed
+		e.randomSeedSet = true
+	}
 }
 
 // WithExtensions replaces the callable registry (e.g. to layer host callables
@@ -80,6 +95,9 @@ func (e *Environment) StrictVariables() bool { return e.strictVariables }
 
 // AutoescapeHTML reports the default output strategy (interp.Engine).
 func (e *Environment) AutoescapeHTML() bool { return e.autoescapeHTML }
+
+// RandomSeed returns the configured RNG seed and whether one was set (interp.Engine).
+func (e *Environment) RandomSeed() (int64, bool) { return e.randomSeed, e.randomSeedSet }
 
 // LoadTemplate parses (memoized) and prepares the named template (interp.Engine).
 func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {

@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"math/rand"
 	"strings"
 	"testing"
 
@@ -227,11 +228,24 @@ func TestStdlibFunctions(t *testing.T) {
 	if got := callFn(t, "cycle", vals, runtime.Int(-1)).S; got != "c" {
 		t.Errorf("cycle negative = %q", got)
 	}
-	// Seeded random is deterministic across calls.
-	a := callFn(t, "random", runtime.Int(100), runtime.Int(7))
-	b := callFn(t, "random", runtime.Int(100), runtime.Int(7))
+	// random(values, max): arg1 is the inclusive upper bound, not a seed (spec 03
+	// Section 3.2). random(n) draws in [0, n]; random(lo, hi) draws in [lo, hi].
+	for i := 0; i < 200; i++ {
+		r := callFn(t, "random", runtime.Int(5))
+		if r.I < 0 || r.I > 5 {
+			t.Fatalf("random(5) out of [0,5]: %d", r.I)
+		}
+		r2 := callFn(t, "random", runtime.Int(10), runtime.Int(20))
+		if r2.I < 10 || r2.I > 20 {
+			t.Fatalf("random(10,20) out of [10,20]: %d", r2.I)
+		}
+	}
+	// RandomWith against a fixed source is deterministic, the engine's seed hook.
+	src := func() *rand.Rand { return rand.New(rand.NewSource(7)) }
+	a, _ := RandomWith(src(), []runtime.Value{runtime.Null(), runtime.Int(1000)})
+	b, _ := RandomWith(src(), []runtime.Value{runtime.Null(), runtime.Int(1000)})
 	if a.I != b.I {
-		t.Errorf("seeded random not deterministic: %d vs %d", a.I, b.I)
+		t.Errorf("seeded RandomWith not deterministic: %d vs %d", a.I, b.I)
 	}
 	// attribute reads a map member dynamically.
 	m := mapOf([2]runtime.Value{runtime.Str("name"), runtime.Str("quill")})

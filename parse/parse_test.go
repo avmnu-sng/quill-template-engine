@@ -144,6 +144,11 @@ func TestParseMembershipAndTests(t *testing.T) {
 		{"xs has some (x => x > 0)", "(Membership has some (Name xs) (Arrow (Param x) (Binary > (Name x) (Int 0))))"},
 		{"x is defined", "(Test defined (Name x))"},
 		{"x is not empty", "(Test not empty (Name x))"},
+		// The keyword-spelled tests `is true`, `is null`, `is none` (spec 03
+		// Section 4) parse though true/null/none are lexed as keyword tokens.
+		{"x is true", "(Test true (Name x))"},
+		{"x is null", "(Test null (Name x))"},
+		{"x is not none", "(Test not none (Name x))"},
 		{"a is same as b", "(Test same as (Name a) (Arg (Name b)))"},
 		{"n is divisible by 3", "(Test divisible by (Name n) (Arg (Int 3)))"},
 		{"n is divisible_by(n: 3)", "(Test divisible_by (Name n) (Arg named:n (Int 3)))"},

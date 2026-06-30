@@ -1,0 +1,9 @@
+map: 1,4,9,16,25
+filter: 1,3,5
+reduce: 15
+find: 4
+sort-len: fig,pear,apple
+has-some: true
+has-every: true
+has-every-false: false
+chain: 30/40/50

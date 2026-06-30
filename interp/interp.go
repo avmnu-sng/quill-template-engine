@@ -53,6 +53,10 @@ type Engine interface {
 	// name, backing template_from_string (spec 03 Section 3.3). The body is not
 	// added to the loader.
 	CompileString(name, body string) (*Template, error)
+	// RandomSeed returns the host-configured RNG seed and whether one was set.
+	// When set, the seedable randomness functions (random, shuffle) become
+	// deterministic, backing test reproducibility (spec 03 Section 3.2, X15).
+	RandomSeed() (int64, bool)
 }
 
 // Sink is the push-based output target. The interpreter writes rendered bytes as

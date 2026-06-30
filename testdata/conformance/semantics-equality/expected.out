@@ -1,0 +1,13 @@
+int-vs-string: ne
+int-vs-float: eq
+zero-vs-false: ne
+null-vs-false: ne
+empty-vs-null: ne
+array-eq: eq
+array-order: ne
+same-as-int-float: diff
+ordering: yes
+string-order: yes
+spaceship: -1 1 0
+regex-matches: match
+regex-flags: match

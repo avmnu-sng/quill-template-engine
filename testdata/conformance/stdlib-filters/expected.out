@@ -1,0 +1,20 @@
+capitalize: The quick brown fox
+title: The Quick Brown Fox
+ucfirst: CamelCase
+striptags: hi
+split-join: the-quick-brown-fox
+format: phrase has 4 words
+abs: 42
+round: 2.6
+format_number: 1,234,567.89
+json: {"host":"local","port":8080}
+column: a,b
+batch: 12|34|5
+url_encode: a%20b%26c
+tab: [		]end
+nl2br: a<br />
+b
+spaceless: <a><b></b>
+convert_encoding: the quick brown fox
+indent: [  x
+  y]end

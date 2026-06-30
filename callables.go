@@ -1,7 +1,9 @@
 package quill
 
 import (
+	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/avmnusng/quill-template-engine/errors"
 	"github.com/avmnusng/quill-template-engine/ext"
@@ -43,6 +45,50 @@ func (e *Environment) registerEngineCallables() {
 		NeedsContext: true,
 		Fn:           dumpFn,
 	})
+	// random/shuffle are re-registered as needs_environment overrides so they can
+	// honor a host RNG seed (WithRandomSeed) for deterministic output, the spec's
+	// documented test-determinism mechanism (spec 03 Section 3.2, X15). The plain
+	// ext forms remain the fallback when no seed is set.
+	e.extensions.AddFunction(&ext.Function{
+		Name:             "random",
+		NeedsEnvironment: true,
+		Fn:               randomFn,
+	})
+	e.extensions.AddFilter(&ext.Filter{
+		Name:             "shuffle",
+		NeedsEnvironment: true,
+		Fn:               shuffleFn,
+	})
+}
+
+// engineRNG returns a source seeded from the host's configured seed when one is
+// set, else a fresh time-seeded source (spec 03 Section 3.2, X15). args[0] is the
+// injected engine handle.
+func engineRNG(envRef runtime.Value) *rand.Rand {
+	if eng, ok := interp.EngineFromValue(envRef); ok {
+		if seed, set := eng.RandomSeed(); set {
+			return rand.New(rand.NewSource(seed))
+		}
+	}
+	return rand.New(rand.NewSource(time.Now().UnixNano()))
+}
+
+// randomFn is the seed-aware random(): args are [env, values?, max?].
+func randomFn(args []runtime.Value) (runtime.Value, error) {
+	if len(args) == 0 {
+		return runtime.Null(), errors.New(errors.KindRuntime,
+			"random() did not receive the engine handle")
+	}
+	return ext.RandomWith(engineRNG(args[0]), args[1:])
+}
+
+// shuffleFn is the seed-aware shuffle filter: args are [env, collection, seed?].
+func shuffleFn(args []runtime.Value) (runtime.Value, error) {
+	if len(args) == 0 {
+		return runtime.Null(), errors.New(errors.KindRuntime,
+			"shuffle did not receive the engine handle")
+	}
+	return ext.ShuffleWith(engineRNG(args[0]), args[1:])
 }
 
 // sourceFn returns the raw source of a template; a miss is an error unless

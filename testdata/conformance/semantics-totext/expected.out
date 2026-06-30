@@ -1,0 +1,14 @@
+int: 42
+neg-int: -7
+float-integral: 3
+float-frac: 3.5
+float-from-div: 3.5
+int-from-div: 2
+bool-true: true
+bool-false: false
+null-renders-empty: []
+string-verbatim: a	b
+power-int: 1024
+power-float: 0.5
+big-int: 9223372036854775807
+join-numbers: 1+2+3

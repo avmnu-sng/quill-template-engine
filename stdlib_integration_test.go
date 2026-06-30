@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -126,5 +127,53 @@ func TestEscapeStrategiesEndToEnd(t *testing.T) {
 	}
 	if !strings.Contains(out, "a%20b") || !strings.Contains(out, "&lt;x&gt;") || !strings.Contains(out, `\x20`) {
 		t.Errorf("escape strategies = %q", out)
+	}
+}
+
+// TestRandomSeedDeterminism covers WithRandomSeed making random()/shuffle
+// reproducible (spec 03 Section 3.2, X15): two environments with the same seed
+// produce identical output, and the second positional argument to random() is
+// the inclusive max bound, not a seed.
+func TestRandomSeedDeterminism(t *testing.T) {
+	body := `{{ random(1000) }}|{{ random(10, 20) }}|{{ [1,2,3,4,5] | shuffle | join(",") }}`
+	a, err := NewWithArray(nil, WithRandomSeed(99)).RenderString("m", body, nil)
+	if err != nil {
+		t.Fatalf("render a: %v", err)
+	}
+	b, err := NewWithArray(nil, WithRandomSeed(99)).RenderString("m", body, nil)
+	if err != nil {
+		t.Fatalf("render b: %v", err)
+	}
+	if a != b {
+		t.Errorf("seeded output not reproducible: %q vs %q", a, b)
+	}
+
+	// random(lo, hi) draws within the inclusive bound, never the literal seed.
+	for i := 0; i < 50; i++ {
+		out, err := NewWithArray(nil).RenderString("m", `{{ random(10, 20) }}`, nil)
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		n, err := strconv.Atoi(out)
+		if err != nil || n < 10 || n > 20 {
+			t.Fatalf("random(10,20) out of [10,20]: %q", out)
+		}
+	}
+}
+
+// TestKeywordTests covers the spec-spelled keyword tests is true / is null /
+// is none reaching their registered predicates (spec 03 Section 4).
+func TestKeywordTests(t *testing.T) {
+	body := `{{ flag is true }}|{{ x is null }}|{{ y is none }}|{{ 1 is true }}`
+	out, err := NewWithArray(nil).RenderString("m", body, map[string]runtime.Value{
+		"flag": runtime.Bool(true),
+		"x":    runtime.Null(),
+		"y":    runtime.Str("set"),
+	})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if out != "true|true|false|false" {
+		t.Errorf("keyword tests = %q", out)
 	}
 }

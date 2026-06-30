@@ -13,10 +13,12 @@ import (
 // template map and the core extension set. It avoids importing the quill facade
 // (which would be a cycle) so the interpreter is testable in isolation.
 type stubEngine struct {
-	tmpls  map[string]string
-	exts   *ext.ExtensionSet
-	strict bool
-	autoht bool
+	tmpls   map[string]string
+	exts    *ext.ExtensionSet
+	strict  bool
+	autoht  bool
+	seed    int64
+	seedSet bool
 }
 
 func newStub(tmpls map[string]string) *stubEngine {
@@ -53,6 +55,7 @@ func (s *stubEngine) CompileString(name, body string) (*Template, error) {
 	}
 	return Prepare(name, mod), nil
 }
+func (s *stubEngine) RandomSeed() (int64, bool) { return s.seed, s.seedSet }
 
 func errNotFound(name string) error { return &notFoundErr{name} }
 

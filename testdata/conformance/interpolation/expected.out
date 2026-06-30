@@ -1,0 +1,8 @@
+name: Ada Lovelace
+greeting: Hello, Ada Lovelace!
+sum: 7
+concat: v1.0
+index: admin
+slice: Ada
+coalesce: (none)
+ternary: on

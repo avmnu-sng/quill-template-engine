@@ -1,0 +1,10 @@
+zero-int: f
+one-int: t
+zero-string: t
+empty-string: f
+space-string: t
+empty-array: f
+nonempty-array: t
+null-value: f
+float-zero: f
+is-empty: yyn

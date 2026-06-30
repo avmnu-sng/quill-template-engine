@@ -15,6 +15,9 @@
 //     enforced) and @cache (renders its body, no caching), spec 01 Section 4.7.
 //   - Map destructuring in @set and @use traits raise explicit errors where
 //     reached.
+//   - The @escape block region only switches between html and off; the other
+//     strategies (js, css, html_attr, html_attr_relaxed, url) are reachable via
+//     the escape()/e() filter and error clearly as a region (spec 01 Section 4).
 //
 // Intentionally omitted from the stdlib (with their reasons):
 //

@@ -1,0 +1,5 @@
+value: &lt;b&gt;a &amp; b&lt;/b&gt;
+raw: <b>a & b</b>
+text-stays: <div class="x">
+escape-off-region:
+<b>a & b</b>

@@ -1,0 +1,5 @@
+constant: 3.14
+constant-check-yes: true
+constant-check-no: false
+enum-first: red
+enum-cases: red,green,blue

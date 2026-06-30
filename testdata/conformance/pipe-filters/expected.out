@@ -1,0 +1,11 @@
+upper: ADA
+lower: ada
+trim: [spaced]
+default: fallback
+length: 3
+join: banana, apple, cherry
+sort-join: apple-banana-cherry
+reverse: cherry,apple,banana
+first-last: banana..cherry
+replace: 4d4
+chain: @D@

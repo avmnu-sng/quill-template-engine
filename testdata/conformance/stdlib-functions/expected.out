@@ -1,0 +1,8 @@
+len: 3
+keys: host,port
+max: 9
+min: 2
+attribute: local
+cycle: odd even odd even
+date: 1970-01-01
+date_modify: 2021-03-06

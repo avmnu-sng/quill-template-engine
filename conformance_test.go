@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/avmnusng/quill-template-engine/ext"
 	"github.com/avmnusng/quill-template-engine/internal/jsonval"
 	"github.com/avmnusng/quill-template-engine/loader"
 	"github.com/avmnusng/quill-template-engine/runtime"
@@ -22,6 +23,15 @@ type conformanceConfig struct {
 	// Strict sets strict-undefined handling. The pointer distinguishes an
 	// absent field (default: strict on) from an explicit false.
 	Strict *bool `json:"strict"`
+	// RandomSeed, when present, fixes the RNG seed (WithRandomSeed) so a fixture
+	// exercising random()/shuffle gets deterministic, golden-comparable output.
+	RandomSeed *int64 `json:"random_seed"`
+	// Constants registers host constants (name -> JSON value) so a fixture can
+	// exercise constant()/`is constant` (spec 03 Sections 3.2, 4).
+	Constants map[string]json.RawMessage `json:"constants"`
+	// Enums registers host enumerations (name -> ordered JSON case list) so a
+	// fixture can exercise enum()/enum_cases (spec 03 Section 3.2).
+	Enums map[string][]json.RawMessage `json:"enums"`
 }
 
 // TestConformance walks testdata/conformance, where each subdirectory is one
@@ -99,6 +109,31 @@ func runFixture(t *testing.T, dir string) {
 	}
 	if cfg.Strict != nil {
 		opts = append(opts, WithStrictVariables(*cfg.Strict))
+	}
+	if cfg.RandomSeed != nil {
+		opts = append(opts, WithRandomSeed(*cfg.RandomSeed))
+	}
+	if len(cfg.Constants) > 0 || len(cfg.Enums) > 0 {
+		set := ext.Core()
+		for name, raw := range cfg.Constants {
+			v, err := jsonval.Decode(raw)
+			if err != nil {
+				t.Fatalf("decode constant %q: %v", name, err)
+			}
+			set.AddConstant(name, v)
+		}
+		for name, rawCases := range cfg.Enums {
+			cases := make([]runtime.Value, len(rawCases))
+			for i, raw := range rawCases {
+				v, err := jsonval.Decode(raw)
+				if err != nil {
+					t.Fatalf("decode enum %q case %d: %v", name, i, err)
+				}
+				cases[i] = v
+			}
+			set.AddEnum(name, cases)
+		}
+		opts = append(opts, WithExtensions(set))
 	}
 
 	env := New(loader.NewArrayLoader(tmpls), opts...)

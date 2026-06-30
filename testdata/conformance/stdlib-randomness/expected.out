@@ -1,0 +1,5 @@
+random-int: 811
+random-range: 18
+random-element: d
+shuffle: b,a,d,c,e
+shuffle-seeded-arg: c,d,e,a,b

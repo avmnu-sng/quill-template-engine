@@ -1,0 +1,4 @@
+{
+  "constants": { "PI": 3.14 },
+  "enums": { "Color": ["red", "green", "blue"] }
+}

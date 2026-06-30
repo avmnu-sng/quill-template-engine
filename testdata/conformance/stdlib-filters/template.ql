@@ -12,3 +12,7 @@ column: {{ rows | column("name") | join(",") }}
 batch: {{ [1, 2, 3, 4, 5] | batch(2) | map(c => c | join("")) | join("|") }}
 url_encode: {{ "a b&c" | url_encode }}
 tab: [{{ 2 | tab }}]end
+nl2br: {{ "a\nb" | nl2br }}
+spaceless: {{ "<a> <b>  </b>" | spaceless }}
+convert_encoding: {{ phrase | convert_encoding("UTF-8") }}
+indent: [{{ "x\ny" | indent(1, "  ") }}]end

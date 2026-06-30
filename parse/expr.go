@@ -256,7 +256,11 @@ func (p *parser) parseTest(subject *ast.Node) *ast.Node {
 		p.advance()
 		neg = true
 	}
-	if !p.at(lex.NAME) {
+	// A test name is normally a NAME, but the spec-documented tests `is true`,
+	// `is null`, and `is none` (spec 03 Section 4) spell their names with the
+	// literal keywords, which the lexer tokenizes as TRUE/FALSE/NULL rather than
+	// NAME. Accept those keyword tokens here as one-word test names.
+	if !p.at(lex.NAME) && !p.at(lex.TRUE) && !p.at(lex.FALSE) && !p.at(lex.NULL) {
 		p.fail("expected a test name after 'is'")
 	}
 	name := p.advance().Text

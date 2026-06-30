@@ -411,24 +411,34 @@ func filterFind(args []runtime.Value) (runtime.Value, error) {
 	return runtime.Null(), nil
 }
 
-// filterShuffle permutes a collection's values, reindexed as a list. A seed
-// makes the permutation deterministic, which the tests rely on (spec 03 Section
-// 2.2).
+// filterShuffle permutes a collection's values, reindexed as a list. Per its
+// own signature shuffle(seed: int? = null), an explicit seed argument makes the
+// permutation deterministic; absent one, it draws from a time-seeded source
+// unless the engine has installed a host seed (spec 03 Section 2.2, X15).
 func filterShuffle(args []runtime.Value) (runtime.Value, error) {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	if len(args) > 1 && !args[1].IsNull() {
+		rng = rand.New(rand.NewSource(toInt(args[1])))
+	}
+	return ShuffleWith(rng, args)
+}
+
+// ShuffleWith permutes a collection's values against a caller-supplied source.
+// When the second argument is an explicit seed it takes precedence over the
+// supplied rng, preserving the author-facing shuffle(seed) form; otherwise the
+// engine's source (a host seed or time) is used.
+func ShuffleWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	if v.Kind != runtime.KArray || v.Arr == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "shuffle expects a collection")
+	}
+	if len(args) > 1 && !args[1].IsNull() {
+		rng = rand.New(rand.NewSource(toInt(args[1])))
 	}
 	ps := v.Arr.Pairs()
 	vals := make([]runtime.Value, len(ps))
 	for i, p := range ps {
 		vals[i] = p.Val
-	}
-	var rng *rand.Rand
-	if len(args) > 1 && !args[1].IsNull() {
-		rng = rand.New(rand.NewSource(toInt(args[1])))
-	} else {
-		rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 	}
 	rng.Shuffle(len(vals), func(i, j int) { vals[i], vals[j] = vals[j], vals[i] })
 	out := runtime.NewArray()
@@ -816,25 +826,40 @@ func fnCycle(args []runtime.Value) (runtime.Value, error) {
 	return ps[idx].Val, nil
 }
 
-// fnRandom returns a random element of a collection, a random int in [0, max], a
-// random character of a string, or (with no argument) a random int. A seed via
-// the second argument makes it deterministic for tests (spec 03 Section 3.2).
+// fnRandom is the host-facing random() with a fresh time-seeded source. The
+// engine registers a seed-aware wrapper (RandomWith) when a host seed is set
+// (spec 03 Section 3.2, X15); this plain form is the fallback when none is.
 func fnRandom(args []runtime.Value) (runtime.Value, error) {
-	var rng *rand.Rand
-	if len(args) > 1 && !args[1].IsNull() {
-		rng = rand.New(rand.NewSource(toInt(args[1])))
-	} else {
-		rng = rand.New(rand.NewSource(time.Now().UnixNano()))
-	}
+	return RandomWith(rand.New(rand.NewSource(time.Now().UnixNano())), args)
+}
+
+// RandomWith implements random(values, max) against a caller-supplied source,
+// so the engine can thread a fixed seed for deterministic output. Per the spec
+// signature random(values: any? = null, max: int? = null), arg0 selects the
+// behavior by type and arg1 is the inclusive upper bound for integer draws:
+//
+//	random()                -> a non-negative random int
+//	random(null, max)       -> int in [0, max]
+//	random(n)               -> int in [0, n]
+//	random(lo, hi)          -> int in [lo, hi]
+//	random(collection)      -> a random element
+//	random(string)          -> a random character
+//
+// max is meaningless for a collection or string and is ignored there.
+func RandomWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
+	hasMax := len(args) > 1 && !args[1].IsNull()
 	switch v.Kind {
 	case runtime.KNull:
+		if hasMax {
+			return randIntInRange(rng, 0, toInt(args[1]))
+		}
 		return runtime.Int(rng.Int63()), nil
 	case runtime.KInt:
-		if v.I < 0 {
-			return runtime.Null(), errors.New(errors.KindRuntime, "random max must be >= 0")
+		if hasMax {
+			return randIntInRange(rng, v.I, toInt(args[1]))
 		}
-		return runtime.Int(rng.Int63n(v.I + 1)), nil
+		return randIntInRange(rng, 0, v.I)
 	case runtime.KArray:
 		if v.Arr == nil || v.Arr.Len() == 0 {
 			return runtime.Null(), nil
@@ -850,6 +875,15 @@ func fnRandom(args []runtime.Value) (runtime.Value, error) {
 	default:
 		return runtime.Null(), errors.New(errors.KindRuntime, "random cannot operate on %s", v.Kind)
 	}
+}
+
+// randIntInRange returns a uniform int in the inclusive [lo, hi] range, tolerating
+// a reversed pair by swapping the bounds.
+func randIntInRange(rng *rand.Rand, lo, hi int64) (runtime.Value, error) {
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	return runtime.Int(lo + rng.Int63n(hi-lo+1)), nil
 }
 
 // fnConstant resolves a named host/global constant; with check_defined true it

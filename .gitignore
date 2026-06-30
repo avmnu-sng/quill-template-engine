@@ -3,6 +3,8 @@
 *.exe
 *.test
 *.out
+# but the conformance golden outputs are tracked fixtures, not build artifacts
+!testdata/conformance/**/expected.out
 
 # Go workspace and vendoring
 /vendor/

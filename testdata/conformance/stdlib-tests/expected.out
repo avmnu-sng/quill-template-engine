@@ -1,0 +1,12 @@
+divisible_by-yes: true
+divisible_by-no: false
+divisible-by-twoword: true
+sequence-list: true
+sequence-map: false
+mapping-map: true
+mapping-list: false
+true-bool: true
+true-int: false
+not-true: false
+constant-yes: true
+constant-no: false
