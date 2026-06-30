@@ -170,6 +170,99 @@ func TestSetListDestructureNestedMap(t *testing.T) {
 	}
 }
 
+// An optional slot "b?" binds the element when present and null when the source
+// is short (spec 01 Section 2.1). A required slot before it still enforces arity.
+func TestSetListDestructureOptional(t *testing.T) {
+	cases := []struct {
+		name string
+		xs   runtime.Value
+		want string
+	}{
+		{"full", list(runtime.Int(1), runtime.Int(2)), "1/2"},
+		{"short", list(runtime.Int(1)), "1/"}, // b is null -> renders empty
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			eng := newStub(nil)
+			got := renderStub(t, eng, "@set [a, b?] = xs\n{{ a }}/{{ b }}",
+				map[string]runtime.Value{"xs": tc.xs})
+			if got != tc.want {
+				t.Fatalf("optional slot: got %q want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// A required slot with no element is still an error even when a later slot is
+// optional: the source must cover every required position.
+func TestSetListDestructureOptionalRequiredUnderSupply(t *testing.T) {
+	eng := newStub(nil)
+	_, err := renderStubErr(t, eng, "@set [a, b?] = xs\n{{ a }}",
+		map[string]runtime.Value{"xs": list()})
+	if err == nil || !strings.Contains(err.Error(), "at least 1 element") {
+		t.Fatalf("required under-supply must error, got %v", err)
+	}
+}
+
+// An elided slot "[, b]" / "[a, , c]" consumes a source position without binding,
+// while the surrounding slots bind their elements (spec 01 Section 2.1).
+func TestSetListDestructureElided(t *testing.T) {
+	cases := []struct {
+		name, src, want string
+		xs              runtime.Value
+	}{
+		{"leading", "@set [, b] = xs\n{{ b }}", "20",
+			list(runtime.Int(10), runtime.Int(20))},
+		{"interior", "@set [a, , c] = xs\n{{ a }}/{{ c }}", "1/3",
+			list(runtime.Int(1), runtime.Int(2), runtime.Int(3))},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			eng := newStub(nil)
+			got := renderStub(t, eng, tc.src, map[string]runtime.Value{"xs": tc.xs})
+			if got != tc.want {
+				t.Fatalf("elided slot: got %q want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// An elided slot counts toward the required arity, so it still rejects a short
+// source: "[a, , c]" needs three elements.
+func TestSetListDestructureElidedArity(t *testing.T) {
+	eng := newStub(nil)
+	_, err := renderStubErr(t, eng, "@set [a, , c] = xs\n{{ a }}",
+		map[string]runtime.Value{"xs": list(runtime.Int(1), runtime.Int(2))})
+	if err == nil || !strings.Contains(err.Error(), "sequence destructuring expects") {
+		t.Fatalf("elided arity mismatch must error, got %v", err)
+	}
+}
+
+// Optional and elided slots compose with a "...rest" tail and nested patterns.
+func TestSetListDestructureOptionalElidedTailNested(t *testing.T) {
+	eng := newStub(nil)
+	// [a, , [b, c]?, ...rest]: skip element 1, optionally destructure element 2 as a
+	// pair, capture the rest. Full source exercises the present-optional path.
+	got := renderStub(t, eng,
+		"@set [a, , [b, c]?, ...rest] = xs\n{{ a }}|{{ b }}/{{ c }}|{{ rest|json }}",
+		map[string]runtime.Value{"xs": list(
+			runtime.Int(1),
+			runtime.Int(99), // elided
+			list(runtime.Int(7), runtime.Int(8)),
+			runtime.Int(5), runtime.Int(6))})
+	if got != "1|7/8|[5,6]" {
+		t.Fatalf("composed destructure: %q", got)
+	}
+	// Short source: the optional nested pattern is absent, so b and c are null and the
+	// tail is empty.
+	got = renderStub(t, eng,
+		"@set [a, , [b, c]?, ...rest] = xs\n{{ a }}|{{ b }}/{{ c }}|{{ rest|json }}",
+		map[string]runtime.Value{"xs": list(runtime.Int(1), runtime.Int(99))})
+	if got != "1|/|[]" {
+		t.Fatalf("composed destructure (short): %q", got)
+	}
+}
+
 // --- @use traits (spec 01 Section 5.4) ---
 
 func traitEngine() *stubEngine {

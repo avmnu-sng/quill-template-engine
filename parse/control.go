@@ -164,7 +164,10 @@ func (p *parser) parseSet() *ast.Node {
 func (p *parser) parseSetTarget() (node *ast.Node, name string, typ *ast.Node) {
 	switch p.cur().Kind {
 	case lex.LBRACKET:
-		return p.toTarget(p.parseSeq()), "", nil
+		// A sequence target uses the dedicated pattern grammar (parseSeqPattern), not
+		// the expression-level parseSeq, so optional "b?" and elided "[, b]" slots
+		// parse as targets rather than as a ternary or a syntax error.
+		return p.parseSeqPattern(), "", nil
 	case lex.LBRACE:
 		return p.toTarget(p.parseMap()), "", nil
 	case lex.NAME:

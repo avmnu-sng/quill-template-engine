@@ -461,12 +461,18 @@ func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Conte
 }
 
 // bindListPattern binds a sequence-destructuring pattern positionally (spec 01
-// Section 3.2). Each fixed slot binds one element by position; a nested list/map
-// pattern recurses; a trailing "...rest" slot captures the remaining elements as
-// a new sequence (possibly empty). Over/under-supply is an error by default: a
-// pattern without a tail must match the element count exactly (a generator should
-// not silently pad with null nor drop trailing elements). A tail slot makes
-// over-supply legal -- the fixed slots are the minimum.
+// Section 2.1, 3.2). Each fixed slot binds one element by position; a nested
+// list/map pattern recurses; an elided slot (a nil child) advances past its source
+// element without binding; an optional slot ("b?", a KindOptional) binds the
+// element when present and null when the source is short; a trailing "...rest"
+// slot captures the remaining elements as a new sequence (possibly empty).
+//
+// Arity is still enforced for REQUIRED slots: a required slot is a fixed slot that
+// is neither optional nor a tail. The supplied count must cover at least the
+// required slots; without a tail it must also not exceed the fixed-slot count (a
+// generator should not silently drop trailing elements). Optional slots make the
+// fixed count an upper, not exact, bound -- the difference between required and
+// fixed is null-padded.
 func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Context) error {
 	if v.Kind != runtime.KArray || v.Arr == nil {
 		return posErr(pat, errors.New(errors.KindRuntime,
@@ -475,8 +481,7 @@ func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.C
 	ps := v.Arr.Pairs()
 
 	// Separate the fixed slots from an optional trailing "...rest" tail. The parser
-	// guarantees a KindSpread slot is last (listToPattern), so at most one exists
-	// and it is the final child.
+	// guarantees a KindSpread slot is last, so at most one exists and it is final.
 	fixed := pat.Children
 	var tail *ast.Node
 	if k := len(fixed); k > 0 && fixed[k-1] != nil && fixed[k-1].Kind == ast.KindSpread {
@@ -484,17 +489,26 @@ func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.C
 		fixed = fixed[:k-1]
 	}
 
-	// Enforce arity. Without a tail the counts must match exactly; with a tail the
-	// supplied count must cover at least the fixed slots.
-	if tail == nil {
-		if len(ps) != len(fixed) {
-			return posErr(pat, errors.New(errors.KindRuntime,
-				"sequence destructuring expects %d element(s) but got %d",
-				len(fixed), len(ps)))
+	// A required slot consumes a mandatory source position; an optional slot ("b?")
+	// is null-padded when the source is short. Elided slots (nil) still consume a
+	// position, so they count as required for arity.
+	required := 0
+	for _, slot := range fixed {
+		if slot == nil || slot.Kind != ast.KindOptional {
+			required++
 		}
-	} else if len(ps) < len(fixed) {
+	}
+
+	// Enforce arity. The supplied count must cover the required slots; without a
+	// tail it must also stay within the fixed-slot count (no silent drop).
+	if len(ps) < required {
 		return posErr(pat, errors.New(errors.KindRuntime,
-			"sequence destructuring with a tail expects at least %d element(s) but got %d",
+			"sequence destructuring expects at least %d element(s) but got %d",
+			required, len(ps)))
+	}
+	if tail == nil && len(ps) > len(fixed) {
+		return posErr(pat, errors.New(errors.KindRuntime,
+			"sequence destructuring expects %d element(s) but got %d",
 			len(fixed), len(ps)))
 	}
 
@@ -502,25 +516,87 @@ func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.C
 		if slot == nil { // elided slot: skip its position
 			continue
 		}
-		val := ps[i].Val // arity checked above, so the index is in range
-		switch slot.Kind {
-		case ast.KindName, ast.KindTarget:
-			ctx.Set(slot.Str, val)
-		case ast.KindListPattern, ast.KindMapPattern:
-			if err := in.bindPattern(slot, val, ctx); err != nil {
-				return err
+		target := slot
+		// An optional slot binds null when the source ran out; otherwise it binds the
+		// element through its wrapped target (KindOptional child 0).
+		if slot.Kind == ast.KindOptional {
+			target = slot.Child(0)
+			if i >= len(ps) {
+				// Source is short: an optional name binds null; an optional nested
+				// pattern null-binds every name it introduces.
+				in.bindTargetNull(target, ctx)
+				continue
 			}
+		}
+		if err := in.bindSlot(target, ps[i].Val, ctx); err != nil {
+			return err
 		}
 	}
 
 	if tail != nil {
 		// Collect the elements past the fixed slots into a fresh sequence and bind it
-		// to the tail name (KindSpread child 0 is the captured KindName).
+		// to the tail name (KindSpread child 0 is the captured KindName). When optional
+		// slots left the source shorter than the fixed-slot count, the tail is empty;
+		// clamp the start so the slice never underflows.
+		start := len(fixed)
+		if start > len(ps) {
+			start = len(ps)
+		}
 		rest := runtime.NewArray()
-		for _, p := range ps[len(fixed):] {
+		for _, p := range ps[start:] {
 			rest.SetInt(int64(rest.Len()), p.Val)
 		}
 		ctx.Set(tail.Child(0).Str, runtime.Arr(rest))
+	}
+	return nil
+}
+
+// bindTargetNull binds every name a target introduces to null. It is the absent
+// path for an optional slot whose source element was missing: a plain name binds
+// null directly, while a nested list/map pattern null-binds each of its own slots
+// (recursively) so the absent shape leaves no name undefined (spec 01 Section 2.1).
+func (in *interp) bindTargetNull(target *ast.Node, ctx *runtime.Context) {
+	switch target.Kind {
+	case ast.KindName, ast.KindTarget:
+		ctx.Set(target.Str, runtime.Null())
+	case ast.KindListPattern:
+		for _, slot := range target.Children {
+			if slot == nil { // elided slot binds nothing
+				continue
+			}
+			inner := slot
+			if slot.Kind == ast.KindOptional {
+				inner = slot.Child(0)
+			}
+			if slot.Kind == ast.KindSpread {
+				ctx.Set(slot.Child(0).Str, runtime.Arr(runtime.NewArray()))
+				continue
+			}
+			in.bindTargetNull(inner, ctx)
+		}
+	case ast.KindMapPattern:
+		for _, slot := range target.Children {
+			if slot.Kind != ast.KindMapTarget {
+				continue
+			}
+			local := slot.Str
+			if slot.Bool {
+				local = slot.Child(0).Str
+			}
+			ctx.Set(local, runtime.Null())
+		}
+	}
+}
+
+// bindSlot binds one value to a non-elided, non-tail sequence slot: a plain name
+// target binds directly, while a nested list/map pattern recurses. It is shared by
+// the required- and optional-slot paths so both bind nested patterns identically.
+func (in *interp) bindSlot(target *ast.Node, val runtime.Value, ctx *runtime.Context) error {
+	switch target.Kind {
+	case ast.KindName, ast.KindTarget:
+		ctx.Set(target.Str, val)
+	case ast.KindListPattern, ast.KindMapPattern:
+		return in.bindPattern(target, val, ctx)
 	}
 	return nil
 }

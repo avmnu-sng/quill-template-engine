@@ -20,9 +20,8 @@ func TestSyntaxErrors(t *testing.T) {
 		{"comparison then test", "{{ a == b is even }}", "non-associative"},
 		{"membership then test", "{{ a in b is empty }}", "non-associative"},
 		{"positional after named", "{{ f(a: 1, 2) }}", "positional argument may not follow"},
-		// Optional/elided destructuring slots are deferred this slice; the "?" is read
-		// as the ternary operator and consumes the "]", so the LHS cannot be a target.
-		{"optional slot deferred", "@set [a, b?] = x\n", "expected an expression"},
+		// A "...rest" tail capture is only valid as the final destructuring slot.
+		{"rest not last", "@set [...rest, a] = xs\n", "must be the last slot"},
 		{"unclosed interp", "{{ a + }}", "expected an expression"},
 		{"missing for in", "@for x xs {\n@}\n", "expected 'in'"},
 		{"elseif without if", "@elseif x {\n@}\n", "without a matching"},

@@ -1,11 +1,102 @@
 package parse
 
-import "github.com/avmnusng/quill-template-engine/ast"
+import (
+	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnusng/quill-template-engine/lex"
+)
+
+// parseSeqPattern parses a sequence-destructuring TARGET directly from tokens --
+// a dedicated grammar distinct from the expression-level sequence literal
+// (parseSeq), so a trailing "?" marks an optional slot rather than opening a
+// ternary, and a bare comma marks an elided slot rather than being a syntax error
+// (spec 01 Section 2.1, grammar.md Section 3.2 O32). It is the entry point for the
+// "[" form of an @set target and recurses for nested "[" / "{" slots.
+//
+//	SeqDestruct = "[" [ DSlot { "," DSlot } ] "]" .
+//	DSlot       = Name [ ":" Type ] | "..." Name | Target "?" | (* empty: elided *) .
+//	Target      = Name [ ":" Type ] | SeqDestruct | MapDestruct .
+//
+// A "...rest" tail capture, if present, must be the last slot (enforced here so
+// the interpreter can rely on its position). An elided slot is recorded as a nil
+// child; an optional slot is wrapped in a KindOptional; the existing arity rule
+// for required slots is enforced by the interpreter.
+func (p *parser) parseSeqPattern() *ast.Node {
+	open := p.expect(lex.LBRACKET, "'[' to open a destructuring pattern")
+	pat := p.node(ast.KindListPattern, open)
+	for !p.at(lex.RBRACKET) && !p.at(lex.EOF) {
+		// A tail capture "...name" is legal only as the final slot; parseSeqSlot
+		// returns it as a KindSpread and we forbid anything following it.
+		slot := p.parseSeqSlot()
+		pat.Add(slot)
+		if slot != nil && slot.Kind == ast.KindSpread && !p.at(lex.RBRACKET) {
+			p.fail("a tail capture '...name' must be the last slot")
+		}
+		if !p.accept(lex.COMMA) {
+			break
+		}
+	}
+	p.expect(lex.RBRACKET, "']' to close a destructuring pattern")
+	return pat
+}
+
+// parseSeqSlot parses one slot of a sequence-destructuring pattern. An empty
+// position (the cursor is at "," or "]") is an elided slot, returned as a nil
+// node so the interpreter advances past the source element without binding. A
+// "...name" is a tail capture (KindSpread). Otherwise the slot is a target -- a
+// nested "[" / "{" pattern or a (optionally typed) name -- which a trailing "?"
+// wraps in a KindOptional to mark it null-paddable when the source is short.
+func (p *parser) parseSeqSlot() *ast.Node {
+	// Elided slot: an empty position between commas, or a leading "[, b]".
+	if p.at(lex.COMMA) || p.at(lex.RBRACKET) {
+		return nil
+	}
+	if p.at(lex.SPREAD) {
+		t := p.advance()
+		name := p.expect(lex.NAME, "a name after '...' in a tail capture")
+		nameNode := p.node(ast.KindName, name)
+		nameNode.Str = name.Text
+		return p.node(ast.KindSpread, t, nameNode)
+	}
+	tgt := p.parseTargetSlot()
+	if p.accept(lex.QUESTION) {
+		return p.node(ast.KindOptional, tokAt(tgt), tgt)
+	}
+	return tgt
+}
+
+// parseTargetSlot parses a single non-spread, non-elided destructuring target: a
+// nested sequence "[" or map "{" pattern, or a name with an optional type
+// annotation. Nested map patterns reuse the existing mapToPattern conversion (the
+// map grammar has no "?"/elided slots, grammar.md Section 3.2 MapDSlot), so a
+// nested "{...}" is parsed by the expression-level parseMap and reinterpreted.
+func (p *parser) parseTargetSlot() *ast.Node {
+	switch p.cur().Kind {
+	case lex.LBRACKET:
+		return p.parseSeqPattern()
+	case lex.LBRACE:
+		return p.mapToPattern(p.parseMap())
+	case lex.NAME:
+		nameTok := p.advance()
+		tgt := p.node(ast.KindTarget, nameTok)
+		tgt.Str = nameTok.Text
+		if p.accept(lex.COLON) {
+			tgt.Add(p.parseType())
+		}
+		return tgt
+	}
+	p.fail("expected a destructuring target, found %s", describe(p.cur()))
+	return nil
+}
 
 // toTarget reinterprets an already-parsed expression as an assignment /
 // destructuring target (spec 02 R10, design/expressions Section 9). The LHS of
 // "=" is parsed as an Expr and converted here, so a sequence literal "[a, b]"
 // becomes a list pattern and a mapping literal "{name}" becomes a map pattern.
+// This expression-form path covers the flat, nested, and "...rest" forms reachable
+// through the expression grammar; the optional ("[a, b?]") and elided ("[, b]")
+// slot forms are parsed by the dedicated parseSeqPattern target grammar at the
+// @set LHS, because a trailing "?" and a bare-comma elision cannot be expressed by
+// the expression parser.
 //
 //	Target_ = Name | Seq_ | Map_ .
 //	Seq_    = "[" [ TgtSlot {, TgtSlot} [, "..." Name] ] "]" .
@@ -32,14 +123,13 @@ func (p *parser) toTarget(e *ast.Node) *ast.Node {
 // listToPattern converts a sequence literal into a KindListPattern. Each element
 // becomes a slot target; a trailing KindSpread element becomes a tail capture.
 //
-// Deferred in this slice: optional slots "[a, b?]" and elided slots "[, b]"
-// (spec 02 Section 4, TgtSlot = [ Target_ [ "?" ] ]). The LHS is parsed as an
-// Expr and reinterpreted here, but the expression parser reads a trailing "?" as
-// the ternary operator and cannot express a bare-comma elision, so neither form
-// reaches this function. Producing KindOptional / nil-child elided slots requires
-// a dedicated target grammar (a later slice). "[a, b?] = x" therefore reports a
-// parse error today; TestSyntaxErrors documents that as the intended behavior for
-// this slice. Here we support names, nested list/map patterns, and "...name".
+// This is the expression-form path: a sequence literal "[a, b]" reinterpreted as a
+// target after the expression parser ran (e.g. "[a, b] = e" inside an
+// interpolation). It supports names, nested list/map patterns, and "...name". The
+// optional ("[a, b?]") and elided ("[, b]") slot forms are NOT reachable here --
+// the expression parser reads a trailing "?" as a ternary and cannot express a
+// bare-comma elision -- so those forms are parsed instead by the dedicated
+// parseSeqPattern target grammar at the @set LHS (spec 01 Section 2.1).
 func (p *parser) listToPattern(list *ast.Node) *ast.Node {
 	pat := ast.New(ast.KindListPattern, list.Line, list.Src)
 	for i, el := range list.Children {

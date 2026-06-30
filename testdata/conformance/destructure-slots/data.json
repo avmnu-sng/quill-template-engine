@@ -1,0 +1,9 @@
+{
+  "shortPair": [1],
+  "fullPair": [3, 4],
+  "leadElide": [10, 20],
+  "midElide": [100, 200, 300],
+  "withTail": [7, 8, 9, 10],
+  "nestedFull": [1, [2, 3], 4, 5],
+  "nestedShort": [1]
+}

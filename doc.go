@@ -6,16 +6,21 @@
 //
 // This package is under active development; its API is not yet stable.
 //
-// Deferred to a later milestone (NOT silently stubbed; each errors clearly or is
-// documented at its site rather than mis-rendering):
-//
-//   - Optional and elided destructuring slots ([a, b?] and [, b]); the LHS is
-//     parsed as an expression and a trailing "?" reads as the ternary, so these
-//     two slot forms report a parse error today (a later slice adds a dedicated
-//     target grammar). Sequence destructuring otherwise works fully -- flat slots,
-//     a "...rest" tail capture, and nested list/map patterns -- and enforces
-//     arity (over/under-supply is an error, not silent padding); map/object
-//     destructuring works for shorthand and rename forms.
+// Implemented this slice (destructuring slots): the @set sequence-destructuring
+// left-hand side is parsed by a dedicated TARGET grammar (parse/target.go,
+// parseSeqPattern), distinct from the expression-level sequence-literal parser, so
+// the optional ("[a, b?]") and elided ("[, b]" / "[a, , c]") slot forms parse as
+// targets rather than as a ternary or a syntax error (spec 01 Section 2.1,
+// grammar.md Section 3.2). An optional slot binds null when the source is shorter
+// than the pattern (an absent optional nested pattern null-binds every name it
+// introduces); an elided slot consumes a source position without binding. These
+// compose with the existing "...rest" tail capture and nested list/map patterns.
+// The arity rule is unchanged for required slots: the supplied count must cover
+// every required position (a required, non-optional, non-tail slot -- an elided
+// slot counts as required because it consumes a position), and without a tail it
+// must not exceed the fixed-slot count, so over/under-supply is still an error
+// rather than silent padding or dropping. This was the last deferral; the language
+// surface (S0-S10) is now complete.
 //
 // Application-specific functions are intentionally not built in: they are
 // registered by the host through the extension surface

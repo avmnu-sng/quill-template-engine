@@ -123,6 +123,16 @@ func TestParseSetForms(t *testing.T) {
 		{"@set count: int = n\n", "(Set targets=1 (Target count (Type int)) (Name n))"},
 		{"@set [x, y] = pair\n", "(Set targets=1 (ListPattern (Target x) (Target y)) (Name pair))"},
 		{"@set {id, label} = rec\n", "(Set targets=1 (MapPattern (MapTarget id) (MapTarget label)) (Name rec))"},
+		// Optional slot "b?" wraps its target in an Optional node.
+		{"@set [a, b?] = xs\n", "(Set targets=1 (ListPattern (Target a) (Optional (Target b))) (Name xs))"},
+		// A leading elided slot renders as a nil child "_".
+		{"@set [, b] = xs\n", "(Set targets=1 (ListPattern _ (Target b)) (Name xs))"},
+		// An interior elided slot keeps the surrounding required slots.
+		{"@set [a, , c] = xs\n", "(Set targets=1 (ListPattern (Target a) _ (Target c)) (Name xs))"},
+		// Optional and elided slots compose with a tail capture.
+		{"@set [a, b?, ...rest] = xs\n", "(Set targets=1 (ListPattern (Target a) (Optional (Target b)) (Spread (Name rest))) (Name xs))"},
+		// A nested pattern in an optional slot, and a slot type annotation.
+		{"@set [a: int, [b, c]?] = xs\n", "(Set targets=1 (ListPattern (Target a (Type int)) (Optional (ListPattern (Target b) (Target c)))) (Name xs))"},
 	}
 	for _, tc := range tests {
 		got := parseDump(t, tc.src)
