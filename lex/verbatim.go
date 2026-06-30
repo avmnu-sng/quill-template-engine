@@ -52,6 +52,10 @@ func (l *lexer) scanVerbatimBraced() (stop bool) {
 			ctr := l.takeCloseTrim()
 			l.emit(Token{Kind: BLOCK_CLOSE, Line: cLine, Col: cCol, TrimR: ctr})
 			if ctr != TrimKeep {
+				// Drop a whitespace-only remainder of the close line before eating
+				// the one newline, so "@}  \n" does not leak "  " into TEXT. The
+				// skip is a no-op when non-whitespace follows the verbatim @}.
+				l.skipTrailingHorizontalWS()
 				l.eatOneNewline()
 			}
 			l.atLineStart = true

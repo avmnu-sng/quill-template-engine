@@ -84,7 +84,10 @@ func (l *lexer) scanInterp() {
 // scanComment handles "{#" ... "#}". The whole span is consumed and emits no
 // token. An unterminated "{#" is a lex error at the opener (spec 01 Section 1.5).
 // The "#}" closer eats exactly one immediately-following newline (spec 02 R5),
-// unless a '+' keep modifier precedes the '}'.
+// unless the "#}+" keep modifier follows the '}' (spec 02 R14), which suppresses
+// the newline eating. Per spec 01 Section 1.4 only the '+' keep modifier applies
+// to a comment close; the '-'/'~' hard/line trims are defined for sigil and
+// statement braces, not for "#}", so they are intentionally not handled here.
 func (l *lexer) scanComment() (stop bool) {
 	openLine, openCol := l.line, l.col
 	l.advance() // '{'
@@ -93,14 +96,20 @@ func (l *lexer) scanComment() (stop bool) {
 		if l.in[l.pos] == '#' && l.pos+1 < len(l.in) && l.in[l.pos+1] == '}' {
 			l.advance() // '#'
 			l.advance() // '}'
-			l.eatOneNewline()
-			l.atLineStart = true
+			// A trailing '+' keep modifier ("#}+") suppresses the one-newline
+			// eating of R5 (spec 02 R14); without it, the comment close eats one
+			// immediately-following newline (spec 02 R5).
+			// The cursor begins a fresh line only when the close eats a trailing
+			// newline. With the "#}+" keep form, or a comment that closes mid-line
+			// ("{# c #}x"), no newline is eaten and atLineStart stays false so a
+			// following @} on the same physical line remains TEXT (spec 02 R4a).
+			if l.pos < len(l.in) && l.in[l.pos] == '+' {
+				l.advance() // consume the '+' so it does not leak into TEXT
+				l.atLineStart = false
+			} else {
+				l.atLineStart = l.eatOneNewline()
+			}
 			return false
-		}
-		// allow a '+' keep modifier as "#}" -> recognized above; a '+' just
-		// before "#}" is handled by checking it here.
-		if l.in[l.pos] == '+' && l.pos+2 < len(l.in) && l.in[l.pos+1] == '#' && l.in[l.pos+2] == '}' {
-			// "+#}" is not the keep form; keep form is "#}+". Fall through.
 		}
 		l.advance()
 	}
@@ -118,6 +127,12 @@ func (l *lexer) scanBlockClose() {
 	tr := l.takeCloseTrim()
 	l.emit(Token{Kind: BLOCK_CLOSE, Line: line, Col: col, TrimR: tr})
 	if tr != TrimKeep {
+		// peekBlockClose recognized this @} as a lone-@} line (its only
+		// non-whitespace content, spec 02 R4a), so the trailing horizontal
+		// whitespace up to the newline is part of the structural line and must be
+		// consumed along with the one eaten newline; otherwise it would leak into
+		// TEXT and break the byte-exact line layout of R5.
+		l.skipTrailingHorizontalWS()
 		l.eatOneNewline()
 	}
 	l.atLineStart = true
@@ -146,25 +161,59 @@ func (l *lexer) scanStatement(kw string) {
 		tr := l.takeCloseTrim() // trim on the body-open side, e.g. "{-"
 		l.emit(Token{Kind: BLOCK_OPEN, Line: bLine, Col: bCol, TrimR: tr})
 		// The block body is TEXT; the opener's trailing newline is a statement
-		// boundary and is eaten unless kept (spec 01 Section 1.4).
+		// boundary and is eaten unless kept (spec 01 Section 1.4). The next byte is
+		// only a fresh line start if a newline actually followed the '{'. When the
+		// body opens on the same physical line (e.g. "@if x { @}"), atLineStart must
+		// stay false so a same-line @} is TEXT, not a block close (spec 02 R4a: the
+		// close is "a line whose only non-whitespace content is @}").
 		if tr != TrimKeep {
-			l.eatOneNewline()
+			l.atLineStart = l.eatOneNewline()
+		} else {
+			l.atLineStart = false
 		}
-		l.atLineStart = true
 		return
 	}
-	// Line statement: terminate at end of line.
+	// Line statement: terminate at end of line. The terminator is a newline or EOF;
+	// after eating the newline the cursor begins a fresh line. At EOF there is no
+	// further content, so the residual atLineStart value is immaterial.
 	eLine, eCol := l.line, l.col
 	l.emit(Token{Kind: STMT_END, Line: eLine, Col: eCol})
-	l.eatOneNewline()
-	l.atLineStart = true
+	l.atLineStart = l.eatOneNewline()
 }
 
 // eatOneNewline consumes exactly one immediately-following newline if present
 // (the statement/comment newline-eating asymmetry, spec 02 R5). Leading spaces or
-// tabs before that newline are NOT eaten; only the newline itself.
-func (l *lexer) eatOneNewline() {
+// tabs before that newline are NOT eaten; only the newline itself. It reports
+// whether a newline was actually consumed so callers can decide whether the cursor
+// now sits at a fresh line start.
+func (l *lexer) eatOneNewline() bool {
 	if l.pos < len(l.in) && l.in[l.pos] == '\n' {
 		l.advance()
+		return true
+	}
+	return false
+}
+
+// skipTrailingHorizontalWS consumes ' ', '\t', and '\r' between the cursor and the
+// next newline ONLY when that whitespace run reaches a newline or EOF -- i.e. when
+// the rest of the physical line is whitespace-only. It is used by a lone-@} close so
+// the structural line's trailing whitespace is dropped rather than leaking into the
+// following TEXT (spec 02 R5 byte-exact layout). The newline/EOF guard makes it safe
+// for the verbatim close, where @} is recognized by brace depth rather than by being
+// alone on its line: any trailing non-whitespace there is preserved untouched.
+func (l *lexer) skipTrailingHorizontalWS() {
+	i := l.pos
+	for i < len(l.in) {
+		c := l.in[i]
+		if c == ' ' || c == '\t' || c == '\r' {
+			i++
+			continue
+		}
+		break
+	}
+	if i == len(l.in) || l.in[i] == '\n' {
+		for l.pos < i {
+			l.advance()
+		}
 	}
 }

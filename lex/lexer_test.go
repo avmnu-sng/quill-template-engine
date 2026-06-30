@@ -193,6 +193,29 @@ func TestCommentEatsOneNewline(t *testing.T) {
 	}
 }
 
+// The "#}+" keep modifier suppresses the one-newline eating of R5 (spec 02 R14):
+// the newline survives into TEXT and the '+' itself does not leak into output.
+func TestCommentKeepModifier(t *testing.T) {
+	got := lexToks(t, "{# c #}+\nrest")
+	want := []Kind{TEXT, EOF}
+	assertKinds(t, got, want)
+	if got[0].Text != "\nrest" {
+		t.Fatalf("#}+ should keep newline and drop '+', TEXT = %q", got[0].Text)
+	}
+}
+
+// A comment that closes mid-line keeps following text on the same line and does
+// not treat a same-line @} as a block close (line-start tracking, spec 02 R4a).
+func TestCommentMidLineDoesNotOpenLineStart(t *testing.T) {
+	got := lexToks(t, "{# c #}@}\n")
+	// The @} sits mid physical line (right after the comment), so it is TEXT.
+	want := []Kind{TEXT, EOF}
+	assertKinds(t, got, want)
+	if got[0].Text != "@}\n" {
+		t.Fatalf("@} after a mid-line comment must be TEXT, got %q", got[0].Text)
+	}
+}
+
 func TestCommentDoesNotScanInnerSigils(t *testing.T) {
 	got := lexToks(t, "{# {{ not.code }} @if x { #}done")
 	want := []Kind{TEXT, EOF}
@@ -324,6 +347,49 @@ func TestBlockCloseWithTrailingContentIsText(t *testing.T) {
 	if got[0].Kind != TEXT {
 		t.Fatalf("@} with trailing content is TEXT, got %s", dump(got))
 	}
+}
+
+// A lone "@}" line with trailing horizontal whitespace before the newline is
+// consumed in full: the spaces are part of the structural line and must not leak
+// into TEXT (spec 02 R4a recognizes the whole line; R5 eats the newline).
+func TestBlockCloseEatsTrailingWhitespace(t *testing.T) {
+	got := lexToks(t, "@if x {\nB\n@}  \nAFTER")
+	var texts []string
+	for _, tk := range got {
+		if tk.Kind == TEXT {
+			texts = append(texts, tk.Text)
+		}
+	}
+	// Body "B\n" then "AFTER"; no spurious "  \n" between the close and AFTER.
+	if len(texts) != 2 || texts[0] != "B\n" || texts[1] != "AFTER" {
+		t.Fatalf("@}  \\n should be consumed whole, TEXT tokens = %q", texts)
+	}
+}
+
+// A same-line "@}" (only whitespace between the block opener '{' and @}) is NOT a
+// block close: the close must be alone on its physical line (spec 02 R4a). The
+// opener did not eat a newline, so the cursor is not at a fresh line start.
+func TestSameLineBlockCloseIsText(t *testing.T) {
+	got := lexToks(t, "@if x { @}")
+	for _, tk := range got {
+		if tk.Kind == BLOCK_CLOSE {
+			t.Fatalf("same-line @} must not be a BLOCK_CLOSE, got %s", dump(got))
+		}
+	}
+	// The " @}" after the block opener is the (TEXT) body of the block.
+	want := []Kind{STMT, NAME, BLOCK_OPEN, TEXT, EOF}
+	assertKinds(t, got, want)
+	if got[3].Text != " @}" {
+		t.Fatalf("same-line @} body TEXT = %q want %q", got[3].Text, " @}")
+	}
+}
+
+// The newline form of the same template DOES produce a block close: the opener's
+// newline puts @} alone on its own line.
+func TestNewlineBlockCloseIsClose(t *testing.T) {
+	got := lexToks(t, "@if x {\n@}")
+	want := []Kind{STMT, NAME, BLOCK_OPEN, BLOCK_CLOSE, EOF}
+	assertKinds(t, got, want)
 }
 
 // ---------------------------------------------------------------------------
