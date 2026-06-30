@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // encodeJSON serializes a Quill Value to b following Go encoding/json output

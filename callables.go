@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/ext"
-	"github.com/avmnusng/quill-template-engine/interp"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/ext"
+	"github.com/avmnu-sng/quill-template-engine/interp"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // registerEngineCallables installs the callables that need the engine handle to

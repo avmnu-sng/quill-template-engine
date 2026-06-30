@@ -3,7 +3,7 @@ package lex
 import (
 	"strings"
 
-	"github.com/avmnusng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // TokenStream is the lexer's output: the full token slice plus the source it was

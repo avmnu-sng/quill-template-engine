@@ -3,7 +3,7 @@ package ext
 import (
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // callFilter looks up and invokes a core filter by name with the given args.

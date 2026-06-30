@@ -64,8 +64,8 @@ package main
 import (
 	"fmt"
 
-	quill "github.com/avmnusng/quill-template-engine"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	quill "github.com/avmnu-sng/quill-template-engine"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 func main() {
@@ -104,7 +104,7 @@ The `quill` command renders a template from a directory with data from a JSON
 file:
 
 ```
-go install github.com/avmnusng/quill-template-engine/cmd/quill@latest
+go install github.com/avmnu-sng/quill-template-engine/cmd/quill@latest
 
 quill -root templates -data data.json index.ql
 quill -root templates -autoescape html page.ql > page.html

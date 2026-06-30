@@ -1,9 +1,9 @@
 package interp
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // checkSecurity is the sandbox's Phase-1 per-render check (B9): given a

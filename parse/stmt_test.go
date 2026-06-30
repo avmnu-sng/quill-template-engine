@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
 // The anchor (spec 00-overview Section 2) must parse to a well-formed module with

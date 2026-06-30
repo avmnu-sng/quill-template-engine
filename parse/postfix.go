@@ -1,8 +1,8 @@
 package parse
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
-	"github.com/avmnusng/quill-template-engine/lex"
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/lex"
 )
 
 // parsePostfix is level 17, left-associative: a primary followed by zero or more

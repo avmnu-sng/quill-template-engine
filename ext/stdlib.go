@@ -9,8 +9,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // This file completes the spec-03 standard-library catalogue beyond the core

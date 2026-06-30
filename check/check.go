@@ -1,8 +1,8 @@
 package check
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
-	"github.com/avmnusng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/errors"
 )
 
 // Check runs the gradual type checker over a parsed module and returns the first

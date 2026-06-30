@@ -1,7 +1,7 @@
 package check
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
 // checkWith checks "@with map [only] { body }": the map expression is typed

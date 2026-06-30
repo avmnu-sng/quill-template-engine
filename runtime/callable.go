@@ -1,6 +1,6 @@
 package runtime
 
-import "github.com/avmnusng/quill-template-engine/errors"
+import "github.com/avmnu-sng/quill-template-engine/errors"
 
 // Callable is a runtime value that can be invoked with positional arguments. It
 // is the protocol the standard-library higher-order filters (map, filter, sort,

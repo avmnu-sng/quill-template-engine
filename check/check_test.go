@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/parse"
-	"github.com/avmnusng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/parse"
+	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // checkSrc parses body under name "t.ql" and runs the checker with reg.

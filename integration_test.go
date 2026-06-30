@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // mkMap builds an *Array map from name/value pairs for test fixtures.

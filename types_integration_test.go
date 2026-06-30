@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/check"
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/check"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // TestTypesRenderIdentically is the binding invariant of the gradual type

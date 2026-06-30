@@ -1,15 +1,15 @@
 package quill
 
 import (
-	"github.com/avmnusng/quill-template-engine/cache"
-	"github.com/avmnusng/quill-template-engine/check"
-	"github.com/avmnusng/quill-template-engine/ext"
-	"github.com/avmnusng/quill-template-engine/interp"
-	"github.com/avmnusng/quill-template-engine/loader"
-	"github.com/avmnusng/quill-template-engine/parse"
-	"github.com/avmnusng/quill-template-engine/runtime"
-	"github.com/avmnusng/quill-template-engine/sandbox"
-	"github.com/avmnusng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/cache"
+	"github.com/avmnu-sng/quill-template-engine/check"
+	"github.com/avmnu-sng/quill-template-engine/ext"
+	"github.com/avmnu-sng/quill-template-engine/interp"
+	"github.com/avmnu-sng/quill-template-engine/loader"
+	"github.com/avmnu-sng/quill-template-engine/parse"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/sandbox"
+	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // Environment is the engine facade: it ties a Loader, a parse cache, and the

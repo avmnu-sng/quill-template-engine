@@ -1,7 +1,7 @@
 package check
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
 // binaryType infers a binary operator's type, dispatching on the operator

@@ -15,10 +15,10 @@
 package parse
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/lex"
-	"github.com/avmnusng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/lex"
+	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // Parse scans and parses a template source into an ast.Module, or returns a

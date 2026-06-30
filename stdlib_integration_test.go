@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/ext"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/ext"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // TestSourceFunction covers the source() function returning a template's raw,

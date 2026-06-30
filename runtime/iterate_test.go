@@ -3,7 +3,7 @@ package runtime
 import (
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/errors"
 )
 
 func TestEnsureTraversableArray(t *testing.T) {

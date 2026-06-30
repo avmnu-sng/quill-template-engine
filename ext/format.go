@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // spacelessRe matches whitespace runs that sit entirely between a closing ">"

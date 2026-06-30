@@ -21,12 +21,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/avmnusng/quill-template-engine/ast"
-	"github.com/avmnusng/quill-template-engine/cache"
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/ext"
-	"github.com/avmnusng/quill-template-engine/runtime"
-	"github.com/avmnusng/quill-template-engine/sandbox"
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/cache"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/ext"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/sandbox"
 )
 
 // Engine is the interpreter's view of the surrounding environment. The quill

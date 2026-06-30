@@ -12,7 +12,7 @@ package cache
 import (
 	"sync"
 
-	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
 // Cache is a concurrency-safe name->module memo.

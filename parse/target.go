@@ -1,8 +1,8 @@
 package parse
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
-	"github.com/avmnusng/quill-template-engine/lex"
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/lex"
 )
 
 // parseSeqPattern parses a sequence-destructuring TARGET directly from tokens --

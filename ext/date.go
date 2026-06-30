@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // dateValue is the host Object that carries a time.Time through the engine so

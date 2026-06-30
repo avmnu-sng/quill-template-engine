@@ -1,7 +1,7 @@
 package check
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
 // validateType checks that a type annotation is well-formed and names only known

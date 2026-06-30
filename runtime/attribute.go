@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"github.com/avmnusng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/errors"
 )
 
 // AccessKind selects the access operator (spec 04 Section 7): dotted a.b versus

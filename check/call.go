@@ -1,7 +1,7 @@
 package check
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
 // callType infers a call "f(args)" or a macro/dotted call. A bare-name callee

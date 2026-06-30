@@ -22,10 +22,10 @@ import (
 	"os"
 	"path/filepath"
 
-	quill "github.com/avmnusng/quill-template-engine"
-	"github.com/avmnusng/quill-template-engine/internal/jsonval"
-	"github.com/avmnusng/quill-template-engine/loader"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	quill "github.com/avmnu-sng/quill-template-engine"
+	"github.com/avmnu-sng/quill-template-engine/internal/jsonval"
+	"github.com/avmnu-sng/quill-template-engine/loader"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 const version = "0.1.0"

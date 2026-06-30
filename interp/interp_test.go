@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/cache"
-	"github.com/avmnusng/quill-template-engine/ext"
-	"github.com/avmnusng/quill-template-engine/parse"
-	"github.com/avmnusng/quill-template-engine/runtime"
-	"github.com/avmnusng/quill-template-engine/sandbox"
+	"github.com/avmnu-sng/quill-template-engine/cache"
+	"github.com/avmnu-sng/quill-template-engine/ext"
+	"github.com/avmnu-sng/quill-template-engine/parse"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/sandbox"
 )
 
 // stubEngine is a minimal Engine for interp unit tests: it holds an in-memory

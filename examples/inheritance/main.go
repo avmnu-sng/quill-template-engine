@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 
-	quill "github.com/avmnusng/quill-template-engine"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	quill "github.com/avmnu-sng/quill-template-engine"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 const base = `# {{ title }}

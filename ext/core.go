@@ -3,8 +3,8 @@ package ext
 import (
 	"strings"
 
-	"github.com/avmnusng/quill-template-engine/errors"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // Core builds an ExtensionSet holding the full spec-03 standard-library

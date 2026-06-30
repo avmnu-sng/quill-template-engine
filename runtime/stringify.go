@@ -4,7 +4,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/avmnusng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/errors"
 )
 
 // ToText is Quill's single implicit coercion: rendering a value to text at an

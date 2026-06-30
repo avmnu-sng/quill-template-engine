@@ -1,8 +1,8 @@
 package parse
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
-	"github.com/avmnusng/quill-template-engine/lex"
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/lex"
 )
 
 // parseExtends parses "@extends expr NL" (design/composition Section 2.1). The

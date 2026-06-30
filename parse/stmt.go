@@ -1,8 +1,8 @@
 package parse
 
 import (
-	"github.com/avmnusng/quill-template-engine/ast"
-	"github.com/avmnusng/quill-template-engine/lex"
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/lex"
 )
 
 // This file holds the structural grammar of spec 02 Section 3 / design/

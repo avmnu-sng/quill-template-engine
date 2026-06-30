@@ -3,7 +3,7 @@ package cache
 import (
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
 func TestCachePutGet(t *testing.T) {

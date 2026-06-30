@@ -3,7 +3,7 @@ package ast
 import (
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 func TestNodeChildAndAdd(t *testing.T) {

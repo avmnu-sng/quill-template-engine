@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // Dump renders a value in a Go-native, %#v-style structured form for the dump()

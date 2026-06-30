@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"github.com/avmnusng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/errors"
 )
 
 // Equal is Quill's ONE typed equality (spec 04 Section 3.1 / 4.1). It is

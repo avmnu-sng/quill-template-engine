@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/parse"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/parse"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // renderStubErr renders an ad-hoc template and returns the render error (or nil),

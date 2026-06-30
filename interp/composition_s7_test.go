@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/parse"
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/parse"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 func arr(pairs ...runtime.Pair) runtime.Value {

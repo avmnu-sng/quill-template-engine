@@ -14,7 +14,7 @@
 // the remaining flags exist so the registration surface is complete.
 package ext
 
-import "github.com/avmnusng/quill-template-engine/runtime"
+import "github.com/avmnu-sng/quill-template-engine/runtime"
 
 // Filter is a callable invoked through the pipe: x | name(args) is name(x, args)
 // (spec 03 Section 1). Fn receives the injected engine values (per the Needs*

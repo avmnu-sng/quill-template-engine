@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"github.com/avmnusng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/errors"
 )
 
 // EnsureTraversable returns the key/value Pairs to iterate over in a for loop,

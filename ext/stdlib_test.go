@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnusng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 func mapOf(pairs ...[2]runtime.Value) runtime.Value {

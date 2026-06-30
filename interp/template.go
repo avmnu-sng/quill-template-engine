@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/avmnusng/quill-template-engine/ast"
-	"github.com/avmnusng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/errors"
 )
 
 // Template is one parsed-and-prepared template: its module AST plus the indexed
