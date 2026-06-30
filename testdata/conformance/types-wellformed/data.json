@@ -1,0 +1,6 @@
+{
+  "title": "report",
+  "count": 2,
+  "tags": ["alpha", "beta"],
+  "scores": { "go": 9, "rust": 8 }
+}

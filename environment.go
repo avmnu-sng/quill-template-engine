@@ -2,6 +2,7 @@ package quill
 
 import (
 	"github.com/avmnusng/quill-template-engine/cache"
+	"github.com/avmnusng/quill-template-engine/check"
 	"github.com/avmnusng/quill-template-engine/ext"
 	"github.com/avmnusng/quill-template-engine/interp"
 	"github.com/avmnusng/quill-template-engine/loader"
@@ -38,6 +39,17 @@ type Environment struct {
 	// regardless of sandboxActive.
 	policy        *sandbox.Policy
 	sandboxActive bool
+
+	// typeRegistry supplies the gradual type checker's host static-typing surface:
+	// the Object<"Name"> member shapes and host callable signatures (spec 04
+	// Section 1, design/type-system.md). It is consulted by check.Check at Load
+	// time. A nil registry means the host registered no static types, so Object
+	// types are opaque-but-known and host callables are checked only dynamically;
+	// the checker still enforces every annotation the template itself carries. The
+	// checker NEVER changes runtime output -- it only rejects ill-typed templates
+	// earlier, so an unannotated template renders byte-identically with or without
+	// a registry (the binding invariant).
+	typeRegistry *check.Registry
 }
 
 // Option configures an Environment at construction.
@@ -88,6 +100,17 @@ func WithSandboxPolicy(p *sandbox.Policy) Option {
 // policy an active sandbox denies everything.
 func WithSandboxActive(on bool) Option {
 	return func(e *Environment) { e.sandboxActive = on }
+}
+
+// WithTypes installs the host static-typing registry the gradual type checker
+// consults: the Object<"Name"> member shapes and host callable signatures (spec
+// 04 Section 1, design/type-system.md Sections 4.4, 9.1). It does not enable or
+// change any runtime behavior; it only sharpens the load-time checker so an
+// annotation referencing a host type or a host callable can be verified. With no
+// registry the checker still enforces every in-template annotation; Object types
+// are then opaque and host calls dynamic.
+func WithTypes(reg *check.Registry) Option {
+	return func(e *Environment) { e.typeRegistry = reg }
 }
 
 // New builds an Environment over a Loader with the given options. The core
@@ -150,6 +173,13 @@ func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Run the gradual type checker once, at first load, before the module is
+	// cached or prepared: an ill-typed template is rejected here, before any
+	// render. An unannotated template types as all-any and the check is a no-op,
+	// so this never alters rendered output (spec 04 Section 1).
+	if err := check.Check(mod, e.typeRegistry); err != nil {
+		return nil, err
+	}
 	e.cache.Put(name, mod)
 	return interp.PrepareChecked(name, mod)
 }
@@ -180,6 +210,9 @@ func (e *Environment) CompileString(name, body string) (*interp.Template, error)
 	if err != nil {
 		return nil, err
 	}
+	if err := check.Check(mod, e.typeRegistry); err != nil {
+		return nil, err
+	}
 	return interp.PrepareChecked(name, mod)
 }
 
@@ -198,6 +231,9 @@ func (e *Environment) Render(name string, vars map[string]runtime.Value) (string
 func (e *Environment) RenderString(name, body string, vars map[string]runtime.Value) (string, error) {
 	mod, err := parse.Parse(source.New(name, body))
 	if err != nil {
+		return "", err
+	}
+	if err := check.Check(mod, e.typeRegistry); err != nil {
 		return "", err
 	}
 	tmpl, err := interp.PrepareChecked(name, mod)

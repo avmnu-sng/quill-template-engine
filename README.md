@@ -4,17 +4,24 @@ Quill is a Go-native, gradually-typed template language and engine. It is built
 for generating exact text -- especially program source code -- with the
 ergonomics of a modern language and the safety of optional static types.
 
-> Status: early development. The language specification is complete and a
-> working tree-walking engine implements its core. The API is not yet stable.
+> Status: the full language is implemented -- the lexer, parser, tree-walking
+> renderer, the complete standard library, composition (inheritance, blocks,
+> macros, includes, embeds, traits), the escaping/safety subsystem and sandbox,
+> and the gradual type checker. The language specification is complete. The API
+> is not yet stable.
 
 ## Why Quill
 
 - **Go-native syntax.** Brace-delimited, keyword-led, pipe filters, arrow
   functions, a Pratt-parsed expression language. No PHP heritage.
-- **Gradually typed.** Type annotations are optional. With none, Quill is a
-  dynamic template language. With them, a static checker rejects whole classes
-  of error before a single byte is emitted. Annotations never change runtime
-  behavior -- they only move an error earlier.
+- **Gradually typed.** Type annotations are optional and enforced by a static
+  checker that runs at template load, before a single byte is emitted. With no
+  annotations Quill is a fully dynamic template language; with them the checker
+  rejects whole classes of error -- a string/number mismatch, rendering a
+  collection, looping over a non-iterable, a missing member or method, a call
+  with the wrong arity or argument types -- and narrows unions through `is`-tests
+  and null-safe access. Annotations never change runtime behavior: they only move
+  an error earlier in time, so removing every annotation renders identical bytes.
 - **Built to emit source code.** Output escaping is off by default (you are
   usually emitting code, not HTML), and the lexer keeps literal braces in
   generated code unambiguous from template control flow.
@@ -85,7 +92,11 @@ env := quill.New(loader.NewFilesystemLoader("templates"))
 
 Options: `quill.WithAutoescapeHTML(true)` switches the output strategy to HTML
 escaping; `quill.WithStrictVariables(false)` enables the lenient migration mode
-(an undefined read becomes empty instead of an error).
+(an undefined read becomes empty instead of an error); `quill.WithTypes(reg)`
+installs a host static-typing registry (`check.Registry`) so the checker can
+verify annotations that reference host `Object<"Name">` types and host callable
+signatures. The checker always enforces the annotations a template carries; the
+registry only adds the host-type and host-signature knowledge it cannot infer.
 
 ## Command line
 

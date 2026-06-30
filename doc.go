@@ -9,8 +9,6 @@
 // Deferred to a later milestone (NOT silently stubbed; each errors clearly or is
 // documented at its site rather than mis-rendering):
 //
-//   - The gradual type checker. @types / per-variable annotations parse but are
-//     not enforced at render time (spec 04 Section 1).
 //   - Optional and elided destructuring slots ([a, b?] and [, b]); the LHS is
 //     parsed as an expression and a trailing "?" reads as the ternary, so these
 //     two slot forms report a parse error today (a later slice adds a dedicated
@@ -24,7 +22,37 @@
 // (ext.ExtensionSet.AddFunction), which this milestone exercises, rather than
 // shipped as engine primitives.
 //
-// Implemented this slice (sandbox): a host-supplied SecurityPolicy
+// Implemented this slice (gradual type checker): a front-end pass (package
+// check) runs at template Load, between parse and interpret, and rejects
+// ill-typed templates with positioned KindTypeCheck errors BEFORE any byte is
+// rendered (spec 04 Sections 1-3, design/type-system.md). It consumes the
+// annotations the parser already threads through the AST -- the @types block,
+// @set/@for targets, @macro/@block params and returns, and arrow params --
+// infers types bottom-up where the spec defines it (literals, member/index
+// access, operators, the higher-order filters map/filter/sort/reduce/find which
+// propagate element types through arrows, and the ??/default coalescing rule),
+// and applies the gradual `any` fallback everywhere a value is unannotated. The
+// consistency relation (not subtyping) governs flow: `any` is consistent with
+// every type in both directions, with a runtime kind-check backstop scheduled at
+// the any-to-typed boundary (the shallow cast keeps the strict runtime as the
+// floor on structured data it did not fully verify). The checker catches the
+// runtime errors a static reader can see -- a string/number arithmetic mismatch,
+// rendering a list/map (non-renderable) value, a for over a non-iterable typed
+// iterand, a missing member/method on a typed Object or an annotation-declared
+// name, a call with wrong arity or argument types against a macro/host
+// signature, a bad map key kind, an unknown host type in an annotation, and a
+// set/for/param annotation inconsistent with what flows into it -- and narrows
+// unions and nullables through `is`-tests and ?. so a narrowed branch type-checks
+// (spec 04 Section 8). Object<"Name"> member shapes and host callable signatures
+// come from an optional host registry (check.Registry, installed via
+// quill.WithTypes); with no registry, Object types are opaque-but-known and host
+// calls are dynamic, and the checker still enforces every in-template
+// annotation. The CRITICAL INVARIANT holds: annotations never change runtime
+// behavior. An unannotated template types entirely as `any`, so the checker is
+// silent and the pre-type-checker conformance fixtures render byte-for-byte
+// identically; removing every annotation from any template yields the same bytes.
+//
+// Previously implemented (sandbox): a host-supplied SecurityPolicy
 // (sandbox.Policy) restricts the permitted tags, filters, functions, per-type
 // methods, and per-type properties; enforcement is two-phase. Phase 1 collects
 // the statement keywords, filters, and functions a template uses at compile time
