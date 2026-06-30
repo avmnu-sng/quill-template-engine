@@ -19,9 +19,10 @@ import (
 // spec 04 Section 8.1) and strict_variables is ON (the strict-by-default
 // undefined policy, spec 04 Section 6). Both are configurable via Option.
 type Environment struct {
-	loader     loader.Loader
-	cache      *cache.Cache
-	extensions *ext.ExtensionSet
+	loader      loader.Loader
+	cache       *cache.Cache
+	renderCache *cache.RenderCache
+	extensions  *ext.ExtensionSet
 
 	autoescapeHTML  bool
 	strictVariables bool
@@ -71,6 +72,7 @@ func New(ldr loader.Loader, opts ...Option) *Environment {
 	e := &Environment{
 		loader:          ldr,
 		cache:           cache.New(),
+		renderCache:     cache.NewRenderCache(),
 		extensions:      ext.Core(),
 		autoescapeHTML:  false,
 		strictVariables: true,
@@ -98,6 +100,10 @@ func (e *Environment) AutoescapeHTML() bool { return e.autoescapeHTML }
 
 // RandomSeed returns the configured RNG seed and whether one was set (interp.Engine).
 func (e *Environment) RandomSeed() (int64, bool) { return e.randomSeed, e.randomSeedSet }
+
+// RenderCache returns the engine's rendered-body cache, backing @cache
+// (interp.Engine, spec 01 Section 4.7).
+func (e *Environment) RenderCache() *cache.RenderCache { return e.renderCache }
 
 // LoadTemplate parses (memoized) and prepares the named template (interp.Engine).
 func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {

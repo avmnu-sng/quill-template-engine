@@ -19,7 +19,9 @@ func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Context) error {
 		return err
 	}
 	in.parentChain = chain
-	in.buildBlockTable(chain)
+	if err := in.buildBlockTable(chain); err != nil {
+		return err
+	}
 	in.loadMacros(tmpl, ctx)
 
 	// Render the topmost template's body: a non-inheriting template renders
@@ -82,20 +84,123 @@ func (in *interp) resolveExtendsName(extends *ast.Node, ctx *runtime.Context) (s
 // is most-derived first, so the first definition seen for a name is the override
 // that wins; the full ordered list of definitions for the name (most-derived
 // first) is recorded so parent() can render the next one up (design/composition
-// Section 2.5).
-func (in *interp) buildBlockTable(chain []*Template) {
+// Section 2.5). For each template in the chain its OWN blocks merge before the
+// blocks it pulls in via @use, so a template's own definition wins over a trait's
+// and parent() reaches the trait version before the extends-parent version (spec
+// 01 Section 5.4) -- it returns an error if a @use target is missing or not
+// traitable, or an alias names a block the trait does not define.
+func (in *interp) buildBlockTable(chain []*Template) error {
 	in.blocks = map[string]*blockEntry{}
 	for _, t := range chain {
+		// A template's own block definitions take precedence over any trait blocks
+		// it uses, so own defs are merged first; traits follow in source order.
 		for _, name := range t.BlockNames() {
 			node, _ := t.Block(name)
-			def := blockDef{owner: t, node: node}
-			if e, ok := in.blocks[name]; ok {
-				e.chain = append(e.chain, def)
-			} else {
-				in.blocks[name] = &blockEntry{owner: t, node: node, chain: []blockDef{def}}
+			in.appendBlockDef(name, blockDef{owner: t, node: node})
+		}
+		if err := in.mergeTraits(t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// appendBlockDef records one definition for a block name: it becomes the entry's
+// most-derived definition when the name is new, otherwise it is appended to the
+// existing definition chain (so parent() walks to it).
+func (in *interp) appendBlockDef(name string, def blockDef) {
+	if e, ok := in.blocks[name]; ok {
+		e.chain = append(e.chain, def)
+		return
+	}
+	in.blocks[name] = &blockEntry{owner: def.owner, node: def.node, chain: []blockDef{def}}
+}
+
+// mergeTraits pulls the blocks of every template t uses (@use) into the table,
+// below t's own definitions and in source order. Aliasing ({trait: alias}) binds
+// the trait's block under the alias name, so the using template can override it
+// by that name and parent() on the alias reaches the trait's original block.
+func (in *interp) mergeTraits(t *Template) error {
+	for _, use := range t.uses {
+		traitName, ok := in.useTargetName(use)
+		if !ok {
+			return posErr(use, errors.New(errors.KindRuntime,
+				"a use target must be a constant string"))
+		}
+		trait, err := in.eng.LoadTemplate(traitName)
+		if err != nil {
+			return posErr(use, err)
+		}
+		if !trait.Traitable() {
+			return posErr(use, errors.New(errors.KindRuntime,
+				"template %q cannot be used as a trait", traitName))
+		}
+		in.absorb(trait)
+		// A trait may itself @use other traits; flatten those first so its block
+		// table reflects the full bundle (later own blocks still win).
+		if err := in.mergeTraits(trait); err != nil {
+			return err
+		}
+		aliases, err := in.useAliases(use)
+		if err != nil {
+			return err
+		}
+		for _, name := range trait.BlockNames() {
+			node, _ := trait.Block(name)
+			local := name
+			if a, ok := aliases[name]; ok {
+				local = a
+			}
+			in.appendBlockDef(local, blockDef{owner: trait, node: node})
+		}
+		// Every alias must name a block the trait actually defines.
+		for orig := range aliases {
+			if !trait.HasBlock(orig) {
+				return posErr(use, errors.New(errors.KindRuntime,
+					"block %q is not defined in trait %q", orig, traitName))
 			}
 		}
 	}
+	return nil
+}
+
+// useTargetName extracts a @use target, which must be a constant string literal
+// (no dynamic trait names, spec 01 Section 5.4).
+func (in *interp) useTargetName(use *ast.Node) (string, bool) {
+	src := use.Child(0)
+	if src == nil || src.Kind != ast.KindString {
+		return "", false
+	}
+	return src.Str, true
+}
+
+// useAliases reads the optional "with { trait: alias }" rename map of a @use,
+// returning a map from the trait's original block name to its local alias.
+func (in *interp) useAliases(use *ast.Node) (map[string]string, error) {
+	aliases := map[string]string{}
+	if !use.Bool { // no with-map
+		return aliases, nil
+	}
+	mapNode := use.Child(1)
+	for _, entry := range mapNode.Children {
+		switch entry.Int {
+		case ast.MapEntryKeyed:
+			key := entry.Child(0)   // KindString trait block name
+			alias := entry.Child(1) // alias value
+			if alias.Kind != ast.KindName && alias.Kind != ast.KindString {
+				return nil, posErr(use, errors.New(errors.KindRuntime,
+					"a trait alias must be a bare name or string"))
+			}
+			aliases[key.Str] = alias.Str
+		case ast.MapEntryShorthand:
+			name := entry.Child(0).Str
+			aliases[name] = name
+		default:
+			return nil, posErr(use, errors.New(errors.KindRuntime,
+				"invalid trait alias entry"))
+		}
+	}
+	return aliases, nil
 }
 
 // loadMacros populates the macro namespace: the root template's own macros plus
@@ -163,15 +268,14 @@ func (in *interp) execItem(n *ast.Node, ctx *runtime.Context) error {
 		return in.execEmbed(n, ctx)
 	case ast.KindExtends, ast.KindMacro, ast.KindImport, ast.KindFrom, ast.KindUse:
 		return nil // declarations: no direct output
-	case ast.KindTypes, ast.KindDeprecated, ast.KindLine, ast.KindSandbox, ast.KindCache:
-		// Type declarations, deprecation diagnostics, line resets, sandbox, and
-		// cache are parsed but their runtime effects are deferred this slice; they
-		// emit nothing and (for sandbox/cache) render their body transparently.
+	case ast.KindCache:
+		return in.execCache(n, ctx)
+	case ast.KindTypes, ast.KindDeprecated, ast.KindLine, ast.KindSandbox:
+		// Type declarations, deprecation diagnostics, line resets, and sandbox are
+		// parsed but their runtime effects are deferred this slice; they emit nothing
+		// and (for sandbox) render their body transparently.
 		if n.Kind == ast.KindSandbox {
 			return in.execItems(n.Children, ctx)
-		}
-		if n.Kind == ast.KindCache {
-			return in.execItems(n.Children[n.Int:], ctx)
 		}
 		return nil
 	default:
@@ -330,13 +434,23 @@ func (in *interp) execSet(n *ast.Node, ctx *runtime.Context) error {
 	return nil
 }
 
-// bindPattern binds a list-destructuring pattern from a sequence value. Only the
-// list form is supported this slice; map destructuring is deferred.
+// bindPattern binds a destructuring pattern (spec 01 Sections 2.1, 3.2). A list
+// pattern binds slots positionally from a sequence; a map/object pattern binds
+// each named slot from the value's member of that key, supporting the rename
+// form {key: alias}.
 func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Context) error {
-	if pat.Kind != ast.KindListPattern {
-		return posErr(pat, errors.New(errors.KindRuntime,
-			"map destructuring is not implemented in this milestone"))
+	switch pat.Kind {
+	case ast.KindListPattern:
+		return in.bindListPattern(pat, v, ctx)
+	case ast.KindMapPattern:
+		return in.bindMapPattern(pat, v, ctx)
+	default:
+		return posErr(pat, errors.New(errors.KindRuntime, "unknown destructuring pattern"))
 	}
+}
+
+// bindListPattern binds a sequence-destructuring pattern positionally.
+func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Context) error {
 	if v.Kind != runtime.KArray || v.Arr == nil {
 		return posErr(pat, errors.New(errors.KindRuntime,
 			"destructuring expects a sequence"))
@@ -354,6 +468,32 @@ func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Conte
 		if slot.Kind == ast.KindName || slot.Kind == ast.KindTarget {
 			ctx.Set(name, val)
 		}
+	}
+	return nil
+}
+
+// bindMapPattern binds a map/object-destructuring pattern. Each KindMapTarget
+// reads the value's member named by its source key (Str) through the same dotted
+// access used by a.b, so the right-hand side may be a mapping OR a host object;
+// the bound local is the alias when one is present ({key: alias}) and the key
+// itself otherwise ({name}). A missing key follows the engine's strictness:
+// under strict variables it is an undefined error, under lenient mode it binds
+// null (spec 04 Section 6).
+func (in *interp) bindMapPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Context) error {
+	allowAbsent := !in.eng.StrictVariables()
+	for _, slot := range pat.Children {
+		if slot.Kind != ast.KindMapTarget {
+			continue
+		}
+		val, err := runtime.GetAttribute(v, runtime.Str(slot.Str), runtime.AccessDot, allowAbsent)
+		if err != nil {
+			return posErr(pat, err)
+		}
+		local := slot.Str
+		if slot.Bool { // rename form {key: alias}; the alias is child 0
+			local = slot.Child(0).Str
+		}
+		ctx.Set(local, val)
 	}
 	return nil
 }
@@ -378,6 +518,97 @@ func (in *interp) execCapture(n *ast.Node, ctx *runtime.Context) error {
 		ctx.Set(n.Str, runtime.Str(out))
 	}
 	return nil
+}
+
+// execCache renders an @cache region, memoizing its body under the resolved key
+// (spec 01 Section 4.7, design/control-flow Section 10.6). On a cache hit the
+// body is emitted from the store and NOT re-rendered; on a miss the body renders
+// in a child scope (like capture), is stored under the key with its tags, and is
+// emitted. The ttl argument is accepted but is a documented no-op for the
+// engine-default in-memory cache. The key is namespaced by the rendering
+// template so identical keys in different templates do not collide. The body is
+// already-rendered output, so it is spliced verbatim with emitString -- under an
+// active escape strategy it was produced through the same escaper as a capture
+// and must not be escaped a second time.
+func (in *interp) execCache(n *ast.Node, ctx *runtime.Context) error {
+	count := int(n.Int)
+	args := n.Children[:count]
+	body := n.Children[count:]
+
+	var keyExpr, ttlExpr, tagsExpr *ast.Node
+	for _, a := range args {
+		switch a.Str {
+		case "key":
+			keyExpr = a.Child(0)
+		case "ttl":
+			ttlExpr = a.Child(0)
+		case "tags":
+			tagsExpr = a.Child(0)
+		default:
+			return posErr(a, errors.New(errors.KindRuntime,
+				"unknown cache argument %q (want key, ttl, or tags)", a.Str))
+		}
+	}
+	if keyExpr == nil {
+		return posErr(n, errors.New(errors.KindRuntime, "@cache requires a key"))
+	}
+	_ = ttlExpr // ttl is a no-op for the non-expiring in-memory cache.
+
+	keyVal, err := in.eval(keyExpr, ctx, false)
+	if err != nil {
+		return err
+	}
+	keyText, err := runtime.ToText(keyVal)
+	if err != nil {
+		return posErr(n, err)
+	}
+	// Namespace the user key by the rendering template so two templates that both
+	// cache under "header" do not share an entry.
+	fullKey := in.root.Name + "\x00" + keyText
+
+	rc := in.eng.RenderCache()
+	if rc != nil {
+		if cached, ok := rc.Get(fullKey); ok {
+			return posErr(n, in.emitString(cached))
+		}
+	}
+
+	// Miss: render the body in a child scope so body-local sets do not leak.
+	out, err := in.captureItems(body, ctx.Clone())
+	if err != nil {
+		return err
+	}
+	if rc != nil {
+		tags, err := in.evalCacheTags(tagsExpr, ctx)
+		if err != nil {
+			return err
+		}
+		rc.Put(fullKey, out, tags)
+	}
+	return posErr(n, in.emitString(out))
+}
+
+// evalCacheTags evaluates the optional tags expression to a list of strings.
+func (in *interp) evalCacheTags(tagsExpr *ast.Node, ctx *runtime.Context) ([]string, error) {
+	if tagsExpr == nil {
+		return nil, nil
+	}
+	v, err := in.eval(tagsExpr, ctx, false)
+	if err != nil {
+		return nil, err
+	}
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return nil, nil
+	}
+	var tags []string
+	for _, p := range v.Arr.Pairs() {
+		t, err := runtime.ToText(p.Val)
+		if err != nil {
+			return nil, err
+		}
+		tags = append(tags, t)
+	}
+	return tags, nil
 }
 
 // captureItems renders items into a separate sink and returns the produced

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/avmnusng/quill-template-engine/cache"
 	"github.com/avmnusng/quill-template-engine/ext"
 	"github.com/avmnusng/quill-template-engine/parse"
 	"github.com/avmnusng/quill-template-engine/runtime"
@@ -19,6 +20,7 @@ type stubEngine struct {
 	autoht  bool
 	seed    int64
 	seedSet bool
+	rcache  *cache.RenderCache
 }
 
 func newStub(tmpls map[string]string) *stubEngine {
@@ -56,6 +58,12 @@ func (s *stubEngine) CompileString(name, body string) (*Template, error) {
 	return Prepare(name, mod), nil
 }
 func (s *stubEngine) RandomSeed() (int64, bool) { return s.seed, s.seedSet }
+func (s *stubEngine) RenderCache() *cache.RenderCache {
+	if s.rcache == nil {
+		s.rcache = cache.NewRenderCache()
+	}
+	return s.rcache
+}
 
 func errNotFound(name string) error { return &notFoundErr{name} }
 

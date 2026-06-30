@@ -543,7 +543,9 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Context) error {
 		return err
 	}
 	sub.parentChain = chain
-	sub.buildBlockTable(chain)
+	if err := sub.buildBlockTable(chain); err != nil {
+		return err
+	}
 	for name, node := range overrides {
 		def := blockDef{owner: tmpl, node: node}
 		if e, ok := sub.blocks[name]; ok {

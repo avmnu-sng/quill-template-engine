@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/avmnusng/quill-template-engine/ast"
+	"github.com/avmnusng/quill-template-engine/cache"
 	"github.com/avmnusng/quill-template-engine/errors"
 	"github.com/avmnusng/quill-template-engine/ext"
 	"github.com/avmnusng/quill-template-engine/runtime"
@@ -57,6 +58,10 @@ type Engine interface {
 	// When set, the seedable randomness functions (random, shuffle) become
 	// deterministic, backing test reproducibility (spec 03 Section 3.2, X15).
 	RandomSeed() (int64, bool)
+	// RenderCache returns the engine's rendered-body cache, backing the @cache
+	// region statement (spec 01 Section 4.7). It is the pluggable cache surface;
+	// the engine default is an in-memory store.
+	RenderCache() *cache.RenderCache
 }
 
 // Sink is the push-based output target. The interpreter writes rendered bytes as

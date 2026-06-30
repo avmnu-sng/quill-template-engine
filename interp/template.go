@@ -2,6 +2,7 @@ package interp
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/avmnusng/quill-template-engine/ast"
 	"github.com/avmnusng/quill-template-engine/errors"
@@ -29,6 +30,11 @@ type Template struct {
 	// imports records @import (namespace) and @from (selective) heads at file
 	// scope so the renderer can resolve the macro namespace and dotted calls.
 	imports []*ast.Node
+
+	// uses records @use (trait) heads at file scope, in source order, so the
+	// renderer can pull in a traitable template's blocks with trait-then-own
+	// precedence and optional aliasing (spec 01 Section 5.4).
+	uses []*ast.Node
 
 	// regexps caches the compiled RE2 for every `matches` node whose pattern is a
 	// string literal. The spec (01 Section 3, "Regex matches") requires a literal
@@ -121,6 +127,8 @@ func (t *Template) index(n *ast.Node) {
 			t.extendsNode = c
 		case ast.KindImport, ast.KindFrom:
 			t.imports = append(t.imports, c)
+		case ast.KindUse:
+			t.uses = append(t.uses, c)
 		case ast.KindEmbed:
 			// An embed defines blocks for its OWN child render, not this template's
 			// table; it is handled at render time, not indexed here.
@@ -152,3 +160,28 @@ func (t *Template) HasMacro(name string) bool { _, ok := t.macros[name]; return 
 // IsChild reports whether this template extends a parent (Parent tri-state, the
 // "definitely a child" case), spec 01 Section 5.2.
 func (t *Template) IsChild() bool { return t.extendsNode != nil }
+
+// Traitable reports whether this template may be pulled in by @use: it must have
+// NO parent (@extends), NO macros, and NO free body content -- only @block
+// definitions and @use statements at top level (spec 01 Section 5.4, design/
+// composition Section 4). A trait is a pure bundle of blocks.
+func (t *Template) Traitable() bool {
+	if t.extendsNode != nil || len(t.macros) != 0 {
+		return false
+	}
+	for _, c := range t.Module.Children {
+		switch c.Kind {
+		case ast.KindBlock, ast.KindUse:
+			// Allowed: block definitions and nested trait uses.
+		case ast.KindText:
+			// A whitespace-only text span (and a leading BOM) is tolerated, matching
+			// the content-outside-blocks rule for inheriting templates.
+			if strings.TrimLeft(strings.TrimSpace(c.Str), "\ufeff") != "" {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
