@@ -1,0 +1,19 @@
+# Binaries
+/bin/
+*.exe
+*.test
+*.out
+
+# Go workspace and vendoring
+/vendor/
+go.work
+go.work.sum
+
+# Tool versions (goenv-specific)
+.go-version
+
+# Editors / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
