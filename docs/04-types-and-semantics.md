@@ -66,7 +66,7 @@ map<K, V>                    // ordered mapping (K is int|string)
 T?                           // nullable: sugar for T | null
 (A, B) => R                  // arrow/callable types
 Object<"Type">               // a host-registered named type
-A | B                        // union (for polymorphic host returns, e.g. subtractOne -> int | string)
+A | B                        // union (for polymorphic host returns, e.g. int | string)
 ```
 
 `any` is gradual: a value of type `any` may flow into any typed slot and vice versa, with a

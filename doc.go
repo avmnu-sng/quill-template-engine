@@ -19,12 +19,10 @@
 //     strategies (js, css, html_attr, html_attr_relaxed, url) are reachable via
 //     the escape()/e() filter and error clearly as a region (spec 01 Section 4).
 //
-// Intentionally omitted from the stdlib (with their reasons):
-//
-//   - The host-specific corpus functions getJavaListDataType and subtractOne
-//     (spec 03 Section 3.5) are not built in: they are application functions, not
-//     engine primitives, and are meant to be registered by a host through the
-//     extension surface (ext.ExtensionSet.AddFunction), which this slice exercises.
+// Application-specific functions are intentionally not built in: they are
+// registered by the host through the extension surface
+// (ext.ExtensionSet.AddFunction), which this milestone exercises, rather than
+// shipped as engine primitives.
 //
 // Implemented this slice: the full spec-03 standard-library catalogue (every
 // remaining filter, function, and test), arrow functions evaluating through

@@ -178,14 +178,13 @@ remain canonical.
 
 ### 3.5 Host functions and the registration mechanism
 
-The host registers functions with positional, named, defaulted, and spread parameters. Two
-representative host functions are catalogued because they demonstrate
-the registration surface:
+The host registers functions with positional, named, defaulted, and spread parameters. A
+couple of illustrative host functions show the registration surface:
 
 | Function | Signature | Notes |
 |----------|-----------|-------|
-| `getJavaListDataType(name)` | `string -> string` | Map a type name (`boolean`/`int`/`long`/`float`/`double`/`char`) to its Java boxed type, else echo the input. |
-| `subtractOne(e)` | `any -> int \| string` | If `e` is all-digits, return `int(e) - 1`; else return the string `"<e> - 1"`. Polymorphic return typed `int | string`. |
+| `slugify(s)` | `string -> string` | Lowercase and hyphenate a string for use as an identifier or URL slug. |
+| `pluralize(n, word)` | `int, string -> string` | Return the singular or plural form of a word based on a count. |
 
 The host-function registration mechanism itself is a parity capability (the extension surface,
 not just the functions); see `06-architecture-and-roadmap.md`.

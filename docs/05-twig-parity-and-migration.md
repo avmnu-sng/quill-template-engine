@@ -204,7 +204,7 @@ Each is a deterministic, local transformation applied with no judgment:
 | `#{expr}` in strings | `#{expr}` (unchanged) |
 | a literal `}` line in an emitted body | the same `}` line (literal TEXT under the `@`-default; no escaping) |
 | `==`, `!=`, `and`, `or`, `not`, `matches`, ternary | unchanged |
-| `getJavaListDataType(...)`, `subtractOne(...)`, `ucfirst` | unchanged |
+| host-registered functions, `ucfirst` | unchanged |
 
 The expression sub-language such templates use is a subset of Quill's expression grammar with
 identical surface syntax, so the expression transpiler is mostly an identity function. The only
