@@ -449,6 +449,20 @@ func (in *interp) execApply(n *ast.Node, ctx *runtime.Context) error {
 			return posErr(f, err)
 		}
 	}
+	// Under an active escape strategy the body was already escaped during the
+	// capture render (every interpolation inside it flowed through emit), so the
+	// filtered result is finished output, not a raw value. Wrap it as Safe so the
+	// final emit does not escape it a SECOND time -- mirroring capture/macro/block,
+	// which the slice's safeness model (spec 04 Section 8.2) wraps for the same
+	// reason. Without this, e.g. an already-escaped "&lt;" would re-escape its "&"
+	// to "&amp;". The off strategy (escape == "") leaves v untouched, byte-exact.
+	if in.escape != "" && v.Kind != runtime.KSafe {
+		text, err := runtime.ToText(v)
+		if err != nil {
+			return posErr(n, err)
+		}
+		v = runtime.Safe(text)
+	}
 	return posErr(n, in.emit(v))
 }
 

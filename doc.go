@@ -27,7 +27,13 @@
 // Nested regions and the module default compose via a strategy stack
 // (save/restore on region entry/exit), so an inner region restores the enclosing
 // strategy on exit, and captures/macros/blocks under any active strategy yield a
-// Safe value (spec 04 Section 8). Previously implemented: the full spec-03
+// Safe value (spec 04 Section 8). @apply joins that same safeness model: under an
+// active strategy its filtered body is wrapped Safe so the region does not escape
+// it a second time. The code-point strategies (js, css, html_attr,
+// html_attr_relaxed) decode their input as UTF-8 and raise a clear escaping error
+// naming the strategy and byte offset on an invalid byte, rather than silently
+// emitting a replacement character (spec 04 Section 8.2); the byte-oriented html
+// and url strategies accept arbitrary bytes losslessly. Previously implemented: the full spec-03
 // standard-library catalogue, arrow functions through
 // map/filter/sort/reduce/find and the "has some"/"has every" quantifiers, all six
 // escape strategies via the filter, the regex "matches" operator (Go RE2

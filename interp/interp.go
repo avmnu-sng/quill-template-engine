@@ -189,8 +189,10 @@ func (in *interp) emit(v runtime.Value) error {
 	// A Safe value carries already-escaped content and is emitted verbatim under
 	// any active strategy. Otherwise, when a strategy is active, the value's text
 	// flows through the shared escaper for that strategy (spec 04 Section 8). The
-	// code-point strategies (js, css, html_attr, html_attr_relaxed) can raise a
-	// charset error on invalid UTF-8, surfaced here.
+	// code-point strategies (js, css, html_attr, html_attr_relaxed) decode the
+	// text as UTF-8 and return a charset error naming the strategy and byte offset
+	// on an invalid byte (spec 04 Section 8.2); that error is surfaced here rather
+	// than emitting a silent replacement character.
 	if in.escape != "" && v.Kind != runtime.KSafe {
 		text, err = ext.Escape(in.escape, text)
 		if err != nil {

@@ -156,6 +156,85 @@ func TestEscapeRegionCaptureIsSafe(t *testing.T) {
 	}
 }
 
+// TestEscapeRegionApplyNotDoubleEscaped checks that @apply, like capture, treats
+// its filtered body as already-safe under an active strategy: the body is escaped
+// once during the capture render, so the final emit must NOT escape it a second
+// time (spec 04 Section 8.2). The byte-for-byte oracle is capture of the SAME
+// input under the same strategy -- apply through a metacharacter-preserving
+// filter must match it exactly. A regression (the old plain-Str path) re-escapes,
+// turning e.g. "&lt;" into "&amp;lt;".
+func TestEscapeRegionApplyNotDoubleEscaped(t *testing.T) {
+	eng := newStub(nil)
+	// trim is a no-op here (no surrounding whitespace) so the apply output equals
+	// the once-escaped capture byte-for-byte; it still forces the filter-chain path.
+	vars := map[string]runtime.Value{"p": runtime.Str("<x>&'\"/")}
+	for _, strategy := range []string{"html", "js", "css", "html_attr", "html_attr_relaxed", "url"} {
+		t.Run(strategy, func(t *testing.T) {
+			capBody := strings.Join([]string{
+				"@escape " + strategy + " {",
+				"@set cap = capture {",
+				"{{ p }}",
+				"@}",
+				"{{ cap }}",
+				"@}",
+			}, "\n")
+			// trim both sides so the comparison isolates the ESCAPED CONTENT and is
+			// not confused by the differing newline shapes of the two block forms
+			// (the apply filter itself trims its body's surrounding whitespace).
+			want := strings.TrimSpace(renderStub(t, eng, capBody, vars))
+
+			applyBody := strings.Join([]string{
+				"@escape " + strategy + " {",
+				"@apply | trim {",
+				"{{ p }}",
+				"@}",
+				"@}",
+			}, "\n")
+			got := strings.TrimSpace(renderStub(t, eng, applyBody, vars))
+			if got != want {
+				t.Errorf("apply under %q double-escapes\n got %q\nwant %q (capture oracle)", strategy, got, want)
+			}
+		})
+	}
+}
+
+// TestEscapeRegionCodePointInvalidUTF8 checks the spec 04 Section 8.2 guard end
+// to end: emitting an invalid-UTF-8 Str under a CODE-POINT strategy (js, css,
+// html_attr, html_attr_relaxed) is a clear render error naming the strategy and
+// byte offset, surfaced through emit -- NOT a silently substituted replacement
+// char. The BYTE-oriented strategies (html, url) accept the same bytes
+// losslessly. The invalid byte is injected as a host var because JSON data
+// cannot carry one (encoding/json normalizes it to U+FFFD).
+func TestEscapeRegionCodePointInvalidUTF8(t *testing.T) {
+	eng := newStub(nil)
+	vars := map[string]runtime.Value{"p": runtime.Str("a\xffb")}
+
+	for _, strategy := range []string{"js", "css", "html_attr", "html_attr_relaxed"} {
+		t.Run(strategy+"-errors", func(t *testing.T) {
+			body := "@escape " + strategy + " {\n{{ p }}\n@}"
+			_, err := renderStubErr(t, eng, body, vars)
+			if err == nil {
+				t.Fatalf("strategy %q must error on invalid UTF-8", strategy)
+			}
+			if !strings.Contains(err.Error(), strategy) {
+				t.Errorf("error should name the strategy %q, got: %v", strategy, err)
+			}
+			if !strings.Contains(err.Error(), "offset 1") {
+				t.Errorf("error should name the byte offset (1), got: %v", err)
+			}
+		})
+	}
+
+	for _, strategy := range []string{"html", "url"} {
+		t.Run(strategy+"-lossless", func(t *testing.T) {
+			body := "@escape " + strategy + " {\n{{ p }}\n@}"
+			if _, err := renderStubErr(t, eng, body, vars); err != nil {
+				t.Errorf("byte-oriented strategy %q must accept invalid bytes, got: %v", strategy, err)
+			}
+		})
+	}
+}
+
 // TestEscapeRegionUnknownStrategy checks that an unrecognized strategy word is a
 // clear render error naming the valid set, not a silent passthrough.
 func TestEscapeRegionUnknownStrategy(t *testing.T) {
