@@ -118,6 +118,9 @@ func TestParsePostfixChain(t *testing.T) {
 		{"f(1, 2)", "(Call (Name f) (Arg (Int 1)) (Arg (Int 2)))"},
 		{"f(a, key: c)", "(Call (Name f) (Arg (Name a)) (Arg named:key (Name c)))"},
 		{"f(...xs)", "(Call (Name f) (Arg spread (Name xs)))"},
+		// A spread after a named argument is allowed: only a bare positional after a
+		// named argument is an error (design/expressions Section 7).
+		{"f(a: 1, ...xs)", "(Call (Name f) (Arg named:a (Int 1)) (Arg spread (Name xs)))"},
 		{"x | f(a, b)", "(Filter f (Name x) (Arg (Name a)) (Arg (Name b)))"},
 		{"record.in", "(Attr .in (Name record))"}, // word-op as member name (R2)
 		{"data | matches_count", "(Filter matches_count (Name data))"},
@@ -195,6 +198,11 @@ func TestParseStringInterpolation(t *testing.T) {
 	// A single-quoted string never interpolates.
 	if got := parseExprDump(t, `'no #{x} here'`); got != `(String "no #{x} here")` {
 		t.Fatalf("single-quote interp leaked: %s", got)
+	}
+	// A double-quoted interpolation-only string is still a string: "#{x}" compiles
+	// to "" ~ x so its static type is string, not the raw expression x.
+	if got := parseExprDump(t, `"#{x}"`); got != `(Binary ~ (String "") (Name x))` {
+		t.Fatalf("interp-only string lost string typing: %s", got)
 	}
 }
 

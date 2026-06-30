@@ -135,10 +135,15 @@ func (p *parser) parseInterpString(t lex.Token) *ast.Node {
 	if len(parts) == 1 {
 		// A lone interpolation still renders to text via the surrounding {{ }}, but
 		// to preserve "string" typing we wrap a sole expression segment in a concat
-		// with an empty string only when it is not itself a string literal.
+		// with an empty string when it is not itself a string literal. A
+		// double-quoted "#{x}" is contractually a string (it "compiles to a ~ concat
+		// chain", spec 01 Section 1.5 / design/expressions 10.3), so its static type
+		// must be string -- "" ~ x -- not the raw expression x.
 		if parts[0].Kind == ast.KindString {
 			return parts[0]
 		}
+		empty := p.node(ast.KindString, t)
+		return p.binary(t, "~", empty, parts[0])
 	}
 	// Left-fold into "a ~ b ~ c".
 	acc := parts[0]

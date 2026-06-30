@@ -140,8 +140,13 @@ func (p *parser) parseCmp() *ast.Node {
 	left := p.parseRange()
 	if op, ok := p.cmpOp(); ok {
 		left = p.applyCmp(left, op)
-		// Non-associative: reject a chained operator at the same level.
+		// Non-associative across the whole level: any second level-10 operator of
+		// any family (comparison/membership OR a following test) is rejected, so
+		// "a == b is even" and "a in b is empty" fail the same way as "a == b == c".
 		if _, chained := p.cmpOp(); chained {
+			p.fail("comparison operators are non-associative; parenthesize or use 'and' to chain")
+		}
+		if p.isTestStart() {
 			p.fail("comparison operators are non-associative; parenthesize or use 'and' to chain")
 		}
 		return left

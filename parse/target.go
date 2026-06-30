@@ -30,17 +30,16 @@ func (p *parser) toTarget(e *ast.Node) *ast.Node {
 }
 
 // listToPattern converts a sequence literal into a KindListPattern. Each element
-// becomes a slot target; a trailing KindSpread element becomes a tail capture; a
-// KindUnary("?")-style optional is not produced by the expression parser, so an
-// optional slot "[a, b?]" requires the "?" to have been parsed -- which the
-// sequence parser does not do. We therefore detect the optional/elided shapes
-// from the element nodes the expression parser produced.
+// becomes a slot target; a trailing KindSpread element becomes a tail capture.
 //
-// The expression grammar parses "[a, b]" with both elements as plain names; an
-// elided slot "[, b]" is not expressible as a sequence-literal element (a bare
-// comma), so elision and the "?" optional marker are handled at the dedicated
-// target grammar. Here we support the common forms the expression parser yields:
-// names, nested list/map patterns, and a trailing "...name".
+// Deferred in this slice: optional slots "[a, b?]" and elided slots "[, b]"
+// (spec 02 Section 4, TgtSlot = [ Target_ [ "?" ] ]). The LHS is parsed as an
+// Expr and reinterpreted here, but the expression parser reads a trailing "?" as
+// the ternary operator and cannot express a bare-comma elision, so neither form
+// reaches this function. Producing KindOptional / nil-child elided slots requires
+// a dedicated target grammar (a later slice). "[a, b?] = x" therefore reports a
+// parse error today; TestSyntaxErrors documents that as the intended behavior for
+// this slice. Here we support names, nested list/map patterns, and "...name".
 func (p *parser) listToPattern(list *ast.Node) *ast.Node {
 	pat := ast.New(ast.KindListPattern, list.Line, list.Src)
 	for i, el := range list.Children {

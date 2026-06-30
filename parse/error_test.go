@@ -16,7 +16,13 @@ func TestSyntaxErrors(t *testing.T) {
 		{"chained comparison", "{{ a == b == c }}", "non-associative"},
 		{"chained range", "{{ 1 .. 2 .. 3 }}", "non-associative"},
 		{"chained test", "{{ x is even is odd }}", "non-associative"},
+		// A test following a comparison/membership is the same non-associative level 10.
+		{"comparison then test", "{{ a == b is even }}", "non-associative"},
+		{"membership then test", "{{ a in b is empty }}", "non-associative"},
 		{"positional after named", "{{ f(a: 1, 2) }}", "positional argument may not follow"},
+		// Optional/elided destructuring slots are deferred this slice; the "?" is read
+		// as the ternary operator and consumes the "]", so the LHS cannot be a target.
+		{"optional slot deferred", "@set [a, b?] = x\n", "expected an expression"},
 		{"unclosed interp", "{{ a + }}", "expected an expression"},
 		{"missing for in", "@for x xs {\n@}\n", "expected 'in'"},
 		{"elseif without if", "@elseif x {\n@}\n", "without a matching"},

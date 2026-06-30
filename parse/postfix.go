@@ -130,7 +130,10 @@ func (p *parser) parseArgsInto(parent *ast.Node) {
 		arg := p.parseArg()
 		if arg.Int == ast.ArgNamed {
 			seenNamed = true
-		} else if seenNamed {
+		} else if arg.Int == ast.ArgPositional && seenNamed {
+			// Only a bare positional after a named argument is an error
+			// (design/expressions Section 7). A spread is neither positional nor
+			// named, so "f(a: 1, ...xs)" is permitted.
 			p.failAt(p.cur(), "a positional argument may not follow a named argument")
 		}
 		parent.Add(arg)
