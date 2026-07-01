@@ -134,7 +134,7 @@ func (c *checker) iterableElem(t *Type) (elem *Type, key *Type, ok bool) {
 		return e, Any, can
 	case KUnion:
 		// Iterable iff every arm is, joining the element types.
-		var je, jk *Type = Never, Never
+		je, jk := Never, Never
 		for _, a := range t.Union {
 			ae, ak, can := c.iterableElem(a)
 			if !can {

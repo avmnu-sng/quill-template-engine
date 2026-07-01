@@ -61,7 +61,7 @@ func (p *parser) parsePrint() *ast.Node {
 		t := p.advance()
 		cond := p.parseExpr()
 		empty := p.node(ast.KindString, t)
-		var els *ast.Node = empty
+		els := empty
 		if p.isNameWord("else") {
 			p.advance()
 			els = p.parseExpr()

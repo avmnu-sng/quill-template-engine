@@ -135,11 +135,11 @@ func markerFor(arms []Region) htmlMarker {
 		}
 	}
 	m := htmlMarker{Has: true}
-	switch {
-	case taken == total:
+	switch taken {
+	case total:
 		m.Fill = "full"
 		m.Title = "all arms taken"
-	case taken == 0:
+	case 0:
 		m.Fill = "empty"
 		m.Title = "branch never reached: " + strings.Join(missing, "; ")
 	default:

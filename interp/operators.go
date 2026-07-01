@@ -372,7 +372,7 @@ func (in *interp) quantify(n *ast.Node, coll, pred runtime.Value, universal bool
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"the %q operator expects an arrow predicate on the right", n.Str))
 	}
-	pairs, err := runtime.EnsureTraversable(coll, in.eng.StrictVariables() == false)
+	pairs, err := runtime.EnsureTraversable(coll, !in.eng.StrictVariables())
 	if err != nil {
 		return runtime.Null(), posErr(n, err)
 	}

@@ -256,7 +256,7 @@ func (in *interp) evalSlice(n *ast.Node, ctx *runtime.Context) (runtime.Value, e
 	if err != nil {
 		return runtime.Null(), err
 	}
-	var start, end runtime.Value = runtime.Int(0), runtime.Null()
+	start, end := runtime.Int(0), runtime.Null()
 	hasEnd := false
 	if n.Int&ast.SliceHasStart != 0 {
 		start, err = in.eval(n.Child(1), ctx, false)

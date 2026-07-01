@@ -52,10 +52,7 @@ func encodeJSON(b *strings.Builder, v runtime.Value, pretty bool, indent, prefix
 
 func encodeJSONArray(b *strings.Builder, a *runtime.Array, pretty bool, indent, prefix string) error {
 	if a == nil || a.Len() == 0 {
-		if a != nil && a.Len() == 0 && !a.IsList() {
-			// An empty *Array is list-shaped, so it serializes as []; this branch is
-			// unreachable but documents the intent.
-		}
+		// An empty *Array is list-shaped, so it serializes as [].
 		b.WriteString("[]")
 		return nil
 	}

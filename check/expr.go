@@ -249,7 +249,7 @@ func (c *checker) memberOf(n *ast.Node, recv *Type, m string) (*Type, error) {
 	case KUnion:
 		// Resolve on each arm and join; a null arm is permitted only under ?. which
 		// already removed it, so a plain union with a non-member arm errors.
-		var out *Type = Never
+		out := Never
 		for _, arm := range recv.Union {
 			mt, err := c.memberOf(n, arm, m)
 			if err != nil {
@@ -311,7 +311,7 @@ func (c *checker) subscriptOf(n *ast.Node, recv, keyT *Type) (*Type, error) {
 	case KObject:
 		return Any, nil // host index interface: dynamic
 	case KUnion:
-		var out *Type = Never
+		out := Never
 		for _, arm := range recv.Union {
 			rt, err := c.subscriptOf(n, arm, keyT)
 			if err != nil {

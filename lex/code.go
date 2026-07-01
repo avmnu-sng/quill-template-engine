@@ -169,9 +169,7 @@ func (l *lexer) scanCode(stop closer) (stop2 bool) {
 			l.op(RPAREN, 1)
 		case '[':
 			depth++
-			if l.has("?[") {
-				// "?[" handled at '?' branch; a lone '[' here.
-			}
+			// A "?[" pair is consumed at the '?' branch, so this is a lone '['.
 			l.op(LBRACKET, 1)
 		case ']':
 			if depth > 0 {

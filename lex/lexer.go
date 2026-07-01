@@ -103,10 +103,7 @@ func (l *lexer) scanText() (stop bool) {
 			}
 			if n == '#' {
 				flush()
-				if l.scanComment() {
-					return true
-				}
-				return false
+				return l.scanComment()
 			}
 		}
 
@@ -119,10 +116,7 @@ func (l *lexer) scanText() (stop bool) {
 			if kw, ok := l.peekStatement(); ok {
 				flushBeforeStatement()
 				if kw == "verbatim" {
-					if l.scanVerbatim() {
-						return true
-					}
-					return false
+					return l.scanVerbatim()
 				}
 				l.scanStatement(kw)
 				return false
