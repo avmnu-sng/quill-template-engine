@@ -27,6 +27,15 @@ type Environment struct {
 	renderCache *cache.RenderCache
 	extensions  *ext.ExtensionSet
 
+	// hostLayers are the host-supplied extension layers gathered by WithExtensions
+	// and WithExtension, kept in one ordered list so sets and bundles interleave in
+	// the exact order the options were passed. They are folded into the registry in
+	// New, after the core stdlib floor and the engine-bound callables, so a later
+	// layer shadows an earlier one and every host layer shadows core (spec 03
+	// Section 1). Composition is deferred to New so the engine callables
+	// (include/block family) are in place first and a host layer can shadow them.
+	hostLayers []hostLayer
+
 	autoescapeHTML  bool
 	strictVariables bool
 
@@ -89,10 +98,39 @@ func WithRandomSeed(seed int64) Option {
 	}
 }
 
-// WithExtensions replaces the callable registry (e.g. to layer host callables
-// over the core set). The provided set is used as-is.
-func WithExtensions(set *ext.ExtensionSet) Option {
-	return func(e *Environment) { e.extensions = set }
+// hostLayer is one host-supplied extension layer: exactly one of set or bundle
+// is non-nil. New folds each layer into the registry in slice order, so a single
+// list captures the interleaving of WithExtensions and WithExtension options.
+type hostLayer struct {
+	set    *ext.ExtensionSet
+	bundle ext.Extension
+}
+
+// WithExtensions layers one or more host callable sets over the core stdlib.
+// Each set is folded into the registry in New, after the core floor and the
+// engine-bound callables, in the order given, so a later set shadows an earlier
+// one and every host set shadows core (host shadows core, spec 03 Section 1).
+// Multiple WithExtensions options accumulate in call order. Passing several sets
+// in one call is equivalent to passing them across several options.
+func WithExtensions(sets ...*ext.ExtensionSet) Option {
+	return func(e *Environment) {
+		for _, s := range sets {
+			e.hostLayers = append(e.hostLayers, hostLayer{set: s})
+		}
+	}
+}
+
+// WithExtension layers one or more Extension bundles over the core stdlib. Each
+// bundle is registered (its filters, functions, tests, constants, and enums
+// folded in) in New, interleaved with WithExtensions layers in the order the
+// options were passed, so shadow order is uniform across sets and bundles: later
+// shadows earlier, and every host layer shadows core.
+func WithExtension(exts ...ext.Extension) Option {
+	return func(e *Environment) {
+		for _, x := range exts {
+			e.hostLayers = append(e.hostLayers, hostLayer{bundle: x})
+		}
+	}
 }
 
 // WithSandboxPolicy installs the host-supplied sandbox security policy: the
@@ -134,10 +172,12 @@ func WithCoverage(coll *cover.Collector) Option {
 	return func(e *Environment) { e.coverage = coll }
 }
 
-// New builds an Environment over a Loader with the given options. The core
-// stdlib subset is installed, then the engine-bound include/block-family
-// callables, then any host extensions supplied via WithExtensions take
-// precedence (host callables shadow core, spec 03 Section 1).
+// New builds an Environment over a Loader with the given options. The registry
+// is layered bottom-up: the core stdlib is the floor, then the engine-bound
+// include/block-family callables, then each host extension set or bundle
+// supplied via WithExtensions/WithExtension in option order. A later layer
+// shadows an earlier one and every host layer shadows core (host callables
+// shadow core, spec 03 Section 1).
 func New(ldr loader.Loader, opts ...Option) *Environment {
 	e := &Environment{
 		loader:          ldr,
@@ -151,6 +191,16 @@ func New(ldr loader.Loader, opts ...Option) *Environment {
 		opt(e)
 	}
 	e.registerEngineCallables()
+	// Fold the host layers over the core floor and the engine callables, in option
+	// order, so host additions shadow everything (spec 03 Section 1).
+	for _, layer := range e.hostLayers {
+		switch {
+		case layer.set != nil:
+			e.extensions.Merge(layer.set)
+		case layer.bundle != nil:
+			e.extensions.Register(layer.bundle)
+		}
+	}
 	return e
 }
 
