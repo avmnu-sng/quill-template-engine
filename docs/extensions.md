@@ -368,3 +368,78 @@ out, _ := env.Render("demo.ql", nil) // ababab 10
 ```
 
 Run it with `go run ./examples/extension`.
+
+--------------------------------------------------------------------------------
+
+## 10. Composable loaders
+
+A `loader.Loader` resolves a template name to its source. Beyond the in-memory
+`ArrayLoader` and the directory-rooted `FilesystemLoader`, four composable
+loaders let a host assemble the exact resolution strategy it needs. Each
+satisfies `loader.Loader` fully -- a `Get(name)` returning the source or a
+not-found error, and a cheap `Exists(name)` probe -- so any of them, in any
+combination, plugs into `quill.New`.
+
+### ChainLoader
+
+`loader.NewChainLoader(loaders ...Loader)` consults its loaders in order and
+serves the first hit. An earlier loader shadows a later one for the same name,
+which is the base-plus-override pattern: ship defaults in the last loader and let
+earlier loaders replace individual templates. A name absent from every loader is
+reported not-found; a non-not-found error from any loader stops the chain and
+propagates, so a genuine I/O failure is never masked by a later miss.
+
+```go
+env := quill.New(loader.NewChainLoader(
+	loader.NewFilesystemLoader("overrides"), // project overrides win
+	loader.NewFilesystemLoader("defaults"),  // shipped defaults
+))
+```
+
+### PrefixLoader
+
+`loader.NewPrefixLoader(routes map[string]Loader)` routes a name by its leading
+prefix to a sub-loader, stripping the prefix (and the `/` delimiter after it)
+before delegating. It composes several independently rooted loaders into one
+namespace: `lang/header` reaches the loader registered for `lang` as plain
+`header`. Routes match longest-prefix first, so `lang/de` wins over `lang` for a
+name both could serve. The returned source keeps the fully-qualified name, so a
+diagnostic points at the name the engine asked for. `loader.NewPrefixLoaderDelim`
+takes an explicit delimiter for a non-slash scheme such as `admin::page`.
+
+```go
+env := quill.New(loader.NewPrefixLoader(map[string]loader.Loader{
+	"lang": loader.NewFilesystemLoader("i18n"),
+	"mail": loader.NewFilesystemLoader("emails"),
+}))
+```
+
+### FSLoader
+
+`loader.NewFSLoader(fsys fs.FS, root ...string)` serves templates from any
+`fs.FS`, most usefully an `embed.FS` compiled into the binary so a program ships
+its templates with no filesystem at runtime. An optional root scopes lookups to a
+sub-tree; names are cleaned to a slash-separated, root-relative form so a `../`
+segment stays confined to the root.
+
+```go
+//go:embed templates
+var templatesFS embed.FS
+
+env := quill.New(loader.NewFSLoader(templatesFS, "templates"))
+```
+
+### FuncLoader
+
+`loader.NewFuncLoader(fn func(name string) (source string, ok bool))` adapts a
+plain callback into a loader. The callback returns the template source and a
+boolean reporting whether the name is known; a false second result becomes the
+not-found error. It is the lightest way to source templates from a database, a
+config object, or any lookup a host already owns.
+
+```go
+env := quill.New(loader.NewFuncLoader(func(name string) (string, bool) {
+	src, ok := templateStore[name]
+	return src, ok
+}))
+```

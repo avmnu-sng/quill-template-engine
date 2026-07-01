@@ -68,6 +68,14 @@ name under a root), use a filesystem loader:
 env := quill.New(loader.NewFilesystemLoader("templates"))
 ```
 
+Loaders compose. `loader.NewChainLoader` tries several loaders in order and
+serves the first hit, so a host layers project overrides over shipped defaults;
+`loader.NewPrefixLoader` routes a name by its leading prefix to a sub-loader;
+`loader.NewFSLoader` serves templates from an `fs.FS`, including an `embed.FS`
+baked into the binary; and `loader.NewFuncLoader` sources templates from a
+callback the host already owns. See [docs/extensions.md](docs/extensions.md#10-composable-loaders)
+for the full reference.
+
 Options: `quill.WithAutoescapeHTML(true)` switches the output strategy to HTML
 escaping; `quill.WithStrictVariables(false)` enables the lenient mode (an
 undefined read becomes empty instead of an error); `quill.WithTypes(reg)` installs
