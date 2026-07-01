@@ -13,7 +13,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
-      - run: go build ./...
-      - run: go vet ./...
-      - run: go test ./...
+          go-version: '1.26.2'
+      - name: Install go-task
+        run: go install github.com/go-task/task/v3/cmd/task@latest
+      - name: Build
+        run: task build
+      - name: Checks (fmt, vet, mod-tidy)
+        run: task check:all
+      - name: Unit tests (race + coverage)
+        run: task test:unit
+      # Lint and security depend on tools not in the default runner image and are
+      # advisory for this stdlib-only library; install them and run non-blocking
+      # so a tooling hiccup never fails the build.
+      - name: Lint and security (advisory)
+        continue-on-error: true
+        run: |
+          task install:tools
+          task lint:all
+          task security:all

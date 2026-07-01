@@ -1,0 +1,36 @@
+# golangci-lint configuration for Quill (schema v2).
+#
+# A reasonable, not-overly-strict config for a stdlib-only Go library: the
+# default vet/staticcheck-style linters plus a few high-signal additions, with
+# test files exempted from the noisier checks.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - unconvert
+    - revive
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - std-error-handling
+    rules:
+      # Tests exercise error paths and edge cases; relax the strict checks.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - revive
+
+formatters:
+  enable:
+    - gofmt

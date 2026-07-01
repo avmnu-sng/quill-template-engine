@@ -1,20 +1,29 @@
-GO ?= go
+# Quill uses go-task (https://taskfile.dev) as its primary build tool.
+# See Taskfile.yml; run `task --list` for the available targets.
+#
+# This Makefile is a thin pointer that forwards to `task` so muscle-memory
+# `make <target>` still works. Install task with:
+#   go install github.com/go-task/task/v3/cmd/task@latest
 
-.PHONY: build test vet fmt tidy check
+.PHONY: build test vet fmt check ci clean
 
 build:
-	$(GO) build ./...
+	task build
 
 test:
-	$(GO) test ./...
+	task test
 
 vet:
-	$(GO) vet ./...
+	task check:vet
 
 fmt:
-	$(GO) fmt ./...
+	task check:fmt
 
-tidy:
-	$(GO) mod tidy
+check:
+	task check:all
 
-check: fmt vet test
+ci:
+	task ci
+
+clean:
+	task clean

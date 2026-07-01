@@ -1,0 +1,191 @@
+# Taskfile for Quill -- a standard-library-only, pure-Go template engine.
+#
+# Quill is a standalone OSS Go library: there is no service, no container, and
+# no infrastructure to stand up. The targets here are the ones a Go library
+# actually needs -- build, test, coverage, lint, format/vet/tidy checks, and
+# supply-chain scans. Run `task` (or `task --list`) to see everything.
+#
+# Toolchain note: goenv pins the local Go via .go-version (1.26.2) while go.mod
+# declares a MINIMUM (`go 1.23`). The version check below verifies the running
+# Go is at least that minimum rather than pinning an exact version, so it never
+# fails spuriously on a newer-but-compatible toolchain.
+version: '3'
+set: [errexit, nounset, pipefail]
+
+vars:
+  # Minimum Go version required by go.mod (the `go` directive).
+  GO_VERSION:
+    sh: grep -m1 '^go ' go.mod | awk '{print $2}'
+  GOBIN:
+    sh: go env GOPATH 2>/dev/null | xargs -I{} echo {}/bin || echo ""
+  # Tool versions (dev tooling only; the engine itself has no runtime deps).
+  ACTIONLINT_VERSION: 1.7.12
+  GOLANGCI_LINT_VERSION: v2.11.4
+  GO_LICENSES_VERSION: v2.0.1
+  GOVULNCHECK_VERSION: v1.1.4
+
+tasks:
+  default:
+    silent: true
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  go:version-check:
+    internal: true
+    desc: Verify the running Go satisfies the go.mod minimum
+    cmds:
+      - |
+        ACTUAL=$(go version | awk '{print $3}' | sed 's/go//')
+        MIN={{.GO_VERSION}}
+        # True when $1 is <= $2 under version ordering (so MIN <= ACTUAL passes).
+        LOWEST=$(printf '%s\n%s\n' "$MIN" "$ACTUAL" | sort -V | head -1)
+        if [ "$LOWEST" != "$MIN" ]; then
+          echo "Go version too old: go.mod needs >= $MIN, running $ACTUAL"
+          echo "Run 'task install:go' to install the pinned version via goenv"
+          exit 1
+        fi
+
+  install:go:
+    desc: Install the Go version pinned by .go-version via goenv
+    preconditions:
+      - sh: command -v goenv >/dev/null 2>&1
+        msg: "goenv not found. Install it first: brew install goenv"
+      - sh: '! brew list go >/dev/null 2>&1'
+        msg: "Homebrew Go shadows goenv. Run: brew uninstall go"
+    vars:
+      PINNED:
+        sh: cat .go-version 2>/dev/null || grep -m1 '^go ' go.mod | awk '{print $2}'
+    cmds:
+      - goenv install --skip-existing {{.PINNED}}
+      - goenv local {{.PINNED}}
+      - mkdir -p "$(go env GOPATH)/bin"
+
+  install:tools:
+    desc: Install the Go-library dev tools (golangci-lint, govulncheck, actionlint, go-licenses)
+    deps: [go:version-check]
+    status:
+      - test -x {{.GOBIN}}/actionlint
+      - test -x {{.GOBIN}}/golangci-lint
+      - test -x {{.GOBIN}}/go-licenses
+      - test -x {{.GOBIN}}/govulncheck
+    cmds:
+      - |
+        OS=$(uname -s)
+        ARCH=$(uname -m)
+        if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; else ARCH="amd64"; fi
+        curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v{{.ACTIONLINT_VERSION}}/actionlint_{{.ACTIONLINT_VERSION}}_$(echo ${OS} | tr '[:upper:]' '[:lower:]')_${ARCH}.tar.gz" | tar xz -C "{{.GOBIN}}" actionlint
+      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "{{.GOBIN}}" {{.GOLANGCI_LINT_VERSION}}
+      - go install github.com/google/go-licenses/v2@{{.GO_LICENSES_VERSION}}
+      - go install golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}}
+
+  build:
+    desc: Build all packages and the cmd/quill binary
+    deps: [go:version-check]
+    cmds:
+      - go build ./...
+      - go build -o bin/quill ./cmd/quill
+
+  run:
+    desc: "Render a template via cmd/quill (example: task run -- -root testdata -data d.json t.ql)"
+    cmds:
+      - go run ./cmd/quill {{.CLI_ARGS}}
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./...
+
+  test:unit:
+    desc: Run tests with the race detector and a coverage profile
+    cmds:
+      - go test -race -coverprofile=coverage.out ./...
+
+  test:cover:
+    desc: Summarize coverage from coverage.out (run test:unit first)
+    cmds:
+      - go tool cover -func=coverage.out | tail -1
+      - 'echo "HTML report: go tool cover -html=coverage.out"'
+
+  # cover:templates:
+  #   Native TEMPLATE coverage (which template lines/branches a render exercised)
+  #   is a separate upcoming feature, distinct from Go source coverage above.
+
+  lint:golang:
+    desc: Run the Go linter (golangci-lint)
+    cmds:
+      - '{{.GOBIN}}/golangci-lint run'
+  lint:actions:
+    desc: Lint GitHub Actions workflow files
+    cmds:
+      - '{{.GOBIN}}/actionlint'
+  lint:all:
+    desc: Run all linters
+    cmds:
+      - task: lint:golang
+      - task: lint:actions
+
+  check:fmt:
+    desc: Check gofmt formatting
+    cmds:
+      - |
+        UNFORMATTED=$(gofmt -l .)
+        if [ -n "$UNFORMATTED" ]; then
+          echo "Unformatted files:"
+          echo "$UNFORMATTED"
+          exit 1
+        fi
+  check:vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+  check:mod-tidy:
+    desc: Verify go.mod is tidy
+    cmds:
+      - |
+        cp go.mod go.mod.bak
+        [ -f go.sum ] && cp go.sum go.sum.bak || true
+        go mod tidy
+        STATUS=0
+        diff go.mod go.mod.bak > /dev/null 2>&1 || STATUS=1
+        if [ -f go.sum.bak ]; then
+          diff go.sum go.sum.bak > /dev/null 2>&1 || STATUS=1
+        fi
+        mv go.mod.bak go.mod
+        [ -f go.sum.bak ] && mv go.sum.bak go.sum || true
+        exit $STATUS
+  check:all:
+    desc: Run all Go checks (fmt, vet, mod-tidy)
+    cmds:
+      - task: check:fmt
+      - task: check:vet
+      - task: check:mod-tidy
+
+  security:govulncheck:
+    desc: Check for known vulnerabilities in dependencies
+    cmds:
+      - '{{.GOBIN}}/govulncheck ./...'
+  security:licenses:
+    desc: Check dependency licenses
+    cmds:
+      - '{{.GOBIN}}/go-licenses check ./...'
+  security:all:
+    desc: Run all security checks
+    cmds:
+      - task: security:govulncheck
+      - task: security:licenses
+
+  ci:
+    desc: Full CI pipeline (lint, checks, tests, security) -- no docker/images
+    deps: [go:version-check]
+    cmds:
+      - task: lint:all
+      - task: check:all
+      - task: test:unit
+      - task: security:all
+
+  clean:
+    desc: Remove build and coverage artifacts
+    cmds:
+      - rm -rf bin
+      - rm -f coverage.out

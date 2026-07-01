@@ -147,6 +147,25 @@ The language specification lives in [`docs/`](docs/):
 - Standard library (filters, functions, tests)
 - Types and runtime semantics
 
+## Development
+
+Quill uses [go-task](https://taskfile.dev) as its build tool. Install it with
+`go install github.com/go-task/task/v3/cmd/task@latest`, then run `task --list`
+to see the targets. The common ones:
+
+```
+task build        # build all packages and the cmd/quill binary
+task test         # go test ./...
+task test:unit    # tests with the race detector and a coverage profile
+task check:all    # gofmt, go vet, and go mod tidy checks
+task lint:all     # golangci-lint + actionlint (needs task install:tools)
+task ci           # the full pipeline lint + checks + tests + security
+```
+
+A thin `Makefile` forwards `make build`/`make test`/`make check` to the
+equivalent `task` targets. The engine itself is standard-library only; the
+linters and scanners under `task install:tools` are dev tooling.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
