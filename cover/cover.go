@@ -24,9 +24,19 @@
 // invoked). A template that is only referenced -- imported for macros that are
 // never called, or an @include whose statement never runs (e.g. inside a
 // never-taken @if arm) -- is never entered and so is ABSENT from the report
-// rather than reported at 0%. Within a template that IS entered, every region is
-// seeded, so an untaken branch or an unreached statement still reports 0. See
-// Collector.SeedTemplate for the precise boundary.
+// rather than reported at 0%.
+//
+// The unit of seeding depends on WHY a template was entered. A template entered
+// as a render root, an inheritance target, or an executed @include/@embed has its
+// top-level body rendered, so SeedTemplate seeds the WHOLE module and an untaken
+// branch or unreached statement anywhere in it still reports 0. A template entered
+// only as a MACRO HOME (its macros invoked via @import/@from) never renders its
+// top-level markup, so SeedMacro seeds only the invoked macro's subtree; that
+// template's top-level text and statements are unreachable in the import context
+// and are NOT seeded, so they do not appear as spurious uncovered gaps. A partial
+// that both renders standalone and exports macros gets whichever seed its actual
+// entry warrants, and a later full entry upgrades a macro-home seed. See
+// Collector.SeedTemplate and Collector.SeedMacro for the precise boundary.
 package cover
 
 import (
@@ -159,22 +169,37 @@ type regionData struct {
 // races but is not a substitute for per-goroutine Collectors).
 type Collector struct {
 	mu sync.Mutex
-	// regions maps a region id to its data, unioned across every render. seeded
-	// tracks which templates have been statically seeded so re-seeding is a no-op.
+	// regions maps a region id to its data, unioned across every render.
 	regions map[regionID]*regionData
-	seeded  map[string]bool
+	// seededFull tracks templates whose WHOLE module has been statically seeded
+	// (SeedTemplate) so a full re-seed is a no-op. seededMacro tracks per-macro
+	// subtree seeds (SeedMacro) so re-seeding the same macro is a no-op. The two
+	// are separate because a template can be entered first only as a macro home
+	// (partial seed) and later as a render root / @include / @extends target (full
+	// seed): the macro flag must NOT suppress the later full seed, and vice versa.
+	seededFull  map[string]bool
+	seededMacro map[macroSeedID]bool
 	// sources records each template's raw source text (captured at seed time) so
 	// the HTML report can render annotated source. It is keyed by template name.
 	sources map[string]string
+}
+
+// macroSeedID identifies one macro subtree that has been seeded under a template
+// so SeedMacro is idempotent per macro without marking the whole module seeded.
+type macroSeedID struct {
+	tmpl string
+	line int
+	col  int
 }
 
 // NewCollector returns an empty Collector ready to be passed to the engine's
 // WithCoverage option.
 func NewCollector() *Collector {
 	return &Collector{
-		regions: map[regionID]*regionData{},
-		seeded:  map[string]bool{},
-		sources: map[string]string{},
+		regions:     map[regionID]*regionData{},
+		seededFull:  map[string]bool{},
+		seededMacro: map[macroSeedID]bool{},
+		sources:     map[string]string{},
 	}
 }
 
@@ -237,14 +262,54 @@ func (c *Collector) SeedTemplate(name string, module *ast.Node) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.seeded[name] {
+	if c.seededFull[name] {
 		return
 	}
-	c.seeded[name] = true
+	c.seededFull[name] = true
 	if module.Src != nil {
 		c.sources[name] = module.Src.Code()
 	}
 	seedWalk(c, name, module)
+}
+
+// SeedMacro seeds only the coverable regions reachable through a macro invocation
+// into template name: the invoked macro's own subtree. Unlike SeedTemplate it does
+// NOT seed the template's top-level statement body, because a template entered
+// solely as a MACRO HOME (its macros invoked via @import / @from) never renders
+// its top-level markup -- that text and those statements are unreachable in the
+// import context, so seeding them would report unreachable code as an uncovered
+// gap and distort the percentage (docs/coverage.md 2.2).
+//
+// It is idempotent per macro: re-invoking the same macro across renders re-seeds
+// nothing. A template can be seeded by SeedMacro (for its imported macros) and,
+// separately, fully seeded by SeedTemplate if it is ALSO entered as a render root,
+// @include, @embed, or @extends target -- the two seed maps are independent so a
+// macro-home seed never suppresses a later full seed, and a full seed already
+// covers every macro subtree so a subsequent SeedMacro is a harmless no-op.
+//
+// macroNode is the ast.KindMacro node being invoked; a nil Collector, module, or
+// node is a no-op.
+func (c *Collector) SeedMacro(name string, module, macroNode *ast.Node) {
+	if c == nil || module == nil || macroNode == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// A full seed already registered every macro subtree; nothing to add.
+	if c.seededFull[name] {
+		return
+	}
+	// Capture source once so the HTML report can annotate a macro-home partial even
+	// when only its macros were entered.
+	if _, ok := c.sources[name]; !ok && module.Src != nil {
+		c.sources[name] = module.Src.Code()
+	}
+	id := macroSeedID{tmpl: name, line: macroNode.Line, col: macroNode.Col}
+	if c.seededMacro[id] {
+		return
+	}
+	c.seededMacro[id] = true
+	seedWalk(c, name, macroNode)
 }
 
 // Report returns an immutable snapshot of the coverage accumulated so far. Later

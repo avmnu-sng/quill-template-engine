@@ -24,6 +24,18 @@ func (in *interp) covSeed(t *Template) {
 	in.cov.SeedTemplate(t.Name, t.Module)
 }
 
+// covSeedMacro seeds only the invoked macro's subtree in its home template, used
+// when a template is entered ONLY as a macro home (its macro invoked via @import /
+// @from). Unlike covSeed it does not seed the home's top-level body, which an
+// import never renders, so unreachable top-level markup is not reported as an
+// uncovered gap. It is idempotent per macro and a nil Collector is a no-op.
+func (in *interp) covSeedMacro(home *Template, macroNode *ast.Node) {
+	if in.cov == nil || home == nil || macroNode == nil {
+		return
+	}
+	in.cov.SeedMacro(home.Name, home.Module, macroNode)
+}
+
 // covUnit records that the interpreter dispatched node n as a coverable unit of
 // the given kind. The region is anchored under n's own source name, so a node
 // from an included partial or a macro home counts under that template, not the

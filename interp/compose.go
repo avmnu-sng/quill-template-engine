@@ -323,9 +323,13 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 
 	// Coverage: the macro body is being invoked, so record its unit at the macro
 	// node (anchored under the home template's name via the node's own Src), and
-	// seed the home template so an imported macro's home counts even when it is
-	// never rendered as a root. Both are no-ops when coverage is off.
-	in.covSeed(entry.home)
+	// seed only the invoked macro's subtree in its home so an imported macro's home
+	// counts even when never rendered as a root -- WITHOUT seeding the home's
+	// top-level body, which an import never renders and would otherwise report as an
+	// uncovered gap. Both are no-ops when coverage is off. A home that is also
+	// entered as a render root / @include / @extends target is fully seeded
+	// separately by covSeed, and that full seed takes precedence.
+	in.covSeedMacro(entry.home, entry.node)
 	in.covUnit(entry.node, cover.UnitMacro)
 
 	// Render the macro body in a child interp that sees the home template's macro

@@ -176,12 +176,30 @@ inheritance chain, an `@include`/`@embed` target when its statement actually exe
 macro home when one of its macros is invoked. A template that is only referenced but never
 entered -- imported for macros that are never called, or an `@include` whose statement never
 runs because it sits in a never-taken `@if` arm -- is never seeded, so it is **absent** from
-the report rather than shown at `0%`. Within a template that *is* entered, every region is
-seeded, so an untaken branch or an unreached statement still reports `0`; only whole
-never-entered templates fall out. This keeps the denominator to code the render pipeline
-could reach. A caller that wants an unexercised partial to count as `0%` must seed it
-explicitly by walking the reference graph and calling `Collector.SeedTemplate` on each
-target. The semantics are pinned by `TestCoverageUnreachedIncludeIsAbsent`.
+the report rather than shown at `0%`.
+
+The *unit* of seeding depends on **why** a template was entered, because different entries
+make different regions reachable:
+
+- **Full entry** -- render root, inheritance target, or an executed `@include`/`@embed`. The
+  template's top-level body is rendered, so `Collector.SeedTemplate` seeds the **whole
+  module**: an untaken branch or an unreached statement anywhere in it still reports `0`.
+- **Macro-home entry** -- the template is reached *only* because one of its macros is invoked
+  via `@import`/`@from`. An import never renders the home's top-level markup, so that markup
+  is **unreachable** in this context. `Collector.SeedMacro` therefore seeds **only the invoked
+  macro's subtree**, and the top-level statements/text are *not* seeded -- they are absent
+  rather than reported as an uncovered `0%` gap. Seeding a macro home's whole body would
+  charge the denominator for code the import can never reach and distort the percentage for
+  the common partial-that-also-exports-macros pattern.
+
+The two seeds are independent and idempotent, so a partial that is *both* imported for a macro
+*and* rendered (as a root or executed `@include`) gets its whole body seeded by the full
+entry, which supersedes the narrower macro-home seed. Within whatever was seeded, an untaken
+branch or unreached statement still reports `0`; only regions unreachable through the actual
+entry fall out. This keeps the denominator to code the render pipeline could reach. A caller
+that wants an unexercised partial to count as `0%` must seed it explicitly by walking the
+reference graph and calling `Collector.SeedTemplate` on each target. The semantics are pinned
+by `TestCoverageUnreachedIncludeIsAbsent` and `TestCoverageMacroHomeTopLevelNotSeeded`.
 
 ### 2.3 Aggregation across renders
 

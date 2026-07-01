@@ -315,6 +315,85 @@ func TestCoverageUnreachedIncludeIsAbsent(t *testing.T) {
 	}
 }
 
+// TestCoverageMacroHomeTopLevelNotSeeded pins the macro-home seeding boundary: a
+// template entered ONLY as a macro home (its macro invoked via @import) never
+// renders its top-level markup, so that markup must NOT be seeded -- seeding it
+// would report unreachable code as an uncovered gap and distort the percentage.
+// The invoked macro's own subtree is still seeded and covered. When the SAME
+// partial is also entered as a render root or executed @include, its top-level
+// body IS rendered and so IS seeded (the full entry upgrades the macro-home seed).
+func TestCoverageMacroHomeTopLevelNotSeeded(t *testing.T) {
+	// m.ql, referenced only for its macro:
+	//   1: TOPLEVEL_JUNK        <- top-level text, unreachable via @import
+	//   2: @macro hi(x) {
+	//   3: [{{ x }}]            <- macro body, reachable when hi() is invoked
+	//   4: @}
+	macros := "TOPLEVEL_JUNK\n@macro hi(x) {\n[{{ x }}]\n@}\n"
+
+	cases := []struct {
+		name  string
+		tmpls map[string]string
+		root  string
+		// topLevelSeeded is whether m.ql's line-1 top-level text should appear in the
+		// report at all (it is uncovered-but-present only when m.ql is also rendered).
+		topLevelSeeded bool
+		// topLevelCovered is whether that line-1 text ran (only when m.ql's body was
+		// actually rendered via @include).
+		topLevelCovered bool
+	}{
+		{
+			// Pure macro-home entry: @import + call, m.ql body never rendered.
+			name: "macro-home-only",
+			tmpls: map[string]string{
+				"main.ql": "@import \"m.ql\" as m\n{{ m.hi(\"a\") }}\n",
+				"m.ql":    macros,
+			},
+			root:            "main.ql",
+			topLevelSeeded:  false,
+			topLevelCovered: false,
+		},
+		{
+			// m.ql is BOTH imported for its macro AND rendered via @include, so its
+			// top-level body is reachable and must be seeded and covered.
+			name: "macro-home-plus-include",
+			tmpls: map[string]string{
+				"main.ql": "@import \"m.ql\" as m\n{{ m.hi(\"a\") }}\n@include \"m.ql\"\n",
+				"m.ql":    macros,
+			},
+			root:            "main.ql",
+			topLevelSeeded:  true,
+			topLevelCovered: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			coll := cover.NewCollector()
+			env := NewWithArray(tc.tmpls, WithCoverage(coll))
+			if _, err := env.Render(tc.root, nil); err != nil {
+				t.Fatal(err)
+			}
+			r := coll.Report()
+
+			// The macro body is always covered: it was invoked with {{ m.hi("a") }}.
+			assertCovered(t, r, "m.ql", 2, cover.UnitMacro)
+			assertCovered(t, r, "m.ql", 3, cover.UnitPrint)
+
+			// The top-level markup: present only when the body was actually rendered.
+			reg, ok := findRegion(t, r, "m.ql", 1, cover.UnitText)
+			if ok != tc.topLevelSeeded {
+				t.Fatalf("m.ql line-1 top-level text seeded=%v, want %v "+
+					"(macro-home entry must not seed unreachable top-level markup)",
+					ok, tc.topLevelSeeded)
+			}
+			if tc.topLevelSeeded && reg.Covered() != tc.topLevelCovered {
+				t.Errorf("m.ql line-1 text covered=%v, want %v",
+					reg.Covered(), tc.topLevelCovered)
+			}
+		})
+	}
+}
+
 // TestCoverageZeroOverheadWhenDisabled asserts that without WithCoverage the
 // Environment reports no Collector, so the interp's coverage hooks are inert.
 func TestCoverageZeroOverheadWhenDisabled(t *testing.T) {
