@@ -476,10 +476,18 @@ func (in *interp) renderInclude(n *ast.Node, ctx *runtime.Context) (string, erro
 	sub := newInterp(in.eng, tmpl, &captureSink{})
 	sub.escape = in.escape
 	sub.sandboxOn = sub.sandboxOn || in.sandboxOn
+	// Share the parent render's slot state so a @provide in the partial feeds the
+	// parent's @yield region and a self-contained partial's own @yield is resolved
+	// by the single top-level resolveSlots. The partial writes yield placeholders
+	// with the shared token into its captured stream; that stream is spliced into
+	// the parent output, and the labels the partial reserved are merged back so the
+	// top-level pass substitutes them (design/composition, named accumulating slots).
+	sub.shareSlotsFrom(in)
 	cs := sub.out.(*captureSink)
 	if err := sub.renderTemplate(tmpl, childCtx); err != nil {
 		return "", err
 	}
+	sub.mergeYieldedInto(in)
 	return cs.b.String(), nil
 }
 
@@ -570,6 +578,11 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Context) error {
 	sub := newInterp(in.eng, tmpl, in.out)
 	sub.escape = in.escape
 	sub.sandboxOn = sub.sandboxOn || in.sandboxOn // embed inherits the active gate (B16)
+	// The embedded template writes into the parent sink directly, so share the
+	// parent's slot state: a @provide in the embed feeds the parent's @yield and a
+	// self-contained embed's own @yield placeholder is resolved by the single
+	// top-level resolveSlots (design/composition, named accumulating slots).
+	sub.shareSlotsFrom(in)
 	// Build the embedded template's chain and block table, then layer the embed's
 	// inline overrides on top (most-derived).
 	chain, err := sub.buildChain(tmpl, childCtx)
@@ -599,5 +612,7 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Context) error {
 		}
 	}
 	top := chain[len(chain)-1]
-	return sub.execItems(top.Module.Children, childCtx)
+	err = sub.execItems(top.Module.Children, childCtx)
+	sub.mergeYieldedInto(in)
+	return err
 }

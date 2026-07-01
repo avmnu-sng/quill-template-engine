@@ -1,0 +1,24 @@
+{
+  "tree": [
+    {
+      "name": "root",
+      "visible": true,
+      "children": [
+        {
+          "name": "hidden",
+          "visible": false,
+          "children": [
+            { "name": "buried", "visible": true, "children": [] }
+          ]
+        },
+        {
+          "name": "shown",
+          "visible": true,
+          "children": [
+            { "name": "leaf", "visible": true, "children": [] }
+          ]
+        }
+      ]
+    }
+  ]
+}

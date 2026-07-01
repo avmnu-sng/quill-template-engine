@@ -1,0 +1,10 @@
+{
+  "tree": [
+    {
+      "name": "a",
+      "children": [
+        { "name": "b", "children": [] }
+      ]
+    }
+  ]
+}

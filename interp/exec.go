@@ -404,9 +404,10 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 	}
 
 	// The recursive form binds a loop(children) descent callable and loop.depth /
-	// loop.depth0; it is a distinct render path with no fused-filter interaction.
+	// loop.depth0. A fused "if" filter, when present, is honored at every descent
+	// level so a hidden node and its subtree are pruned uniformly.
 	if n.Int&ast.ForRecursive != 0 {
-		return in.execRecursiveFor(n, ctx, target1, target2, iterand, body, elseBody)
+		return in.execRecursiveFor(n, ctx, target1, target2, iterand, body, elseBody, filter)
 	}
 
 	collVal, err := in.eval(iterand, ctx, false)

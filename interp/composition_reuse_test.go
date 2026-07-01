@@ -244,10 +244,141 @@ func TestLoopCallOutsideRecursiveErrors(t *testing.T) {
 	}
 }
 
+// --- recursive @for with a fused "if" filter: prune a node and its subtree ---
+
+func TestRecursiveForFilterPrunesNodeAndSubtree(t *testing.T) {
+	eng := newStub(nil)
+	// hidden(visible=false) carries a visible child; pruning hidden must also drop
+	// its descendant, since the descent is reached only through a surviving node.
+	buried := nodeVis("buried", true, runtime.Arr(runtime.NewArray()))
+	hiddenChildren := runtime.NewArray()
+	hiddenChildren.SetInt(0, buried)
+	hidden := nodeVis("hidden", false, runtime.Arr(hiddenChildren))
+	shown := nodeVis("shown", true, runtime.Arr(runtime.NewArray()))
+	rootChildren := runtime.NewArray()
+	rootChildren.SetInt(0, hidden)
+	rootChildren.SetInt(1, shown)
+	root := nodeVis("root", true, runtime.Arr(rootChildren))
+	top := runtime.NewArray()
+	top.SetInt(0, root)
+
+	body := "@for n in tree recursive if n.visible {\n[{{ n.name }}{{ loop(n.children) }}]\n@}"
+	got := renderStub(t, eng, body, map[string]runtime.Value{"tree": runtime.Arr(top)})
+	// root survives and shows shown; hidden and its buried child are gone.
+	want := "[root[shown]\n]\n"
+	if got != want {
+		t.Fatalf("recursive filter prune:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestRecursiveForFilterCountsSurvivorsInLoopMeta(t *testing.T) {
+	eng := newStub(nil)
+	// Three top-level nodes, the middle one filtered out: loop.length and
+	// loop.last reflect only the two survivors.
+	a := nodeVis("a", true, runtime.Arr(runtime.NewArray()))
+	b := nodeVis("b", false, runtime.Arr(runtime.NewArray()))
+	c := nodeVis("c", true, runtime.Arr(runtime.NewArray()))
+	top := runtime.NewArray()
+	top.SetInt(0, a)
+	top.SetInt(1, b)
+	top.SetInt(2, c)
+	body := "@for n in tree recursive if n.visible {\n{{ n.name }}:{{ loop.index }}/{{ loop.length }}:{{ loop.last }}{{ loop(n.children) }}\n@}"
+	got := renderStub(t, eng, body, map[string]runtime.Value{"tree": runtime.Arr(top)})
+	want := "a:1/2:false\nc:2/2:true\n"
+	if got != want {
+		t.Fatalf("recursive filter meta:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestRecursiveForFilterEmptyTakesElse(t *testing.T) {
+	eng := newStub(nil)
+	// Every top-level node is filtered out, so the @else arm runs.
+	a := nodeVis("a", false, runtime.Arr(runtime.NewArray()))
+	top := runtime.NewArray()
+	top.SetInt(0, a)
+	body := "@for n in tree recursive if n.visible {\nx\n@}\n@else {\nnone\n@}"
+	got := renderStub(t, eng, body, map[string]runtime.Value{"tree": runtime.Arr(top)})
+	if got != "none\n" {
+		t.Fatalf("recursive filter else: %q", got)
+	}
+}
+
+// TestRecursiveForBodyIsPureEmitter pins current-state scoping: a recursive @for
+// body is a pure emitter, so a body @set of an outer-scope variable does not
+// write back after the loop (unlike the plain @for, whose reassignments persist).
+func TestRecursiveForBodyIsPureEmitter(t *testing.T) {
+	eng := newStub(nil)
+	body := "" +
+		"@set marker = \"outer\"\n" +
+		"@for n in tree recursive {\n" +
+		"@set marker = n.name\n" +
+		"{{ loop(n.children) }}\n" +
+		"@}\n" +
+		"after:{{ marker }}"
+	got := renderStub(t, eng, body, map[string]runtime.Value{"tree": tree3()})
+	if !strings.HasSuffix(got, "after:outer") {
+		t.Fatalf("recursive body write-back leaked; want suffix %q, got %q", "after:outer", got)
+	}
+}
+
+// --- slots feeding across @include / @embed sub-renders ---
+
+func TestIncludeProvidesFeedParentYield(t *testing.T) {
+	eng := newStub(map[string]string{
+		"part-a.ql": "@provide imports {\nimport a\n@}\nA\n",
+		"part-b.ql": "@provide imports {\nimport b\n@}\nB\n",
+	})
+	body := "imports:\n@yield imports\nbody:\n@include \"part-a.ql\"\n@include \"part-b.ql\"\n"
+	got := renderStub(t, eng, body, nil)
+	want := "imports:\nimport a\nimport b\nbody:\nA\nB\n"
+	if got != want {
+		t.Fatalf("include provides feed yield:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestSelfContainedIncludeResolvesOwnSlots(t *testing.T) {
+	eng := newStub(map[string]string{
+		"note.ql": "top:\n@yield note\n@provide note {\ncollected\n@}\nbottom\n",
+	})
+	got := renderStub(t, eng, "page\n@include \"note.ql\"\nend", nil)
+	// No raw placeholder token leaks; the partial's own @yield is backfilled.
+	if strings.Contains(got, "QUILL_SLOT") || strings.Contains(got, "\x00") {
+		t.Fatalf("slot placeholder leaked into output: %q", got)
+	}
+	want := "page\ntop:\ncollected\nbottom\nend"
+	if got != want {
+		t.Fatalf("self-contained include:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestEmbedProvidesFeedYield(t *testing.T) {
+	eng := newStub(map[string]string{
+		"shell.ql": "tags:\n@yield tags\n@provide tags {\nalpha\n@}\n@provide tags {\nbeta\n@}\n",
+	})
+	got := renderStub(t, eng, "page\n@embed \"shell.ql\" {\n@}\nend", nil)
+	if strings.Contains(got, "QUILL_SLOT") || strings.Contains(got, "\x00") {
+		t.Fatalf("embed slot placeholder leaked: %q", got)
+	}
+	want := "page\ntags:\nalpha\nbeta\nend"
+	if got != want {
+		t.Fatalf("embed provides feed yield:\n got %q\nwant %q", got, want)
+	}
+}
+
 // node builds a { name, children } mapping value for the tree tests.
 func node(name string, children runtime.Value) runtime.Value {
 	m := runtime.NewArray()
 	m.SetStr("name", runtime.Str(name))
+	m.SetStr("children", children)
+	return runtime.Arr(m)
+}
+
+// nodeVis builds a { name, visible, children } mapping for the recursive-filter
+// tests, where the fused "if" condition reads node.visible.
+func nodeVis(name string, visible bool, children runtime.Value) runtime.Value {
+	m := runtime.NewArray()
+	m.SetStr("name", runtime.Str(name))
+	m.SetStr("visible", runtime.Bool(visible))
 	m.SetStr("children", children)
 	return runtime.Arr(m)
 }

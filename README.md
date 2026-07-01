@@ -159,7 +159,10 @@ templates where literal braces are rare, under `pragma bare`.
   `@for x in seq if cond { ... @}` iterates only the elements for which `cond`
   is truthy, and every `loop.*` field counts only those survivors. A
   `@for node in tree recursive { ... loop(node.children) ... @}` descends a
-  tree, binding a `loop(children)` callable and `loop.depth` / `loop.depth0`.
+  tree, binding a `loop(children)` callable and `loop.depth` / `loop.depth0`; a
+  fused `if` filter on the recursive form prunes a node and its subtree at every
+  level, and its body is a pure emitter (a body `set` of an outer name does not
+  write back).
 - `@if cond { ... @} @elseif other { ... @} @else { ... @}` -- conditionals.
 - `@set x = expr` -- bind a variable; `@set x: int = expr` annotates it; the
   target may destructure a list (`@set [a, b, ...rest] = xs`) or a map
@@ -207,7 +210,9 @@ range, the `matches` regex operator, and member/index access.
   back into the block via `caller(v)`.
 - `@provide label { ... @}` / `@yield label` -- accumulate rendered content from
   many sites into a named slot and emit it once (`slot(label)` is the value form),
-  the complement of the overriding `@block`.
+  the complement of the overriding `@block`. Contributions from `@include`d and
+  `@embed`ded partials feed the enclosing render's slots, so a shell `@yield`
+  collects what its body partials `@provide`.
 
 The full reference is [`docs/01-language-reference.md`](docs/01-language-reference.md);
 the formal grammar is [`docs/02-grammar.md`](docs/02-grammar.md).

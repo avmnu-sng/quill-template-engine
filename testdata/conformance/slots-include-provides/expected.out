@@ -1,0 +1,6 @@
+imports:
+import "os"
+import "fmt"
+body:
+A rendered.
+B rendered.

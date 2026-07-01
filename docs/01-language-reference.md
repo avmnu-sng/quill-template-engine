@@ -633,8 +633,17 @@ taken in the single truthiness rule (`04-types-and-semantics.md` Section 2). The
   reflect that level's siblings and `loop.depth` counts the nesting. An argument that is not a
   traversable collection (a leaf's empty children) renders nothing. `loop(...)` is defined only
   inside a `recursive` loop; a bare `loop` still reads the metadata mapping (`loop.depth`), and
-  `loop(...)` outside a recursive loop is an ordinary undefined call.
-- **Scoping.** The loop body is a child scope. A variable that existed before the loop and is
+  `loop(...)` outside a recursive loop is an ordinary undefined call. A `recursive` loop accepts a
+  fused `if` filter, `@for node in tree recursive if cond { ... }`; the filter is applied at every
+  descent level, so a node whose condition is false is skipped along with its whole subtree (its
+  children are reached only through the surviving node's body), and each level's `loop.*` fields
+  count only its survivors.
+
+  A `recursive` loop body is a pure emitter with respect to the enclosing scope: it reads outer
+  variables but a body `set` of an outer name does not persist after the loop. This differs from
+  the plain `@for` below, whose reassignments of pre-existing names write back. Accumulate across a
+  recursive walk with an accumulating slot (`@provide`) or a mutated host object instead.
+- **Scoping.** The plain loop body is a child scope. A variable that existed before the loop and is
   reassigned inside keeps its last in-loop value after the loop; a variable introduced only in
   the body (via `set`) does not leak. The rule is lexical scoping.
 
@@ -891,5 +900,9 @@ import "fmt"
   (for piping or assignment), so unlike the deferred `@yield` it captures only what accumulated
   before the call. Use it after the contributing `@provide` sites.
 
-The canonical use is collecting import lines or a symbol table from many partials and emitting
-the assembled block once in a file shell.
+Slots span the whole render, INCLUDING sub-renders: a `@provide` inside an `@include`d or
+`@embed`ded partial appends to the enclosing render's slot buffer, and a `@yield` in the shell is
+backfilled from those contributions. A self-contained partial that both `@provide`s and `@yield`s
+a label is likewise resolved as part of the one top-level pass. The canonical use is collecting
+import lines or a symbol table from many partials and emitting the assembled block once in a file
+shell.

@@ -29,6 +29,30 @@ func newYieldToken() string {
 	return "\x00\x01QUILL_SLOT_" + strconv.FormatUint(n, 10) + "\x00\x01"
 }
 
+// shareSlotsFrom makes this (nested) interp contribute to and read from the
+// parent render's slot state instead of its own: the same slot buffers, the same
+// render-unique yield token, and the same coverage collector. A @provide in an
+// included or embedded partial then appends to the parent's buffer, and a @yield
+// writes a placeholder the parent's single top-level resolveSlots backfills. This
+// is what lets body partials feed a shell's @yield region and keeps a
+// self-contained partial correct in isolation (design/composition, named
+// accumulating slots). Labels a nested @yield reserves are merged back into the
+// parent by mergeYieldedInto after the sub-render.
+func (in *interp) shareSlotsFrom(parent *interp) {
+	in.slots = parent.slots
+	in.yieldToken = parent.yieldToken
+}
+
+// mergeYieldedInto appends the labels this nested interp's @yield statements
+// reserved to the parent's yieldedLabels, so the parent's top-level resolveSlots
+// substitutes every placeholder the partial emitted into the shared stream.
+func (in *interp) mergeYieldedInto(parent *interp) {
+	if len(in.yieldedLabels) == 0 {
+		return
+	}
+	parent.yieldedLabels = append(parent.yieldedLabels, in.yieldedLabels...)
+}
+
 // execProvide renders an @provide body and APPENDS the result to the named slot
 // buffer, creating the buffer on first contribution. It emits nothing at its own
 // position: the accumulated content surfaces later at the matching @yield. The
