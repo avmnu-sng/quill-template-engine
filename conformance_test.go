@@ -100,8 +100,8 @@ type sandboxConfig struct {
 //
 // This is Quill's own proof-of-behavior suite: it covers interpolation, pipe
 // filters, postfix-if, @for/@if/@set, @extends/@block/parent, @macro/@import,
-// @include, whitespace control, escaping off vs html, and the de-PHP-ified
-// semantics edge cases (typed equality, truthiness, ToText spellings).
+// @include, whitespace control, escaping off vs html, and the value-semantics
+// edge cases (typed equality, truthiness, ToText spellings).
 func TestConformance(t *testing.T) {
 	root := filepath.Join("testdata", "conformance")
 	entries, err := os.ReadDir(root)

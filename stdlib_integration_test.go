@@ -85,10 +85,10 @@ func TestHostConstantsAndEnums(t *testing.T) {
 	}
 }
 
-// TestHostFunctionRegistration exercises the extension surface the spec
-// catalogues as a parity capability (spec 03 Section 3.5): a host registers an
-// application function and calls it from a template. This stands in for the
-// corpus-specific functions, which are intentionally not engine built-ins.
+// TestHostFunctionRegistration exercises the extension surface (spec 03 Section
+// 3.5): a host registers an application function and calls it from a template.
+// Application-specific functions are registered by the host, not shipped as
+// engine built-ins.
 func TestHostFunctionRegistration(t *testing.T) {
 	exts := ext.Core()
 	exts.AddFunction(&ext.Function{

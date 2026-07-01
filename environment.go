@@ -80,8 +80,8 @@ func WithAutoescapeHTML(on bool) Option {
 }
 
 // WithStrictVariables sets strict-undefined handling (on by default). Setting it
-// false enables the lenient migration mode: an undefined read becomes Null and a
-// for over a non-iterable becomes an empty loop (spec 04 Section 6).
+// false enables the lenient mode: an undefined read becomes Null and a for over a
+// non-iterable becomes an empty loop (spec 04 Section 6).
 func WithStrictVariables(on bool) Option {
 	return func(e *Environment) { e.strictVariables = on }
 }

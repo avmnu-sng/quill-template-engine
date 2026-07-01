@@ -2,8 +2,8 @@
 
 This is the entry point to the Quill specification. It states what Quill is, the identity
 and philosophy of the language, the approved anchor example, the headline design decisions
-and the reasoning behind each, the parity claim against Twig, what is in and out of scope
-for this specification, and how to read the rest of the document set.
+and the reasoning behind each, the breadth of the language surface, and how to read the rest
+of the document set.
 
 The companion documents are:
 
@@ -15,12 +15,12 @@ The companion documents are:
 - `03-stdlib.md` -- the standard library: the complete filter, function, and test catalogue
   with Go-native names and signatures.
 - `04-types-and-semantics.md` -- the gradual type system, the value model, and the
-  truthiness, equality, coercion, attribute-access, escaping, safety, and sandbox rules,
-  each with its deliberate divergence-from-Twig note.
-- `05-twig-parity-and-migration.md` -- the parity matrix, the Go-native delta, and the
-  Twig-to-Quill migration story.
-- `06-architecture-and-roadmap.md` -- how Quill maps onto the reused runtime, a
-  dependency-ordered milestone roadmap, and a risk register.
+  truthiness, equality, coercion, attribute-access, escaping, safety, and sandbox rules.
+- `extensions.md` -- the extension API: custom filters, functions, and tests via the typed
+  helpers, Extension bundles, composition and shadow order, the injection flags, and how
+  custom callables interact with the sandbox and the type checker.
+- `06-architecture-and-roadmap.md` -- how the packages are layered, the load-bearing runtime
+  boundary, and the execution model.
 
 --------------------------------------------------------------------------------
 
@@ -31,15 +31,13 @@ exact byte sequence of program source code. Its dominant consumer is a code gene
 produces Java, Rust, C, Go, and 21 other target language families from templates that are
 themselves dense with literal `{ } ( ) < > & ;` characters.
 
-Quill is a FRESH language design, not a port of Twig's syntax. Its front end -- lexer,
-parser, and gradual type checker -- is new. Its runtime reuses a faithful Twig-to-Go port's
-dynamic core: the `Value` model, the ordered `*Array`, the `Context`, the tree-walking
-interpreter, the loaders, the escapers, and the structured error model. Four runtime
-modules are edited and one default is flipped; the rest is reused unchanged. The split is
-detailed in `06-architecture-and-roadmap.md`.
+Quill has its own surface and its own front end -- lexer, parser, and gradual type checker.
+Its runtime is a dynamic core: the `Value` model, the ordered `*Array`, the `Context`, the
+tree-walking interpreter, the loaders, the escapers, and the structured error model. The
+package layering is detailed in `06-architecture-and-roadmap.md`.
 
 The name is Quill: a quill writes source faithfully, one stroke at a time. The name carries
-none of the HTML-first connotation that "twig" or "template" would mis-signal -- Quill emits
+none of the HTML-first connotation that "template" would mis-signal -- Quill emits
 program source, not markup. The Go package is `quill`. The file extension is `.ql`; a
 template that emits a specific target language may use a double extension (`body.java.ql`),
 which the escaping-strategy resolver and the diagnostics renderer can key on. The anchor's
@@ -109,11 +107,10 @@ Both spellings denote the same template. Every construct here is core Quill:
 - `u.name`, `u.isAdmin`, `users`, `name` -- bare-identifier context lookup and dotted
   attribute access (`04-types-and-semantics.md` Section 5).
 
-Quill adds no ceremony around any of these. There is no `{% %}` envelope, no `endblock`, no
-`endfor`, no `endmacro`: a brace body opened by an `@`-led statement closes with a single
-`@}` (under the default), or by a leading keyword and a lone `}` (under `pragma bare`). That
-decision -- sigil-led brace blocks with no end-keywords -- is what keeps the grammar tiny
-while reaching full Twig parity.
+Quill adds no ceremony around any of these: a brace body opened by an `@`-led statement closes
+with a single `@}` (under the default), or by a leading keyword and a lone `}` (under
+`pragma bare`), with no end-keywords. That decision -- sigil-led brace blocks with no
+end-keywords -- is what keeps the grammar tiny.
 
 --------------------------------------------------------------------------------
 
@@ -123,29 +120,25 @@ Quill is governed by one axiom: the primary consumer emits PROGRAM SOURCE CODE, 
 language optimizes for a generator author who must produce one exact byte sequence and must
 never be silently surprised. A silently-absent value becomes a silently wrong emitted byte;
 a silently-coerced value becomes a silently wrong emitted token. The enemy is the silent
-surprise. Twig inherits PHP's value semantics, which are a catalogue of silent surprises;
-Quill removes them.
+surprise, and the semantics are chosen to remove it.
 
 Three principles follow from the axiom:
 
-1. **Fresh and Go-idiomatic at the surface.** The syntax is brace-delimited, sigil-led
-   (`@`-led statements by default, keyword-led under `pragma bare`), pipe-driven, and
-   Pratt-parsed, designed around the anchor rather than around Twig's `{% %}` envelope.
-   Spellings are Go-templating-idiomatic (`snake_case` filters, `=>` arrows, `<=>` spaceship,
-   `??`/`?:` fallthrough).
+1. **Go-idiomatic at the surface.** The syntax is brace-delimited, sigil-led (`@`-led
+   statements by default, keyword-led under `pragma bare`), pipe-driven, and Pratt-parsed,
+   designed around the anchor. Spellings are Go-templating-idiomatic (`snake_case` filters,
+   `=>` arrows, `<=>` spaceship, `??`/`?:` fallthrough).
 
-2. **De-PHP-ified semantics.** One typed equality, one ordering, one truthiness rule,
+2. **Predictable value semantics.** One typed equality, one ordering, one truthiness rule,
    strict-by-default undefined handling, byte-exact value rendering (`false` renders
-   `"false"`, an `*Array` render is an error rather than the literal word `Array`). Every
-   PHP accident is replaced by a clean Go-native rule, and every such divergence is named
-   and justified in `04-types-and-semantics.md`.
+   `"false"`, an `*Array` render is an error rather than the literal word `Array`). Each rule
+   is a clean Go-native rule, named and justified in `04-types-and-semantics.md`.
 
 3. **Gradually typed.** Type annotations are optional. With zero annotations a template is
    the dynamic language backed by the strict-by-default runtime, and the anchor is valid
    verbatim. With annotations, a static checker rejects a class of error before any byte is
    emitted. Annotations never change runtime semantics; they only move an error earlier in
-   time. This is the one net addition over Twig's surface, alongside the postfix
-   conditional.
+   time.
 
 --------------------------------------------------------------------------------
 
@@ -181,75 +174,75 @@ elaborated in the cited companion document.
    the filter operator, so bitwise-or is the word `b_or` (with `|||`/`^`/`&` aliasing the
    bitwise family) to keep the pipe unambiguous. (`01-language-reference.md` Section 3.)
 
-4. **De-PHP-ified value semantics.** One typed `==`, one ordering, one truthiness,
+4. **Predictable value semantics.** One typed `==`, one ordering, one truthiness,
    strict-by-default undefined, `Bool` renders `true`/`false`, an `*Array` render is an
    error. (`04-types-and-semantics.md`.)
 
-5. **Default escaping off, full strategy set retained.** Raw output by default for source
-   emission; the six Twig escaping strategies are opt-in filters and regions; the sandbox is
-   re-based on a Go host type-graph with uniform allowlisting. (`04-types-and-semantics.md`
-   Section 8.)
+5. **Default escaping off, full strategy set available.** Raw output by default for source
+   emission; the six escaping strategies (`html`, `js`, `css`, `html_attr`,
+   `html_attr_relaxed`, `url`) are opt-in filters and regions; the sandbox is built on a Go
+   host type-graph with uniform allowlisting. (`04-types-and-semantics.md` Section 8.)
 
-6. **Gradual types subsume the `types` block.** Optional annotations on `set` targets, macro
+6. **Gradual types drive the `types` block.** Optional annotations on `set` targets, macro
    params and returns, block inputs, `for` targets, arrow params, and a `types { }` block.
-   The block is promoted from inert tooling metadata to a first-class checker input.
-   (`04-types-and-semantics.md` Sections 1-3.)
+   The block is a first-class checker input. (`04-types-and-semantics.md` Sections 1-3.)
 
-7. **The port's runtime is reused; only the front end and the type checker are new.** Four
-   runtime modules change (`compare`, `truthy`, `stringify`, `attribute`) and the escaping
-   default flips. (`06-architecture-and-roadmap.md`.)
+7. **A dynamic runtime under a new front end and type checker.** The lexer, parser, and
+   gradual type checker form the front end over the tree-walking runtime.
+   (`06-architecture-and-roadmap.md`.)
 
 --------------------------------------------------------------------------------
 
-## 5. The parity claim: no fewer features than Twig
+## 5. The language surface
 
-Quill carries NO FEWER features than Twig 3.27.1. Faithfulness is required at the FEATURE
-level -- every author-facing capability Twig offers has an equivalent in Quill -- and
-explicitly NOT at the level of PHP value accidents. The full parity matrix maps all 246
-catalogued Twig capabilities to a Quill spelling and section in `05-twig-parity-and-migration.md`,
-marking each COVERED, EXCEEDED, or FOLDED. There are zero capability-reducing drops: the only
-entries that approach a drop are deprecated-alias folds, where one Twig spelling merges into
-another with no loss of reachable behavior.
+Quill is a full-featured template language. The author-facing capabilities are:
 
-Two features EXCEED the Twig floor and are required new capabilities rather than reductions:
+- **Composition:** single-parent inheritance (`@extends`), overridable blocks with
+  `parent()`, parameterized macros with defaults and variadics (`@macro`), macro import
+  (`@import`/`@from`), horizontal trait reuse (`@use`), block-overriding include (`@embed`),
+  and the statement- and function-form `@include`.
+- **Control flow:** `@for`/`@else` with always-defined loop metadata, `@if`/`@elseif`/`@else`,
+  `@set` with list/map destructuring and capture, `@with` scoped bindings, and `@do`.
+- **Expressions:** a seventeen-level precedence ladder, pipe filters, arrow functions,
+  higher-order filters (`map`/`filter`/`sort`/`reduce`/`find`), the `has some`/`has every`
+  quantifiers, the `matches` regex operator, the `<=>` spaceship, and the `??`/`?:`/`?.`
+  fallback operators.
+- **Output:** the postfix conditional `{{ expr if cond }}` (and `unless`), interpolation with
+  string interpolation `#{ }`, comments `{# #}`, and whitespace-control trim modifiers.
+- **Safety:** six escaping strategies via the `escape`/`e` filter and `@escape` region, and a
+  host-configurable sandbox.
+
+Two capabilities are the language's own additions to the brace-templating idiom:
 
 - The postfix conditional on output, `{{ expr if cond }}`, shown in the anchor.
 - The gradual type system, which makes the `types` block first-class and adds a static
   checking layer over the dynamic engine.
 
-Both expand the floor; neither lowers it.
-
 --------------------------------------------------------------------------------
 
-## 6. Scope of this specification
+## 6. Implementation
 
-IN SCOPE: this document set is the LANGUAGE DESIGN and SPECIFICATION. The deliverable is the
-grammar (EBNF), syntax examples, illustrative Go type and signature sketches inside the
-specification, the semantics, the standard library catalogue, the parity proof, and the
-architecture and roadmap.
-
-OUT OF SCOPE: a working implementation. No lexer, parser, type checker, or interpreter is
-built; no Go implementation files are produced; no build is run. The Go type and signature
-sketches that appear in these documents are specification aids -- they show how the host
-surface and AST shape are expected to look -- not files to compile. Implementation is gated
-for human review of this specification first.
+Quill is implemented as a Go module (`github.com/avmnu-sng/quill-template-engine`): the
+lexer, parser, gradual type checker, tree-walking interpreter, the full standard library, the
+escaping and sandbox subsystems, the coverage collector, and the `cmd/quill` command. The
+runtime depends on nothing outside the Go standard library. The package layering and the
+load-bearing runtime boundary are in `06-architecture-and-roadmap.md`; the extension API for
+host callables is in `extensions.md`.
 
 --------------------------------------------------------------------------------
 
 ## 7. How to read the rest
 
 A first-time reader should read this overview, then `01-language-reference.md` for the core
-manual, consulting `02-grammar.md` when an exact production is needed. A reader implementing
-or extending the standard library reads `03-stdlib.md`. A reader who needs the precise
-runtime rules -- truthiness, equality, coercion, undefined handling, escaping, sandbox, and
-the gradual type system -- reads `04-types-and-semantics.md`. A reviewer auditing the
-feature claim against Twig, or migrating an existing corpus, reads
-`05-twig-parity-and-migration.md`. An engineer planning the build reads
+manual, consulting `02-grammar.md` when an exact production is needed. A reader using or
+extending the standard library reads `03-stdlib.md`; a host adding its own callables reads
+`extensions.md`. A reader who needs the precise runtime rules -- truthiness, equality,
+coercion, undefined handling, escaping, sandbox, and the gradual type system -- reads
+`04-types-and-semantics.md`. An engineer working on the engine reads
 `06-architecture-and-roadmap.md`.
 
 Each document is self-contained and cross-references its siblings by filename and section.
 Exhaustive per-area detail (the canonical language definition and the per-area elaborations
 covering lexical structure, expressions, control flow, composition, the standard library, the
-type system, semantics, escaping and safety, the grammar, the parity-and-delta analysis, and
-worked examples) is tracked in the project's design notes, which the specification references
-where deeper treatment is warranted.
+type system, semantics, escaping and safety, and the grammar) is tracked in the project's
+design notes, which the specification references where deeper treatment is warranted.

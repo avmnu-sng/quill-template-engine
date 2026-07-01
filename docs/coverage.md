@@ -16,7 +16,7 @@ never changes rendered output. A template renders byte-identically with or witho
 enabled -- this is the binding invariant the conformance suite enforces.
 
 The companion documents are the language reference (`01-language-reference.md`), the value
-and semantics rules (`04-types-and-semantics.md`), and the architecture roadmap
+and semantics rules (`04-types-and-semantics.md`), and the architecture document
 (`06-architecture-and-roadmap.md`).
 
 --------------------------------------------------------------------------------

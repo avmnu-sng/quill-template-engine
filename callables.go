@@ -159,8 +159,7 @@ func templateFromStringFn(args []runtime.Value) (runtime.Value, error) {
 }
 
 // dumpFn debug-dumps its arguments (or the whole context if none) in a
-// Go-native structured format, NOT PHP var_dump (spec 03 Section 3.3). args are
-// [ctx, vars...].
+// Go-native structured format (spec 03 Section 3.3). args are [ctx, vars...].
 func dumpFn(args []runtime.Value) (runtime.Value, error) {
 	if len(args) == 0 {
 		return runtime.Str(""), nil

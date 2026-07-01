@@ -1,126 +1,79 @@
 // Package quill is a Go-native, gradually-typed template engine.
 //
-// Quill compiles and renders templates written in the Quill language. See the
-// specification under docs/ for the language reference, grammar, standard
-// library, and runtime semantics.
+// Quill compiles and renders templates written in the Quill language: a
+// brace-delimited, keyword-led surface with pipe filters, arrow functions, and a
+// Pratt-parsed expression language, built to emit exact text -- especially
+// program source code. See the specification under docs/ for the language
+// reference, grammar, standard library, runtime semantics, and the extension API.
 //
 // This package is under active development; its API is not yet stable.
 //
-// Implemented this slice (destructuring slots): the @set sequence-destructuring
-// left-hand side is parsed by a dedicated TARGET grammar (parse/target.go,
-// parseSeqPattern), distinct from the expression-level sequence-literal parser, so
-// the optional ("[a, b?]") and elided ("[, b]" / "[a, , c]") slot forms parse as
-// targets rather than as a ternary or a syntax error (spec 01 Section 2.1,
-// grammar.md Section 3.2). An optional slot binds null when the source is shorter
-// than the pattern (an absent optional nested pattern null-binds every name it
-// introduces); an elided slot consumes a source position without binding. These
-// compose with the existing "...rest" tail capture and nested list/map patterns.
-// Optionals must be trailing: once an optional slot appears, only further optionals
-// and a final "...rest" may follow, so the spec's "[a, b?]" / "[head, opt?, ...rest]"
-// shapes are accepted while an arity-ambiguous "[a?, b]" is a syntax error.
-// The arity rule is unchanged for required slots: the supplied count must cover
-// every required position (a required, non-optional, non-tail slot -- an elided
-// slot counts as required because it consumes a position), and without a tail it
-// must not exceed the fixed-slot count, so over/under-supply is still an error
-// rather than silent padding or dropping. With the optionals-trailing rule enforced
-// (closing the last deferral), the language surface (S0-S10) is now complete.
+// # The facade
 //
-// Application-specific functions are intentionally not built in: they are
-// registered by the host through the extension surface
-// (ext.ExtensionSet.AddFunction), which this milestone exercises, rather than
-// shipped as engine primitives.
+// Environment is the engine facade. Build one over a Loader with New (or over an
+// in-memory template map with NewWithArray), then Render by name. Output escaping
+// is off by default (the source-emission default) and undefined variables are
+// strict by default; both, along with the sandbox, the type registry, coverage,
+// and host extensions, are configured through Option values.
 //
-// Implemented this slice (gradual type checker): a front-end pass (package
-// check) runs at template Load, between parse and interpret, and rejects
-// ill-typed templates with positioned KindTypeCheck errors BEFORE any byte is
-// rendered (spec 04 Sections 1-3, design/type-system.md). It consumes the
-// annotations the parser already threads through the AST -- the @types block,
-// @set/@for targets, @macro/@block params and returns, and arrow params --
-// infers types bottom-up where the spec defines it (literals, member/index
-// access, operators, the higher-order filters map/filter/sort/reduce/find which
-// propagate element types through arrows, and the ??/default coalescing rule),
-// and applies the gradual `any` fallback everywhere a value is unannotated. The
-// consistency relation (not subtyping) governs flow: `any` is consistent with
-// every type in both directions, with a runtime kind-check backstop scheduled at
-// the any-to-typed boundary (the shallow cast keeps the strict runtime as the
-// floor on structured data it did not fully verify). The checker catches the
-// runtime errors a static reader can see -- a string/number arithmetic mismatch,
-// rendering a list/map (non-renderable) value, a for over a non-iterable typed
-// iterand, a missing member/method on a typed Object or an annotation-declared
-// name, a call with wrong arity or argument types against a macro/host
-// signature, a bad map key kind, an unknown host type in an annotation, and a
-// set/for/param annotation inconsistent with what flows into it -- and narrows
-// unions and nullables through `is`-tests and ?. so a narrowed branch type-checks
-// (spec 04 Section 8). Object<"Name"> member shapes and host callable signatures
-// come from an optional host registry (check.Registry, installed via
-// quill.WithTypes); with no registry, Object types are opaque-but-known and host
-// calls are dynamic, and the checker still enforces every in-template
-// annotation. The CRITICAL INVARIANT holds: annotations never change runtime
-// behavior. An unannotated template types entirely as `any`, so the checker is
-// silent and the pre-type-checker conformance fixtures render byte-for-byte
-// identically; removing every annotation from any template yields the same bytes.
+// # The pipeline
 //
-// Previously implemented (sandbox): a host-supplied SecurityPolicy
-// (sandbox.Policy) restricts the permitted tags, filters, functions, per-type
-// methods, and per-type properties; enforcement is two-phase. Phase 1 collects
-// the statement keywords, filters, and functions a template uses at compile time
-// (the range operator ".." counts as the range function) and validates that set
-// against the policy once per render when the sandbox is active, mapping a
-// violation to its source line. Phase 2 gates host member access at the access
-// site: a method call, a property read, and the string-coercion of a host object
-// (via its Stringify hook) each consult the policy, matched against an explicit
-// host TYPE-GRAPH (sandbox.TypeGraph) rather than reflection, with case-sensitive
-// method names and property-then-method precedence. The string-coercion gate
-// fires at EVERY coercion site, not only an interpolation: it also gates an
-// operand of "~" concat and every host object reachable as an argument of the
-// coercing filters (join, replace, split), which would otherwise stringify it
-// inside the extension layer beyond the policy's reach. A higher-order filter
-// rejects a non-template (host) callable, on both the inline "| map(f)" form and
-// the @apply filter path. Safe values and engine-internal shims bypass the member
-// checks. Allowlisting is uniform with NO grandfathering. Strict-versus-lenient
-// member-access reporting is supported (sandbox.Policy.Strict): in strict mode an
-// access on a host type the policy does not know at all -- no method/property
-// entry and absent from the type-graph -- reports a distinct unknown-type error,
-// while lenient mode falls through to the ordinary per-member deny; the
-// tag/filter/function floor is identical in both modes. The @sandbox region
-// forces sandboxing over its body and any templates included within it, restoring
-// the prior gate on exit and never disabling an already-sandboxed enclosing
-// render; the function-form include's sandboxed flag does the same per include.
-// Each violation class raises a distinct, host-catchable *errors.Security
-// (errors.As + a SecurityClass) carrying the offending name and, for member
-// violations, the host type name (spec 04 Section 8.3).
+// A template loads once and is memoized. Loading parses the source into an AST,
+// runs the gradual type checker (package check) between parse and interpret, and
+// prepares the module for the tree-walking interpreter (package interp). The
+// checker consumes the annotations the parser threads through the AST -- the
+// @types block, @set/@for targets, @macro/@block params and returns, and arrow
+// params -- infers types where the spec defines it, and applies the gradual `any`
+// fallback everywhere a value is unannotated. It rejects an ill-typed template
+// with a positioned error before any byte is rendered, catching the runtime
+// errors a static reader can see: a string/number arithmetic mismatch, rendering
+// a list/map value, a for over a non-iterable typed iterand, a missing
+// member/method, a call with the wrong arity or argument types, a bad map key
+// kind, and a set/for/param annotation inconsistent with what flows into it. It
+// narrows unions and nullables through `is` tests and null-safe access. Object
+// member shapes and host callable signatures come from an optional host registry
+// (check.Registry, installed via WithTypes); with no registry, Object types are
+// opaque-but-known and host calls are dynamic, and the checker still enforces
+// every in-template annotation.
 //
-// Previously implemented (composition tail): @use horizontal trait reuse merges a
-// traitable template's blocks below the using template's own (trait-then-own
-// precedence), supports block aliasing/rename via "with { trait: alias }", and
-// makes parent() reach the trait version before any extends-parent; a use target
-// must be a constant string and the trait must have no parent, macros, or free
-// body (spec 01 Section 5.4). @cache renders its body once in a child scope,
-// memoizes it under the (template-namespaced) key in the engine's pluggable
-// in-memory cache, and on a hit re-emits the cached body without re-rendering;
-// ttl is a documented no-op for the non-expiring in-memory cache and tags drive
-// optional tag-invalidation (spec 01 Section 4.7). @set supports map/object
-// destructuring -- shorthand {name} and rename {key: alias} -- reading each slot
-// through the same dotted access as a.b so the right-hand side may be a mapping or
-// a host object, and full sequence destructuring -- positional slots, a "...rest"
-// tail capture binding the remaining elements as a new sequence, and nested
-// list/map patterns -- with arity enforced so over/under-supply errors rather than
-// silently padding with null or dropping elements (spec 01 Sections 2.1, 3.2). Previously implemented: the @escape
-// block region accepts any of the six strategies (html, js, css, html_attr,
-// html_attr_relaxed, url) plus off/raw and applies it to its body, sharing the
-// same escapers as the escape()/e() filter. Nested regions and the module default
-// compose via a strategy stack (save/restore on region entry/exit), so an inner
-// region restores the enclosing strategy on exit, and captures/macros/blocks under
-// any active strategy yield a Safe value (spec 04 Section 8). @apply joins that
-// same safeness model: under an active strategy its filtered body is wrapped Safe
-// so the region does not escape it a second time. The code-point strategies (js,
-// css, html_attr, html_attr_relaxed) decode their input as UTF-8 and raise a clear
-// escaping error naming the strategy and byte offset on an invalid byte, rather
-// than silently emitting a replacement character (spec 04 Section 8.2); the
-// byte-oriented html and url strategies accept arbitrary bytes losslessly. Also:
-// the full spec-03
-// standard-library catalogue, arrow functions through
-// map/filter/sort/reduce/find and the "has some"/"has every" quantifiers, all six
-// escape strategies via the filter, the regex "matches" operator (Go RE2
-// dialect), and the whitespace-control trim modifiers (the - / ~ / + flags).
+// Annotations never change runtime behavior. An unannotated template types
+// entirely as `any`, so the checker is silent and the template renders
+// byte-for-byte identically to a build that ignores types; removing every
+// annotation from any template yields the same bytes.
+//
+// # Composition and the standard library
+//
+// The engine renders the full composition surface -- @extends/@block with
+// parent(), @macro with defaults and variadics, @import/@from, @use trait reuse,
+// @embed, and the statement- and function-form @include -- and the complete
+// standard-library catalogue of filters, functions, and tests, including arrow
+// functions through map/filter/sort/reduce/find, the `has some`/`has every`
+// quantifiers, the `matches` regex operator, and the whitespace-control trim
+// modifiers.
+//
+// # Extensions
+//
+// A host adds its own filters, functions, and tests through the ext package and
+// layers them over the core library with WithExtensions (callable sets) or
+// WithExtension (Extension bundles). A later host layer shadows an earlier one and
+// every host layer shadows core. See docs/extensions.md.
+//
+// # Escaping and the sandbox
+//
+// Output escaping is off by default. HTML escaping is available globally
+// (WithAutoescapeHTML) or as one of six strategies applied by the escape/e filter
+// and the @escape region. A host-supplied SecurityPolicy (sandbox.Policy)
+// restricts the permitted tags, filters, functions, per-type methods, and
+// per-type properties, enforced at compile time for the tag/filter/function floor
+// and at each host member-access site for the type-graph. The sandbox activates
+// globally (WithSandboxActive), per @sandbox region, or per sandboxed include, and
+// each violation raises a host-catchable *errors.Security. Allowlisting is uniform
+// with no grandfathering: a host callable is gated exactly like a built-in.
+//
+// # Coverage
+//
+// An Environment with a cover.Collector attached (WithCoverage) records which
+// units and branch arms each render exercised, unioning across renders and
+// exported as text, LCOV, or HTML. Coverage is opt-in and zero-overhead when off,
+// and instrumentation never changes rendered bytes.
 package quill

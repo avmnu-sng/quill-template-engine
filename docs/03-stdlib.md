@@ -8,9 +8,9 @@ operate under (truthiness, equality, ordering, coercion, undefined handling, esc
 `04-types-and-semantics.md`. The call surface (pipe/call/test forms, named and defaulted
 arguments) is in `01-language-reference.md` Sections 2 and 3.
 
-The dynamic implementations are reused from the faithful Twig port's runtime (the `replace`
-Replacer, the RE2 backing, the escapers, the ordered `*Array`); what is new is the uniform
-calling surface and the gradual-type signatures attached to each entry.
+The implementations are backed by the runtime value layer (the `replace` Replacer, the RE2
+`matches` backing, the escapers, the ordered `*Array`) and exposed through a uniform calling
+surface, with a gradual-type signature attached to each entry.
 
 --------------------------------------------------------------------------------
 
@@ -112,8 +112,7 @@ then the explicit args; `T?` is nullable; `list<T>`/`map<K,V>` are the collectio
   applicable key, the match is emitted as its replacement, and scanning resumes AFTER the
   match -- a replacement is never re-scanned. This is not naive sequential replacement (which
   would cascade `a->b` then `b->c`), and it is critical for source emission: such templates use
-  `replace` to rewrite type tokens and must not cascade. Backed by the port's
-  `strings.Replacer`.
+  `replace` to rewrite type tokens and must not cascade. Backed by `strings.Replacer`.
 - **`merge`.** Integer-keyed values from `other` are appended and reindexed onto the receiver;
   string-keyed values overwrite by key. Insertion order is preserved throughout. This is the
   array-union capability that `+` deliberately does NOT provide (`+` is numeric only).
@@ -193,9 +192,8 @@ not just the functions); see `06-architecture-and-roadmap.md`.
 
 A registered filter, function, or test declares not only its user-visible parameters
 (positional, named, defaulted, spread, Section 1) but also which engine values the runtime
-must INJECT ahead of the user arguments. The injection flags, reused from the port's callable
-option bag, are the parity mechanism for X6/X7/X8/FL44/F19 -- the registration surface, not
-just the catalogued callables:
+must INJECT ahead of the user arguments. The injection flags are part of the registration
+surface, available to host callables as well as the catalogued ones (`extensions.md` Section 6):
 
 | Flag | Injected value | Used by |
 |------|----------------|---------|
@@ -321,6 +319,5 @@ strategies retained from Twig for markup-emitting templates are:
 | `url` | percent-encode for URLs (RFC 3986; space -> %20) |
 
 The escaper machinery, the per-strategy safeness, the pre-escape filters (e.g. `nl2br`), and
-the safeness inference are reused from the port and are active only when escaping is enabled;
-only the DEFAULT flips from `html` to `off`. The full escaping and sandbox model is in
-`04-types-and-semantics.md` Section 8.
+the safeness inference are active only when escaping is enabled; the DEFAULT strategy is
+`off`. The full escaping and sandbox model is in `04-types-and-semantics.md` Section 8.

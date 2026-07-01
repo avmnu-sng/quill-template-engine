@@ -254,8 +254,7 @@ canonical fixes, in order of preference:
 
 The asymmetry that helps `{{ u.name }}` per-user output is a deliberate default, not a fixed
 law: `@}+` and `pragma keep-close-newline` give byte-exact control wherever the default's
-newline-eating would corrupt emitted brace layout. The worked brace-dense example in
-`05-twig-parity-and-migration.md` Section 4.5 shows the byte-correct output under each form.
+newline-eating would corrupt emitted brace layout.
 
 ### 1.5 String literals, interpolation, and comments
 
@@ -651,9 +650,8 @@ value.
 
 ## 5. Composition: inheritance, blocks, macros, includes
 
-Composition reuses the port's `Template` contract (`Display`/`Block`/`HasBlock`/`Macro`/
-`HasMacro`/`Parent`) verbatim; only the surface syntax and the gradual-type checks are new.
-The shared data structure is the BLOCK TABLE, an ordered map from block name to a
+Composition is built on the `Template` contract (`Display`/`Block`/`HasBlock`/`Macro`/
+`HasMacro`/`Parent`). The shared data structure is the BLOCK TABLE, an ordered map from block name to a
 `BlockRef{Owner, ID}`; inheritance, embed, and trait reuse all reduce to building and merging
 block tables and walking a parent chain. Macros are a separate, isolated function namespace.
 

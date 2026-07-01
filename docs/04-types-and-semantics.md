@@ -10,14 +10,14 @@ accidents.
 
 Every rule below serves the source-emitting axiom: Quill's primary consumer emits PROGRAM
 SOURCE CODE, one exact byte sequence at a time. A silently-absent value becomes a silently
-wrong emitted byte; a silently-coerced value becomes a silently wrong emitted token. PHP's
-value semantics are a catalogue of silent surprises; Quill removes them.
+wrong emitted byte; a silently-coerced value becomes a silently wrong emitted token. The
+semantics are chosen to remove the silent surprise.
 
-The runtime backing this layer is reused from the faithful Twig port. The value struct, the
-ordered `*Array`, the `Context` save/restore, the `Safe` wrapper, and the host `Object`
-interface are taken essentially unchanged. Four modules change -- `compare.go`, `truthy.go`,
-`stringify.go`, `attribute.go` -- and one default flips (escaping). The gradual type checker
-is a NEW front-end pass with no PHP analogue.
+The runtime backing this layer is the value package: the value struct, the ordered `*Array`,
+the `Context` save/restore, the `Safe` wrapper, and the host `Object` interface. The typed
+equality, the single truthiness rule, the byte-exact `ToText`, and the kind-dispatched
+attribute access live here, and escaping is off by default. The gradual type checker is a
+front-end pass over these rules.
 
 --------------------------------------------------------------------------------
 
@@ -127,7 +127,7 @@ because an annotation-free template renders identical bytes.
 
 ### 2.1 The value domain
 
-A Quill value is exactly one of eight kinds, the same set as the faithful port's runtime:
+A Quill value is exactly one of eight kinds:
 
 | Kind | Go carrier | Meaning |
 |------|------------|---------|
@@ -310,7 +310,7 @@ because indexing by a boolean or a fraction is always a generator mistake.
 ## 6. Scoping and undefined handling -- the headline divergence
 
 Scoping is lexical and block-structured. `block`, `for`, `macro`, `with`, and `capture` each
-introduce a scope, reusing the port's context save/restore: loop bodies restore pre-loop bindings
+introduce a scope through the context save/restore: loop bodies restore pre-loop bindings
 on exit and drop body-local `set`s; macros see only their parameters plus globals; `include`
 passes a merged context.
 
@@ -318,14 +318,14 @@ Undefined handling is strict-by-default and gradual:
 
 - Reading an undefined context variable, an absent `*Array` key via `a.b`/`a[k]`, or an absent
   object member is a RUNTIME ERROR naming the symbol and listing the available keys -- NOT a
-  silent `Null`. This is the inverse of Twig's `strict_variables=false` default, chosen because a
-  silently absent value is a silently wrong emitted byte -- the costliest possible failure for a
-  generator.
+  silent `Null`. Strict-by-default is chosen because a silently absent value is a silently wrong
+  emitted byte -- the costliest possible failure for a generator. The lenient mode
+  (`WithStrictVariables(false)`) restores the silent `Null`.
 - Absence is made explicit with three tools: the `is defined` test (true/false, never throws), the
   `?.`/`?[]` null-safe operators (short-circuit to `Null`), and the `default(x, fallback)` filter
   / `a ?? b` coalescing operator (yield the fallback when the left is undefined or null). These
   suppress the strict-undefined miss across the ENTIRE left-operand access chain, not merely its
-  final hop (the suppression-depth rule below), reusing the port's `ignoreStrictCheck` plumbing.
+  final hop (the suppression-depth rule below).
 
 #### Suppression depth: the whole-chain rule
 
@@ -409,11 +409,10 @@ every interpolation purely to cancel it. Quill makes the correct default the act
 - `raw` filter / safeness annotation: a compile-time no-op marking content already-safe; never
   auto-escaped. Inert under the default; switches a single site back to unescaped under an
   `escape`-on region.
-- `Safe` value: the already-escaped carrier (the port's `Markup`, renamed), returned unchanged by
-  `escape`, produced by captures and macros under escaping, a plain-string passthrough when escaping
-  is off.
+- `Safe` value: the already-escaped carrier, returned unchanged by `escape`, produced by captures
+  and macros under escaping, a plain-string passthrough when escaping is off.
 - Per-strategy filter safeness, pre-escape filters (e.g. `nl2br`), and safeness inference over
-  ternary/conditional operands -- reused from the port, active only when escaping is enabled.
+  ternary/conditional operands -- active only when escaping is enabled.
 - Default-strategy selection: fixed value, off, or a host-supplied resolver including by file
   extension (`body.html.ql` -> `html`). Default is off; the host may register a resolver.
 - Compile-time escape injection: escaping is decided and injected at compile time, so the off-path
@@ -431,9 +430,8 @@ invalid UTF-8 (Section 2.1), so the escapers split into two classes:
   configured charset (`_charset`, default UTF-8) injected via `needs_charset`
   (`03-stdlib.md` Section 3.6). If the bytes are not valid in that charset, the escaper raises a
   clear escaping error naming the strategy and the byte offset -- it does NOT silently emit
-  replacement characters, because a silent substitution in emitted code is a wrong byte. This is
-  the port's retained guard for the code-point strategies, now tied explicitly to the
-  charset-injection mechanism.
+  replacement characters, because a silent substitution in emitted code is a wrong byte. This
+  guard on the code-point strategies is tied explicitly to the charset-injection mechanism.
 
 A markup-emitting template that opts into `escape js` (or `css`/`html_attr`) therefore has fully
 defined behavior on an invalid-UTF-8 `Str`: a load-time-clear escaping error, not undefined
