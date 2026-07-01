@@ -69,9 +69,11 @@ The `runtime` package holds the load-bearing value semantics:
 - The six escape strategies and the safeness analysis, active when escaping is on.
 - `FromGo`, the host-facing marshaler: a native Go value (scalar, slice/array,
   map, struct honoring a `quill:"name"` or `json:"name"` tag, pointer, or an
-  existing `runtime.Value` passed through) becomes a `Value`, with a
-  deterministic sorted key order for maps and a clear typed error on an
-  unsupported kind (channel, bare function, complex). The facade's `RenderValues`
+  existing `runtime.Value`, `*runtime.Array`, or `Object` passed through at any
+  depth) becomes a `Value`, with a deterministic key order for maps -- string
+  keys sorted lexically, integer keys sorted numerically so a dense `0..n-1` map
+  is list-shaped -- and a clear typed error on an unsupported kind (channel, bare
+  function, complex). The facade's `RenderValues`
   and `RenderStringValues` marshal a `map[string]any` through it before
   rendering. (`04-types-and-semantics.md` Section 6.)
 

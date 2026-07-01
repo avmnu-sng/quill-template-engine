@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -147,7 +148,9 @@ func TestFromGoMapTypedValues(t *testing.T) {
 }
 
 // TestFromGoMapIntKeys marshals an integer-keyed map through the canonical key
-// model so a "0".."n-1" map is list-shaped.
+// model so a "0".."n-1" map is list-shaped and iterates in ascending numeric
+// order, including across keys of differing digit width where a lexicographic
+// sort would scramble the sequence (e.g. "10" before "2").
 func TestFromGoMapIntKeys(t *testing.T) {
 	m := map[int]string{0: "a", 1: "b", 2: "c"}
 	got := mustFromGo(t, m)
@@ -156,6 +159,30 @@ func TestFromGoMapIntKeys(t *testing.T) {
 	}
 	if v, ok := got.Arr.GetInt(1); !ok || v.S != "b" {
 		t.Fatalf("GetInt(1) = %+v ok=%v, want Str(b)", v, ok)
+	}
+
+	// A dense 0..11 map spans one- and two-digit keys. Numeric sort keeps it
+	// list-shaped and in ascending order; a stringified sort would place "10"
+	// and "11" between "1" and "2", breaking both.
+	wide := make(map[int]string, 12)
+	for i := 0; i <= 11; i++ {
+		wide[i] = fmt.Sprintf("v%d", i)
+	}
+	gw := mustFromGo(t, wide)
+	if !gw.Arr.IsList() {
+		t.Fatalf("dense int-keyed 0..11 map did not marshal list-shaped: %+v", gw.Arr.Keys())
+	}
+	keys := gw.Arr.Keys()
+	if len(keys) != 12 {
+		t.Fatalf("0..11 map key count = %d, want 12", len(keys))
+	}
+	for i, k := range keys {
+		if k.Kind != KInt || k.I != int64(i) {
+			t.Fatalf("key[%d] = %+v, want Int(%d) (numeric iteration order)", i, k, i)
+		}
+		if v, ok := gw.Arr.GetInt(int64(i)); !ok || v.S != fmt.Sprintf("v%d", i) {
+			t.Fatalf("GetInt(%d) = %+v ok=%v, want Str(v%d)", i, v, ok, i)
+		}
 	}
 }
 
@@ -295,6 +322,47 @@ func TestFromGoPassthrough(t *testing.T) {
 	m := mustFromGo(t, map[string]any{"v": Bool(false)})
 	if v, ok := m.Arr.GetStr("v"); !ok || v.Kind != KBool || v.B {
 		t.Fatalf("map Value passthrough = %+v ok=%v, want Bool(false)", v, ok)
+	}
+}
+
+// TestFromGoConcreteTypedPassthrough proves a struct field declared with a
+// concrete Quill type -- runtime.Value, *runtime.Array, or Object -- passes
+// through as that finished value rather than being re-marshalled through its
+// reflected representation. Without the concrete-type dispatch inside
+// fromReflect a `Value` field would marshal to an array of the Value struct's
+// exported fields, and a `*Array` field to an empty array.
+func TestFromGoConcreteTypedPassthrough(t *testing.T) {
+	type holder struct {
+		V Value
+		A *Array
+		O Object
+		N *Array // a nil concrete pointer becomes Null
+	}
+	inner := NewList(Int(1), Int(2))
+	var obj Object = fromGoCallable{}
+	got := mustFromGo(t, holder{V: Str("kept"), A: inner, O: obj})
+	if got.Kind != KArray {
+		t.Fatalf("FromGo(holder) kind = %s, want array", got.Kind)
+	}
+
+	v, ok := got.Arr.GetStr("V")
+	if !ok || v.Kind != KStr || v.S != "kept" {
+		t.Fatalf("Value field = %+v ok=%v, want Str(kept)", v, ok)
+	}
+
+	a, ok := got.Arr.GetStr("A")
+	if !ok || a.Kind != KArray || !Equal(a, Arr(inner)) {
+		t.Fatalf("*Array field = %+v ok=%v, want list [1,2]", a, ok)
+	}
+
+	o, ok := got.Arr.GetStr("O")
+	if !ok || o.Kind != KObject || !IsCallable(o) {
+		t.Fatalf("Object field = %+v ok=%v, want callable object", o, ok)
+	}
+
+	n, ok := got.Arr.GetStr("N")
+	if !ok || n.Kind != KNull {
+		t.Fatalf("nil *Array field = %+v ok=%v, want Null", n, ok)
 	}
 }
 

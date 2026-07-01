@@ -4,6 +4,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/avmnu-sng/quill-template-engine/errors"
@@ -25,10 +26,12 @@ import (
 //   - float32/float64 become Float;
 //   - a slice or array becomes a list-shaped *Array with 0-based integer keys,
 //     in element order;
-//   - a map becomes a string-keyed *Array; the keys are stringified and sorted
-//     so the resulting key order is deterministic regardless of Go's randomized
-//     map iteration. A canonical decimal-integer key name goes through the one
-//     canonical key model (spec 04 Section 6.1), exactly as elsewhere;
+//   - a map becomes an *Array with a deterministic key order regardless of Go's
+//     randomized map iteration: a string-keyed map sorts by its string keys,
+//     while an integer-keyed map sorts numerically by key value, so a dense
+//     0..n-1 int map is list-shaped and iterates in ascending order. A canonical
+//     decimal-integer key name goes through the one canonical key model (spec 04
+//     Section 6.1), exactly as elsewhere;
 //   - a struct becomes an *Array mapping its EXPORTED fields, in declaration
 //     order, honoring a `quill:"name"` tag and, absent that, a `json:"name"`
 //     tag for the emitted key; a field tagged `-` (under either tag) is skipped,
@@ -71,6 +74,28 @@ func FromGo(v any) (Value, error) {
 func fromReflect(rv reflect.Value) (Value, error) {
 	if !rv.IsValid() {
 		return Null(), nil
+	}
+	// A concretely-typed runtime.Value, *Array, or Object member passes through
+	// as itself, exactly as the FromGo entry point does for a top-level value.
+	// This keeps the passthrough guarantee true at every depth: a struct field
+	// declared `V runtime.Value` (or `A *runtime.Array`, or an Object) carries a
+	// finished value that must reach the render untouched rather than being
+	// re-marshalled through its reflected fields.
+	if rv.CanInterface() {
+		switch iv := rv.Interface().(type) {
+		case Value:
+			return iv, nil
+		case *Array:
+			if iv == nil {
+				return Null(), nil
+			}
+			return Arr(iv), nil
+		case Object:
+			if iv == nil {
+				return Null(), nil
+			}
+			return Obj(iv), nil
+		}
 	}
 	// An interface-typed member may carry a runtime.Value or Object directly;
 	// route it back through FromGo so the passthrough applies at every depth.
@@ -132,16 +157,22 @@ func fromSequence(rv reflect.Value) (Value, error) {
 }
 
 // fromMap marshals a Go map into a string-keyed *Array with a deterministic key
-// order: the keys are stringified and sorted, so two renders of the same map
-// produce byte-identical output despite Go's randomized map iteration. The map
-// key type must be a string or an integer -- the two kinds that have an
-// unambiguous Quill key spelling; any other key type is a clear error.
+// order, so two renders of the same map produce byte-identical output despite
+// Go's randomized map iteration. A string-keyed map sorts by its string keys; an
+// integer-keyed map sorts numerically by key value, so a dense 0..n-1 int map
+// marshals list-shaped and iterates in ascending order regardless of digit
+// width. The map key type must be a string or an integer -- the two kinds that
+// have an unambiguous Quill key spelling; any other key type is a clear error.
 func fromMap(rv reflect.Value) (Value, error) {
 	if rv.IsNil() {
 		return Null(), nil
 	}
+	// intKeyed is true for a map whose key kind is a signed or unsigned integer,
+	// in which case entries sort by numeric key value rather than decimal string.
+	intKeyed := isIntegerKeyKind(rv.Type().Key().Kind())
 	type entry struct {
 		key string
+		num int64
 		val reflect.Value
 	}
 	entries := make([]entry, 0, rv.Len())
@@ -152,9 +183,19 @@ func fromMap(rv reflect.Value) (Value, error) {
 		if err != nil {
 			return Null(), err
 		}
-		entries = append(entries, entry{key: ks, val: iter.Value()})
+		e := entry{key: ks, val: iter.Value()}
+		if intKeyed {
+			// mapKeyString already validated the integer key (including the
+			// unsigned-overflow guard), so the canonical decimal parses cleanly.
+			e.num, _ = strconv.ParseInt(ks, 10, 64)
+		}
+		entries = append(entries, e)
 	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].key < entries[j].key })
+	if intKeyed {
+		sort.Slice(entries, func(i, j int) bool { return entries[i].num < entries[j].num })
+	} else {
+		sort.Slice(entries, func(i, j int) bool { return entries[i].key < entries[j].key })
+	}
 	arr := NewArray()
 	for _, e := range entries {
 		val, err := fromReflect(e.val)
@@ -164,6 +205,19 @@ func fromMap(rv reflect.Value) (Value, error) {
 		arr.SetStr(e.key, val)
 	}
 	return Arr(arr), nil
+}
+
+// isIntegerKeyKind reports whether a reflect.Kind is one of the signed or
+// unsigned integer kinds a Go map key may use, so an integer-keyed map sorts by
+// numeric key value.
+func isIntegerKeyKind(k reflect.Kind) bool {
+	switch k {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return true
+	default:
+		return false
+	}
 }
 
 // mapKeyString renders a Go map key as the string form SetStr canonicalizes. A

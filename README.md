@@ -104,13 +104,17 @@ model:
 - scalars (`string`, `bool`, every signed and unsigned integer within the int64
   range, `float32`/`float64`, `nil`) become the matching scalar Value;
 - a slice or array becomes a list-shaped array in element order;
-- a map becomes a string-keyed array with a deterministic, sorted key order;
+- a map becomes an array with a deterministic key order: a string-keyed map
+  sorts by its string keys, and an integer-keyed map sorts numerically by key
+  value, so a dense `0..n-1` int map is list-shaped and iterates in ascending
+  order;
 - a struct becomes a mapping of its exported fields in declaration order,
   honoring a `quill:"name"` tag (and, absent that, a `json:"name"` tag); a field
   tagged `-` is omitted and an embedded struct is flattened in place;
 - a pointer or interface is followed to its element, and an existing
-  `runtime.Value` passes through unchanged, so hand-built and native bindings
-  mix freely.
+  `runtime.Value`, `*runtime.Array`, or `Object` passes through unchanged at any
+  depth -- including as a concretely-typed struct field -- so hand-built and
+  native bindings mix freely.
 
 An unsupported kind (a channel, a bare function, a complex number) returns a
 clear typed error naming the offending Go kind, and the render emits nothing.
