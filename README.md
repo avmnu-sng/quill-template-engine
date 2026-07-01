@@ -229,10 +229,11 @@ Quill ships a complete built-in library of filters, functions, and tests, all
   filters `wrap`/`truncate`/`center`/`wordcount`, the source-emission helpers
   `indent`/`tab`/`ucfirst`, and the escapers `escape`/`e`/`raw`.
 - **Collection:** `first`, `last`, `keys`, `reverse`, `sort`, `merge`, `batch`,
-  `column`, the higher-order `map`/`filter`/`reduce`/`find` (arrow-driven), the
+  `columns` (the transpose of `batch`), `column`, `entries`, `sort_map`, the
+  higher-order `map`/`filter`/`reduce`/`find` (arrow-driven), the
   attribute-projecting `map`/`sum`/`unique` (`attribute: "path"`), the named-test
-  `select`/`reject`/`selectattr`/`rejectattr`, `group_by`, plus the `has some` /
-  `has every` quantifiers.
+  and truthiness `select`/`reject`/`selectattr`/`rejectattr`, `group_by`, plus the
+  `has some` / `has every` quantifiers.
 - **Number/format:** `abs`, `round`, `number_format`, `format`, `date`.
 - **Functions:** `range`, `min`, `max`, `random`, `cycle`, `constant`, `enum`,
   `enum_cases`, `include`, `source`, `template_from_string`, `dump`, the

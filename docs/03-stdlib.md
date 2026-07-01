@@ -78,7 +78,10 @@ then the explicit args; `T?` is nullable; `list<T>`/`map<K,V>` are the collectio
 | `sort(by: (a, b) => int? = null)` | `(coll, ...) -> coll` | Total ordering (`04-types-and-semantics.md` Section 2), or a spaceship arrow; key-preserving. |
 | `reverse(preserve_keys: bool = true)` | `(any, ...) -> any` | Reverse a collection (keys preserved by default) or a string by runes. |
 | `batch(size: int, fill: any? = null)` | `(coll, ...) -> list<list>` | Fixed-size chunks; `fill` pads the last chunk. |
+| `columns(n: int, fill: any? = null)` | `(coll, ...) -> list<list>` | Distribute into `n` balanced columns, the transpose of `batch`; `fill` pads every column to the tallest. See Section 2.8. |
 | `column(name)` | `(list, key) -> list` | Extract one attribute per row. |
+| `entries` | `map -> list<list>` | Yield `[key, value]` pairs as an ordered sequence of two-element lists, in insertion order. |
+| `sort_map(by: string = "key")` | `map -> map` | Sort a mapping deterministically by `"key"` or `"value"`, key-preserving. See Section 2.8. |
 | `map((value, key?) => expr)` | `(coll, fn) -> coll` | Transform, key-preserving. With `attribute: "path"` in place of the arrow it plucks that dotted path from each element (see Section 2.8). |
 | `filter((value, key?) => bool)` | `(coll, fn) -> coll` | Keep where the arrow is truthy, key-preserving. |
 | `reduce((acc, value, key?) => expr, initial: any = null)` | `(coll, fn, ...) -> any` | Left fold. |
@@ -87,8 +90,8 @@ then the explicit args; `T?` is nullable; `list<T>`/`map<K,V>` are the collectio
 | `unique(attribute: string? = null)` | `coll -> list` | Drop duplicate values, first occurrence wins, order preserved; with `attribute: "path"` dedupe by that dotted path. |
 | `select(test: string, args...)` | `(coll, ...) -> coll` | Keep elements where the named test passes, key-preserving (see Section 2.8). |
 | `reject(test: string, args...)` | `(coll, ...) -> coll` | Keep elements where the named test fails, the complement of `select`. |
-| `selectattr(path: string, test: string, args...)` | `(coll, ...) -> coll` | Pluck `path` from each element and keep those where the named test passes, key-preserving. |
-| `rejectattr(path: string, test: string, args...)` | `(coll, ...) -> coll` | The complement of `selectattr`. |
+| `selectattr(path: string, test: string? = null, args...)` | `(coll, ...) -> coll` | Pluck `path` from each element; with a test name keep those where it passes, without one keep those whose projected value is truthy. Key-preserving. |
+| `rejectattr(path: string, test: string? = null, args...)` | `(coll, ...) -> coll` | The complement of `selectattr`. |
 | `group_by(by)` | `(coll, path-or-arrow) -> list<map>` | Partition into `{key, items}` mappings ordered by first appearance of each key; `by` is a dotted-path string plucked from each element or an arrow `(value, key?) => key` (see Section 2.8). |
 | `shuffle(seed: int? = null)` | `coll -> coll` | Permute; `seed` makes it deterministic. |
 
@@ -166,14 +169,45 @@ order preserved; `unique` with no attribute dedupes whole values.
 
 `select`/`reject` take the NAME of a registered test (a string) and keep, respectively drop,
 the elements for which it passes; any further arguments are passed to the test after the
-element. `selectattr`/`rejectattr` first pluck a dotted path from each element and apply the
-named test to the projected value. All four are key-preserving on a mapping source. The
-comparison tests `eq`/`ne`/`lt`/`le`/`gt`/`ge` (Section 4) make attribute comparisons direct:
+element. `selectattr`/`rejectattr` first pluck a dotted path from each element. They come in
+two forms:
+
+- `selectattr(path)` -- called with a path only, no test name -- keeps the elements whose
+  projected value is TRUTHY under the engine's single truthiness rule (the same rule `@if`
+  uses, `04-types-and-semantics.md` Section 5), the idiom for keeping records where a flag
+  attribute is set. `rejectattr(path)` keeps the falsy ones.
+- `selectattr(path, test, args...)` applies the named test to the projected value, with the
+  extra arguments passed to the test after it. `rejectattr(path, test, args...)` is its
+  complement.
+
+All are key-preserving on a mapping source. The comparison tests `eq`/`ne`/`lt`/`le`/`gt`/`ge`
+(Section 4) make attribute comparisons direct:
 
 ```text
 {{ people | select("even") }}                           {# elements passing `is even` #}
+{{ people | selectattr("active") }}                     {# each person whose active flag is truthy #}
+{{ people | rejectattr("active") }}                     {# each person whose active flag is falsy #}
 {{ people | selectattr("age", "ge", 18) }}              {# each person whose age >= 18 #}
 {{ people | rejectattr("role.title", "eq", "admin") }}  {# drop admins #}
+```
+
+`columns(n)` distributes a collection's values into `n` roughly-equal columns balanced by
+size, the TRANSPOSE of `batch` (which makes rows of `n`): the element at index `i` lands in
+column `i % n`, so reading the columns left-to-right and each column top-to-bottom reproduces
+the original order, and the first `len % n` columns hold one more element than the rest. A
+`fill` argument pads every column to the tallest column's height for a rectangular grid.
+
+`entries` yields a mapping's `[key, value]` pairs as an ordered sequence of two-element lists,
+in insertion order, so a mapping can be iterated positionally. `sort_map(by:)` returns a new
+mapping with the same pairs reordered deterministically by `"key"` (default) or `"value"`:
+
+```text
+@for col in items | columns(3) {                        {# lay a list out in three balanced columns #}
+  {{ col | join(", ") }}
+@}
+@for pair in scores | sort_map(by: "value") | entries { {# ascending by score #}
+  {{ pair[0] }}: {{ pair[1] }}
+@}
 ```
 
 `group_by(by)` partitions a collection into an ordered sequence of `{key, items}` mappings,

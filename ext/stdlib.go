@@ -265,7 +265,10 @@ func isUTF8Name(name string) bool {
 
 func registerCollectionFilters(s *ExtensionSet) {
 	s.AddFilter(&Filter{Name: "batch", Fn: filterBatch})
+	s.AddFilter(&Filter{Name: "columns", Fn: filterColumns})
 	s.AddFilter(&Filter{Name: "column", Fn: filterColumn})
+	s.AddFilter(&Filter{Name: "entries", Fn: filterEntries})
+	s.AddFilter(&Filter{Name: "sort_map", Fn: filterSortMap})
 	s.AddFilter(&Filter{Name: "map", Fn: filterMap})
 	s.AddFilter(&Filter{Name: "filter", Fn: filterFilter})
 	s.AddFilter(&Filter{Name: "reduce", Fn: filterReduce})
@@ -322,6 +325,116 @@ func filterBatch(args []runtime.Value) (runtime.Value, error) {
 		}
 		out.SetInt(chunkIdx, runtime.Arr(chunk))
 		chunkIdx++
+	}
+	return runtime.Arr(out), nil
+}
+
+// filterColumns distributes a collection's values into n roughly-equal columns
+// balanced by size (spec 03 Section 2.2). It is the transpose of batch, which
+// makes rows of n: the element at index i lands in column i%n, so reading the
+// columns left-to-right and each column top-to-bottom reproduces the original
+// order, and the first r = len%n columns hold one more element than the rest.
+// When fill is supplied every column is padded to the tallest column's height,
+// giving a rectangular grid. n must be >= 1.
+func filterColumns(args []runtime.Value) (runtime.Value, error) {
+	v := arg(args, 0)
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return runtime.Null(), errors.New(errors.KindRuntime, "columns expects a collection")
+	}
+	n := int(toInt(arg(args, 1)))
+	if n < 1 {
+		return runtime.Null(), errors.New(errors.KindRuntime, "columns count must be >= 1")
+	}
+	hasFill := len(args) > 2 && !args[2].IsNull()
+	fill := arg(args, 2)
+	ps := v.Arr.Pairs()
+	cols := make([]*runtime.Array, n)
+	for c := 0; c < n; c++ {
+		cols[c] = runtime.NewArray()
+	}
+	for i, p := range ps {
+		col := cols[i%n]
+		col.SetInt(int64(col.Len()), p.Val)
+	}
+	if hasFill {
+		height := (len(ps) + n - 1) / n
+		for c := 0; c < n; c++ {
+			for cols[c].Len() < height {
+				cols[c].SetInt(int64(cols[c].Len()), fill)
+			}
+		}
+	}
+	out := runtime.NewArray()
+	for c := 0; c < n; c++ {
+		out.SetInt(int64(c), runtime.Arr(cols[c]))
+	}
+	return runtime.Arr(out), nil
+}
+
+// filterEntries yields a mapping's [key, value] pairs as an ordered sequence of
+// two-element lists, in insertion order (spec 03 Section 2.2). A list source
+// yields its integer keys paired with their values the same way.
+func filterEntries(args []runtime.Value) (runtime.Value, error) {
+	v := arg(args, 0)
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return runtime.Null(), errors.New(errors.KindRuntime, "entries expects a mapping")
+	}
+	out := runtime.NewArray()
+	idx := int64(0)
+	for _, p := range v.Arr.Pairs() {
+		pair := runtime.NewArray()
+		pair.SetInt(0, p.Key)
+		pair.SetInt(1, p.Val)
+		out.SetInt(idx, runtime.Arr(pair))
+		idx++
+	}
+	return runtime.Arr(out), nil
+}
+
+// filterSortMap sorts a mapping deterministically by its keys or its values,
+// returning a new mapping with the same pairs in the sorted order (spec 03
+// Section 2.2). The by argument is "key" (default) or "value"; ties break by the
+// one total ordering applied to the other component, so the result is stable and
+// deterministic regardless of insertion order.
+func filterSortMap(args []runtime.Value) (runtime.Value, error) {
+	v := arg(args, 0)
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return runtime.Null(), errors.New(errors.KindRuntime, "sort_map expects a mapping")
+	}
+	by := "key"
+	if a := arg(args, 1); !a.IsNull() {
+		s, err := wantString(a)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		by = s
+	}
+	if by != "key" && by != "value" {
+		return runtime.Null(), errors.New(errors.KindRuntime,
+			"sort_map by must be \"key\" or \"value\", got %q", by)
+	}
+	ps := v.Arr.Pairs()
+	var sortErr error
+	sort.SliceStable(ps, func(i, j int) bool {
+		var a, b runtime.Value
+		if by == "key" {
+			a, b = ps[i].Key, ps[j].Key
+		} else {
+			a, b = ps[i].Val, ps[j].Val
+		}
+		c, err := runtime.Order(a, b)
+		if err != nil {
+			sortErr = err
+			return false
+		}
+		return c < 0
+	})
+	if sortErr != nil {
+		return runtime.Null(), sortErr
+	}
+	out := runtime.NewArray()
+	for _, p := range ps {
+		out.SetKey(p.Key, p.Val)
 	}
 	return runtime.Arr(out), nil
 }
@@ -680,11 +793,14 @@ func filterSelect(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Val
 	return runtime.Arr(out), nil
 }
 
-// filterSelectAttr keeps (keep=true) or rejects (keep=false) elements for which
-// the named test passes on a projected dotted path (spec 03 Section 2.2). The
-// arguments are (path, test, extra...); the path is plucked from each element,
-// the test is applied to the plucked value with the extra arguments after it.
-// Key-preserving on a mapping source.
+// filterSelectAttr keeps (keep=true) or rejects (keep=false) elements by a
+// projected dotted path (spec 03 Section 2.2), in two forms. The two-argument
+// form selectattr(path) has no test name: it keeps elements whose projected
+// value is truthy under the engine's single truthiness rule (runtime.Truthy, the
+// rule @if uses), matching the idiom of keeping records where a flag attribute is
+// set. The three-or-more-argument form selectattr(path, test, extra...) plucks
+// the path from each element and applies the named test to the projected value
+// with the extra arguments after it. Both are key-preserving on a mapping source.
 func filterSelectAttr(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Value, error) {
 	v := arg(args, 0)
 	if v.Kind != runtime.KArray || v.Arr == nil {
@@ -694,6 +810,22 @@ func filterSelectAttr(s *ExtensionSet, args []runtime.Value, keep bool) (runtime
 	if err != nil {
 		return runtime.Null(), err
 	}
+
+	// One-arg form (no test name): filter by the truthiness of the projected value.
+	if len(args) < 3 || args[2].IsNull() {
+		out := runtime.NewArray()
+		for _, p := range v.Arr.Pairs() {
+			attr, err := pluck(p.Val, path)
+			if err != nil {
+				return runtime.Null(), err
+			}
+			if runtime.Truthy(attr) == keep {
+				out.SetKey(p.Key, p.Val)
+			}
+		}
+		return runtime.Arr(out), nil
+	}
+
 	name, err := wantString(arg(args, 2))
 	if err != nil {
 		return runtime.Null(), err

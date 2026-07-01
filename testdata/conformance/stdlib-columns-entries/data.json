@@ -1,0 +1,10 @@
+{
+  "nums": [1, 2, 3, 4, 5, 6, 7],
+  "scores": {"b": 3, "a": 1, "c": 2},
+  "people": [
+    {"name": "ann", "age": 30, "active": true},
+    {"name": "bob", "age": 15, "active": false},
+    {"name": "cal", "age": 18, "active": 1},
+    {"name": "dee", "age": 40, "active": ""}
+  ]
+}
