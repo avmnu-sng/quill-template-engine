@@ -370,3 +370,47 @@ func (e *Environment) RenderString(name, body string, vars map[string]runtime.Va
 func (e *Environment) Display(name string, vars map[string]runtime.Value) (string, error) {
 	return e.Render(name, vars)
 }
+
+// RenderValues renders the named template from native Go bindings: each value in
+// vars is marshaled through runtime.FromGo, so a host can pass ordinary Go
+// scalars, slices, maps, structs, and nested combinations without hand-building
+// runtime.Value bindings. A value that is already a runtime.Value passes
+// through unchanged, so hand-built and native bindings mix freely. An
+// unsupported Go kind (a channel, a bare function, a complex number) returns the
+// typed marshaling error and renders nothing.
+func (e *Environment) RenderValues(name string, vars map[string]any) (string, error) {
+	rv, err := fromGoVars(vars)
+	if err != nil {
+		return "", err
+	}
+	return e.Render(name, rv)
+}
+
+// RenderStringValues parses an ad-hoc template body (not added to the loader)
+// and renders it from native Go bindings, marshaling each value through
+// runtime.FromGo exactly as RenderValues does. Inheritance/include/import
+// targets in the body still resolve through the loader by name.
+func (e *Environment) RenderStringValues(name, body string, vars map[string]any) (string, error) {
+	rv, err := fromGoVars(vars)
+	if err != nil {
+		return "", err
+	}
+	return e.RenderString(name, body, rv)
+}
+
+// fromGoVars marshals a native binding map into the runtime.Value map the render
+// entry points consume, failing on the first value FromGo rejects.
+func fromGoVars(vars map[string]any) (map[string]runtime.Value, error) {
+	if vars == nil {
+		return nil, nil
+	}
+	out := make(map[string]runtime.Value, len(vars))
+	for name, v := range vars {
+		rv, err := runtime.FromGo(v)
+		if err != nil {
+			return nil, err
+		}
+		out[name] = rv
+	}
+	return out, nil
+}

@@ -78,6 +78,43 @@ the `tab` filter, the `tab`/`space`/`break` functions, and the `@tab` region;
 `quill.WithLogger(l)` sets the destination `@log` writes to (default discards);
 `quill.WithExtensions`/`quill.WithExtension` add host callables.
 
+## Passing data
+
+`Render` binds a `map[string]runtime.Value`, so you build values with the
+`runtime` constructors (`runtime.Str`, `runtime.Int`, `runtime.Arr`, ...). To
+pass ordinary Go values instead, use `RenderValues` (and `RenderStringValues`
+for an ad-hoc body), which marshal each binding through `runtime.FromGo`:
+
+```go
+type User struct {
+	Name  string   `quill:"name"`
+	Admin bool     `quill:"admin"`
+	Tags  []string `quill:"tags"`
+}
+
+out, _ := env.RenderValues("greet.ql", map[string]any{
+	"user":  User{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
+	"count": 3,
+})
+```
+
+`runtime.FromGo(any) (runtime.Value, error)` maps native Go values to the value
+model:
+
+- scalars (`string`, `bool`, every signed and unsigned integer within the int64
+  range, `float32`/`float64`, `nil`) become the matching scalar Value;
+- a slice or array becomes a list-shaped array in element order;
+- a map becomes a string-keyed array with a deterministic, sorted key order;
+- a struct becomes a mapping of its exported fields in declaration order,
+  honoring a `quill:"name"` tag (and, absent that, a `json:"name"` tag); a field
+  tagged `-` is omitted and an embedded struct is flattened in place;
+- a pointer or interface is followed to its element, and an existing
+  `runtime.Value` passes through unchanged, so hand-built and native bindings
+  mix freely.
+
+An unsupported kind (a channel, a bare function, a complex number) returns a
+clear typed error naming the offending Go kind, and the render emits nothing.
+
 ## The language at a glance
 
 Source-emitting templates use the explicit `@` statement form: each statement

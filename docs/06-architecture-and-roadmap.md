@@ -67,6 +67,13 @@ The `runtime` package holds the load-bearing value semantics:
 - `GetAttribute`, kind-dispatched and strict-by-default: a miss is an error unless
   the lenient flag is set. (`04-types-and-semantics.md` Sections 5-6.)
 - The six escape strategies and the safeness analysis, active when escaping is on.
+- `FromGo`, the host-facing marshaler: a native Go value (scalar, slice/array,
+  map, struct honoring a `quill:"name"` or `json:"name"` tag, pointer, or an
+  existing `runtime.Value` passed through) becomes a `Value`, with a
+  deterministic sorted key order for maps and a clear typed error on an
+  unsupported kind (channel, bare function, complex). The facade's `RenderValues`
+  and `RenderStringValues` marshal a `map[string]any` through it before
+  rendering. (`04-types-and-semantics.md` Section 6.)
 
 The host-registration surface carries callable INJECTION FLAGS -- `NeedsCharset`,
 `NeedsContext`, `NeedsEnvironment` -- so a registered filter/function/test declares

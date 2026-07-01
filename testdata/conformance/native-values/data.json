@@ -1,0 +1,9 @@
+{
+  "user": {
+    "name": "ada",
+    "tags": ["x", "y"],
+    "addr": { "city": "here", "zip": "00000" },
+    "meta": { "age": 30, "level": 9 }
+  },
+  "scores": [10, 20, 30]
+}

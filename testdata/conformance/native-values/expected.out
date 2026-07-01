@@ -1,0 +1,6 @@
+name: ADA
+tags: x/y
+city: here
+  age=30
+  level=9
+scores: 10,20,30
