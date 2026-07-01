@@ -126,12 +126,30 @@ func (p *parser) parseCallBlock() *ast.Node {
 }
 
 // parseParamList parses "( [Param {, Param}] )" into a KindParams node. The
-// opening paren is required.
+// opening paren is required. The two tail captures obey a fixed order at the end
+// of the list: an optional positional variadic "...name" may be followed only by
+// an optional keyword variadic "**name", and nothing follows the kwargs tail. So
+// a declaration ends with at most one "...name" then at most one "**name".
 func (p *parser) parseParamList() *ast.Node {
 	open := p.expect(lex.LPAREN, "'(' to open a parameter list")
 	params := p.node(ast.KindParams, open)
+	var sawVariadic, sawKwargs bool
 	for !p.at(lex.RPAREN) && !p.at(lex.EOF) {
-		params.Add(p.parseParam())
+		param := p.parseParam()
+		isKwargs := param.Int&ast.ParamKwargs != 0
+		if sawKwargs {
+			p.failAt(tokAt(param), "a kwargs '**name' must be the last parameter")
+		}
+		if sawVariadic && !isKwargs {
+			p.failAt(tokAt(param), "a variadic '...name' must be the last positional parameter")
+		}
+		if param.Bool {
+			sawVariadic = true
+		}
+		if isKwargs {
+			sawKwargs = true
+		}
+		params.Add(param)
 		if !p.accept(lex.COMMA) {
 			break
 		}

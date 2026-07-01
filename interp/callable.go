@@ -199,6 +199,22 @@ func (in *interp) evalTest(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 	if err != nil {
 		return runtime.Null(), err
 	}
+	// The registry-existence tests `x is filter` / `is function` / `is test` are the
+	// value-level counterparts of the @guard statement: the subject is a callable
+	// name and the result reports whether a callable of that kind is registered,
+	// backed by the same HasFilter/HasFunction/HasTest predicates the guard uses
+	// (design/expressions Section 8, spec 03 Section 4). A registered host test of
+	// the same name still shadows this built-in, so the lookup below wins when the
+	// host installs one.
+	if _, hosted := in.eng.Extensions().Test(n.Str); !hosted {
+		if present, ok := in.registryTest(n.Str, subject); ok {
+			result := present
+			if n.Bool {
+				result = !present
+			}
+			return runtime.Bool(result), nil
+		}
+	}
 	t, ok := in.eng.Extensions().Test(n.Str)
 	if !ok {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
@@ -226,6 +242,35 @@ func (in *interp) evalTest(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 		result = !res
 	}
 	return runtime.Bool(result), nil
+}
+
+// registryTest implements the value-level registry-existence tests
+// `name is filter` / `is function` / `is test`. It reports (present, true) when
+// the test name is one of the three kinds, resolving the subject to a callable
+// name string and consulting the same HasFilter/HasFunction/HasTest predicates
+// the @guard statement uses; ok is false for any other test name so the caller
+// falls through to the ordinary registry lookup. A non-string subject names no
+// callable and is reported absent.
+func (in *interp) registryTest(name string, subject runtime.Value) (present, ok bool) {
+	var callable string
+	switch subject.Kind {
+	case runtime.KStr:
+		callable = subject.S
+	case runtime.KSafe:
+		callable = subject.S
+	default:
+		callable = ""
+	}
+	ext := in.eng.Extensions()
+	switch name {
+	case "filter":
+		return callable != "" && ext.HasFilter(callable), true
+	case "function":
+		return callable != "" && ext.HasFunction(callable), true
+	case "test":
+		return callable != "" && ext.HasTest(callable), true
+	}
+	return false, false
 }
 
 // isDefined evaluates the "is defined" question over an access chain without

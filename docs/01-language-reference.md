@@ -701,7 +701,10 @@ value.
 
 - `@guard filter("markdown") { ... } else { ... }` selects a branch on whether the named
   callable (filter/function/test) is registered; the dead branch is parsed but NOT validated
-  against unknown callables -- portable across host configs.
+  against unknown callables -- portable across host configs. The value-level counterpart is the
+  inline registry test `name is filter` / `name is function` / `name is test`
+  (`03-stdlib.md` Section 4), usable anywhere an expression is: `{{ "markdown" is filter }}`,
+  `@if "csrf" is function { ... @}`.
 - `@types { x: string, n: int }` declares context types. In Quill this is the file-scope form
   of the per-variable annotations and is consumed by the gradual checker directly
   (`04-types-and-semantics.md` Section 1), not as an inert metadata side-channel.
@@ -780,6 +783,25 @@ Declared params with constant defaults, optional type annotations, and a variadi
 `...rest`. A macro sees ONLY its params, defaults, variadics, and host globals -- the caller's
 local context is invisible. A macro returns its captured output (a `Str`, or `Safe` under
 escaping).
+
+**Tail captures: `...rest` for positional args, `**opts` for named args.** A macro takes two
+optional tail parameters at the end of its parameter list, in a fixed order: an optional
+positional variadic `...rest` that collects excess POSITIONAL arguments into a `list`, then an
+optional keyword variadic `**opts` that collects excess NAMED arguments into a `map<string,
+any>`. The two are symmetric -- one absorbs the leftover positionals, the other the leftover
+named arguments -- and either may appear alone. `**opts` must be the last parameter.
+
+```
+@macro render_field(name, **opts) {
+  <input name="{{ name }}"{{ opts | keys | join(" ") }}>   // forward arbitrary attributes
+@}
+{{ render_field("email", id: "e1", class: "big") }}        // opts == { id: "e1", class: "big" }
+```
+
+A named argument that matches a declared parameter binds that parameter; any remaining named
+argument flows into `**opts`. Without a `**opts` tail an unmatched named argument is a
+typo error (`macro "f" has no parameter "x"`); with one it is absorbed. Because `**opts` is an
+ordinary mapping, it forwards to a nested call by spread: `inner(...opts)`.
 
 **The macro namespace is in scope inside every macro body.** A macro body sees, in addition
 to its params/defaults/variadics/globals, the names of all macros visible to the template --

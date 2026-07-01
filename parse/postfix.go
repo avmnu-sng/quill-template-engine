@@ -294,7 +294,8 @@ func (p *parser) parseArrowParenForm(open lex.Token) *ast.Node {
 	return arrow
 }
 
-// parseParam parses one parameter: a variadic "...name", or "name [:Type] [=def]".
+// parseParam parses one parameter: a positional variadic "...name", a keyword
+// variadic "**name", or "name [:Type] [=def]".
 func (p *parser) parseParam() *ast.Node {
 	if p.at(lex.SPREAD) {
 		t := p.advance()
@@ -305,6 +306,17 @@ func (p *parser) parseParam() *ast.Node {
 		n := p.node(ast.KindParam, t)
 		n.Str = nameTok.Text
 		n.Bool = true // variadic
+		return n
+	}
+	if p.at(lex.POW) {
+		t := p.advance()
+		if !p.at(lex.NAME) {
+			p.fail("expected a name after '**' in a parameter list")
+		}
+		nameTok := p.advance()
+		n := p.node(ast.KindParam, t)
+		n.Str = nameTok.Text
+		n.Int |= ast.ParamKwargs // keyword variadic
 		return n
 	}
 	if !p.at(lex.NAME) {

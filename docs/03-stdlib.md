@@ -343,6 +343,7 @@ one mandatory or parenthesized argument.
 | `is callable` | none | True iff the value can be invoked with arguments: an arrow function, a host callable, or a value produced by `separator()`. |
 | `is eq(y)` / `is ne(y)` | one mandatory | Value equality and its negation via the one typed equality (`04-types-and-semantics.md` Section 4). |
 | `is lt(y)` / `is le(y)` / `is gt(y)` / `is ge(y)` | one mandatory | The four ordering relations via the one runtime ordering; total within the number tower and between two strings, a comparison error across unlike kinds. |
+| `is filter` / `is function` / `is test` | none | True iff a callable of that kind with the name in the string subject is registered, backed by the same `HasFilter`/`HasFunction`/`HasTest` predicates the `@guard` statement uses (`01-language-reference.md` Section 4.6). `{{ "markdown" is filter }}` is the inline, value-level form of the guard; a non-string subject names no callable and is false. A host test of the same name shadows this built-in. |
 
 The comparison tests take one argument each and are typed, total, and deterministic, so they
 back the named-test collection filters (Section 2.8): `people | selectattr("age", "ge", 18)`.
@@ -379,6 +380,24 @@ keys on.
 The host registers additional tests through the extension surface
 (`06-architecture-and-roadmap.md`); a host test takes the tested value and zero-or-more
 arguments and returns a boolean.
+
+### 4.3 The registry-existence tests
+
+`name is filter`, `name is function`, and `name is test` are value-level existence tests over
+the callable registry: the subject is the callable's NAME as a string, and the result is
+whether a callable of that kind is registered. They are backed by the same
+`HasFilter`/`HasFunction`/`HasTest` predicates the `@guard` statement consults, so a template
+can ask the question inline in any expression rather than only as a branch head:
+
+```
+{{ "markdown" | apply if "markdown" is filter }}   // guard a pipe inline
+@set has_csrf = "csrf_token" is function           // capture the answer as a value
+```
+
+The three kinds are independent name spaces (Section 1), so `"upper" is filter` is true while
+`"upper" is function` is false. A non-string subject names no callable and is false. A host
+test registered under the name `filter`/`function`/`test` shadows the built-in existence test,
+consistent with the uniform "a registered callable wins the lookup" rule.
 
 --------------------------------------------------------------------------------
 

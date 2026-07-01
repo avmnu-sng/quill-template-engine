@@ -141,7 +141,8 @@ func (c *checker) checkCallBlock(n *ast.Node, sc *scope) error {
 
 // bindParams binds each parameter of a KindParams node to its declared type in
 // the scope, validating the type and checking that a default value's type is
-// consistent with the declared type (Section 5.2). A variadic binds list<T>.
+// consistent with the declared type (Section 5.2). A variadic binds list<T>; a
+// "**name" kwargs tail binds map<string, any>.
 func (c *checker) bindParams(params *ast.Node, sc *scope) error {
 	for _, p := range params.Children {
 		if p.Kind != ast.KindParam {
@@ -152,6 +153,10 @@ func (c *checker) bindParams(params *ast.Node, sc *scope) error {
 			if err := c.validateType(p.Child(0), pt); err != nil {
 				return err
 			}
+		}
+		if p.Int&ast.ParamKwargs != 0 { // "**name" kwargs tail binds map<string, any>
+			sc.set(p.Str, MapOf(String, Any))
+			continue
 		}
 		if p.Bool { // variadic ...rest binds list<elem>
 			sc.set(p.Str, ListOf(pt))

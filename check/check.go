@@ -152,11 +152,16 @@ func (c *checker) blockSignature(n *ast.Node) *Signature {
 
 // fillParamSig translates a KindParams node into a Signature's Params/Optional/
 // Variadic fields. A KindParam carries its type as a child (when ParamHasType)
-// and a default as a child (when ParamHasDefault).
+// and a default as a child (when ParamHasDefault). A "**name" kwargs tail is
+// bound in the body scope as map<string,any> but occupies no positional slot,
+// so it is skipped here (a caller reaches it only through named arguments).
 func (c *checker) fillParamSig(sig *Signature, params *ast.Node) {
 	trailingOptional := 0
 	for _, p := range params.Children {
 		if p.Kind != ast.KindParam {
+			continue
+		}
+		if p.Int&ast.ParamKwargs != 0 { // "**name" kwargs tail: no positional slot
 			continue
 		}
 		if p.Bool { // variadic ...rest

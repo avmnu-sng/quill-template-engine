@@ -68,9 +68,12 @@ const (
 	// preceding children are KindParam nodes (zero or more).
 	KindArrow
 	// KindParam is one declared parameter of an arrow or macro. Str is the name.
-	// Bool marks a variadic "...name". Child 0 (optional) is a type node; child 1
-	// (optional, arrow/macro) is a default-value expression. Int tags which
-	// optional children are present: bit 0 = has type, bit 1 = has default.
+	// Bool marks a variadic "...name" collecting excess POSITIONAL arguments. The
+	// ParamKwargs bit in Int marks a trailing "**name" collecting excess NAMED
+	// arguments into a mapping (symmetric with the positional variadic). Child 0
+	// (optional) is a type node; child 1 (optional, arrow/macro) is a default-value
+	// expression. Int tags which optional children are present: bit 0 = has type,
+	// bit 1 = has default, bit 2 = kwargs tail.
 	KindParam
 
 	// --- Expression: postfix chain ---
@@ -325,6 +328,7 @@ const (
 const (
 	ParamHasType    int64 = 1 << iota // a ":Type" annotation is present
 	ParamHasDefault                   // a "=default" is present
+	ParamKwargs                       // a trailing "**name" collecting excess named args
 )
 
 // MapEntry and Arg form tags (the Int field of KindMapEntry / KindArg).

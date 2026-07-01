@@ -1,0 +1,10 @@
+upper-is-filter:true
+missing-is-filter:false
+range-is-function:true
+missing-is-function:false
+empty-is-test:true
+missing-is-test:false
+not-filter:true
+cross-kind:false
+var-subject:true
+guard-yes:join is a filter

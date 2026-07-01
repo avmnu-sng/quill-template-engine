@@ -260,21 +260,41 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 	params := entry.node.Child(0) // KindParams
 	scope := runtime.NewContext()
 
-	// Map each named argument to its parameter; reject unknown names up front so a
-	// typo never silently lands in the wrong slot or falls through to a default.
+	// Map each named argument to its parameter. A "**name" kwargs tail, when
+	// present, absorbs any named argument that matches no declared parameter into a
+	// mapping (symmetric with the "...name" positional variadic); without one, an
+	// unmatched name is a typo and is rejected up front so it never silently lands
+	// in the wrong slot or falls through to a default.
 	paramIndex := map[string]int{}
-	var variadicName string
+	var variadicName, kwargsName string
 	for i, p := range params.Children {
 		paramIndex[p.Str] = i
-		if p.Bool {
+		switch {
+		case p.Bool:
 			variadicName = p.Str
+		case p.Int&ast.ParamKwargs != 0:
+			kwargsName = p.Str
 		}
 	}
 	namedByParam := map[string]runtime.Value{}
+	kwargs := runtime.NewArray()
 	for _, na := range named {
-		if _, ok := paramIndex[na.name]; !ok || na.name == variadicName {
-			return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
-				"macro %q has no parameter %q", entry.node.Str, na.name))
+		_, declared := paramIndex[na.name]
+		toTail := na.name == variadicName || na.name == kwargsName
+		// A named argument matching no ordinary parameter flows into the kwargs tail
+		// when one is declared; otherwise it is an unknown-parameter error. The tail's
+		// own name and the positional variadic name are never bindable by a caller.
+		if !declared || toTail {
+			if kwargsName == "" || toTail {
+				return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+					"macro %q has no parameter %q", entry.node.Str, na.name))
+			}
+			if _, dup := kwargs.GetStr(na.name); dup {
+				return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+					"duplicate named argument %q", na.name))
+			}
+			kwargs.SetStr(na.name, na.val)
+			continue
 		}
 		if _, dup := namedByParam[na.name]; dup {
 			return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
@@ -285,6 +305,10 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 
 	pi := 0
 	for _, p := range params.Children {
+		if p.Int&ast.ParamKwargs != 0 { // "**name" binds the collected excess named args
+			scope.Set(p.Str, runtime.Arr(kwargs))
+			continue
+		}
 		if p.Bool { // variadic ...rest captures the remaining positional args as a list
 			rest := runtime.NewArray()
 			j := int64(0)

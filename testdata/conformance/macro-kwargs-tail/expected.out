@@ -1,0 +1,13 @@
+collect:email[id,class]
+
+empty:plain[]
+
+read:input=wide
+
+positional:link:a:nav
+
+variadic:r|1,2,3|x
+
+spread:x[class]
+
+

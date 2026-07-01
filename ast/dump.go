@@ -66,7 +66,8 @@ func payload(n *Node) string {
 }
 
 // labelWithFlags formats a kind whose primary payload is Str, appending a "?" for
-// the null-safe attribute form or a "..." marker for a variadic param.
+// the null-safe attribute form, a "..." marker for a variadic param, or a "**"
+// marker for a kwargs-tail param.
 func labelWithFlags(n *Node) string {
 	s := n.Str
 	switch n.Kind {
@@ -78,6 +79,9 @@ func labelWithFlags(n *Node) string {
 	case KindParam:
 		if n.Bool {
 			return "..." + s
+		}
+		if n.Int&ParamKwargs != 0 {
+			return "**" + s
 		}
 		return s
 	}

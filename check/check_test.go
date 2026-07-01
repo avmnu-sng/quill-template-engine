@@ -85,6 +85,12 @@ func TestWellTyped(t *testing.T) {
 		{"index set target", "@set m = {}\n@set m[\"k\"] = 1\n{{ m[\"k\"] }}", nil},
 		// The scalar-kind tests are boolean predicates over any value.
 		{"scalar kind tests", "@set x = 1\n{{ x is int }}{{ x is number }}{{ \"s\" is string }}", nil},
+		// A "**name" kwargs tail binds map<string, any> in the body, readable by key.
+		{"macro kwargs body read", "@macro f(name: string, **opts) {\n{{ name }}{{ opts.id }}\n@}\n{{ f(\"a\", id: \"x\") }}", nil},
+		{"macro kwargs length", "@macro f(**opts) {\n@set c: int = opts | length\n{{ c }}\n@}\n{{ f(k: 1) }}", nil},
+		// The registry-existence tests are boolean predicates over a name string.
+		{"registry tests are bool", "{{ \"upper\" is filter }}{{ \"range\" is function }}{{ \"empty\" is test }}", nil},
+		{"registry test in if", "@set ok = \"upper\" is filter\n{{ \"y\" if ok }}", nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

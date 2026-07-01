@@ -195,7 +195,9 @@ range, the `matches` regex operator, and member/index access.
 - `@extends "base.ql"` -- single-parent inheritance.
 - `@block name { ... @}` -- an overridable region; `parent()` re-emits the
   parent's block body inside an override.
-- `@macro f(a, b = 1) { ... @}` -- a parameterized output function.
+- `@macro f(a, b = 1, ...rest, **opts) { ... @}` -- a parameterized output
+  function; `...rest` collects excess positional args into a list and `**opts`
+  collects excess named args into a mapping.
 - `@import "macros.ql" as m` / `@from "macros.ql" import greet` -- bring macros
   into scope.
 - `@use "traits.ql"` -- horizontal trait reuse, merging a traitable template's
@@ -240,7 +242,9 @@ Quill ships a complete built-in library of filters, functions, and tests, all
 - **Tests:** `is defined`, `is empty`, `is even`/`odd`, `is iterable`,
   `is constant`, `is divisible by`, the comparison tests
   `is eq`/`ne`/`lt`/`le`/`gt`/`ge`, the scalar-kind tests
-  `is string`/`number`/`int`/`float`/`bool`/`callable`, and the type tests.
+  `is string`/`number`/`int`/`float`/`bool`/`callable`, the registry-existence
+  tests `is filter`/`function`/`test` (the inline form of `@guard`), and the
+  type tests.
 
 The full catalogue with signatures is
 [`docs/03-stdlib.md`](docs/03-stdlib.md).
