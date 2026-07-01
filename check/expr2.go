@@ -295,7 +295,7 @@ func isStmt(k ast.Kind) bool {
 		ast.KindLine, ast.KindCache, ast.KindCacheArg, ast.KindExtends,
 		ast.KindBlock, ast.KindParams, ast.KindMacro, ast.KindImport,
 		ast.KindFrom, ast.KindFromItem, ast.KindUse, ast.KindEmbed,
-		ast.KindInclude:
+		ast.KindInclude, ast.KindLog, ast.KindTabBlock:
 		return true
 	default:
 		return false

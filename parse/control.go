@@ -390,6 +390,30 @@ func (p *parser) parseSandbox() *ast.Node {
 	return n
 }
 
+// parseLog parses "@log expr NL". The expression is evaluated for its side
+// effect on the host logger; it produces no rendered output.
+func (p *parser) parseLog() *ast.Node {
+	t := p.expectStmt("log")
+	n := p.node(ast.KindLog, t, p.parseExpr())
+	p.endLine()
+	return n
+}
+
+// parseTabBlock parses "@tab(n) { body } @}". The level expression is written in
+// parentheses after the keyword; the braced body follows. The whole body is
+// indented by n levels at render time via the output layer's indent stack.
+func (p *parser) parseTabBlock() *ast.Node {
+	t := p.expectStmt("tab")
+	p.expect(lex.LPAREN, "'(' with the indent level after 'tab'")
+	level := p.parseExpr()
+	p.expect(lex.RPAREN, "')' to close the tab level")
+	n := p.node(ast.KindTabBlock, t, level)
+	p.openBody()
+	n.Children = append(n.Children, p.parseBodyItems()...)
+	p.closeBlock()
+	return n
+}
+
 // parseLine parses "@line N NL".
 func (p *parser) parseLine() *ast.Node {
 	t := p.expectStmt("line")

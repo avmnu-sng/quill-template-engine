@@ -90,6 +90,11 @@ const (
 	UnitIf
 	// UnitFor is a @for construct reached (its arms record body/empty).
 	UnitFor
+	// UnitLog is a @log statement executed: it evaluated its expression and wrote
+	// to the host logger. It is a unit with no branch arms.
+	UnitLog
+	// UnitTabBlock is a @tab region body entered and indented.
+	UnitTabBlock
 
 	// Branch-arm kinds record branch coverage: which specific arm was taken.
 
@@ -150,6 +155,8 @@ var kindLabels = [...]string{
 	UnitMacro:    "Macro",
 	UnitIf:       "If",
 	UnitFor:      "For",
+	UnitLog:      "Log",
+	UnitTabBlock: "TabBlock",
 
 	IfThen:     "if-then",
 	IfNotTaken: "if-else",

@@ -59,6 +59,46 @@ func (e *Environment) registerEngineCallables() {
 		NeedsEnvironment: true,
 		Fn:               shuffleFn,
 	})
+	// tab is re-registered as a needs_environment override (filter AND function) so
+	// its indent level honors the host WithTabWidth (default 4 spaces per level).
+	// The plain ext forms remain the standalone default when no engine is present.
+	e.extensions.AddFilter(&ext.Filter{
+		Name:             "tab",
+		NeedsEnvironment: true,
+		Fn:               tabFilterFn,
+	})
+	e.extensions.AddFunction(&ext.Function{
+		Name:             "tab",
+		NeedsEnvironment: true,
+		Fn:               tabFunctionFn,
+	})
+}
+
+// engineTabWidth returns the host-configured spaces-per-indent-level width from
+// the injected engine handle, or the ext default when the handle is missing.
+func engineTabWidth(envRef runtime.Value) int {
+	if eng, ok := interp.EngineFromValue(envRef); ok {
+		return eng.TabWidth()
+	}
+	return ext.DefaultTabWidth
+}
+
+// tabFilterFn is the width-aware tab filter: args are [env, piped, levels?].
+func tabFilterFn(args []runtime.Value) (runtime.Value, error) {
+	if len(args) == 0 {
+		return runtime.Null(), errors.New(errors.KindRuntime,
+			"tab did not receive the engine handle")
+	}
+	return ext.TabWith(engineTabWidth(args[0]), args[1:])
+}
+
+// tabFunctionFn is the width-aware tab() function: args are [env, levels?].
+func tabFunctionFn(args []runtime.Value) (runtime.Value, error) {
+	if len(args) == 0 {
+		return runtime.Null(), errors.New(errors.KindRuntime,
+			"tab() did not receive the engine handle")
+	}
+	return ext.TabFnWith(engineTabWidth(args[0]), args[1:])
 }
 
 // engineRNG returns a source seeded from the host's configured seed when one is

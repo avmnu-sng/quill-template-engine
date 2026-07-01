@@ -287,6 +287,44 @@ dropped. Its argument check is expressed in Quill truthiness and length. A level
 emits no indentation, so a computed level such as `depth - 1` yields the text unindented at the
 top level.
 
+One indent level expands to a configurable number of spaces, `WithTabWidth(n)`, defaulting to
+4 spaces per level. So `{{ 1 | tab }}` emits four spaces by default and `{{ 2 | tab }}` emits
+eight; a host that sets `WithTabWidth(2)` gets two spaces per level. The tab filter, the `tab()`
+function, and the `@tab` region all read the same width.
+
+### 5.1a `space`, `break`, and `tab` -- the indentation functions
+
+Three functions emit indentation and vertical whitespace directly, so a template can insert
+spacing without a piped value:
+
+| Function | Emits |
+|----------|-------|
+| `space` / `space(n)` | `n` spaces (default 1) |
+| `break` / `break(n)` | `n` newlines (default 1) |
+| `tab` / `tab(n)` | `n` indent levels (default 1), each `WithTabWidth` spaces |
+
+A count of zero or below emits nothing. `{{ space(3) }}` emits three spaces; `{{ break(2) }}`
+emits two newlines; `{{ tab(2) }}` emits two indent levels (eight spaces at the default width).
+
+### 5.1b `@tab(n) { ... }` -- the indentation-aware block region
+
+`@tab(n) { body @}` indents the ENTIRE rendered body by `n` levels. Indentation is applied by the
+output layer to each non-blank line as the body renders, so it covers interpolation, control-flow
+output, and included partials uniformly. Blank lines stay blank -- they receive no trailing
+whitespace. Regions nest cumulatively via an indent stack: an inner `@tab(1)` inside an outer
+`@tab(2)` indents its body by three levels total. The region composes with whitespace control and
+escaping, which run before output reaches the sink. As with the filter, one level is
+`WithTabWidth` spaces (default 4).
+
+```
+@tab(1) {
+line one
+line two
+@}
+```
+
+renders `line one` and `line two` each indented by one level (four spaces by default).
+
 ### 5.2 `ucfirst` -- byte-first upper-case
 
 `ucfirst` upper-cases the first BYTE only and leaves the rest unchanged, distinct from

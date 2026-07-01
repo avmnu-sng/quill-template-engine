@@ -608,12 +608,17 @@ The `capture { ... }` block renders its body to a string-like value. Under the d
 (escaping off) the capture is a plain `Str`; under an `escape`-on template it is a `Safe`
 value.
 
-### 4.4 Effect, flush, deprecation
+### 4.4 Effect, flush, deprecation, logging
 
 - `@do expr` -- evaluate for side effects, no output.
 - `@flush` -- a documented no-op for a string/byte sink, kept for parity.
 - `@deprecated "message" [since "2.0"]` -- routes a deprecation diagnostic to the diagnostics
   sink, no output.
+- `@log expr` -- evaluates `expr` and writes its text form to the host logger
+  (`WithLogger(l)`, default a discarding logger). It produces NO rendered output but IS a
+  coverable unit: the coverage Collector records the `@log` node as executed. A comment
+  `{# ... #}`, by contrast, is consumed by the lexer, emits nothing, and is never counted by
+  coverage.
 
 ### 4.5 Scoped variable region and filter-apply
 
@@ -637,6 +642,9 @@ value.
   region. Default is `off` (source emission); see `04-types-and-semantics.md` Section 8.
 - `@sandbox { ... }` forces sandboxing for templates included within the region; equivalently
   the per-include `sandboxed: true` flag.
+- `@tab(n) { ... }` indents the entire rendered body by `n` levels, nesting cumulatively via an
+  output-layer indent stack; blank lines stay blank. One level is `WithTabWidth` spaces
+  (default 4). See `03-stdlib.md` Section 5.1b.
 - `@verbatim { ... }` / fenced verbatim -- literal body, not scanned (Section 1.6).
 - `@line 42` resets the reported source line for diagnostics in embedded or generated fragments.
 - `@cache key="header" ttl=3600 tags=["a"] { ... }` caches a rendered body under a key with

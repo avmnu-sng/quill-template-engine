@@ -186,6 +186,10 @@ func tagKeyword(n *ast.Node) string {
 		return "types"
 	case ast.KindEscape:
 		return "escape"
+	case ast.KindLog:
+		return "log"
+	case ast.KindTabBlock:
+		return "tab"
 	case ast.KindLine:
 		return "line"
 	case ast.KindCache:

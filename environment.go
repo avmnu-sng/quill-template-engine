@@ -1,6 +1,9 @@
 package quill
 
 import (
+	"io"
+	"log"
+
 	"github.com/avmnu-sng/quill-template-engine/cache"
 	"github.com/avmnu-sng/quill-template-engine/check"
 	"github.com/avmnu-sng/quill-template-engine/cover"
@@ -69,6 +72,16 @@ type Environment struct {
 	// without WithCoverage renders exactly as it does today -- zero overhead when
 	// disabled, and instrumentation never changes rendered bytes.
 	coverage *cover.Collector
+
+	// tabWidth is the number of spaces one indent level expands to for the tab
+	// filter, the tab/space/break indentation functions, and the @tab region. The
+	// default is 4 (WithTabWidth). A value below zero clamps to zero.
+	tabWidth int
+
+	// logger is the sink the @log statement writes to. It is never nil: when the
+	// host configures none it is a logger over io.Discard, so @log always has a
+	// valid destination and produces no rendered output.
+	logger *log.Logger
 }
 
 // Option configures an Environment at construction.
@@ -172,6 +185,30 @@ func WithCoverage(coll *cover.Collector) Option {
 	return func(e *Environment) { e.coverage = coll }
 }
 
+// WithTabWidth sets the number of spaces one indent level expands to for the tab
+// filter, the tab/space/break indentation functions, and the @tab region (spec
+// 03 Section 5.1). The default is 4. A width below zero clamps to zero (an indent
+// level then contributes nothing).
+func WithTabWidth(spaces int) Option {
+	return func(e *Environment) {
+		if spaces < 0 {
+			spaces = 0
+		}
+		e.tabWidth = spaces
+	}
+}
+
+// WithLogger sets the destination the @log statement writes to. The default is a
+// discarding logger, so @log is inert until a host attaches a sink. @log produces
+// no rendered output regardless of the logger.
+func WithLogger(l *log.Logger) Option {
+	return func(e *Environment) {
+		if l != nil {
+			e.logger = l
+		}
+	}
+}
+
 // New builds an Environment over a Loader with the given options. The registry
 // is layered bottom-up: the core stdlib is the floor, then the engine-bound
 // include/block-family callables, then each host extension set or bundle
@@ -186,6 +223,8 @@ func New(ldr loader.Loader, opts ...Option) *Environment {
 		extensions:      ext.Core(),
 		autoescapeHTML:  false,
 		strictVariables: true,
+		tabWidth:        4,
+		logger:          log.New(io.Discard, "", 0),
 	}
 	for _, opt := range opts {
 		opt(e)
@@ -234,6 +273,14 @@ func (e *Environment) SandboxActive() bool { return e.sandboxActive }
 // Coverage returns the host-attached coverage Collector, or nil when coverage is
 // off (interp.Engine). The interpreter copies it into each render's cov field.
 func (e *Environment) Coverage() *cover.Collector { return e.coverage }
+
+// TabWidth returns the spaces-per-indent-level width backing the tab filter, the
+// tab/space/break functions, and the @tab region (interp.Engine, WithTabWidth).
+func (e *Environment) TabWidth() int { return e.tabWidth }
+
+// Logger returns the sink the @log statement writes to (interp.Engine). It is
+// never nil; without WithLogger it discards.
+func (e *Environment) Logger() *log.Logger { return e.logger }
 
 // LoadTemplate parses (memoized) and prepares the named template (interp.Engine).
 func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {

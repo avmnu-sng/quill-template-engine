@@ -18,6 +18,7 @@
 package interp
 
 import (
+	"log"
 	"regexp"
 	"strings"
 
@@ -78,6 +79,14 @@ type Engine interface {
 	// cover, docs/coverage.md). When set, each render seeds its templates and
 	// records a hit at every coverable point, unioning across renders.
 	Coverage() *cover.Collector
+	// TabWidth returns the number of spaces one indent level expands to for the
+	// tab filter, the tab/space/break indentation functions, and the @tab region
+	// (the host knob WithTabWidth, default 4).
+	TabWidth() int
+	// Logger returns the host-attached log sink @log writes to. It is never nil;
+	// a host that configured none gets a discarding logger, so @log always has a
+	// valid destination and produces no rendered output.
+	Logger() *log.Logger
 }
 
 // Sink is the push-based output target. The interpreter writes rendered bytes as
@@ -149,6 +158,19 @@ type interp struct {
 	// the runtime member-access / string-coercion gates enforce the policy.
 	sandboxOn bool
 
+	// indent is the cumulative indentation prefix applied to every non-blank line
+	// of output while one or more @tab regions are active. It is the string form
+	// of the indent stack: each @tab(n) region appends n levels' worth of spaces
+	// (n * TabWidth) on entry and restores the prior prefix on exit, so nested
+	// regions indent cumulatively. It is empty at top level, and the fast path
+	// (emitString / emit) checks it with a single length test so output outside any
+	// @tab region pays nothing.
+	indent string
+	// atLineStart tracks whether the output cursor sits at the beginning of a line,
+	// so the active indent prefix is applied once per line and blank lines stay
+	// blank. It is meaningful only while indent is non-empty.
+	atLineStart bool
+
 	// cov is the coverage Collector for this render, or nil when coverage is off.
 	// When nil every coverage hook (in cover.go) is a single nil comparison the
 	// branch predictor makes free -- the zero-overhead-when-disabled guarantee. It
@@ -188,15 +210,16 @@ func newInterp(eng Engine, root *Template, out Sink) *interp {
 		autoesc = "html"
 	}
 	in := &interp{
-		eng:       eng,
-		out:       out,
-		root:      root,
-		blocks:    map[string]*blockEntry{},
-		macros:    map[string]*macroEntry{},
-		escape:    autoesc,
-		regexps:   map[*ast.Node]*regexp.Regexp{},
-		sandboxOn: eng.SandboxActive(),
-		cov:       eng.Coverage(),
+		eng:         eng,
+		out:         out,
+		root:        root,
+		blocks:      map[string]*blockEntry{},
+		macros:      map[string]*macroEntry{},
+		escape:      autoesc,
+		regexps:     map[*ast.Node]*regexp.Regexp{},
+		sandboxOn:   eng.SandboxActive(),
+		atLineStart: true,
+		cov:         eng.Coverage(),
 	}
 	in.absorb(root)
 	return in
@@ -245,15 +268,69 @@ func (in *interp) emit(v runtime.Value) error {
 			return err
 		}
 	}
-	_, err = in.out.WriteString(text)
-	return err
+	return in.write(text)
 }
 
 // emitString writes literal template text verbatim. Template TEXT is never
 // escaped: it is author-controlled output, not a value (spec 04 Section 8.1).
 func (in *interp) emitString(s string) error {
-	_, err := in.out.WriteString(s)
-	return err
+	return in.write(s)
+}
+
+// write is the single output choke point. Outside any @tab region (indent
+// empty) it forwards s to the sink unchanged, the byte-exact fast path every
+// render outside a @tab block takes. Inside a @tab region it prefixes the active
+// indent to the start of each non-blank line, tracking the line-start cursor
+// across calls so a line split over several writes is indented once and a blank
+// line stays blank (no trailing whitespace).
+func (in *interp) write(s string) error {
+	if in.indent == "" {
+		if s != "" {
+			in.atLineStart = strings.HasSuffix(s, "\n")
+		}
+		_, err := in.out.WriteString(s)
+		return err
+	}
+	return in.writeIndented(s)
+}
+
+// writeIndented applies the active indent prefix to each non-blank line of s. A
+// line receives the prefix the first time non-newline content is written at its
+// start; a blank line (an immediate newline at line start) is emitted verbatim
+// so it carries no trailing indentation.
+func (in *interp) writeIndented(s string) error {
+	for len(s) > 0 {
+		nl := strings.IndexByte(s, '\n')
+		var line string
+		var hasNL bool
+		if nl < 0 {
+			line = s
+			s = ""
+		} else {
+			line = s[:nl]
+			s = s[nl+1:]
+			hasNL = true
+		}
+		if in.atLineStart && line != "" {
+			if _, err := in.out.WriteString(in.indent); err != nil {
+				return err
+			}
+		}
+		if line != "" {
+			if _, err := in.out.WriteString(line); err != nil {
+				return err
+			}
+		}
+		if hasNL {
+			if _, err := in.out.WriteString("\n"); err != nil {
+				return err
+			}
+			in.atLineStart = true
+		} else {
+			in.atLineStart = false
+		}
+	}
+	return nil
 }
 
 // posErr attaches the node's source position to an error that lacks one, so a

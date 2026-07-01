@@ -48,7 +48,9 @@ the interpreter dispatches it:
 | Literal text span                 | `KindText`, `KindVerbatim`            | the span is emitted                   |
 | `@set` / `@set = capture`         | `KindSet`, `KindCapture`              | the assignment executes               |
 | `@do`, `@with`, `@apply`          | `KindDo`, `KindWith`, `KindApply`     | the statement executes                |
+| `@log <expr>`                     | `KindLog`                             | the expression evaluates and is logged |
 | `@escape`, `@sandbox`, `@cache`   | `KindEscape`, `KindSandbox`, `KindCache` | the region body is entered         |
+| `@tab(n)` region                  | `KindTabBlock`                        | the indented body is entered          |
 | `@guard` selected body            | `KindGuard`                           | the taken body is entered (see 1.2)   |
 | `@include` / `@embed`             | `KindInclude`, `KindEmbed`            | the include is resolved and rendered  |
 | `@block` render site              | `KindBlock`                           | the block's resolved body is rendered |
@@ -57,7 +59,10 @@ the interpreter dispatches it:
 Declaration-only heads that emit nothing and take no branch -- `@extends`, `@import`,
 `@from`, `@use`, `@types`, `@line`, `@deprecated` -- are **not** counted as units. They have
 no runtime reachability to measure, so counting them would only dilute the percentage. `@do`
-is counted because it evaluates an expression for effect.
+is counted because it evaluates an expression for effect, and `@log` for the same reason -- it
+evaluates and logs its expression even though it emits no rendered output. A comment
+`{# ... #}` is NOT a coverable unit at all: the lexer consumes it and produces no node, so
+there is nothing for the Collector to seed or hit.
 
 ### 1.2 Branch points (branch coverage)
 

@@ -73,6 +73,9 @@ escaping; `quill.WithStrictVariables(false)` enables the lenient mode (an
 undefined read becomes empty instead of an error); `quill.WithTypes(reg)` installs
 a host static-typing registry; `quill.WithSandboxPolicy`/`WithSandboxActive` gate
 a render; `quill.WithCoverage(coll)` measures template coverage;
+`quill.WithTabWidth(n)` sets the spaces-per-indent-level width (default 4) for
+the `tab` filter, the `tab`/`space`/`break` functions, and the `@tab` region;
+`quill.WithLogger(l)` sets the destination `@log` writes to (default discards);
 `quill.WithExtensions`/`quill.WithExtension` add host callables.
 
 ## The language at a glance
@@ -109,6 +112,10 @@ templates where literal braces are rare, under `pragma bare`.
   (`@set {name, id: uid} = user`); `@set x = capture { ... @}` captures a block.
 - `@with { a: 1, b: 2 } { ... @}` -- push a scoped set of bindings over a body.
 - `@do expr` -- evaluate an expression for its effect, emitting nothing.
+- `@log expr` -- evaluate `expr` and write its text to the host logger; no
+  rendered output, but a coverable unit (a comment `{# ... #}` is neither).
+- `@tab(n) { ... @}` -- indent the entire rendered body by `n` levels
+  (cumulative when nested); one level is `WithTabWidth` spaces (default 4).
 - `@guard`, `@apply`, `@escape`, `@sandbox`, `@cache`, `@verbatim`, `@types` --
   the region and directive statements (see the language reference).
 
@@ -158,7 +165,8 @@ Quill ships a complete built-in library of filters, functions, and tests, all
   plus the `has some` / `has every` quantifiers.
 - **Number/format:** `abs`, `round`, `number_format`, `format`, `date`.
 - **Functions:** `range`, `min`, `max`, `random`, `cycle`, `constant`, `enum`,
-  `enum_cases`, `include`, `source`, `template_from_string`, `dump`.
+  `enum_cases`, `include`, `source`, `template_from_string`, `dump`, and the
+  indentation emitters `space`/`break`/`tab`.
 - **Tests:** `is defined`, `is empty`, `is even`/`odd`, `is iterable`,
   `is constant`, `is divisible by`, and the type tests.
 

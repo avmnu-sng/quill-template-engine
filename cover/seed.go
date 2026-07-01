@@ -62,6 +62,10 @@ func seedNode(c *Collector, name string, n *ast.Node) {
 		c.seed(name, n, UnitBlock)
 	case ast.KindMacro:
 		c.seed(name, n, UnitMacro)
+	case ast.KindLog:
+		c.seed(name, n, UnitLog)
+	case ast.KindTabBlock:
+		c.seed(name, n, UnitTabBlock)
 
 	case ast.KindIf:
 		c.seed(name, n, UnitIf)

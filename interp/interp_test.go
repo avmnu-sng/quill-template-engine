@@ -1,6 +1,8 @@
 package interp
 
 import (
+	"io"
+	"log"
 	"strings"
 	"testing"
 
@@ -27,10 +29,13 @@ type stubEngine struct {
 	policy    *sandbox.Policy
 	sandboxOn bool
 	cov       *cover.Collector
+
+	tabWidth int
+	logger   *log.Logger
 }
 
 func newStub(tmpls map[string]string) *stubEngine {
-	return &stubEngine{tmpls: tmpls, exts: ext.Core(), strict: true}
+	return &stubEngine{tmpls: tmpls, exts: ext.Core(), strict: true, tabWidth: 4}
 }
 
 func (s *stubEngine) Extensions() *ext.ExtensionSet { return s.exts }
@@ -73,6 +78,18 @@ func (s *stubEngine) RenderCache() *cache.RenderCache {
 func (s *stubEngine) Policy() *sandbox.Policy    { return s.policy }
 func (s *stubEngine) SandboxActive() bool        { return s.sandboxOn }
 func (s *stubEngine) Coverage() *cover.Collector { return s.cov }
+func (s *stubEngine) TabWidth() int {
+	if s.tabWidth == 0 {
+		return 4
+	}
+	return s.tabWidth
+}
+func (s *stubEngine) Logger() *log.Logger {
+	if s.logger == nil {
+		s.logger = log.New(io.Discard, "", 0)
+	}
+	return s.logger
+}
 
 func errNotFound(name string) error { return &notFoundErr{name} }
 

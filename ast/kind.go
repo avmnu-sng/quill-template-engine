@@ -275,6 +275,16 @@ const (
 	// include-modifier flags; an optional with-map/expr is a child flagged by
 	// IncWith.
 	KindInclude
+
+	// --- Statements: code generation ---
+
+	// KindLog is "@log expr". Child 0 is the expression to evaluate and write to
+	// the host logger. It produces no rendered output and is a coverable unit.
+	KindLog
+	// KindTabBlock is "@tab(n) { body } @}". Child 0 is the level expression; the
+	// remaining children are body items. The whole rendered body is indented by n
+	// levels, nesting cumulatively via the output layer's indent stack.
+	KindTabBlock
 )
 
 // Include-modifier flags packed into the Int field of KindInclude / KindEmbed.
@@ -387,4 +397,6 @@ var kindNames = [...]string{
 	KindUse:         "Use",
 	KindEmbed:       "Embed",
 	KindInclude:     "Include",
+	KindLog:         "Log",
+	KindTabBlock:    "TabBlock",
 }

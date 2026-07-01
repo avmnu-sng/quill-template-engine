@@ -699,11 +699,33 @@ func registerSourceFilters(s *ExtensionSet) {
 
 // filterTab is the indentation workhorse (spec 03 Section 5.1): n | tab emits n
 // levels of indentation standalone; s | tab(n) indents each non-blank line of s
-// by n levels. One level is one tab character. The argument check is expressed
-// in Quill truthiness and length.
+// by n levels. One level is TabWidth spaces (default 4). The argument check is
+// expressed in Quill truthiness and length. The engine re-registers a width-aware
+// override in front of this so a host's WithTabWidth changes the unit; this core
+// form is the standalone default when no engine is present.
 func filterTab(args []runtime.Value) (runtime.Value, error) {
+	return tabWithWidth(DefaultTabWidth, args)
+}
+
+// DefaultTabWidth is the spaces-per-indent-level width the tab filter and the
+// tab/space/break functions use when no host width is configured. It matches the
+// engine default (WithTabWidth).
+const DefaultTabWidth = 4
+
+// TabWith emits tab-filter indentation using an explicit level width, backing the
+// engine's width-aware tab override (WithTabWidth). args is the filter's flattened
+// argument list (the piped value first).
+func TabWith(width int, args []runtime.Value) (runtime.Value, error) {
+	return tabWithWidth(width, args)
+}
+
+// tabWithWidth is the shared tab-filter body: one level expands to width spaces.
+func tabWithWidth(width int, args []runtime.Value) (runtime.Value, error) {
+	if width < 0 {
+		width = 0
+	}
 	piped := arg(args, 0)
-	const unit = "\t"
+	unit := strings.Repeat(" ", width)
 	// Standalone form: a number piped with no string body -> n levels of indent.
 	if piped.Kind == runtime.KInt || piped.Kind == runtime.KFloat {
 		n := int(toInt(piped))
@@ -724,6 +746,42 @@ func filterTab(args []runtime.Value) (runtime.Value, error) {
 		levels = 0
 	}
 	return runtime.Str(indentLines(s, strings.Repeat(unit, levels))), nil
+}
+
+// SpaceWith emits n spaces (default 1), backing the space() function. args is the
+// flattened argument list: an optional count.
+func SpaceWith(args []runtime.Value) (runtime.Value, error) {
+	return runtime.Str(strings.Repeat(" ", countArg(args, 0, 1))), nil
+}
+
+// BreakWith emits n newlines (default 1), backing the break() function. args is
+// the flattened argument list: an optional count.
+func BreakWith(args []runtime.Value) (runtime.Value, error) {
+	return runtime.Str(strings.Repeat("\n", countArg(args, 0, 1))), nil
+}
+
+// TabFnWith emits n indent levels (default 1) of width spaces each, backing the
+// tab() function's standalone form. args is the flattened argument list: an
+// optional level count.
+func TabFnWith(width int, args []runtime.Value) (runtime.Value, error) {
+	if width < 0 {
+		width = 0
+	}
+	return runtime.Str(strings.Repeat(" ", countArg(args, 0, 1)*width)), nil
+}
+
+// countArg reads a non-negative integer count from args[i], defaulting to def
+// when the argument is absent or null and clamping a negative value to zero. It
+// is the shared arity contract of the space/break/tab indentation functions.
+func countArg(args []runtime.Value, i, def int) int {
+	if i >= len(args) || args[i].IsNull() {
+		return def
+	}
+	n := int(toInt(args[i]))
+	if n < 0 {
+		n = 0
+	}
+	return n
 }
 
 // filterIndent is the explicit multi-line indenter (spec 03 Section 5.3):
@@ -775,6 +833,16 @@ func registerStdlibFunctions(s *ExtensionSet) {
 	s.AddFunction(&Function{Name: "date", Fn: fnDate})
 	s.AddFunction(&Function{Name: "len", Fn: filterLength}) // alias of |length (spec 03 Section 3.4)
 	s.AddFunction(&Function{Name: "keys", Fn: filterKeys})  // alias of |keys (spec 03 Section 3.4)
+
+	// Indentation functions (spec 03 Section 5.1): space(n) emits n spaces, break(n)
+	// emits n newlines, tab(n) emits n indent levels. space/break are width-free;
+	// tab uses the default level width here and the engine re-registers a
+	// width-aware override so WithTabWidth changes the level size.
+	s.AddFunction(&Function{Name: "space", Fn: SpaceWith})
+	s.AddFunction(&Function{Name: "break", Fn: BreakWith})
+	s.AddFunction(&Function{Name: "tab", Fn: func(args []runtime.Value) (runtime.Value, error) {
+		return TabFnWith(DefaultTabWidth, args)
+	}})
 
 	// constant / enum / enum_cases close over s to read the host registry.
 	s.AddFunction(&Function{Name: "constant", Fn: func(args []runtime.Value) (runtime.Value, error) {

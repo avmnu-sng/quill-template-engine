@@ -198,16 +198,18 @@ func TestStdlibURLEncode(t *testing.T) {
 	}
 }
 
-// TestStdlibSourceFilters covers tab and indent (spec 03 Sections 5.1, 5.3).
+// TestStdlibSourceFilters covers tab and indent (spec 03 Sections 5.1, 5.3). One
+// tab level is DefaultTabWidth (4) spaces; the engine's WithTabWidth override is
+// exercised through the facade.
 func TestStdlibSourceFilters(t *testing.T) {
-	if got := callFilter(t, "tab", runtime.Int(2)).S; got != "\t\t" {
+	if got := callFilter(t, "tab", runtime.Int(2)).S; got != "        " {
 		t.Errorf("tab standalone = %q", got)
 	}
-	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(1)).S; got != "\ta\n\tb" {
+	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(1)).S; got != "    a\n    b" {
 		t.Errorf("tab lines = %q", got)
 	}
 	// A blank line is not indented.
-	if got := callFilter(t, "tab", runtime.Str("a\n\nb"), runtime.Int(1)).S; got != "\ta\n\n\tb" {
+	if got := callFilter(t, "tab", runtime.Str("a\n\nb"), runtime.Int(1)).S; got != "    a\n\n    b" {
 		t.Errorf("tab blank line = %q", got)
 	}
 	// A negative level (e.g. a computed depth-1 yielding -1) clamps to zero

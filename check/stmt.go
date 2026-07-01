@@ -72,9 +72,16 @@ func (c *checker) checkStmt(n *ast.Node, sc *scope) error {
 	case ast.KindPrint:
 		return c.checkPrint(n, sc)
 
-	case ast.KindDo:
+	case ast.KindDo, ast.KindLog:
 		_, err := c.exprType(n.Child(0), sc)
 		return err
+
+	case ast.KindTabBlock:
+		// The level expression is typed; the body renders in a child scope.
+		if _, err := c.exprType(n.Child(0), sc); err != nil {
+			return err
+		}
+		return c.checkItems(n.Children[1:], newScope(sc))
 
 	case ast.KindSet:
 		return c.checkSet(n, sc)

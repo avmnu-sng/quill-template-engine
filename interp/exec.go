@@ -314,6 +314,12 @@ func (in *interp) execItem(n *ast.Node, ctx *runtime.Context) error {
 	case ast.KindSandbox:
 		in.covUnit(n, cover.UnitSandbox)
 		return in.execSandbox(n, ctx)
+	case ast.KindLog:
+		in.covUnit(n, cover.UnitLog)
+		return in.execLog(n, ctx)
+	case ast.KindTabBlock:
+		in.covUnit(n, cover.UnitTabBlock)
+		return in.execTabBlock(n, ctx)
 	case ast.KindTypes, ast.KindDeprecated, ast.KindLine:
 		// Type declarations, deprecation diagnostics, and line resets are parsed but
 		// their runtime effects are deferred this slice; they emit nothing.
@@ -795,9 +801,16 @@ func (in *interp) evalCacheTags(tagsExpr *ast.Node, ctx *runtime.Context) ([]str
 func (in *interp) captureItems(items []*ast.Node, ctx *runtime.Context) (string, error) {
 	sub := &captureSink{}
 	saved := in.out
+	// A capture renders into its own sink, so the active @tab indentation must not
+	// be applied while filling the buffer -- it is applied once, later, when the
+	// captured result is emitted at the outer position. Suspend the indent state
+	// for the duration of the capture and restore it afterward.
+	savedIndent, savedAtLineStart := in.indent, in.atLineStart
+	in.indent, in.atLineStart = "", true
 	in.out = sub
 	err := in.execItems(items, ctx)
 	in.out = saved
+	in.indent, in.atLineStart = savedIndent, savedAtLineStart
 	return sub.b.String(), err
 }
 
@@ -887,6 +900,71 @@ func (in *interp) execApply(n *ast.Node, ctx *runtime.Context) error {
 		v = runtime.Safe(text)
 	}
 	return posErr(n, in.emit(v))
+}
+
+// execLog evaluates the @log expression and writes its text form to the host
+// logger (WithLogger, default a discarding logger). It produces NO rendered
+// output: the value never reaches the output sink. The node is a coverable unit,
+// recorded by the caller before this runs, so a @log line that executes counts
+// as covered even though it emits nothing (contrast a comment, which the lexer
+// consumes and which is never a coverable node).
+func (in *interp) execLog(n *ast.Node, ctx *runtime.Context) error {
+	v, err := in.eval(n.Child(0), ctx, false)
+	if err != nil {
+		return err
+	}
+	text, err := runtime.ToText(v)
+	if err != nil {
+		return posErr(n, err)
+	}
+	in.eng.Logger().Print(text)
+	return nil
+}
+
+// execTabBlock renders the region body with n additional levels of indentation
+// applied to every non-blank line of its output. One level is TabWidth spaces
+// (WithTabWidth, default 4). Nesting is cumulative: the new prefix is appended to
+// the enclosing indent and restored on exit, so an inner @tab adds to an outer
+// one. A level of zero or below adds nothing. Blank lines stay blank. The
+// indentation is applied by the output layer (in.write), so it composes with
+// whitespace control and escaping, which run before output reaches the sink.
+func (in *interp) execTabBlock(n *ast.Node, ctx *runtime.Context) error {
+	levelVal, err := in.eval(n.Child(0), ctx, false)
+	if err != nil {
+		return err
+	}
+	levels, err := tabLevels(levelVal)
+	if err != nil {
+		return posErr(n, err)
+	}
+	saved, savedAtLineStart := in.indent, in.atLineStart
+	if levels > 0 {
+		in.indent += strings.Repeat(" ", levels*in.eng.TabWidth())
+	}
+	err = in.execItems(n.Children[1:], ctx)
+	in.indent, in.atLineStart = saved, savedAtLineStart
+	return err
+}
+
+// tabLevels coerces a @tab level value to a non-negative count of indent levels.
+// An integer is taken directly; a float is truncated toward zero; a level of
+// zero or below yields zero (no indentation added). A non-numeric level is a
+// runtime error, matching the tab filter's numeric contract.
+func tabLevels(v runtime.Value) (int, error) {
+	switch v.Kind {
+	case runtime.KInt:
+		if v.I < 0 {
+			return 0, nil
+		}
+		return int(v.I), nil
+	case runtime.KFloat:
+		if v.F < 0 {
+			return 0, nil
+		}
+		return int(v.F), nil
+	default:
+		return 0, errors.New(errors.KindRuntime, "@tab level must be a number, got %s", v.Kind)
+	}
 }
 
 // execEscape sets the active strategy for the region body, then restores the

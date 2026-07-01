@@ -132,6 +132,10 @@ func (p *parser) parseStatement(topLevel bool) *ast.Node {
 		return p.parseEmbed()
 	case "include":
 		return p.parseInclude()
+	case "log":
+		return p.parseLog()
+	case "tab":
+		return p.parseTabBlock()
 	case "elseif", "else":
 		p.fail("'@%s' without a matching '@if' or '@for'", kw)
 	}
