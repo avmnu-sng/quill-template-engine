@@ -182,6 +182,10 @@ is a dotted-path string plucked from each element, or an arrow `(value, key?) =>
 @}
 ```
 
+Two elements share a group when their keys are equal under the same typed equality
+`unique(attribute:)` uses, so the integer `1`, the string `"1"`, and the boolean `true`
+each open their own group even though they render to the same text.
+
 --------------------------------------------------------------------------------
 
 ## 3. Functions

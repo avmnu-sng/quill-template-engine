@@ -585,6 +585,9 @@ func filterUnique(args []runtime.Value) (runtime.Value, error) {
 // key (spec 03 Section 2.2). The grouping selector is a dotted-path string that
 // is plucked from each element, or an arrow (value, key?) => key computed per
 // element. Groups are NOT sorted by key; first-appearance order is the contract.
+// Two elements share a group when their keys are equal under runtime.Equal, the
+// same typed-equality contract unique(attribute:) uses, so Int 1, Str "1", and
+// Bool true land in separate groups.
 func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	by := arg(args, 1)
@@ -604,9 +607,8 @@ func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
 		}
 		path = p
 	}
-	var order []runtime.Value // group keys in first-appearance order
-	items := map[string]*runtime.Array{}
-	keyVals := map[string]runtime.Value{}
+	var keys []runtime.Value   // group keys in first-appearance order
+	var items []*runtime.Array // parallel accumulators, one per group key
 	for _, p := range v.Arr.Pairs() {
 		var gk runtime.Value
 		var err error
@@ -618,23 +620,25 @@ func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
 		if err != nil {
 			return runtime.Null(), err
 		}
-		enc, err := runtime.ToText(gk)
-		if err != nil {
-			return runtime.Null(), err
+		bucket := -1
+		for i, k := range keys {
+			if runtime.Equal(gk, k) {
+				bucket = i
+				break
+			}
 		}
-		if _, ok := items[enc]; !ok {
-			items[enc] = runtime.NewArray()
-			keyVals[enc] = gk
-			order = append(order, gk)
+		if bucket < 0 {
+			keys = append(keys, gk)
+			items = append(items, runtime.NewArray())
+			bucket = len(keys) - 1
 		}
-		items[enc].SetInt(int64(items[enc].Len()), p.Val)
+		items[bucket].SetInt(int64(items[bucket].Len()), p.Val)
 	}
 	out := runtime.NewArray()
-	for i, gk := range order {
-		enc, _ := runtime.ToText(gk)
+	for i, gk := range keys {
 		group := runtime.NewArray()
-		group.SetStr("key", keyVals[enc])
-		group.SetStr("items", runtime.Arr(items[enc]))
+		group.SetStr("key", gk)
+		group.SetStr("items", runtime.Arr(items[i]))
 		out.SetInt(int64(i), runtime.Arr(group))
 	}
 	return runtime.Arr(out), nil

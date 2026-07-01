@@ -248,3 +248,40 @@ func TestGroupBy(t *testing.T) {
 		t.Errorf("group_by eng items = %q, want ann,cal", j)
 	}
 }
+
+// TestGroupByTypedKeyDistinctness pins group_by to the runtime.Equal contract
+// unique(attribute:) uses: keys that render to the same text but are distinct
+// under typed equality (Int 1 vs Str "1", Bool true vs Str "true") stay in
+// separate groups rather than collapsing on their text form.
+func TestGroupByTypedKeyDistinctness(t *testing.T) {
+	row := func(k runtime.Value, tag string) runtime.Value {
+		a := runtime.NewArray()
+		a.SetStr("k", k)
+		a.SetStr("tag", runtime.Str(tag))
+		return runtime.Arr(a)
+	}
+	rows := list(
+		row(runtime.Int(1), "int1"),
+		row(runtime.Str("1"), "str1"),
+		row(runtime.Bool(true), "booltrue"),
+		row(runtime.Str("true"), "strtrue"),
+	)
+	got := callFilter(t, "group_by", rows, runtime.Str("k"))
+	groups := got.Arr.Pairs()
+	if len(groups) != 4 {
+		t.Fatalf("group_by got %d groups, want 4 (typed keys stay distinct)", len(groups))
+	}
+	wantKinds := []runtime.Kind{runtime.KInt, runtime.KStr, runtime.KBool, runtime.KStr}
+	wantTags := []string{"int1", "str1", "booltrue", "strtrue"}
+	for i, g := range groups {
+		key, _ := g.Val.Arr.GetStr("key")
+		if key.Kind != wantKinds[i] {
+			t.Errorf("group %d key kind = %v, want %v", i, key.Kind, wantKinds[i])
+		}
+		items, _ := g.Val.Arr.GetStr("items")
+		tags := callFilter(t, "map", items, runtime.Str("tag"))
+		if j := joinVals(t, tags); j != wantTags[i] {
+			t.Errorf("group %d items = %q, want %q", i, j, wantTags[i])
+		}
+	}
+}

@@ -1,0 +1,9 @@
+{
+  "rows": [
+    {"k": 1, "tag": "int-a"},
+    {"k": "1", "tag": "str-one"},
+    {"k": true, "tag": "bool-true"},
+    {"k": "true", "tag": "str-true"},
+    {"k": 1, "tag": "int-b"}
+  ]
+}
