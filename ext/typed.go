@@ -9,12 +9,14 @@ import (
 
 // This file is the typed-registration sugar: NewFilter/NewFunction/NewTest take
 // a natural Go func and wrap it in the []runtime.Value-based Fn the engine calls.
-// The reflection that inspects the func's signature runs ONCE, here, at
-// registration time -- off the render hot path. The wrapper the render loop
-// invokes marshals values through pre-resolved converters and does no further
-// reflection. The built-in stdlib callables stay hand-written and reflection-free;
-// these helpers are an ergonomic alternative to the &Filter{Name, Fn} struct form,
-// which remains available for full control.
+// The signature inspection that picks the per-argument and result converters runs
+// ONCE, here, at registration time -- off the render hot path. The wrapper the
+// render loop invokes marshals values through those pre-resolved converters and
+// does no further signature inspection; the func's type is resolved exactly once.
+// The converters and the fnVal.Call invoke path still use reflect at call time,
+// which is allowed for these typed helpers. The built-in stdlib callables stay
+// hand-written and reflection-free; these helpers are an ergonomic alternative to
+// the &Filter{Name, Fn} struct form, which remains available for full control.
 
 // runtimeValueType is reflect.Type of runtime.Value, used to pass a Value
 // through a natural func unchanged (the passthrough case).

@@ -119,17 +119,20 @@ func TestMergeNil(t *testing.T) {
 	}
 }
 
-// TestMergeEnumsAreCopied confirms merged enum case lists are copied, so a later
-// mutation of the source does not leak into the merged set.
+// TestMergeEnumsAreCopied confirms Merge copies the source's enum case list, so a
+// later mutation of the source's stored slice does not leak into the merged set.
 func TestMergeEnumsAreCopied(t *testing.T) {
 	src := NewExtensionSet()
-	cases := []runtime.Value{runtime.Str("a"), runtime.Str("b")}
-	src.AddEnum("E", cases)
+	src.AddEnum("E", []runtime.Value{runtime.Str("a"), runtime.Str("b")})
 
 	dst := NewExtensionSet()
 	dst.Merge(src)
 
-	cases[0] = runtime.Str("mutated")
+	// Enum returns the internal slice, so this mutates src's stored copy. If Merge
+	// aliased src's slice, this write would reach dst; a defensive copy shields it.
+	stored, _ := src.Enum("E")
+	stored[0] = runtime.Str("mutated")
+
 	got, _ := dst.Enum("E")
 	if got[0].S != "a" {
 		t.Errorf("merged enum aliased source: %q", got[0].S)
