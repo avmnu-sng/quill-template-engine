@@ -95,6 +95,12 @@ const (
 	UnitLog
 	// UnitTabBlock is a @tab region body entered and indented.
 	UnitTabBlock
+	// UnitProvide is a @provide body rendered and appended to its slot.
+	UnitProvide
+	// UnitYield is a @yield that emitted a slot's accumulated content.
+	UnitYield
+	// UnitCallBlock is a @call block that invoked its macro with a caller() body.
+	UnitCallBlock
 
 	// Branch-arm kinds record branch coverage: which specific arm was taken.
 
@@ -139,24 +145,27 @@ func (k RegionKind) String() string {
 }
 
 var kindLabels = [...]string{
-	UnitPrint:    "Print",
-	UnitText:     "Text",
-	UnitSet:      "Set",
-	UnitDo:       "Do",
-	UnitWith:     "With",
-	UnitApply:    "Apply",
-	UnitEscape:   "Escape",
-	UnitSandbox:  "Sandbox",
-	UnitCache:    "Cache",
-	UnitGuardTag: "Guard",
-	UnitInclude:  "Include",
-	UnitEmbed:    "Embed",
-	UnitBlock:    "Block",
-	UnitMacro:    "Macro",
-	UnitIf:       "If",
-	UnitFor:      "For",
-	UnitLog:      "Log",
-	UnitTabBlock: "TabBlock",
+	UnitPrint:     "Print",
+	UnitText:      "Text",
+	UnitSet:       "Set",
+	UnitDo:        "Do",
+	UnitWith:      "With",
+	UnitApply:     "Apply",
+	UnitEscape:    "Escape",
+	UnitSandbox:   "Sandbox",
+	UnitCache:     "Cache",
+	UnitGuardTag:  "Guard",
+	UnitInclude:   "Include",
+	UnitEmbed:     "Embed",
+	UnitBlock:     "Block",
+	UnitMacro:     "Macro",
+	UnitIf:        "If",
+	UnitFor:       "For",
+	UnitLog:       "Log",
+	UnitTabBlock:  "TabBlock",
+	UnitProvide:   "Provide",
+	UnitYield:     "Yield",
+	UnitCallBlock: "CallBlock",
 
 	IfThen:     "if-then",
 	IfNotTaken: "if-else",

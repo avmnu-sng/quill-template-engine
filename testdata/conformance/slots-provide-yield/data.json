@@ -1,0 +1,7 @@
+{
+  "funcs": [
+    { "name": "open", "arity": 1 },
+    { "name": "read", "arity": 2 },
+    { "name": "close", "arity": 1 }
+  ]
+}

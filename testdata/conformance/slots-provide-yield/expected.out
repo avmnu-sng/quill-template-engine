@@ -1,0 +1,11 @@
+Symbol table collected from many sites, emitted once in the file shell.
+
+imports:
+import "os"
+import "fmt"
+import "strings"
+symbols:
+func open(1)
+func read(2)
+func close(1)
+

@@ -1,0 +1,18 @@
+{
+  "tree": [
+    {
+      "name": "src",
+      "children": [
+        { "name": "main.go", "children": [] },
+        {
+          "name": "pkg",
+          "children": [
+            { "name": "a.go", "children": [] },
+            { "name": "b.go", "children": [] }
+          ]
+        }
+      ]
+    },
+    { "name": "README", "children": [] }
+  ]
+}

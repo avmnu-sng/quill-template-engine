@@ -1,0 +1,12 @@
+- src (depth 1)
+    - main.go (depth 2)
+
+    - pkg (depth 2)
+        - a.go (depth 3)
+
+        - b.go (depth 3)
+
+
+
+- README (depth 1)
+

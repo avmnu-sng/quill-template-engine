@@ -157,7 +157,9 @@ templates where literal braces are rare, under `pragma bare`.
   `loop.next`, and the `loop.changed(expr)` method); an optional
   `@else { ... @}` arm runs when the sequence is empty. A fused filter
   `@for x in seq if cond { ... @}` iterates only the elements for which `cond`
-  is truthy, and every `loop.*` field counts only those survivors.
+  is truthy, and every `loop.*` field counts only those survivors. A
+  `@for node in tree recursive { ... loop(node.children) ... @}` descends a
+  tree, binding a `loop(children)` callable and `loop.depth` / `loop.depth0`.
 - `@if cond { ... @} @elseif other { ... @} @else { ... @}` -- conditionals.
 - `@set x = expr` -- bind a variable; `@set x: int = expr` annotates it; the
   target may destructure a list (`@set [a, b, ...rest] = xs`) or a map
@@ -200,6 +202,12 @@ range, the `matches` regex operator, and member/index access.
 - `@include "part.ql"` -- render another template inline; the function form
   `include("part.ql", with = {...}, only = true, sandboxed = true)` controls the
   child's context and sandboxing.
+- `@call name(args) { ... @}` -- invoke a macro with a `caller()` callback that
+  renders the block; `@call(p) name(args) { ... @}` passes a value from the macro
+  back into the block via `caller(v)`.
+- `@provide label { ... @}` / `@yield label` -- accumulate rendered content from
+  many sites into a named slot and emit it once (`slot(label)` is the value form),
+  the complement of the overriding `@block`.
 
 The full reference is [`docs/01-language-reference.md`](docs/01-language-reference.md);
 the formal grammar is [`docs/02-grammar.md`](docs/02-grammar.md).

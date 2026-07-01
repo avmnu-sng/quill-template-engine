@@ -66,6 +66,65 @@ func (p *parser) parseMacro() *ast.Node {
 	return m
 }
 
+// parseProvide parses "@provide label { body } @}" (design/composition, named
+// accumulating slots). Str is the slot label; the body items follow. The rendered
+// body is appended to the label's slot buffer at render time, in execution order.
+func (p *parser) parseProvide() *ast.Node {
+	t := p.expectStmt("provide")
+	labelTok := p.expect(lex.NAME, "a slot label after 'provide'")
+	n := p.node(ast.KindProvide, t)
+	n.Str = labelTok.Text
+	p.openBody()
+	n.Children = append(n.Children, p.parseBodyItems()...)
+	p.closeBlock()
+	return n
+}
+
+// parseYield parses "@yield label NL" (design/composition, named accumulating
+// slots). Str is the slot label; it emits the accumulated slot content once.
+func (p *parser) parseYield() *ast.Node {
+	t := p.expectStmt("yield")
+	labelTok := p.expect(lex.NAME, "a slot label after 'yield'")
+	n := p.node(ast.KindYield, t)
+	n.Str = labelTok.Text
+	p.endLine()
+	return n
+}
+
+// parseCallBlock parses "@call [(callerParams)] name(args) { body } @}"
+// (design/composition, call-blocks). The optional leading "(p1, p2)" declares the
+// caller-block parameters the macro passes back via caller(v1, v2); then the macro
+// name and its "(args)" call; then the braced body. Child 0 is a KindParams (the
+// caller parameters, empty when the prefix is absent); the macro-call KindArg
+// children follow; the final child is the KindBody caller block.
+func (p *parser) parseCallBlock() *ast.Node {
+	t := p.expectStmt("call")
+	n := p.node(ast.KindCallBlock, t)
+
+	// Optional caller-parameter prefix: "@call(p1, p2) name(...)". It is present only
+	// when the first "(" is immediately followed by a parameter shape AND a NAME
+	// follows the matching ")": "@call(p) name(...)". A bare "@call name(...)" has no
+	// prefix. Distinguish by whether a NAME precedes the first "(".
+	callerParams := p.node(ast.KindParams, t)
+	if p.at(lex.LPAREN) {
+		callerParams = p.parseParamList()
+	}
+	n.Add(callerParams)
+
+	nameTok := p.expect(lex.NAME, "a macro name in a call block")
+	n.Str = nameTok.Text
+	p.expect(lex.LPAREN, "'(' to open the macro arguments")
+	p.parseArgsInto(n)
+	p.expect(lex.RPAREN, "')' to close the macro arguments")
+
+	p.openBody()
+	body := p.node(ast.KindBody, t)
+	body.Children = append(body.Children, p.parseBodyItems()...)
+	p.closeBlock()
+	n.Add(body)
+	return n
+}
+
 // parseParamList parses "( [Param {, Param}] )" into a KindParams node. The
 // opening paren is required.
 func (p *parser) parseParamList() *ast.Node {

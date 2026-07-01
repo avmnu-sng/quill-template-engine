@@ -182,7 +182,11 @@ const (
 	// 0), the body (a KindBody), and an optional else (a KindBody). Int holds the
 	// target count (1 or 2); Bool marks presence of an else branch. The filter
 	// clause, when present, pre-selects the elements the body iterates so every
-	// loop.* field reflects the survivors.
+	// loop.* field reflects the survivors. The ForRecursive bit of Int marks a
+	// "@for node in tree recursive" loop, which binds a loop(children) callable that
+	// re-enters the same body over a subtree and exposes loop.depth / loop.depth0
+	// (design/composition recursive @for). The target count occupies the low bits
+	// (ForTargetCount masks it), so a non-recursive loop's Int stays 1 or 2 exactly.
 	KindFor
 	// KindTarget is a loop/set target name with an optional type. Str is the name;
 	// child 0 (optional) is a KindType.
@@ -281,6 +285,26 @@ const (
 
 	// --- Statements: code generation ---
 
+	// --- Statements: accumulating slots and call-blocks ---
+
+	// KindProvide is "@provide label { body }". Str is the slot label; the children
+	// are the body items whose rendered output is APPENDED to the named slot buffer
+	// in execution order (additive, order-preserving across call sites), distinct
+	// from @block which overrides. It emits nothing at its own position.
+	KindProvide
+	// KindYield is "@yield label" (the slot(label) function is the expression form).
+	// Str is the slot label; it emits the accumulated content of that slot once, in
+	// the order the @provide bodies ran. No children.
+	KindYield
+	// KindCallBlock is "@call [(callerParams)] name(args) { body }". Str is the macro
+	// name. Child 0 is a KindParams holding the caller-block parameters (empty when
+	// the "(p1, p2)" prefix is absent). The KindArg children that follow carry the
+	// macro-call arguments. The final child is a KindBody: the caller block the macro
+	// renders via caller(). caller(v1, v2) inside the macro binds the caller
+	// parameters positionally and renders the body, so a value round-trips from the
+	// macro back into the block.
+	KindCallBlock
+
 	// KindLog is "@log expr". Child 0 is the expression to evaluate and write to
 	// the host logger. It produces no rendered output and is a coverable unit.
 	KindLog
@@ -313,6 +337,15 @@ const (
 	ArgPositional int64 = 0
 	ArgNamed      int64 = 1
 	ArgSpread     int64 = 2
+)
+
+// For-loop flags and target-count mask packed into the Int field of KindFor. The
+// low two bits hold the target count (1 or 2); ForRecursive marks the recursive
+// descent form. A non-recursive loop's Int is just its count, so existing loops
+// read unchanged.
+const (
+	ForTargetCount int64 = 0x3    // mask for the target count in the low bits
+	ForRecursive   int64 = 1 << 2 // "@for x in tree recursive" descent form
 )
 
 // Slice-bound flags packed into the Int field of KindSlice.
@@ -402,4 +435,7 @@ var kindNames = [...]string{
 	KindInclude:     "Include",
 	KindLog:         "Log",
 	KindTabBlock:    "TabBlock",
+	KindProvide:     "Provide",
+	KindYield:       "Yield",
+	KindCallBlock:   "CallBlock",
 }

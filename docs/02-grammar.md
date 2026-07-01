@@ -139,14 +139,15 @@ Embed    = "@embed" Expr [ "with" Map ] [ "only" ] [ "ignore" "missing" ]
 (* Statements (the closed keyword set). *)
 Stmt     = If | For | Set | Capture | With | Apply | Do | Flush
          | Deprecated | Guard | Types | Escape | Sandbox | Line | Cache
+         | Log | TabBlock | Provide | Yield | CallBlock
          | Include | Embed .
 (* Capture is a set-tail form, not a free statement and not an Expr (R12). *)
 
 If       = "@if" Expr "{" { Item }
            { "@elseif" Expr "{" { Item } }
            [ "@else" "{" { Item } ] BLOCK_CLOSE .
-For      = "@for" Target [ "," Target ] "in" Expr "{" { Item }
-           [ "@else" "{" { Item } ] BLOCK_CLOSE .
+For      = "@for" Target [ "," Target ] "in" Expr [ "recursive" ] [ "if" Expr ]
+           "{" { Item } [ "@else" "{" { Item } ] BLOCK_CLOSE .
 Target   = NAME [ ":" Type ] .
 Set      = "@set" Target { "," Target } "=" Expr { "," Expr } NL .
 Capture  = "@set" NAME [ ":" Type ] "=" "capture" "{" { Item } BLOCK_CLOSE .  (* set-tail block-capture form *)
@@ -163,6 +164,11 @@ Escape   = "@escape" ( NAME | "off" ) "{" { Item } BLOCK_CLOSE .
 Sandbox  = "@sandbox" "{" { Item } BLOCK_CLOSE .
 Line     = "@line" INT NL .
 Cache    = "@cache" { NAME "=" Expr } "{" { Item } BLOCK_CLOSE .
+Log      = "@log" Expr NL .
+TabBlock = "@tab" "(" Expr ")" "{" { Item } BLOCK_CLOSE .
+Provide  = "@provide" NAME "{" { Item } BLOCK_CLOSE .
+Yield    = "@yield" NAME NL .
+CallBlock = "@call" [ "(" [Params] ")" ] NAME "(" [Args] ")" "{" { Item } BLOCK_CLOSE .
 Include  = "@include" Expr [ "with" Expr ] [ "only" ] [ "ignore" "missing" ] NL .
 
 (* The body of a block: text, output, comment, or nested statement. *)

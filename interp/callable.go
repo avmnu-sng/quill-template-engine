@@ -25,6 +25,17 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 			return in.callParent(n, ctx)
 		case "block":
 			return in.callBlock(n, ctx)
+		case "caller":
+			return in.callCaller(n, ctx)
+		case "slot":
+			return in.callSlot(n, ctx)
+		case "loop":
+			// loop(children) is the recursive-descent callable a "@for .. recursive"
+			// loop binds; it is recognized only while such a loop is active, so an
+			// ordinary loop.* mapping read is unaffected.
+			if in.curRecursive() != nil {
+				return in.callRecursiveLoop(n, ctx)
+			}
 		}
 		if _, ok := in.macros[name]; ok {
 			return in.callMacro(n, name, ctx)
@@ -500,5 +511,5 @@ func RenderSandboxed(eng Engine, tmpl *Template, vars map[string]runtime.Value) 
 	if err := in.renderTemplate(tmpl, ctx); err != nil {
 		return b.String(), err
 	}
-	return b.String(), nil
+	return in.resolveSlots(b.String()), nil
 }

@@ -111,6 +111,34 @@ func (c *checker) checkMacro(n *ast.Node, sc *scope) error {
 	return c.checkItems(macroBody(n.Children), body)
 }
 
+// checkCallBlock checks a "@call [(callerParams)] name(args) { body }": the macro
+// arguments are typed at the call site, and the caller block is checked in a child
+// scope with each declared caller parameter bound to its declared type (or any
+// when untyped), since a value round-trips from the macro into the block via
+// caller(...). The macro itself is resolved dynamically at render, so its name is
+// not type-checked here (mirroring a dotted macro call).
+func (c *checker) checkCallBlock(n *ast.Node, sc *scope) error {
+	// Type the macro-call arguments (KindArg children) for their own soundness.
+	for _, ch := range n.Children {
+		if ch.Kind == ast.KindArg {
+			if _, err := c.exprType(ch.Child(0), sc); err != nil {
+				return err
+			}
+		}
+	}
+	body := newScope(sc)
+	if params := n.Child(0); params != nil && params.Kind == ast.KindParams {
+		if err := c.bindParams(params, body); err != nil {
+			return err
+		}
+	}
+	callerBody := n.Children[len(n.Children)-1]
+	if callerBody != nil && callerBody.Kind == ast.KindBody {
+		return c.checkItems(callerBody.Children, body)
+	}
+	return nil
+}
+
 // bindParams binds each parameter of a KindParams node to its declared type in
 // the scope, validating the type and checking that a default value's type is
 // consistent with the declared type (Section 5.2). A variadic binds list<T>.

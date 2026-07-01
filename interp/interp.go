@@ -108,7 +108,7 @@ func Render(eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, 
 	if err := in.renderTemplate(tmpl, ctx); err != nil {
 		return b.String(), err
 	}
-	return b.String(), nil
+	return in.resolveSlots(b.String()), nil
 }
 
 // interp holds one render's mutable state: the engine, the output sink, the
@@ -180,6 +180,48 @@ type interp struct {
 	// within one loop and each tracks independently.
 	loopChanged []map[*ast.Node]runtime.Value
 
+	// slots holds the named accumulating content buffers of @provide/@yield: each
+	// @provide label appends its rendered body to slots[label] in execution order,
+	// and @yield label (or the slot(label) function) surfaces the accumulated
+	// content once. The append order is the deterministic render order across every
+	// contributing site (design/composition, named accumulating slots).
+	slots map[string]*strings.Builder
+
+	// yieldedLabels records every label a deferred @yield reserved, so resolveSlots
+	// can substitute each placeholder -- including a label no @provide ever fed,
+	// which resolves to the empty string.
+	yieldedLabels []string
+
+	// yieldToken is a render-unique placeholder wrapper. A @yield writes
+	// yieldToken+label+yieldToken into the output stream immediately; after the whole
+	// render completes, resolveSlots replaces each placeholder with the label's final
+	// accumulated content. This DEFERRAL is what lets a file shell @yield a slot at
+	// the TOP and have partials feed it further down -- the collect-many-emit-once
+	// use case (design/composition). The token embeds a per-render counter so slot
+	// content, which is authored text, never collides with it.
+	yieldToken string
+
+	// caller is the caller() binding visible in the macro body a @call currently
+	// invokes: the block body, its lexical scope, and the caller-parameter names the
+	// macro passes values back into. It is set only for the direct macro invocation
+	// of a @call and is saved/restored across every macro invocation, so caller() is
+	// visible in the macro the @call names but NOT in macros that macro transitively
+	// calls (design/composition, call blocks). It is nil outside a @call.
+	caller *callerFrame
+
+	// pendingCaller carries the frame a @call has staged for the macro it is about
+	// to invoke. invokeMacro consumes it: it becomes the body's caller for the
+	// duration of that one invocation. It is nil for an ordinary macro call.
+	pendingCaller *callerFrame
+
+	// recursiveLoops is the stack of active "@for .. recursive" descent frames. Each
+	// such loop pushes a frame carrying its body, target name, and base scope when it
+	// begins and pops it when it ends; loop(children) inside the body re-enters the
+	// same body over the given subtree one depth deeper, with loop.depth / loop.depth0
+	// reflecting the descent. The stack scopes loop(...) to the innermost recursive
+	// loop (design/composition, recursive @for).
+	recursiveLoops []*recursiveLoop
+
 	// cov is the coverage Collector for this render, or nil when coverage is off.
 	// When nil every coverage hook (in cover.go) is a single nil comparison the
 	// branch predictor makes free -- the zero-overhead-when-disabled guarantee. It
@@ -228,6 +270,8 @@ func newInterp(eng Engine, root *Template, out Sink) *interp {
 		regexps:     map[*ast.Node]*regexp.Regexp{},
 		sandboxOn:   eng.SandboxActive(),
 		atLineStart: true,
+		slots:       map[string]*strings.Builder{},
+		yieldToken:  newYieldToken(),
 		cov:         eng.Coverage(),
 	}
 	in.absorb(root)

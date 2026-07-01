@@ -320,6 +320,15 @@ func (in *interp) execItem(n *ast.Node, ctx *runtime.Context) error {
 	case ast.KindTabBlock:
 		in.covUnit(n, cover.UnitTabBlock)
 		return in.execTabBlock(n, ctx)
+	case ast.KindProvide:
+		in.covUnit(n, cover.UnitProvide)
+		return in.execProvide(n, ctx)
+	case ast.KindYield:
+		in.covUnit(n, cover.UnitYield)
+		return in.execYield(n, ctx)
+	case ast.KindCallBlock:
+		in.covUnit(n, cover.UnitCallBlock)
+		return in.execCallBlock(n, ctx)
 	case ast.KindTypes, ast.KindDeprecated, ast.KindLine:
 		// Type declarations, deprecation diagnostics, and line resets are parsed but
 		// their runtime effects are deferred this slice; they emit nothing.
@@ -370,7 +379,7 @@ func (in *interp) execIf(n *ast.Node, ctx *runtime.Context) error {
 // silent empty loop) unless lenient mode is on. The body runs in a child scope;
 // reassignments to pre-existing names persist, body-local sets do not leak.
 func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
-	count := int(n.Int)
+	count := int(n.Int & ast.ForTargetCount)
 	target1 := n.Child(0)
 	var target2 *ast.Node
 	idx := 1
@@ -392,6 +401,12 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 	var elseBody *ast.Node
 	if n.Bool {
 		elseBody = n.Child(bodyIdx + 1)
+	}
+
+	// The recursive form binds a loop(children) descent callable and loop.depth /
+	// loop.depth0; it is a distinct render path with no fused-filter interaction.
+	if n.Int&ast.ForRecursive != 0 {
+		return in.execRecursiveFor(n, ctx, target1, target2, iterand, body, elseBody)
 	}
 
 	collVal, err := in.eval(iterand, ctx, false)

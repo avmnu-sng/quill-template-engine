@@ -80,6 +80,15 @@ func (p *parser) parseFor() *ast.Node {
 	forNode.Add(p.parseExpr())
 	forNode.Int = count
 
+	// Optional "recursive" marker after the iterand: the loop binds a loop(children)
+	// callable that re-enters the body over a subtree and exposes loop.depth /
+	// loop.depth0 (design/composition recursive @for). It rides in the ForRecursive
+	// bit of Int alongside the target count.
+	if p.isNameWord("recursive") {
+		p.advance()
+		forNode.Int |= ast.ForRecursive
+	}
+
 	// Optional fused filter clause "if cond" before the body brace. It is a
 	// KindClause with Bool=true carrying the condition as child 0, mirroring the
 	// if-clause shape so the interpreter reads it uniformly.

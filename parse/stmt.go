@@ -136,6 +136,12 @@ func (p *parser) parseStatement(topLevel bool) *ast.Node {
 		return p.parseLog()
 	case "tab":
 		return p.parseTabBlock()
+	case "provide":
+		return p.parseProvide()
+	case "yield":
+		return p.parseYield()
+	case "call":
+		return p.parseCallBlock()
 	case "elseif", "else":
 		p.fail("'@%s' without a matching '@if' or '@for'", kw)
 	}

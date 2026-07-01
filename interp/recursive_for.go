@@ -1,0 +1,153 @@
+package interp
+
+import (
+	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/cover"
+	"github.com/avmnu-sng/quill-template-engine/errors"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
+)
+
+// recursiveLoop is one active "@for .. recursive" descent: the loop body, the
+// loop target name(s), and the scope the body renders in. loop(children) inside
+// the body re-enters the body over a subtree one depth deeper, so the frame
+// carries everything a re-entry needs without re-reading the @for node.
+type recursiveLoop struct {
+	body    []*ast.Node
+	target1 string
+	target2 string // "" for the single-target form
+	twoTgt  bool
+	base    *runtime.Context
+}
+
+// curRecursive returns the innermost active recursive-loop frame, or nil when no
+// "@for .. recursive" loop is on the stack. evalCall consults it so a bare
+// loop(...) call is treated as the descent callable only inside such a loop.
+func (in *interp) curRecursive() *recursiveLoop {
+	if len(in.recursiveLoops) == 0 {
+		return nil
+	}
+	return in.recursiveLoops[len(in.recursiveLoops)-1]
+}
+
+// execRecursiveFor renders a "@for node in tree recursive { ... }" loop. It drains
+// the top-level iterand to pairs and renders the body at depth 0, pushing a
+// descent frame so loop(children) inside the body can re-enter over a subtree. An
+// empty top-level iterand takes the @else body (or nothing), mirroring the plain
+// @for empty arm. The loop.* metadata gains depth / depth0 fields on top of the
+// usual index / first / last set (design/composition, recursive @for).
+func (in *interp) execRecursiveFor(n *ast.Node, ctx *runtime.Context, target1, target2 *ast.Node, iterand *ast.Node, body, elseBody *ast.Node) error {
+	collVal, err := in.eval(iterand, ctx, false)
+	if err != nil {
+		return err
+	}
+	pairs, err := runtime.EnsureTraversable(collVal, !in.eng.StrictVariables())
+	if err != nil {
+		return posErr(n, err)
+	}
+	if len(pairs) == 0 {
+		in.covArm(n, cover.ForEmpty)
+		if elseBody != nil {
+			return in.execItems(elseBody.Children, ctx)
+		}
+		return nil
+	}
+	in.covArm(n, cover.ForBody)
+
+	frame := &recursiveLoop{
+		body:    body.Children,
+		target1: target1.Str,
+		base:    ctx,
+	}
+	if target2 != nil {
+		frame.target2 = target2.Str
+		frame.twoTgt = true
+	}
+	in.recursiveLoops = append(in.recursiveLoops, frame)
+	defer func() { in.recursiveLoops = in.recursiveLoops[:len(in.recursiveLoops)-1] }()
+
+	return in.renderRecursiveLevel(frame, pairs, 0, ctx)
+}
+
+// renderRecursiveLevel renders the recursive-loop body over one level of pairs at
+// the given depth, binding the target(s) and a loop.* mapping (with depth /
+// depth0) for each element. It writes directly to the active sink, so the
+// top-level call emits in place; a nested level called via loop(children) renders
+// into the capture the callable set up.
+func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pair, depth0 int, outer *runtime.Context) error {
+	loopCtx := outer.Clone()
+	parentLoop, _ := outer.Get("loop")
+	for i, p := range pairs {
+		if frame.twoTgt {
+			loopCtx.Set(frame.target1, p.Key)
+			loopCtx.Set(frame.target2, p.Val)
+		} else {
+			loopCtx.Set(frame.target1, p.Val)
+		}
+		loopCtx.Set("loop", recursiveLoopMeta(i, pairs, depth0, parentLoop))
+		if err := in.execItems(frame.body, loopCtx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// callRecursiveLoop implements loop(children): it renders the innermost recursive
+// loop's body over the given subtree one depth deeper, capturing the output and
+// returning it as a value so the body can print it (for example
+// "{{ loop(node.children) }}"). A non-traversable argument (a leaf's absent or
+// empty children) renders nothing and returns the empty string.
+func (in *interp) callRecursiveLoop(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+	frame := in.curRecursive()
+	if frame == nil {
+		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+			"loop() is only valid inside a '@for .. recursive' loop"))
+	}
+	args, err := in.collectArgs(n, ctx, nil)
+	if err != nil {
+		return runtime.Null(), err
+	}
+	if len(args) != 1 {
+		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+			"loop() expects exactly one children argument, got %d", len(args)))
+	}
+	child := args[0]
+	if child.Kind != runtime.KArray || child.Arr == nil {
+		if in.escape != "" {
+			return runtime.Safe(""), nil
+		}
+		return runtime.Str(""), nil
+	}
+	pairs := child.Arr.Pairs()
+
+	// The next level's depth0 is the enclosing element's depth0 plus one; read it
+	// from the loop mapping in scope so a re-entry deepens correctly.
+	depth0 := 1
+	if lv, ok := ctx.Get("loop"); ok && lv.Kind == runtime.KArray && lv.Arr != nil {
+		if d, ok := lv.Arr.GetStr("depth0"); ok && d.Kind == runtime.KInt {
+			depth0 = int(d.I) + 1
+		}
+	}
+
+	sub := &captureSink{}
+	saved := in.out
+	in.out = sub
+	err = in.renderRecursiveLevel(frame, pairs, depth0, ctx)
+	in.out = saved
+	if err != nil {
+		return runtime.Null(), err
+	}
+	if in.escape != "" {
+		return runtime.Safe(sub.b.String()), nil
+	}
+	return runtime.Str(sub.b.String()), nil
+}
+
+// recursiveLoopMeta builds the loop.* mapping for a recursive loop iteration. It
+// carries the usual index / first / last / length fields plus depth (1-based) and
+// depth0 (0-based) so a template can indent or number nested structures.
+func recursiveLoopMeta(i int, pairs []runtime.Pair, depth0 int, parent runtime.Value) runtime.Value {
+	m := loopMeta(i, pairs, parent)
+	m.Arr.SetStr("depth", runtime.Int(int64(depth0+1)))
+	m.Arr.SetStr("depth0", runtime.Int(int64(depth0)))
+	return m
+}

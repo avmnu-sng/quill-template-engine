@@ -35,6 +35,9 @@ var statementKeywords = map[string]bool{
 	"capture":    true,
 	"log":        true,
 	"tab":        true,
+	"provide":    true,
+	"yield":      true,
+	"call":       true,
 }
 
 // Note on block-bodied versus line statements: the lexer does NOT pre-classify

@@ -49,7 +49,7 @@ func payload(n *Node) string {
 	case KindName, KindSpecialName, KindAttr, KindBinary, KindLogical,
 		KindUnary, KindFilter, KindEscape, KindImport, KindBlock, KindMacro,
 		KindCapture, KindTarget, KindParam, KindApplyFilter, KindCacheArg,
-		KindTypeDecl, KindType, KindUse:
+		KindTypeDecl, KindType, KindUse, KindProvide, KindYield, KindCallBlock:
 		return labelWithFlags(n)
 	case KindMembership, KindTest:
 		s := n.Str
@@ -114,7 +114,11 @@ func flagPayload(n *Node) string {
 		}
 		return ""
 	case KindFor:
-		return fmt.Sprintf("targets=%d else=%t", n.Int, n.Bool)
+		s := fmt.Sprintf("targets=%d else=%t", n.Int&ForTargetCount, n.Bool)
+		if n.Int&ForRecursive != 0 {
+			s += " recursive"
+		}
+		return s
 	case KindSet:
 		return fmt.Sprintf("targets=%d", n.Int)
 	case KindLine:

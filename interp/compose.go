@@ -251,6 +251,12 @@ func (in *interp) callMacroIn(n *ast.Node, home *Template, name string, ctx *run
 // name that duplicates a parameter already filled positionally, is an error
 // (design/expressions.md Section 7).
 func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Value, named []namedArg) (runtime.Value, error) {
+	// Consume the caller() frame a @call staged for THIS invocation up front, so it
+	// is cleared on every exit path (including an argument-binding error) and never
+	// leaks into a later ordinary macro call.
+	activeCaller := in.pendingCaller
+	in.pendingCaller = nil
+
 	params := entry.node.Child(0) // KindParams
 	scope := runtime.NewContext()
 
@@ -334,10 +340,16 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 
 	// Render the macro body in a child interp that sees the home template's macro
 	// namespace (so recursion / sibling calls by bare name work), with the macro's
-	// home as root for _self.
+	// home as root for _self. The caller() binding is set for THIS invocation only
+	// (from a staged @call frame, or cleared for an ordinary call) and restored
+	// afterward, so caller() reaches the macro the @call names but not the macros it
+	// transitively calls (design/composition, call blocks).
 	saved := in.swapMacroHome(entry.home)
+	savedCaller := in.caller
+	in.caller = activeCaller
 	body := macroBody(entry.node)
 	out, err := in.captureItems(body, scope)
+	in.caller = savedCaller
 	in.restoreMacroHome(saved)
 	if err != nil {
 		return runtime.Null(), err

@@ -613,6 +613,27 @@ taken in the single truthiness rule (`04-types-and-semantics.md` Section 2). The
   comma). The `else` branch runs when ZERO elements survive the filter. `cond` may reference the
   loop variable(s); for a `for k, v in mapping if cond` loop it may reference both the key and the
   value. The filter condition runs in the loop scope, and its bindings do not leak past the loop.
+- **Recursive descent (`@for ... recursive`).** A `recursive` marker after the iterand turns
+  the loop into a tree walk: the body may call `loop(children)` to render the same body over a
+  subtree, one level deeper, and the descent's rendered output is returned as a value the body
+  prints. Two extra metadata fields appear alongside the usual set: `loop.depth` (1-based,
+  starting at 1 for the top level) and `loop.depth0` (0-based). It is the idiom for emitting
+  nested structures -- a directory tree, an AST, a menu:
+
+  ```
+  @for node in tree recursive {
+  @tab(loop.depth0) {
+  - {{ node.name }}
+  @}
+  {{ loop(node.children) }}
+  @}
+  ```
+
+  `loop(children)` iterates its argument as a fresh level, so `loop.first`/`loop.last`/`length`
+  reflect that level's siblings and `loop.depth` counts the nesting. An argument that is not a
+  traversable collection (a leaf's empty children) renders nothing. `loop(...)` is defined only
+  inside a `recursive` loop; a bare `loop` still reads the metadata mapping (`loop.depth`), and
+  `loop(...)` outside a recursive loop is an ordinary undefined call.
 - **Scoping.** The loop body is a child scope. A variable that existed before the loop and is
   reassigned inside keeps its last in-loop value after the loop; a variable introduced only in
   the body (via `set`) does not leak. The rule is lexical scoping.
@@ -708,7 +729,8 @@ closes with `@}`; under `pragma bare` each is written bare and a block closes wi
 ```
 extends  block  for  if  elseif  else  macro  set  include  import
 from  use  embed  with  apply  do  flush  deprecated  guard  types
-escape  sandbox  verbatim  line  cache  capture
+escape  sandbox  verbatim  line  cache  capture  log  tab
+provide  yield  call
 ```
 
 Under the default, a line begins a statement ONLY when its first non-whitespace character is
@@ -774,6 +796,27 @@ namespace above) and by the `_self` import path (`import _self as me; me.tree(..
 to a macro; it does not breach isolation, because a macro name resolves to a callable, not to
 the caller's locals.
 
+**Call blocks (`@call`).** A `@call name(args) { body }` invokes macro `name` and binds a
+`caller()` callable inside the macro body that renders the block. It factors a wrapping macro
+(header/footer, table row, section shell) from the content it wraps:
+
+```
+@macro section(title) {
+## {{ title }}
+{{ caller() }}
+@}
+@call section("Overview") {
+This body is rendered where the macro calls caller().
+@}
+```
+
+A value round-trips from the macro back into the block: `@call(p1, p2) name(args) { body }`
+declares caller parameters that `caller(v1, v2)` inside the macro binds positionally in the
+block scope, so the macro can pass a row index or a computed value into the block. `caller()` is
+visible only in the macro the `@call` directly invokes -- not in macros that macro transitively
+calls -- and is a runtime error outside any `@call`. The macro's captured output is emitted at
+the `@call` position, so the whole wrapped result surfaces there.
+
 ### 5.4 Imports and traits
 
 ```
@@ -819,3 +862,34 @@ Function form, returning rendered output as an expression value, distinct from t
 ```
 {{ include("snippet.ql", { x: 1 }, with_context: false, ignore_missing: true, sandboxed: true) }}
 ```
+
+### 5.7 Accumulating content slots
+
+`@provide` and `@yield` collect rendered content from many sites into a named buffer and emit
+it once, the complement of `@block`: where a block OVERRIDES, a slot ACCUMULATES.
+
+```
+imports:
+@yield imports
+...
+@provide imports {
+import "os"
+@}
+@provide imports {
+import "fmt"
+@}
+```
+
+- `@provide <label> { body }` appends the rendered body to the slot named `<label>` and emits
+  nothing at its own position. Every contribution appends in execution order, so the buffer's
+  final content is deterministic across loops, macros, and many call sites.
+- `@yield <label>` emits the slot's accumulated content once. It is DEFERRED: a `@yield` placed
+  before the `@provide` sites that feed it is backfilled with the complete accumulation after the
+  render, so a file shell can reserve an imports/symbol-table region at the top and have body
+  partials feed it further down. A label no `@provide` fed yields the empty string.
+- `slot(label)` is the expression form: it returns the slot's content AS OF THE CALL as a value
+  (for piping or assignment), so unlike the deferred `@yield` it captures only what accumulated
+  before the call. Use it after the contributing `@provide` sites.
+
+The canonical use is collecting import lines or a symbol table from many partials and emitting
+the assembled block once in a file shell.

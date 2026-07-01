@@ -210,6 +210,12 @@ func tagKeyword(n *ast.Node) string {
 		return "embed"
 	case ast.KindInclude:
 		return "include"
+	case ast.KindProvide:
+		return "provide"
+	case ast.KindYield:
+		return "yield"
+	case ast.KindCallBlock:
+		return "call"
 	default:
 		return ""
 	}

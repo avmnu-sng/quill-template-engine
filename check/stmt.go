@@ -123,6 +123,18 @@ func (c *checker) checkStmt(n *ast.Node, sc *scope) error {
 
 	case ast.KindMacro:
 		return c.checkMacro(n, sc)
+
+	case ast.KindProvide:
+		// A @provide body renders in a child scope; its output accumulates into a
+		// slot emitted later at @yield, so there is nothing to type at this site.
+		return c.checkItems(n.Children, newScope(sc))
+
+	case ast.KindYield:
+		// A @yield names a slot label and emits its accumulated text; no expression.
+		return nil
+
+	case ast.KindCallBlock:
+		return c.checkCallBlock(n, sc)
 	}
 	// Any other node: walk its children for embedded expressions defensively.
 	return c.checkChildrenExprs(n, sc)
@@ -338,7 +350,7 @@ func (c *checker) checkIf(n *ast.Node, sc *scope) error {
 // iterand is the promoted T4 runtime error); the loop target(s) bind the element
 // (and key) type, inferred from the iterand or checked against an annotation.
 func (c *checker) checkFor(n *ast.Node, sc *scope) error {
-	count := int(n.Int)
+	count := int(n.Int & ast.ForTargetCount)
 	t1 := n.Child(0)
 	var t2 *ast.Node
 	idx := 1
