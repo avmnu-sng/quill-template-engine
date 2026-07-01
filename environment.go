@@ -3,6 +3,7 @@ package quill
 import (
 	"github.com/avmnu-sng/quill-template-engine/cache"
 	"github.com/avmnu-sng/quill-template-engine/check"
+	"github.com/avmnu-sng/quill-template-engine/cover"
 	"github.com/avmnu-sng/quill-template-engine/ext"
 	"github.com/avmnu-sng/quill-template-engine/interp"
 	"github.com/avmnu-sng/quill-template-engine/loader"
@@ -50,6 +51,15 @@ type Environment struct {
 	// earlier, so an unannotated template renders byte-identically with or without
 	// a registry (the binding invariant).
 	typeRegistry *check.Registry
+
+	// coverage is the host-attached template-coverage Collector, or nil when
+	// coverage is off (the default). When set, the interpreter seeds each rendered
+	// template and records a hit at every coverable point, unioning across every
+	// Render on this Environment (package cover, docs/coverage.md). A nil Collector
+	// makes every interpreter coverage hook a single nil-check, so an Environment
+	// without WithCoverage renders exactly as it does today -- zero overhead when
+	// disabled, and instrumentation never changes rendered bytes.
+	coverage *cover.Collector
 }
 
 // Option configures an Environment at construction.
@@ -113,6 +123,17 @@ func WithTypes(reg *check.Registry) Option {
 	return func(e *Environment) { e.typeRegistry = reg }
 }
 
+// WithCoverage attaches a template-coverage Collector so every Render on this
+// Environment records which units and branch arms it exercised, unioning across
+// renders (package cover, docs/coverage.md). It mirrors WithAutoescapeHTML /
+// WithStrictVariables. WithCoverage(nil) is the same as not passing it: coverage
+// stays off and the interpreter pays no per-node cost. Coverage instrumentation
+// only reads node positions and increments counters, so a template renders
+// byte-identically with or without it (the binding invariant).
+func WithCoverage(coll *cover.Collector) Option {
+	return func(e *Environment) { e.coverage = coll }
+}
+
 // New builds an Environment over a Loader with the given options. The core
 // stdlib subset is installed, then the engine-bound include/block-family
 // callables, then any host extensions supplied via WithExtensions take
@@ -159,6 +180,10 @@ func (e *Environment) Policy() *sandbox.Policy { return e.policy }
 
 // SandboxActive reports the global sandbox activation gate (interp.Engine).
 func (e *Environment) SandboxActive() bool { return e.sandboxActive }
+
+// Coverage returns the host-attached coverage Collector, or nil when coverage is
+// off (interp.Engine). The interpreter copies it into each render's cov field.
+func (e *Environment) Coverage() *cover.Collector { return e.coverage }
 
 // LoadTemplate parses (memoized) and prepares the named template (interp.Engine).
 func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {

@@ -27,9 +27,11 @@ import "github.com/avmnu-sng/quill-template-engine/source"
 //   - Bool  holds a boolean literal (KindBool) or a per-kind flag (e.g. the
 //     negation of a test, the "only"/"ignore missing" include flags).
 //
-// Line is 1-based; Src is the template the node came from. Both are filled by the
-// parser so any diagnostic raised over a node names template:line exactly
-// (spec 01 Section 1.8).
+// Line and Col are 1-based; Src is the template the node came from. All are
+// filled by the parser so any diagnostic raised over a node names template:line
+// exactly (spec 01 Section 1.8), and so coverage can anchor a region at an exact
+// line:col position (see package cover). Col is metadata only: it is never
+// consulted during evaluation, so filling it cannot change rendered output.
 type Node struct {
 	Kind     Kind
 	Children []*Node
@@ -40,12 +42,22 @@ type Node struct {
 	Bool  bool
 
 	Line int
+	Col  int
 	Src  *source.Source
 }
 
-// New builds a node of kind k at the given position with the given children.
+// New builds a node of kind k at the given line position with the given
+// children. Col is left zero; the parser sets it via node() when a column is
+// known. A zero Col means "column unknown" and never breaks a region key.
 func New(k Kind, line int, src *source.Source, children ...*Node) *Node {
 	return &Node{Kind: k, Line: line, Src: src, Children: children}
+}
+
+// NewAt builds a node of kind k at an exact 1-based line:col in src. It is the
+// position-complete constructor the parser prefers so coverage regions carry a
+// column; New remains for synthetic nodes and tests that only have a line.
+func NewAt(k Kind, line, col int, src *source.Source, children ...*Node) *Node {
+	return &Node{Kind: k, Line: line, Col: col, Src: src, Children: children}
 }
 
 // Add appends a child and returns the receiver, for fluent construction.

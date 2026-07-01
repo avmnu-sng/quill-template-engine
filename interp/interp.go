@@ -23,6 +23,7 @@ import (
 
 	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/cache"
+	"github.com/avmnu-sng/quill-template-engine/cover"
 	"github.com/avmnu-sng/quill-template-engine/errors"
 	"github.com/avmnu-sng/quill-template-engine/ext"
 	"github.com/avmnu-sng/quill-template-engine/runtime"
@@ -71,6 +72,12 @@ type Engine interface {
 	// (the always-on activation path, design/escaping-safety Section 6.2). The
 	// @sandbox region and sandboxed includes turn it on locally regardless.
 	SandboxActive() bool
+	// Coverage returns the host-attached coverage Collector, or nil when coverage
+	// is off. When nil the interpreter's cov field is nil and every coverage hook
+	// is a single nil-check, the zero-overhead-when-disabled guarantee (package
+	// cover, docs/coverage.md). When set, each render seeds its templates and
+	// records a hit at every coverable point, unioning across renders.
+	Coverage() *cover.Collector
 }
 
 // Sink is the push-based output target. The interpreter writes rendered bytes as
@@ -141,6 +148,14 @@ type interp struct {
 	// sandboxed include. When on, the Phase-1 per-render callable check runs and
 	// the runtime member-access / string-coercion gates enforce the policy.
 	sandboxOn bool
+
+	// cov is the coverage Collector for this render, or nil when coverage is off.
+	// When nil every coverage hook (in cover.go) is a single nil comparison the
+	// branch predictor makes free -- the zero-overhead-when-disabled guarantee. It
+	// is copied from the engine's Coverage() at construction and threaded into
+	// nested renders (includes, embeds) so a partial's coverage aggregates under
+	// its own name.
+	cov *cover.Collector
 }
 
 // blockEntry is one resolved block: the template that owns the definition and
@@ -181,6 +196,7 @@ func newInterp(eng Engine, root *Template, out Sink) *interp {
 		escape:    autoesc,
 		regexps:   map[*ast.Node]*regexp.Regexp{},
 		sandboxOn: eng.SandboxActive(),
+		cov:       eng.Coverage(),
 	}
 	in.absorb(root)
 	return in

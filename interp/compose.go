@@ -2,6 +2,7 @@ package interp
 
 import (
 	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/cover"
 	"github.com/avmnu-sng/quill-template-engine/errors"
 	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
@@ -41,6 +42,11 @@ func (in *interp) renderBlockAt(entry *blockEntry, depth int, ctx *runtime.Conte
 // its items; a shortcut block (Int==1) prints its single value expression (spec
 // 01 Section 5.2). A leading KindParams/KindType signature child is skipped.
 func (in *interp) renderBlockBody(n *ast.Node, ctx *runtime.Context) error {
+	// Record the block UNIT at the definition actually rendered (anchored under its
+	// own template name via the node's Src), so an override counts under the child
+	// and a never-overridden parent block under the parent. parent() renders the
+	// next definition down and counts it too.
+	in.covUnit(n, cover.UnitBlock)
 	body := n.Children
 	for len(body) > 0 && (body[0].Kind == ast.KindParams || body[0].Kind == ast.KindType) {
 		body = body[1:]
@@ -314,6 +320,13 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 		}
 		scope.Set(p.Str, runtime.Null())
 	}
+
+	// Coverage: the macro body is being invoked, so record its unit at the macro
+	// node (anchored under the home template's name via the node's own Src), and
+	// seed the home template so an imported macro's home counts even when it is
+	// never rendered as a root. Both are no-ops when coverage is off.
+	in.covSeed(entry.home)
+	in.covUnit(entry.node, cover.UnitMacro)
 
 	// Render the macro body in a child interp that sees the home template's macro
 	// namespace (so recursion / sibling calls by bare name work), with the macro's

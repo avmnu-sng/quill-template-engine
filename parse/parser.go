@@ -145,9 +145,12 @@ func (p *parser) failAt(t lex.Token, format string, args ...any) {
 	panic(errors.New(errors.KindSyntax, format, args...).At(p.src, t.Line))
 }
 
-// node builds an AST node at the given token's position, in this parser's source.
+// node builds an AST node at the given token's position, in this parser's
+// source. The token's 1-based column is threaded onto the node so every region
+// coverage records has an exact line:col anchor (see package cover). Column is
+// metadata only and is never read during evaluation.
 func (p *parser) node(k ast.Kind, t lex.Token, children ...*ast.Node) *ast.Node {
-	n := ast.New(k, t.Line, p.src, children...)
+	n := ast.NewAt(k, t.Line, t.Col, p.src, children...)
 	return n
 }
 

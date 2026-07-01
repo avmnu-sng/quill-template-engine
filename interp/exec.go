@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/cover"
 	"github.com/avmnu-sng/quill-template-engine/errors"
 	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
@@ -23,6 +24,15 @@ func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Context) error {
 		return err
 	}
 	in.loadMacros(tmpl, ctx)
+
+	// Coverage seeding: register every coverable region of each template in the
+	// inheritance chain as a zero-count region before any output, so unreached
+	// code counts against the denominator. Seeding is idempotent per template
+	// name, so re-seeding across renders or across a shared parent is a no-op. A
+	// nil Collector short-circuits inside covSeed (zero overhead when disabled).
+	for _, t := range chain {
+		in.covSeed(t)
+	}
 
 	// Phase-1 sandbox check (B9): when the sandbox is active for this render,
 	// validate every statement keyword, filter, and function used across the
@@ -247,43 +257,62 @@ func (in *interp) execItems(items []*ast.Node, ctx *runtime.Context) error {
 func (in *interp) execItem(n *ast.Node, ctx *runtime.Context) error {
 	switch n.Kind {
 	case ast.KindText:
+		in.covUnit(n, cover.UnitText)
 		return in.emitString(n.Str)
 	case ast.KindVerbatim:
+		in.covUnit(n, cover.UnitText)
 		return in.emitString(n.Str)
 	case ast.KindPrint:
+		in.covUnit(n, cover.UnitPrint)
 		return in.execPrint(n, ctx)
 	case ast.KindIf:
+		in.covUnit(n, cover.UnitIf)
 		return in.execIf(n, ctx)
 	case ast.KindFor:
+		in.covUnit(n, cover.UnitFor)
 		return in.execFor(n, ctx)
 	case ast.KindSet:
+		in.covUnit(n, cover.UnitSet)
 		return in.execSet(n, ctx)
 	case ast.KindCapture:
+		in.covUnit(n, cover.UnitSet)
 		return in.execCapture(n, ctx)
 	case ast.KindWith:
+		in.covUnit(n, cover.UnitWith)
 		return in.execWith(n, ctx)
 	case ast.KindApply:
+		in.covUnit(n, cover.UnitApply)
 		return in.execApply(n, ctx)
 	case ast.KindDo:
+		in.covUnit(n, cover.UnitDo)
 		_, err := in.eval(n.Child(0), ctx, false)
 		return err
 	case ast.KindFlush:
 		return nil // documented no-op for a string sink (spec 01 Section 4.4)
 	case ast.KindEscape:
+		in.covUnit(n, cover.UnitEscape)
 		return in.execEscape(n, ctx)
 	case ast.KindGuard:
+		in.covUnit(n, cover.UnitGuardTag)
 		return in.execGuard(n, ctx)
 	case ast.KindBlock:
+		// The block UNIT is recorded in renderBlockBody at the resolved definition,
+		// so an overriding child block counts under its own template even though the
+		// dispatch here is the parent's site node.
 		return in.execBlockSite(n, ctx)
 	case ast.KindInclude:
+		in.covUnit(n, cover.UnitInclude)
 		return in.execInclude(n, ctx)
 	case ast.KindEmbed:
+		in.covUnit(n, cover.UnitEmbed)
 		return in.execEmbed(n, ctx)
 	case ast.KindExtends, ast.KindMacro, ast.KindImport, ast.KindFrom, ast.KindUse:
 		return nil // declarations: no direct output
 	case ast.KindCache:
+		in.covUnit(n, cover.UnitCache)
 		return in.execCache(n, ctx)
 	case ast.KindSandbox:
+		in.covUnit(n, cover.UnitSandbox)
 		return in.execSandbox(n, ctx)
 	case ast.KindTypes, ast.KindDeprecated, ast.KindLine:
 		// Type declarations, deprecation diagnostics, and line resets are parsed but
@@ -315,9 +344,15 @@ func (in *interp) execIf(n *ast.Node, ctx *runtime.Context) error {
 				return err
 			}
 			if runtime.Truthy(cond) {
+				// This clause's condition was truthy: its body runs (the then arm).
+				in.covArm(clause, cover.IfThen)
 				return in.execItems(clause.Children[1:], ctx)
 			}
+			// The condition evaluated false: record the not-taken arm and fall to the
+			// next clause (an elseif condition or the terminal else).
+			in.covArm(clause, cover.IfNotTaken)
 		} else { // else: all children are body
+			in.covArm(clause, cover.IfElse)
 			return in.execItems(clause.Children, ctx)
 		}
 	}
@@ -353,11 +388,16 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 		return posErr(n, err)
 	}
 	if len(pairs) == 0 {
+		// The collection drained to zero pairs: the empty arm is taken (its @else
+		// body, or nothing, runs).
+		in.covArm(n, cover.ForEmpty)
 		if elseBody != nil {
 			return in.execItems(elseBody.Children, ctx)
 		}
 		return nil
 	}
+	// At least one pair: the loop body runs (the body arm).
+	in.covArm(n, cover.ForBody)
 
 	// Child scope: clone the context so body-local sets do not leak, but copy
 	// back reassignments of pre-existing names after the loop (lexical scoping,
@@ -908,8 +948,12 @@ func (in *interp) execGuard(n *ast.Node, ctx *runtime.Context) error {
 		body = body[:k-1]
 	}
 	if present {
+		in.covArm(n, cover.GuardYes)
 		return in.execItems(body, ctx)
 	}
+	// The callable is absent: the guard-absent arm is taken (the @else body, or
+	// nothing, runs). Recorded even when there is no else so the arm is measured.
+	in.covArm(n, cover.GuardNo)
 	if elseClause != nil {
 		return in.execItems(elseClause.Children, ctx)
 	}

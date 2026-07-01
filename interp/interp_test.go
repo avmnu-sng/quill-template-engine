@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/cache"
+	"github.com/avmnu-sng/quill-template-engine/cover"
 	"github.com/avmnu-sng/quill-template-engine/ext"
 	"github.com/avmnu-sng/quill-template-engine/parse"
 	"github.com/avmnu-sng/quill-template-engine/runtime"
@@ -25,6 +26,7 @@ type stubEngine struct {
 
 	policy    *sandbox.Policy
 	sandboxOn bool
+	cov       *cover.Collector
 }
 
 func newStub(tmpls map[string]string) *stubEngine {
@@ -68,8 +70,9 @@ func (s *stubEngine) RenderCache() *cache.RenderCache {
 	}
 	return s.rcache
 }
-func (s *stubEngine) Policy() *sandbox.Policy { return s.policy }
-func (s *stubEngine) SandboxActive() bool     { return s.sandboxOn }
+func (s *stubEngine) Policy() *sandbox.Policy    { return s.policy }
+func (s *stubEngine) SandboxActive() bool        { return s.sandboxOn }
+func (s *stubEngine) Coverage() *cover.Collector { return s.cov }
 
 func errNotFound(name string) error { return &notFoundErr{name} }
 

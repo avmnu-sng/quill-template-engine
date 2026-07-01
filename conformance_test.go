@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/avmnu-sng/quill-template-engine/cover"
 	"github.com/avmnu-sng/quill-template-engine/ext"
 	"github.com/avmnu-sng/quill-template-engine/internal/jsonval"
 	"github.com/avmnu-sng/quill-template-engine/loader"
@@ -123,18 +124,21 @@ func TestConformance(t *testing.T) {
 	}
 }
 
-func runFixture(t *testing.T, dir string) {
+// fixtureSetup loads a fixture's templates, main name, data, config, and the
+// engine options its config implies. It is shared by the golden runFixture and
+// the coverage binding-invariant variant so both drive an identical Environment.
+func fixtureSetup(t *testing.T, dir string) (tmpls map[string]string, main string, vars map[string]runtime.Value, opts []Option, cfg conformanceConfig) {
 	t.Helper()
 
-	cfg := loadConfig(t, dir)
-	main := cfg.Main
+	cfg = loadConfig(t, dir)
+	main = cfg.Main
 	if main == "" {
 		main = "template.ql"
 	}
 
 	// Load every .ql file in the fixture into an in-memory loader by base name,
 	// so cross-template references (extends/include/import) resolve.
-	tmpls := map[string]string{}
+	tmpls = map[string]string{}
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("read fixture dir: %v", err)
@@ -153,9 +157,8 @@ func runFixture(t *testing.T, dir string) {
 		t.Fatalf("main template %q not present in fixture", main)
 	}
 
-	vars := loadData(t, dir)
+	vars = loadData(t, dir)
 
-	opts := []Option{}
 	switch cfg.Autoescape {
 	case "", "off":
 		opts = append(opts, WithAutoescapeHTML(false))
@@ -200,6 +203,13 @@ func runFixture(t *testing.T, dir string) {
 		}
 		opts = append(opts, WithExtensions(set))
 	}
+	return tmpls, main, vars, opts, cfg
+}
+
+func runFixture(t *testing.T, dir string) {
+	t.Helper()
+
+	tmpls, main, vars, opts, cfg := fixtureSetup(t, dir)
 
 	env := New(loader.NewArrayLoader(tmpls), opts...)
 	got, err := env.Render(main, vars)
@@ -225,6 +235,47 @@ func runFixture(t *testing.T, dir string) {
 	}
 	if got != string(want) {
 		t.Errorf("output mismatch\n--- got ----\n%q\n--- want ---\n%q", got, string(want))
+	}
+}
+
+// TestConformanceCoverageInvariant is the binding-invariant variant of the
+// conformance suite: it renders every fixture twice through the same Environment
+// options -- once plain, once with a coverage Collector attached -- and asserts
+// byte-identical output (and identical error behavior). This proves coverage
+// instrumentation only reads positions and increments counters, never touching
+// the value pipeline or the output sink (docs/coverage.md Section 6). It also
+// exercises seeding and hit recording over every construct the fixtures use.
+func TestConformanceCoverageInvariant(t *testing.T) {
+	root := filepath.Join("testdata", "conformance")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatalf("read conformance dir: %v", err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		dir := filepath.Join(root, e.Name())
+		t.Run(e.Name(), func(t *testing.T) {
+			tmpls, main, vars, opts, _ := fixtureSetup(t, dir)
+
+			plain := New(loader.NewArrayLoader(tmpls), opts...)
+			plainOut, plainErr := plain.Render(main, vars)
+
+			coll := cover.NewCollector()
+			instr := New(loader.NewArrayLoader(tmpls), append(opts, WithCoverage(coll))...)
+			instrOut, instrErr := instr.Render(main, vars)
+
+			// Error behavior must match: a deny fixture stays a deny fixture, an allow
+			// fixture stays an allow fixture, with coverage on.
+			if (plainErr == nil) != (instrErr == nil) {
+				t.Fatalf("error presence differs: plain=%v instr=%v", plainErr, instrErr)
+			}
+			if plainOut != instrOut {
+				t.Errorf("coverage changed output\n--- plain --\n%q\n--- instr --\n%q",
+					plainOut, instrOut)
+			}
+		})
 	}
 }
 
