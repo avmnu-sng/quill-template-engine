@@ -130,12 +130,20 @@ func (s *ExtensionSet) Test(name string) (*Test, bool) {
 	return t, ok
 }
 
-// HasFilter / HasFunction / HasTest back the @guard statement's existence check
-// (spec 01 Section 4.6): the guard selects a branch on whether a named callable
-// is registered, without evaluating it.
-func (s *ExtensionSet) HasFilter(name string) bool   { _, ok := s.filters[name]; return ok }
+// HasFilter reports whether a filter with the given name is registered. It backs
+// the @guard statement's existence check (spec 01 Section 4.6), selecting a branch
+// on registration without evaluating the callable.
+func (s *ExtensionSet) HasFilter(name string) bool { _, ok := s.filters[name]; return ok }
+
+// HasFunction reports whether a function with the given name is registered. It
+// backs the @guard statement's existence check (spec 01 Section 4.6), selecting a
+// branch on registration without evaluating the callable.
 func (s *ExtensionSet) HasFunction(name string) bool { _, ok := s.functions[name]; return ok }
-func (s *ExtensionSet) HasTest(name string) bool     { _, ok := s.tests[name]; return ok }
+
+// HasTest reports whether a test with the given name is registered. It backs the
+// @guard statement's existence check (spec 01 Section 4.6), selecting a branch on
+// registration without evaluating the callable.
+func (s *ExtensionSet) HasTest(name string) bool { _, ok := s.tests[name]; return ok }
 
 // Clone returns a shallow copy of the registry sharing the callable values but
 // with independent maps, so a host can layer additions over a base set without

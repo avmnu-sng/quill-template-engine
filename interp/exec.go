@@ -965,4 +965,5 @@ type captureSink struct {
 	b strings.Builder
 }
 
+// WriteString appends s to the capture buffer and reports the bytes written.
 func (c *captureSink) WriteString(s string) (int, error) { return c.b.WriteString(s) }

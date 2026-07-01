@@ -2,7 +2,9 @@
 #
 # A reasonable, not-overly-strict config for a stdlib-only Go library: the
 # default vet/staticcheck-style linters plus a few high-signal additions, with
-# test files exempted from the noisier checks.
+# test files exempted from the noisier checks. The revive "exported" rule and
+# godot enforce that every exported symbol and package carries a doc comment and
+# that declaration comments are full sentences.
 version: "2"
 
 run:
@@ -19,10 +21,27 @@ linters:
     - misspell
     - unconvert
     - revive
+    - godot
+  settings:
+    revive:
+      # Enable only the exported-symbol documentation rule. checkPrivateReceivers
+      # extends the check to exported methods on unexported types (the host-object
+      # shims that satisfy runtime interfaces); disableStutteringCheck keeps this
+      # focused on documentation rather than naming.
+      rules:
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - disableStutteringCheck
+    godot:
+      # Require declaration comments to end in a period, but skip the ASCII
+      # section dividers ("// --- ... ---") used inside large const blocks.
+      scope: declarations
+      exclude:
+        - '^ *-{2,}'
   exclusions:
     generated: lax
     presets:
-      - comments
       - std-error-handling
     rules:
       # Tests exercise error paths and edge cases; relax the strict checks.
@@ -30,6 +49,7 @@ linters:
         linters:
           - errcheck
           - revive
+          - godot
 
 formatters:
   enable:

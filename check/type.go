@@ -39,16 +39,26 @@ const (
 	// KAny is the gradual top: consistent with every type in both directions, an
 	// unannotated binding is KAny (design/type-system.md Section 4.6).
 	KAny Kind = iota
+	// KNull is the null (none) type.
 	KNull
+	// KBool is the boolean type.
 	KBool
+	// KInt is the integer type.
 	KInt
+	// KFloat is the float type.
 	KFloat
+	// KString is the string type.
 	KString
-	KList   // Elem is the element type
-	KMap    // Key, Val are the key/value types
-	KObject // Name is the host type name
-	KArrow  // Params are the parameter types, Ret the result
-	KUnion  // Union holds two or more alternative arms
+	// KList is a list type; Elem is the element type.
+	KList
+	// KMap is a map type; Key and Val are the key/value types.
+	KMap
+	// KObject is a host object type; Name is the host type name.
+	KObject
+	// KArrow is an arrow type; Params are the parameter types, Ret the result.
+	KArrow
+	// KUnion is a union type; Union holds two or more alternative arms.
+	KUnion
 	// KNever is the empty type, the identity of join; it never appears in a
 	// well-formed annotation and is not renderable.
 	KNever

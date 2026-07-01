@@ -25,10 +25,12 @@ type arrowClosure struct {
 	ctx    *runtime.Context // the captured definition scope
 }
 
-// GetField / CallMethod satisfy runtime.Object; an arrow exposes no fields or
-// methods, only the Invoke entry below.
+// GetField satisfies runtime.Object; an arrow exposes no fields, so it always
+// returns (null, false).
 func (a *arrowClosure) GetField(string) (runtime.Value, bool) { return runtime.Null(), false }
 
+// CallMethod satisfies runtime.Object; an arrow is invoked positionally through
+// Invoke, not by method, so any method call returns a runtime error.
 func (a *arrowClosure) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 	return runtime.Null(), errors.New(errors.KindRuntime,
 		"an arrow function is invoked positionally, not by method")

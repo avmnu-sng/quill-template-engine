@@ -20,7 +20,12 @@ type dateValue struct {
 
 const defaultDateLayout = "2006-01-02 15:04:05"
 
+// GetField reports no fields: a date exposes no attributes, so it always
+// returns (null, false).
 func (d *dateValue) GetField(string) (runtime.Value, bool) { return runtime.Null(), false }
+
+// CallMethod always fails: a date has no callable methods, so any invocation
+// returns a runtime error.
 func (d *dateValue) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 	return runtime.Null(), errors.New(errors.KindRuntime, "a date has no methods")
 }
@@ -31,6 +36,7 @@ func (d *dateValue) Stringify() (string, error) {
 	return d.t.Format(defaultDateLayout), nil
 }
 
+// ClassName returns "Date", the host type name reported for a date value.
 func (d *dateValue) ClassName() string { return "Date" }
 
 // fnDate constructs a date value from a string, a Unix timestamp, or another

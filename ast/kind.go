@@ -129,19 +129,20 @@ const (
 	// 0 condition, 1 then, 2 else.
 	KindTernary
 	// KindCoalesce is "a ?? b"; children 0 and 1. Bool false.
-	// KindElvis is "a ?: b"; children 0 and 1.
 	KindCoalesce
+	// KindElvis is "a ?: b"; children 0 and 1.
 	KindElvis
 	// KindAssign is "target = value". Child 0 is the target (a KindName or a
 	// destructuring pattern), child 1 the value.
 	KindAssign
 
-	// KindListPattern / KindMapPattern are destructuring targets reinterpreted from
-	// a list/map literal on the left of "=". A KindListPattern's children are slot
-	// targets; an elided slot is a nil child; a tail capture is the trailing
-	// KindSpread; an optional slot is a KindOptional wrapping its target. A
-	// KindMapPattern's children are KindMapTarget nodes.
+	// KindListPattern is a destructuring target reinterpreted from a list literal
+	// on the left of "=". Its children are slot targets; an elided slot is a nil
+	// child; a tail capture is the trailing KindSpread; an optional slot is a
+	// KindOptional wrapping its target.
 	KindListPattern
+	// KindMapPattern is a destructuring target reinterpreted from a map literal on
+	// the left of "=". Its children are KindMapTarget nodes.
 	KindMapPattern
 	// KindOptional wraps a destructuring slot marked "name?" (child 0).
 	KindOptional

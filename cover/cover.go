@@ -56,40 +56,69 @@ const (
 	// KindInvalid is the zero value and never appears in a recorded region.
 	KindInvalid RegionKind = iota
 
-	// --- unit kinds (statement / output coverage) ---
+	// Unit kinds record statement / output coverage: whether a node ran.
 
-	UnitPrint    // an interpolation {{ expr }}
-	UnitText     // a literal text or verbatim span
-	UnitSet      // @set / @set = capture assignment
-	UnitDo       // @do expression-for-effect
-	UnitWith     // @with body entered
-	UnitApply    // @apply body captured and filtered
-	UnitEscape   // @escape region body entered
-	UnitSandbox  // @sandbox region body entered
-	UnitCache    // @cache region body entered (miss path renders it)
-	UnitGuardTag // @guard construct reached (its arms record present/absent)
-	UnitInclude  // @include resolved and rendered
-	UnitEmbed    // @embed resolved and rendered
-	UnitBlock    // @block render site rendered
-	UnitMacro    // @macro body invoked at least once
-	UnitIf       // @if construct reached (its clause arms record taken/not-taken)
-	UnitFor      // @for construct reached (its arms record body/empty)
+	// UnitPrint is an interpolation {{ expr }}.
+	UnitPrint
+	// UnitText is a literal text or verbatim span.
+	UnitText
+	// UnitSet is a @set or @set = capture assignment.
+	UnitSet
+	// UnitDo is a @do expression-for-effect.
+	UnitDo
+	// UnitWith is a @with body entered.
+	UnitWith
+	// UnitApply is a @apply body captured and filtered.
+	UnitApply
+	// UnitEscape is a @escape region body entered.
+	UnitEscape
+	// UnitSandbox is a @sandbox region body entered.
+	UnitSandbox
+	// UnitCache is a @cache region body entered (miss path renders it).
+	UnitCache
+	// UnitGuardTag is a @guard construct reached (its arms record present/absent).
+	UnitGuardTag
+	// UnitInclude is a @include resolved and rendered.
+	UnitInclude
+	// UnitEmbed is a @embed resolved and rendered.
+	UnitEmbed
+	// UnitBlock is a @block render site rendered.
+	UnitBlock
+	// UnitMacro is a @macro body invoked at least once.
+	UnitMacro
+	// UnitIf is a @if construct reached (its clause arms record taken/not-taken).
+	UnitIf
+	// UnitFor is a @for construct reached (its arms record body/empty).
+	UnitFor
 
-	// --- branch-arm kinds (branch coverage) ---
+	// Branch-arm kinds record branch coverage: which specific arm was taken.
 
-	IfThen     // an @if/@elseif clause condition was truthy and its body ran
-	IfNotTaken // an @if/@elseif clause condition evaluated false
-	IfElse     // a terminal @else clause body ran
-	ForBody    // a @for loop entered its body (>=1 pair)
-	ForEmpty   // a @for drained to zero pairs (@else body or nothing ran)
-	TernThen   // ternary / postfix-if then arm (Child 1) taken
-	TernElse   // ternary / postfix-if else arm (Child 2) taken
-	ElvisLeft  // elvis a?:b kept the left (truthy)
-	ElvisRight // elvis a?:b used the right fallback
-	CoalLeft   // coalesce a??b kept the left (non-null)
-	CoalRight  // coalesce a??b used the right fallback (left null)
-	GuardYes   // @guard callable present: guarded body ran
-	GuardNo    // @guard callable absent: @else body ran (or nothing)
+	// IfThen marks an @if/@elseif clause condition that was truthy and whose body ran.
+	IfThen
+	// IfNotTaken marks an @if/@elseif clause condition that evaluated false.
+	IfNotTaken
+	// IfElse marks a terminal @else clause body that ran.
+	IfElse
+	// ForBody marks a @for loop that entered its body (>=1 pair).
+	ForBody
+	// ForEmpty marks a @for that drained to zero pairs (@else body or nothing ran).
+	ForEmpty
+	// TernThen marks a ternary / postfix-if then arm (Child 1) taken.
+	TernThen
+	// TernElse marks a ternary / postfix-if else arm (Child 2) taken.
+	TernElse
+	// ElvisLeft marks an elvis a?:b that kept the left (truthy).
+	ElvisLeft
+	// ElvisRight marks an elvis a?:b that used the right fallback.
+	ElvisRight
+	// CoalLeft marks a coalesce a??b that kept the left (non-null).
+	CoalLeft
+	// CoalRight marks a coalesce a??b that used the right fallback (left null).
+	CoalRight
+	// GuardYes marks a @guard callable present: the guarded body ran.
+	GuardYes
+	// GuardNo marks a @guard callable absent: the @else body ran (or nothing).
+	GuardNo
 )
 
 // isBranchArm reports whether a kind is a branch arm (as opposed to a unit).

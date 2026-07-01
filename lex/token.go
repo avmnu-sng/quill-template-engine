@@ -67,54 +67,97 @@ const (
 	// surrounding quotes/backticks so the parser can apply the form's escape
 	// and interpolation rules. Quote records which form it is.
 	STRING
-	// TRUE/FALSE/NULL are the canonical, case-sensitive literals; NULL also
-	// covers the 'none' alias.
+	// TRUE is the canonical, case-sensitive "true" literal.
 	TRUE
+	// FALSE is the canonical, case-sensitive "false" literal.
 	FALSE
+	// NULL is the canonical "null" literal; it also covers the 'none' alias.
 	NULL
 
 	// Punctuation and operators inside CODE. Maximal munch picks the longest.
-	DOT       // .
-	OPTDOT    // ?.
-	COMMA     // ,
-	COLON     // :
-	LPAREN    // (
-	RPAREN    // )
-	LBRACKET  // [
-	RBRACKET  // ]
-	LBRACE    // { (a mapping literal opener inside CODE)
-	RBRACE    // } (a mapping literal closer inside CODE)
-	OPTBRACK  // ?[
-	PIPE      // |  (filter pipe / type union; parser disambiguates per R8)
-	ARROW     // =>
-	TYPEARROW // ->
-	ASSIGN    // =
-	EQ        // ==
-	NE        // !=
-	LT        // <
-	GT        // >
-	LE        // <=
-	GE        // >=
-	SPACESHIP // <=>
-	PLUS      // +
-	MINUS     // -
-	STAR      // *
-	POW       // **
-	SLASH     // /
-	FLOORDIV  // //
-	PERCENT   // %
-	TILDE     // ~  (concat operator)
-	RANGE     // ..
-	SPREAD    // ...
-	QUESTION  // ?
-	COALESCE  // ??
-	ELVIS     // ?:
-	BANG      // !
-	AMP       // &  (b_and alias)
-	CARET     // ^  (b_xor alias)
-	ANDAND    // &&
-	OROR      // ||
-	BITOR3    // |||
+
+	// DOT is ".", the attribute-access operator.
+	DOT
+	// OPTDOT is "?.", the null-safe attribute-access operator.
+	OPTDOT
+	// COMMA is ",", the element/argument separator.
+	COMMA
+	// COLON is ":", the map-entry and slice separator.
+	COLON
+	// LPAREN is "(", the call and grouping opener.
+	LPAREN
+	// RPAREN is ")", the call and grouping closer.
+	RPAREN
+	// LBRACKET is "[", the list-literal and index opener.
+	LBRACKET
+	// RBRACKET is "]", the list-literal and index closer.
+	RBRACKET
+	// LBRACE is "{", a mapping-literal opener inside CODE.
+	LBRACE
+	// RBRACE is "}", a mapping-literal closer inside CODE.
+	RBRACE
+	// OPTBRACK is "?[", the null-safe index opener.
+	OPTBRACK
+	// PIPE is "|", the filter pipe or type union; the parser disambiguates per R8.
+	PIPE
+	// ARROW is "=>", the arrow-function separator.
+	ARROW
+	// TYPEARROW is "->", the return-type marker.
+	TYPEARROW
+	// ASSIGN is "=", the assignment operator.
+	ASSIGN
+	// EQ is "==", the equality operator.
+	EQ
+	// NE is "!=", the inequality operator.
+	NE
+	// LT is "<", the less-than operator.
+	LT
+	// GT is ">", the greater-than operator.
+	GT
+	// LE is "<=", the less-than-or-equal operator.
+	LE
+	// GE is ">=", the greater-than-or-equal operator.
+	GE
+	// SPACESHIP is "<=>", the three-way comparison operator.
+	SPACESHIP
+	// PLUS is "+", addition or unary plus.
+	PLUS
+	// MINUS is "-", subtraction or unary minus.
+	MINUS
+	// STAR is "*", the multiplication operator.
+	STAR
+	// POW is "**", the exponentiation operator.
+	POW
+	// SLASH is "/", the division operator.
+	SLASH
+	// FLOORDIV is "//", the floor-division operator.
+	FLOORDIV
+	// PERCENT is "%", the modulo operator.
+	PERCENT
+	// TILDE is "~", the string-concatenation operator.
+	TILDE
+	// RANGE is "..", the range operator.
+	RANGE
+	// SPREAD is "...", the spread operator.
+	SPREAD
+	// QUESTION is "?", the ternary-condition marker.
+	QUESTION
+	// COALESCE is "??", the null-coalescing operator.
+	COALESCE
+	// ELVIS is "?:", the elvis (truthy-coalescing) operator.
+	ELVIS
+	// BANG is "!", the logical-not operator.
+	BANG
+	// AMP is "&", the bitwise-and alias.
+	AMP
+	// CARET is "^", the bitwise-xor alias.
+	CARET
+	// ANDAND is "&&", the logical-and alias.
+	ANDAND
+	// OROR is "||", the logical-or alias.
+	OROR
+	// BITOR3 is "|||", the bitwise-or alias.
+	BITOR3
 )
 
 // Trim records a whitespace-control modifier attached to a delimiter side.

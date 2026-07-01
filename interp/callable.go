@@ -353,7 +353,11 @@ func callSliceFilter(in *interp, args []runtime.Value) (runtime.Value, error) {
 // called; the call site handles macroRef before it reaches a method dispatch.
 type macroRef struct{ name string }
 
+// GetField exposes no fields on a macro reference, returning (null, false).
 func (m *macroRef) GetField(string) (runtime.Value, bool) { return runtime.Null(), false }
+
+// CallMethod rejects method calls on a macro reference; it is resolved at the
+// call site, not dispatched as a method.
 func (m *macroRef) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 	return runtime.Null(), errors.New(errors.KindRuntime, "macro reference is not directly callable")
 }
@@ -361,7 +365,10 @@ func (m *macroRef) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 // selfRef exposes a template's macros for the _self import path (me.tree()).
 type selfRef struct{ tmpl *Template }
 
+// GetField exposes no fields on a self reference, returning (null, false).
 func (s *selfRef) GetField(string) (runtime.Value, bool) { return runtime.Null(), false }
+
+// CallMethod rejects direct method calls; call an imported macro via ns.macro().
 func (s *selfRef) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 	return runtime.Null(), errors.New(errors.KindRuntime, "use ns.macro() to call an imported macro")
 }
@@ -370,7 +377,11 @@ func (s *selfRef) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 // macro defined in template x.
 type importNS struct{ tmpl *Template }
 
+// GetField exposes no fields on an import namespace, returning (null, false).
 func (i *importNS) GetField(string) (runtime.Value, bool) { return runtime.Null(), false }
+
+// CallMethod rejects a bare call on the namespace; invoke ns.macro() to call a
+// macro defined in the imported template.
 func (i *importNS) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 	return runtime.Null(), errors.New(errors.KindRuntime, "use ns.macro() to call an imported macro")
 }
@@ -383,7 +394,11 @@ type engineRef struct {
 	in  *interp
 }
 
+// GetField exposes no fields on an engine handle, returning (null, false).
 func (e *engineRef) GetField(string) (runtime.Value, bool) { return runtime.Null(), false }
+
+// CallMethod rejects method calls on the engine handle; it only threads engine
+// state into needs_environment callables and is not itself callable.
 func (e *engineRef) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 	return runtime.Null(), errors.New(errors.KindRuntime, "engine handle is not directly callable")
 }
