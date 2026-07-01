@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Quill Template Coverage</title>
+<style>
+body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;margin:2rem;color:#1a1a1a}
+h1{font-size:1.4rem} h2{font-size:1.1rem;margin-top:2rem}
+table.index{border-collapse:collapse;margin:1rem 0}
+table.index th,table.index td{border:1px solid #ddd;padding:.3rem .6rem;text-align:left}
+.src{border-collapse:collapse;font:12px/1.4 SFMono-Regular,Consolas,monospace;width:100%}
+.src td{padding:0 .5rem;white-space:pre;vertical-align:top}
+.num{color:#999;text-align:right;user-select:none}
+.hits{color:#666;text-align:right;user-select:none}
+.covered{background:#e6ffed} .uncovered{background:#ffeef0} .neutral{background:#fff}
+.mark{width:1rem;text-align:center;user-select:none}
+.full{color:#22863a} .half{color:#b08800} .empty{color:#cb2431}
+</style></head><body>
+<h1>Quill Template Coverage</h1>
+<p>Total units 11/11 (100.0%),
+branches 4/5 (80.0%),
+lines 8/8 (100.0%).</p>
+<table class="index"><thead><tr><th>Template</th><th>Units</th><th>Branches</th><th>Lines</th></tr></thead><tbody>
+<tr>
+<td><a href="#foot.ql">foot.ql</a></td>
+<td>1/1 (100.0%)</td>
+<td>0/0 (100.0%)</td>
+<td>1/1 (100.0%)</td>
+</tr><tr>
+<td><a href="#page.ql">page.ql</a></td>
+<td>10/10 (100.0%)</td>
+<td>4/5 (80.0%)</td>
+<td>7/7 (100.0%)</td>
+</tr>
+</tbody></table>
+
+<h2 id="foot.ql">foot.ql</h2>
+<table class="src"><tbody>
+<tr class="covered">
+<td class="num">1</td>
+<td class="mark "></td>
+<td class="hits">2</td>
+<td>FOOT</td>
+</tr>
+</tbody></table>
+
+<h2 id="page.ql">page.ql</h2>
+<table class="src"><tbody>
+<tr class="covered">
+<td class="num">1</td>
+<td class="mark "></td>
+<td class="hits">2</td>
+<td>HEAD</td>
+</tr><tr class="covered">
+<td class="num">2</td>
+<td class="mark full" title="all arms taken">&#9679;</td>
+<td class="hits">2</td>
+<td>@if admin {</td>
+</tr><tr class="covered">
+<td class="num">3</td>
+<td class="mark "></td>
+<td class="hits">2</td>
+<td>{{ name }}</td>
+</tr><tr class="neutral">
+<td class="num">4</td>
+<td class="mark full" title="all arms taken">&#9679;</td>
+<td class="hits"></td>
+<td>@} else {</td>
+</tr><tr class="covered">
+<td class="num">5</td>
+<td class="mark "></td>
+<td class="hits">1</td>
+<td>guest</td>
+</tr><tr class="neutral">
+<td class="num">6</td>
+<td class="mark "></td>
+<td class="hits"></td>
+<td>@}</td>
+</tr><tr class="covered">
+<td class="num">7</td>
+<td class="mark half" title="partial: loop never ran empty">&#9680;</td>
+<td class="hits">2</td>
+<td>@for row in rows {</td>
+</tr><tr class="covered">
+<td class="num">8</td>
+<td class="mark "></td>
+<td class="hits">9</td>
+<td>[{{ row }}]</td>
+</tr><tr class="neutral">
+<td class="num">9</td>
+<td class="mark "></td>
+<td class="hits"></td>
+<td>@}</td>
+</tr><tr class="covered">
+<td class="num">10</td>
+<td class="mark "></td>
+<td class="hits">2</td>
+<td>@include &#34;foot.ql&#34;</td>
+</tr>
+</tbody></table>
+
+</body></html>
