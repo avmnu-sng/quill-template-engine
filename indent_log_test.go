@@ -82,6 +82,45 @@ func TestTabBlockIndents(t *testing.T) {
 	}
 }
 
+// TestTabBlockMidLineEntry proves the @tab region indents its first body line
+// even when the output cursor arrives mid-line: the region forces its own
+// line-start context so the "indent the entire body" contract holds when the
+// newline before @tab is consumed by whitespace control or when preceding
+// output did not end in a newline.
+func TestTabBlockMidLineEntry(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		vars map[string]runtime.Value
+		want string
+	}{
+		{
+			name: "trailing whitespace trim consumes newline",
+			src:  "{{ x -}}\n@tab(1) {\nbody\n@}\n",
+			vars: map[string]runtime.Value{"x": runtime.Str("X")},
+			want: "X    body\n",
+		},
+		{
+			name: "multiline body after trimmed newline",
+			src:  "{{ x -}}\n@tab(1) {\nline one\nline two\n@}\n",
+			vars: map[string]runtime.Value{"x": runtime.Str("X")},
+			want: "X    line one\n    line two\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewWithArray(map[string]string{"t.ql": tc.src})
+			out, err := env.Render("t.ql", tc.vars)
+			if err != nil {
+				t.Fatalf("render error: %v", err)
+			}
+			if out != tc.want {
+				t.Errorf("got %q want %q", out, tc.want)
+			}
+		})
+	}
+}
+
 // TestTabBlockCustomWidth proves the @tab region reads WithTabWidth.
 func TestTabBlockCustomWidth(t *testing.T) {
 	src := "@tab(2) {\nx\n@}\n"

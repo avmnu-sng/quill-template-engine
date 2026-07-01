@@ -314,7 +314,9 @@ output, and included partials uniformly. Blank lines stay blank -- they receive 
 whitespace. Regions nest cumulatively via an indent stack: an inner `@tab(1)` inside an outer
 `@tab(2)` indents its body by three levels total. The region composes with whitespace control and
 escaping, which run before output reaches the sink. As with the filter, one level is
-`WithTabWidth` spaces (default 4).
+`WithTabWidth` spaces (default 4). The region opens its own line-start context, so the first body
+line is indented even when the output cursor arrives mid-line -- for example when whitespace
+control consumes the newline before `@tab` or when preceding output does not end in a newline.
 
 ```
 @tab(1) {

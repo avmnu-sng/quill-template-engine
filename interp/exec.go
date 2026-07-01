@@ -941,6 +941,12 @@ func (in *interp) execTabBlock(n *ast.Node, ctx *runtime.Context) error {
 	if levels > 0 {
 		in.indent += strings.Repeat(" ", levels*in.eng.TabWidth())
 	}
+	// The region indents its entire rendered body, so it begins its own
+	// line-start context: the first body line receives the indent prefix even
+	// when the output cursor arrives mid-line (for example after whitespace
+	// control consumes the newline before @tab, or when preceding output did
+	// not end in a newline). The saved cursor is restored on exit.
+	in.atLineStart = true
 	err = in.execItems(n.Children[1:], ctx)
 	in.indent, in.atLineStart = saved, savedAtLineStart
 	return err
