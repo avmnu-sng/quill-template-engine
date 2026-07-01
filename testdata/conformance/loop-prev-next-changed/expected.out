@@ -1,0 +1,16 @@
+prev/next over a sequence:
+10: prev=- next=20
+20: prev=10 next=30
+30: prev=20 next=-
+prev/next over a mapping (values):
+lang: prev=- next=2024
+year: prev=go next=-
+changed section headers:
+[a]
+  - one
+  - two
+[b]
+  - three
+  - four
+[c]
+  - five

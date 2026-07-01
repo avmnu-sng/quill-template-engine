@@ -171,6 +171,15 @@ type interp struct {
 	// blank. It is meaningful only while indent is non-empty.
 	atLineStart bool
 
+	// loopChanged is the per-loop state stack backing loop.changed(expr): each
+	// active @for pushes a frame when it begins and pops it when it ends, so a
+	// loop.changed(...) call resolves against the innermost loop and a nested loop
+	// keeps its own prior-value memory. Each frame maps a call site (the
+	// loop.changed(...) node) to the value the expression produced on the prior
+	// iteration, so a template may call changed on several distinct expressions
+	// within one loop and each tracks independently.
+	loopChanged []map[*ast.Node]runtime.Value
+
 	// cov is the coverage Collector for this render, or nil when coverage is off.
 	// When nil every coverage hook (in cover.go) is a single nil comparison the
 	// branch predictor makes free -- the zero-overhead-when-disabled guarantee. It

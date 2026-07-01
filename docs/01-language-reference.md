@@ -576,10 +576,39 @@ taken in the single truthiness rule (`04-types-and-semantics.md` Section 2). The
   collection alike. An author who needs to distinguish "absent" from "present but empty" tests
   `E is defined` before the loop rather than relying on the `else`.
 - **Loop metadata.** Inside the body, `loop` exposes `loop.parent`, `loop.index0`,
-  `loop.index`, `loop.first`, `loop.last`, `loop.length`, `loop.revindex`, `loop.revindex0`.
+  `loop.index`, `loop.first`, `loop.last`, `loop.length`, `loop.revindex`, `loop.revindex0`,
+  `loop.prev`, `loop.next`, and the method `loop.changed(expr)`.
   ALL loop fields are ALWAYS defined: the `*Array` always knows its length, and a host iterator
   is drained to an `*Array` before the loop, trading a small memory cost for an always-present
   `loop.last`.
+  - `loop.prev` and `loop.next` are the value of the previous and next element. Because Quill
+    materializes the sequence before iterating, both are available: `loop.prev` is `Null` on the
+    first iteration and `loop.next` is `Null` on the last. For a `for k, v in mapping` loop they
+    are the previous and next VALUE (the `v` side).
+  - `loop.changed(expr)` is `true` on the first iteration and whenever `expr` differs -- by the
+    single typed-equality rule (`04-types-and-semantics.md` Section 4) -- from the value it had on
+    the prior iteration; otherwise `false`. Each call site is tracked independently, so a body may
+    watch several expressions, and a nested loop keeps its own memory. It is the idiom for
+    section headers over grouped rows: `@if loop.changed(row.group) { [{{ row.group }}] @}`.
+    `expr` may reference the loop variable(s).
+- **Fused loop filtering (`@for ... if cond`).** An optional `if <expr>` clause between the
+  iterand and the body brace pre-filters the iterand to the elements for which `cond` is truthy,
+  and the body runs only over those SURVIVORS:
+
+  ```
+  @for u in users if u.active {
+    {{ u.name }}{{ ", " if not loop.last }}
+  @} else {
+    no active users
+  @}
+  ```
+
+  Every `loop.*` field -- `index`/`index0`, `first`/`last`, `length`, `revindex`/`revindex0`,
+  and `prev`/`next` -- reflects ONLY the survivors, so a trailing-separator idiom keyed on
+  `loop.last` is correct over the filtered subset (the last survivor is the one with no trailing
+  comma). The `else` branch runs when ZERO elements survive the filter. `cond` may reference the
+  loop variable(s); for a `for k, v in mapping if cond` loop it may reference both the key and the
+  value. The filter condition runs in the loop scope, and its bindings do not leak past the loop.
 - **Scoping.** The loop body is a child scope. A variable that existed before the loop and is
   reassigned inside keeps its last in-loop value after the loop; a variable introduced only in
   the body (via `set`) does not leak. The rule is lexical scoping.

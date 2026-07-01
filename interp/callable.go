@@ -40,6 +40,16 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 			"unknown function or macro %q", name))
 	}
 
+	// loop.changed(expr): a built-in loop method. It is true on the FIRST iteration
+	// and whenever expr differs (by typed value equality) from the value it had on
+	// the prior iteration, tracked per call site within the innermost loop. It is
+	// resolved here, before the receiver is evaluated as a value, so the loop array
+	// itself needs no "changed" member.
+	if callee.Kind == ast.KindAttr && callee.Str == "changed" &&
+		callee.Child(0).Kind == ast.KindName && callee.Child(0).Str == "loop" {
+		return in.callLoopChanged(n, ctx)
+	}
+
 	// a.b(...) -- either a macro on an imported namespace / _self, or a host
 	// method call. Evaluate the receiver; a macroRef/selfRef resolves to a macro.
 	if callee.Kind == ast.KindAttr {
@@ -76,6 +86,34 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 
 	return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 		"expression is not callable"))
+}
+
+// callLoopChanged implements loop.changed(expr): true on the first iteration and
+// whenever expr differs from its value on the prior iteration, tracked per call
+// site within the innermost active loop (spec 01 Section 4.2). The call takes
+// exactly one positional argument (the watched expression). Outside any loop it
+// is a runtime error, matching the undefined `loop` a bare loop.* read would hit.
+func (in *interp) callLoopChanged(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+	args, err := in.collectArgs(n, ctx, nil)
+	if err != nil {
+		return runtime.Null(), err
+	}
+	if len(args) != 1 {
+		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+			"loop.changed expects exactly one argument, got %d", len(args)))
+	}
+	if len(in.loopChanged) == 0 {
+		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+			"loop.changed is only available inside a for loop"))
+	}
+	cur := args[0]
+	frame := in.loopChanged[len(in.loopChanged)-1]
+	prev, seen := frame[n]
+	frame[n] = cur
+	// First iteration for this call site (no prior value), or a value that differs
+	// from the prior iteration by typed equality, counts as changed.
+	changed := !seen || !runtime.Equal(prev, cur)
+	return runtime.Bool(changed), nil
 }
 
 // evalFilter handles "x | name(args)" == name(x, args). Host filters shadow core

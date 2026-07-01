@@ -145,8 +145,11 @@ templates where literal braces are rare, under `pragma bare`.
 ### Statements
 
 - `@for x in seq { ... @}` -- iterate, with always-defined `loop` metadata
-  (`loop.index`, `loop.first`, `loop.last`, `loop.length`); an optional
-  `@else { ... @}` arm runs when the sequence is empty.
+  (`loop.index`, `loop.first`, `loop.last`, `loop.length`, `loop.prev`,
+  `loop.next`, and the `loop.changed(expr)` method); an optional
+  `@else { ... @}` arm runs when the sequence is empty. A fused filter
+  `@for x in seq if cond { ... @}` iterates only the elements for which `cond`
+  is truthy, and every `loop.*` field counts only those survivors.
 - `@if cond { ... @} @elseif other { ... @} @else { ... @}` -- conditionals.
 - `@set x = expr` -- bind a variable; `@set x: int = expr` annotates it; the
   target may destructure a list (`@set [a, b, ...rest] = xs`) or a map

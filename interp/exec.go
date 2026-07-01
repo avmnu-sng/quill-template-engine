@@ -379,10 +379,19 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 		idx = 2
 	}
 	iterand := n.Child(idx)
-	body := n.Child(idx + 1)
+
+	// A fused filter clause (KindClause) may sit between the iterand and the body.
+	// The body is the next KindBody; an optional trailing KindBody is the else.
+	var filter *ast.Node
+	bodyIdx := idx + 1
+	if fc := n.Child(bodyIdx); fc != nil && fc.Kind == ast.KindClause {
+		filter = fc
+		bodyIdx++
+	}
+	body := n.Child(bodyIdx)
 	var elseBody *ast.Node
 	if n.Bool {
-		elseBody = n.Child(idx + 2)
+		elseBody = n.Child(bodyIdx + 1)
 	}
 
 	collVal, err := in.eval(iterand, ctx, false)
@@ -392,6 +401,12 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 	pairs, err := runtime.EnsureTraversable(collVal, !in.eng.StrictVariables())
 	if err != nil {
 		return posErr(n, err)
+	}
+	if filter != nil {
+		pairs, err = in.filterLoopPairs(filter, pairs, target1, target2, ctx)
+		if err != nil {
+			return err
+		}
 	}
 	if len(pairs) == 0 {
 		// The collection drained to zero pairs: the empty arm is taken (its @else
@@ -411,7 +426,13 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 	pre := ctx
 	loopCtx := pre.Clone()
 	parentLoop, _ := pre.Get("loop")
-	length := len(pairs)
+
+	// Push a fresh loop.changed(...) memory frame for this loop and pop it when the
+	// loop ends, so the innermost loop answers changed(...) and a nested loop keeps
+	// its own prior-value memory (spec 01 Section 4.2).
+	in.loopChanged = append(in.loopChanged, map[*ast.Node]runtime.Value{})
+	defer func() { in.loopChanged = in.loopChanged[:len(in.loopChanged)-1] }()
+
 	for i, p := range pairs {
 		loopCtx.Set(target1.Str, p.Val)
 		if target2 != nil {
@@ -421,7 +442,7 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 			loopCtx.Set(target1.Str, p.Key)
 			loopCtx.Set(target2.Str, p.Val)
 		}
-		loopCtx.Set("loop", loopMeta(i, length, parentLoop))
+		loopCtx.Set("loop", loopMeta(i, pairs, parentLoop))
 		if err := in.execItems(body.Children, loopCtx); err != nil {
 			return err
 		}
@@ -446,9 +467,16 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 	return nil
 }
 
-// loopMeta builds the loop.* metadata array for iteration i of length n. All
-// fields are always defined, spec 01 Section 4.2.
-func loopMeta(i, n int, parent runtime.Value) runtime.Value {
+// loopMeta builds the loop.* metadata array for iteration i over pairs. All
+// fields are always defined (spec 01 Section 4.2). prev and next are the value of
+// the previous and next element (the mapping VALUE for a two-target loop over a
+// mapping), and Null at the first and last iteration respectively; Quill
+// materializes the sequence, so both are available without buffering. When a
+// fused filter pre-selected the survivors, pairs is already the survivor
+// sequence, so every field -- including first/last/length/revindex and prev/next
+// -- reflects the filtered subset.
+func loopMeta(i int, pairs []runtime.Pair, parent runtime.Value) runtime.Value {
+	n := len(pairs)
 	m := runtime.NewArray()
 	m.SetStr("index0", runtime.Int(int64(i)))
 	m.SetStr("index", runtime.Int(int64(i+1)))
@@ -457,12 +485,49 @@ func loopMeta(i, n int, parent runtime.Value) runtime.Value {
 	m.SetStr("first", runtime.Bool(i == 0))
 	m.SetStr("last", runtime.Bool(i == n-1))
 	m.SetStr("length", runtime.Int(int64(n)))
+	if i > 0 {
+		m.SetStr("prev", pairs[i-1].Val)
+	} else {
+		m.SetStr("prev", runtime.Null())
+	}
+	if i < n-1 {
+		m.SetStr("next", pairs[i+1].Val)
+	} else {
+		m.SetStr("next", runtime.Null())
+	}
 	if parent.Kind != runtime.KNull {
 		m.SetStr("parent", parent)
 	} else {
 		m.SetStr("parent", runtime.Null())
 	}
 	return runtime.Arr(m)
+}
+
+// filterLoopPairs pre-selects the pairs whose fused filter condition is truthy,
+// so the loop body runs only over the survivors and every loop.* field counts
+// only them (spec 01 Section 4.2, the @for..if form). The condition is evaluated
+// in a child scope with the loop target(s) bound to each candidate element, so it
+// may reference the loop variable(s); its own bindings do not leak. A single
+// target binds the value; two targets bind the key and value like the loop body.
+func (in *interp) filterLoopPairs(filter *ast.Node, pairs []runtime.Pair, target1, target2 *ast.Node, ctx *runtime.Context) ([]runtime.Pair, error) {
+	cond := filter.Child(0)
+	scope := ctx.Clone()
+	survivors := make([]runtime.Pair, 0, len(pairs))
+	for _, p := range pairs {
+		scope.Set(target1.Str, p.Val)
+		if target2 != nil {
+			scope.Set(target1.Str, p.Key)
+			scope.Set(target2.Str, p.Val)
+		}
+		keep, err := in.eval(cond, scope, false)
+		if err != nil {
+			return nil, err
+		}
+		if runtime.Truthy(keep) {
+			survivors = append(survivors, p)
+		}
+	}
+	return survivors, nil
 }
 
 // execSet binds one or more targets to one or more values (spec 01 Section 4.3).

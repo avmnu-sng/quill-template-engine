@@ -51,10 +51,17 @@ func (p *parser) parseIf() *ast.Node {
 	return ifNode
 }
 
-// parseFor parses "@for t1 [, t2] in iterand { body } [ @else { body } ] @}"
+// parseFor parses
+// "@for t1 [, t2] in iterand [ if cond ] { body } [ @else { body } ] @}"
 // (design/control-flow Section 3). Children order: target1, [target2], iterand,
-// body (KindBody), [else body (KindBody)]. Int is the target count; Bool marks an
-// else branch.
+// [filter (KindClause, Bool=true, child 0 is the condition)], body (KindBody),
+// [else body (KindBody)]. Int is the target count; Bool marks an else branch.
+//
+// The optional "if cond" clause between the iterand and the body brace is a
+// FUSED loop filter: the iterand is pre-filtered to the elements for which cond
+// is truthy, and every loop.* field reflects only the survivors. The condition
+// may reference the loop target(s), so it is evaluated per element with the
+// targets bound (interp/exec.go execFor).
 func (p *parser) parseFor() *ast.Node {
 	t := p.expectStmt("for")
 	forNode := p.node(ast.KindFor, t)
@@ -72,6 +79,16 @@ func (p *parser) parseFor() *ast.Node {
 	p.advance() // in
 	forNode.Add(p.parseExpr())
 	forNode.Int = count
+
+	// Optional fused filter clause "if cond" before the body brace. It is a
+	// KindClause with Bool=true carrying the condition as child 0, mirroring the
+	// if-clause shape so the interpreter reads it uniformly.
+	if p.isNameWord("if") {
+		ifTok := p.advance()
+		filter := p.node(ast.KindClause, ifTok, p.parseExpr())
+		filter.Bool = true
+		forNode.Add(filter)
+	}
 
 	p.openBody()
 	body := p.node(ast.KindBody, t)

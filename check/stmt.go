@@ -335,7 +335,16 @@ func (c *checker) checkFor(n *ast.Node, sc *scope) error {
 		idx = 2
 	}
 	iter := n.Child(idx)
-	body := n.Child(idx + 1)
+
+	// An optional fused filter clause (KindClause) sits between the iterand and the
+	// body; the body is then the next KindBody and the else follows it.
+	var filter *ast.Node
+	bodyIdx := idx + 1
+	if fc := n.Child(bodyIdx); fc != nil && fc.Kind == ast.KindClause {
+		filter = fc
+		bodyIdx++
+	}
+	body := n.Child(bodyIdx)
 
 	it, err := c.exprType(iter, sc)
 	if err != nil {
@@ -360,12 +369,19 @@ func (c *checker) checkFor(n *ast.Node, sc *scope) error {
 			return err
 		}
 	}
+	// The fused filter condition is checked in the loop scope, so it may reference
+	// the loop target(s) just like the body.
+	if filter != nil {
+		if _, err := c.exprType(filter.Child(0), loop); err != nil {
+			return err
+		}
+	}
 	if err := c.checkItems(body.Children, loop); err != nil {
 		return err
 	}
 	// An @else body (Bool set) runs in the outer scope with no loop bindings.
 	if n.Bool {
-		if els := n.Child(idx + 2); els != nil {
+		if els := n.Child(bodyIdx + 1); els != nil {
 			if err := c.checkItems(els.Children, newScope(sc)); err != nil {
 				return err
 			}

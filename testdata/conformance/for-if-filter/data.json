@@ -1,0 +1,11 @@
+{
+  "users": [
+    { "name": "ada", "active": true },
+    { "name": "bel", "active": false },
+    { "name": "cid", "active": true },
+    { "name": "dot", "active": false },
+    { "name": "eve", "active": true }
+  ],
+  "nums": [1, 2, 3, 4, 5, 6],
+  "scores": { "math": 90, "art": 45, "gym": 60, "lab": 30 }
+}

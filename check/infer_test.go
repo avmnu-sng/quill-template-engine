@@ -109,6 +109,14 @@ func TestInferWellTyped(t *testing.T) {
 
 		// range and bitwise are typed but permissive.
 		{"range join", "@set r = 1..5\n{{ r | join(\",\") }}", nil},
+
+		// fused loop filter: the "if cond" clause is checked in the loop scope, so
+		// it may reference the loop target(s) with their inferred types.
+		{"for if filter references target", "@types {\n  xs: list<int>\n@}\n@for x in xs if x > 0 {\n{{ x + 1 }}\n@}", nil},
+		{"for if filter two targets", "@types {\n  m: map<string,int>\n@}\n@for k, v in m if v > 0 {\n{{ k }}={{ v }}\n@}", nil},
+		{"for if filter with else", "@types {\n  xs: list<int>\n@}\n@for x in xs if x > 0 {\n{{ x }}\n@} else {\nnone\n@}", nil},
+		{"loop changed method", "@types {\n  xs: list<int>\n@}\n@for x in xs {\n{{ loop.changed(x) }}\n@}", nil},
+		{"loop prev next", "@types {\n  xs: list<int>\n@}\n@for x in xs {\n{{ loop.prev ?? 0 }}{{ loop.next ?? 0 }}\n@}", nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

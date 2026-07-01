@@ -1,0 +1,11 @@
+{
+  "nums": [10, 20, 30],
+  "meta": { "lang": "go", "year": 2024 },
+  "rows": [
+    { "group": "a", "name": "one" },
+    { "group": "a", "name": "two" },
+    { "group": "b", "name": "three" },
+    { "group": "b", "name": "four" },
+    { "group": "c", "name": "five" }
+  ]
+}

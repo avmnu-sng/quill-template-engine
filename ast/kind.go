@@ -177,9 +177,12 @@ const (
 	// condition and children 1.. are body items.
 	KindClause
 	// KindFor is "@for". Str-less. Children: target1 (KindTarget), optional target2
-	// (KindTarget) when Int>=2, the iterand expression, the body (a KindBody), and
-	// an optional else (a KindBody). Int holds the target count (1 or 2); Bool
-	// marks presence of an else branch.
+	// (KindTarget) when Int>=2, the iterand expression, an optional fused-filter
+	// clause (a KindClause with Bool=true carrying the "if cond" condition as child
+	// 0), the body (a KindBody), and an optional else (a KindBody). Int holds the
+	// target count (1 or 2); Bool marks presence of an else branch. The filter
+	// clause, when present, pre-selects the elements the body iterates so every
+	// loop.* field reflects the survivors.
 	KindFor
 	// KindTarget is a loop/set target name with an optional type. Str is the name;
 	// child 0 (optional) is a KindType.
