@@ -170,6 +170,19 @@ ever reaches still appears in the report as `0` rather than being silently absen
 denominator is the whole template, not just what ran. Seeding is idempotent and keyed by
 region id, so re-seeding the same template across renders is a no-op.
 
+**Seeding boundary (template granularity).** Seeding is gated on a template being *entered*
+by a render, not on it being merely *referenced*. The engine seeds the render root and its
+inheritance chain, an `@include`/`@embed` target when its statement actually executes, and a
+macro home when one of its macros is invoked. A template that is only referenced but never
+entered -- imported for macros that are never called, or an `@include` whose statement never
+runs because it sits in a never-taken `@if` arm -- is never seeded, so it is **absent** from
+the report rather than shown at `0%`. Within a template that *is* entered, every region is
+seeded, so an untaken branch or an unreached statement still reports `0`; only whole
+never-entered templates fall out. This keeps the denominator to code the render pipeline
+could reach. A caller that wants an unexercised partial to count as `0%` must seed it
+explicitly by walking the reference graph and calling `Collector.SeedTemplate` on each
+target. The semantics are pinned by `TestCoverageUnreachedIncludeIsAbsent`.
+
 ### 2.3 Aggregation across renders
 
 A single `Collector` is shared across every `Render` call made through the Environment it is

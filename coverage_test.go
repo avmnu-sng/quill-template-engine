@@ -270,6 +270,51 @@ func TestCoverageGuardArms(t *testing.T) {
 	assertUncovered(t, r, "t.ql", 4, cover.UnitText) // no body did not
 }
 
+// TestCoverageUnreachedIncludeIsAbsent pins the seeding boundary: seeding is
+// gated on a template being ENTERED at render time, not on it being merely
+// referenced. An @include whose statement never executes (here, inside a
+// never-taken @if arm) never enters its target, so the target is never seeded
+// and its regions are ABSENT from the report -- not reported as 0%. This is a
+// deliberate limitation documented on cover.Collector.SeedTemplate; the test
+// exists so the semantics cannot drift silently.
+func TestCoverageUnreachedIncludeIsAbsent(t *testing.T) {
+	// 1: @if on {
+	// 2: @include "p.ql"
+	// 3: @}
+	main := "@if on {\n@include \"p.ql\"\n@}\n"
+	partial := "PARTIAL\n"
+	coll := cover.NewCollector()
+	env := NewWithArray(map[string]string{"main.ql": main, "p.ql": partial},
+		WithCoverage(coll))
+
+	// on=false: the @if arm is not taken, so the @include statement never runs
+	// and p.ql is never entered or seeded.
+	if _, err := env.Render("main.ql", map[string]runtime.Value{
+		"on": runtime.Bool(false),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	r := coll.Report()
+
+	// main.ql is present: its @if reached but the then arm was not taken, and the
+	// include unit inside the untaken arm is seeded-but-uncovered.
+	assertCovered(t, r, "main.ql", 1, cover.UnitIf)
+	assertUncovered(t, r, "main.ql", 1, cover.IfThen)
+	assertUncovered(t, r, "main.ql", 2, cover.UnitInclude)
+
+	// p.ql is entirely ABSENT from the report: never entered means never seeded.
+	if _, ok := findRegion(t, r, "p.ql", 1, cover.UnitText); ok {
+		t.Errorf("p.ql was seeded despite never being entered; seeding is meant " +
+			"to be reachability-gated at template granularity")
+	}
+	for _, tc := range r.Templates() {
+		if tc.Name == "p.ql" {
+			t.Errorf("p.ql appears in the report with %d regions; expected absent",
+				len(tc.Regions))
+		}
+	}
+}
+
 // TestCoverageZeroOverheadWhenDisabled asserts that without WithCoverage the
 // Environment reports no Collector, so the interp's coverage hooks are inert.
 func TestCoverageZeroOverheadWhenDisabled(t *testing.T) {

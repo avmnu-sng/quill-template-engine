@@ -12,10 +12,21 @@
 //
 // The model is two-phase and idempotent. Before (and during) a render each
 // template's coverable nodes are SEEDED as zero-count regions by a static AST
-// walk, so template code that no render reaches still counts against the
-// denominator rather than being silently absent. Rendering only increments hit
-// counters. Seeding is keyed by region id, so re-seeding the same template across
-// renders is a no-op and hits union across every render on the Collector.
+// walk, so code WITHIN a rendered template that no render reaches still counts
+// against the denominator rather than being silently absent. Rendering only
+// increments hit counters. Seeding is keyed by region id, so re-seeding the same
+// template across renders is a no-op and hits union across every render on the
+// Collector.
+//
+// Seeding is reachability-gated at TEMPLATE granularity: a template is seeded
+// when it is actually entered by a render (the render root and its inheritance
+// chain, an executed @include/@embed target, or a macro home whose macro is
+// invoked). A template that is only referenced -- imported for macros that are
+// never called, or an @include whose statement never runs (e.g. inside a
+// never-taken @if arm) -- is never entered and so is ABSENT from the report
+// rather than reported at 0%. Within a template that IS entered, every region is
+// seeded, so an untaken branch or an unreached statement still reports 0. See
+// Collector.SeedTemplate for the precise boundary.
 package cover
 
 import (
@@ -207,6 +218,19 @@ func (c *Collector) seed(name string, n *ast.Node, kind RegionKind) {
 // coverable node (and every branch arm) as a zero-count region under name. It is
 // idempotent: a template already seeded is skipped, so calling it before each
 // render is cheap and never double-counts. A nil Collector is a no-op.
+//
+// Boundary: SeedTemplate registers whole-template regions, but the engine only
+// calls it for a template that is actually ENTERED at render time -- the render
+// root and its inheritance chain, an executed @include/@embed target, and a
+// macro home at the point one of its macros is invoked. Consequently seeding is
+// reachability-gated at template granularity: a template that is merely
+// referenced but never entered (macros imported yet never called, or an @include
+// whose statement never executes because it sits in a never-taken @if arm) is
+// never seeded and is ABSENT from the report rather than shown at 0%. This
+// deliberately keeps the report to code the render pipeline could reach; it does
+// mean an unexercised partial does not, on its own, drag the denominator down.
+// Callers that want a referenced-but-unentered template to report 0% must seed
+// it explicitly (walk the reference graph and call SeedTemplate for each target).
 func (c *Collector) SeedTemplate(name string, module *ast.Node) {
 	if c == nil || module == nil {
 		return
