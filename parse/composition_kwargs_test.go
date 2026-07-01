@@ -64,3 +64,26 @@ func TestParseParamTailRules(t *testing.T) {
 func TestParseKwargsNeedsName(t *testing.T) {
 	mustErr(t, "@macro f(**) {\nx\n@}\n", "after '**'")
 }
+
+// TestParseArrowRejectsKwargs asserts that a "**name" kwargs parameter is not
+// accepted on an arrow parameter list: arrows are positional and have no
+// named-argument mechanism, so the kwargs tail is a macro/block feature. The
+// probes mirror TestParseParamTailRules for the arrow path, including a bare
+// kwargs, a kwargs after a positional, a kwargs before a positional, and a double
+// kwargs, each of which the macro path governs with tail-order rules.
+func TestParseArrowRejectsKwargs(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+	}{
+		{"positional then kwargs", "{{ (a, **opts) => opts }}"},
+		{"kwargs then positional", "{{ (**opts, x) => x }}"},
+		{"kwargs only", "{{ (**opts) => opts }}"},
+		{"double kwargs", "{{ (**a, **b) => a }}"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mustErr(t, tc.src, "'**name' kwargs parameter is only allowed on a macro or block")
+		})
+	}
+}

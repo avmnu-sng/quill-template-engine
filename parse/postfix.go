@@ -277,12 +277,19 @@ func (p *parser) parenIsArrow() bool {
 }
 
 // parseArrowParenForm parses "(" [ParamList] ")" "=>" Expr after parenIsArrow has
-// confirmed the form.
+// confirmed the form. Arrow parameters are positional: an ordinary name, an
+// optional ":Type" and "=default", or a trailing "...name" variadic. Arrows carry
+// no named-argument mechanism, so a "**name" kwargs tail belongs to a macro or
+// block declaration and is rejected here (spec 02 R9, spec 01 arrow forms).
 func (p *parser) parseArrowParenForm(open lex.Token) *ast.Node {
 	p.advance() // '('
 	arrow := p.node(ast.KindArrow, open)
 	for !p.at(lex.RPAREN) && !p.at(lex.EOF) {
-		arrow.Add(p.parseParam())
+		param := p.parseParam()
+		if param.Int&ast.ParamKwargs != 0 {
+			p.failAt(tokAt(param), "a '**name' kwargs parameter is only allowed on a macro or block")
+		}
+		arrow.Add(param)
 		if !p.accept(lex.COMMA) {
 			break
 		}

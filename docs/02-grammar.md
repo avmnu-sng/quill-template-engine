@@ -227,9 +227,11 @@ Primary     = Literal | SpecialName | Name | "(" Expr ")" | Seq | Map | Arrow .
 Name        = NAME .                                       (* word-operators are NAME here (R2) *)
 SpecialName = "_self" | "_context" | "_charset" .          (* reserved, engine-resolved (R11) *)
 Arrow       = ( NAME | "(" [ParamList] ")" ) "=>" Expr .
-ParamList   = Param { "," Param } .
+ParamList   = Param { "," Param } .                        (* arrow params are positional-only *)
 Param       = NAME [ ":" Type ] [ "=" Expr ] | "..." NAME .
-Params      = ParamList .
+Params      = MacroParamList .                             (* macro/block/call-block heads *)
+MacroParamList = [ Param { "," Param } ] [ "," ] [ "..." NAME [ "," ] ] [ "**" NAME ] .
+                                                           (* ordered tail: optional "..." NAME then optional "**" NAME, each last (R13) *)
 Seq         = "[" [ Expr { "," Expr } [","] ] "]" .
 Map         = "{" [ MapEntry { "," MapEntry } [","] ] "}" .
 MapEntry    = Name | Name ":" Expr | "(" Expr ")" ":" Expr | "..." Expr .
@@ -349,7 +351,12 @@ each is confined to a distinct syntactic position.
 **R9 -- arrow param list vs grouping.** `( ... )` is an arrow param list only when immediately
 followed by `=>`; otherwise it is a grouped expression. The parser parses the parenthesized
 form, then checks for `=>`: if present, it reinterprets the contents as `ParamList`; if not, it
-is a grouped `Expr`. A single bare `NAME =>` is also an arrow.
+is a grouped `Expr`. A single bare `NAME =>` is also an arrow. An arrow `ParamList` is
+positional-only: it admits `NAME [: Type] [= Expr]` and a trailing `... NAME`, and carries no
+named-argument mechanism, so a `** NAME` kwargs tail is a `MacroParamList` feature (of
+`@macro`, `@block`, and `@call` heads) and is rejected on an arrow. Within a `MacroParamList`
+the two tail captures obey a fixed terminal order: an optional `... NAME` positional variadic,
+then an optional `** NAME` kwargs, each last in the list.
 
 **R10 -- assignment target vs expression.** The LHS of `=` is parsed as an `Expr`, then
 reinterpreted as a `Target_` when `=` follows. A sequence literal `[a, b]` on the left of `=`
