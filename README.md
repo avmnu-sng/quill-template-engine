@@ -202,14 +202,17 @@ Quill ships a complete built-in library of filters, functions, and tests, all
   `split`, `join`, `slice`, `length`, `url_encode`, `nl2br`, the source-emission
   helpers `indent`/`tab`/`ucfirst`, and the escapers `escape`/`e`/`raw`.
 - **Collection:** `first`, `last`, `keys`, `reverse`, `sort`, `merge`, `batch`,
-  `column`, and the higher-order `map`/`filter`/`reduce`/`find` (arrow-driven),
-  plus the `has some` / `has every` quantifiers.
+  `column`, the higher-order `map`/`filter`/`reduce`/`find` (arrow-driven), the
+  attribute-projecting `map`/`sum`/`unique` (`attribute: "path"`), the named-test
+  `select`/`reject`/`selectattr`/`rejectattr`, `group_by`, plus the `has some` /
+  `has every` quantifiers.
 - **Number/format:** `abs`, `round`, `number_format`, `format`, `date`.
 - **Functions:** `range`, `min`, `max`, `random`, `cycle`, `constant`, `enum`,
   `enum_cases`, `include`, `source`, `template_from_string`, `dump`, and the
   indentation emitters `space`/`break`/`tab`.
 - **Tests:** `is defined`, `is empty`, `is even`/`odd`, `is iterable`,
-  `is constant`, `is divisible by`, and the type tests.
+  `is constant`, `is divisible by`, the comparison tests
+  `is eq`/`ne`/`lt`/`le`/`gt`/`ge`, and the type tests.
 
 The full catalogue with signatures is
 [`docs/03-stdlib.md`](docs/03-stdlib.md).

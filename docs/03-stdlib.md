@@ -75,10 +75,17 @@ then the explicit args; `T?` is nullable; `list<T>`/`map<K,V>` are the collectio
 | `reverse(preserve_keys: bool = true)` | `(any, ...) -> any` | Reverse a collection (keys preserved by default) or a string by runes. |
 | `batch(size: int, fill: any? = null)` | `(coll, ...) -> list<list>` | Fixed-size chunks; `fill` pads the last chunk. |
 | `column(name)` | `(list, key) -> list` | Extract one attribute per row. |
-| `map((value, key?) => expr)` | `(coll, fn) -> coll` | Transform, key-preserving. |
+| `map((value, key?) => expr)` | `(coll, fn) -> coll` | Transform, key-preserving. With `attribute: "path"` in place of the arrow it plucks that dotted path from each element (see Section 2.8). |
 | `filter((value, key?) => bool)` | `(coll, fn) -> coll` | Keep where the arrow is truthy, key-preserving. |
 | `reduce((acc, value, key?) => expr, initial: any = null)` | `(coll, fn, ...) -> any` | Left fold. |
 | `find((value, key?) => bool)` | `(coll, fn) -> any` | First matching value, else `null`. |
+| `sum(attribute: string? = null)` | `(coll, ...) -> number` | Add a numeric sequence; with `attribute: "path"` sum that dotted path from each element. Int stays Int; any float participant promotes to Float; empty is `0`. |
+| `unique(attribute: string? = null)` | `coll -> list` | Drop duplicate values, first occurrence wins, order preserved; with `attribute: "path"` dedupe by that dotted path. |
+| `select(test: string, args...)` | `(coll, ...) -> coll` | Keep elements where the named test passes, key-preserving (see Section 2.8). |
+| `reject(test: string, args...)` | `(coll, ...) -> coll` | Keep elements where the named test fails, the complement of `select`. |
+| `selectattr(path: string, test: string, args...)` | `(coll, ...) -> coll` | Pluck `path` from each element and keep those where the named test passes, key-preserving. |
+| `rejectattr(path: string, test: string, args...)` | `(coll, ...) -> coll` | The complement of `selectattr`. |
+| `group_by(by)` | `(coll, path-or-arrow) -> list<map>` | Partition into `{key, items}` mappings ordered by first appearance of each key; `by` is a dotted-path string plucked from each element or an arrow `(value, key?) => key` (see Section 2.8). |
 | `shuffle(seed: int? = null)` | `coll -> coll` | Permute; `seed` makes it deterministic. |
 
 ### 2.3 Math filters
@@ -135,6 +142,45 @@ is the same one the host program already uses:
 keeps `0` because it is defined and non-null: `default` keys on definedness and `Null`, not on
 emptiness. The separate `is empty` test (Section 4.1) covers length-zero collections/strings
 and `Null`.
+
+### 2.8 Attribute projection, named-test filtering, and grouping
+
+Four collection filters take a `attribute: "path"` named argument -- a DOTTED PATH plucked
+from each element by dotted access -- so a projection reads a nested value directly rather
+than through an arrow:
+
+```text
+{{ people | map(attribute: "name") | join(", ") }}      {# a comma-joined list of names #}
+{{ orders | sum(attribute: "line.total") }}             {# add a nested numeric field #}
+{{ people | unique(attribute: "role.title") }}          {# first person per distinct role #}
+```
+
+`map(attribute: "path")` projects the path from each element, key-preserving. `sum(attribute:
+"path")` adds the projected numbers; `sum` with no attribute adds a numeric sequence directly.
+`unique(attribute: "path")` keeps the first element carrying each distinct projected value,
+order preserved; `unique` with no attribute dedupes whole values.
+
+`select`/`reject` take the NAME of a registered test (a string) and keep, respectively drop,
+the elements for which it passes; any further arguments are passed to the test after the
+element. `selectattr`/`rejectattr` first pluck a dotted path from each element and apply the
+named test to the projected value. All four are key-preserving on a mapping source. The
+comparison tests `eq`/`ne`/`lt`/`le`/`gt`/`ge` (Section 4) make attribute comparisons direct:
+
+```text
+{{ people | select("even") }}                           {# elements passing `is even` #}
+{{ people | selectattr("age", "ge", 18) }}              {# each person whose age >= 18 #}
+{{ people | rejectattr("role.title", "eq", "admin") }}  {# drop admins #}
+```
+
+`group_by(by)` partitions a collection into an ordered sequence of `{key, items}` mappings,
+one per distinct key, ordered by the FIRST APPEARANCE of each key (never sorted by key). `by`
+is a dotted-path string plucked from each element, or an arrow `(value, key?) => key`:
+
+```text
+@for g in people | group_by("role.title") {
+  {{ g.key }}: {{ g.items | map(attribute: "name") | join(", ") }}
+@}
+```
 
 --------------------------------------------------------------------------------
 
@@ -241,6 +287,11 @@ one mandatory or parenthesized argument.
 | `is sequence` | none | True iff a list-shaped `*Array`; empty IS a sequence. |
 | `is mapping` | none | True iff a non-list `*Array` or any `Object`; empty is NOT a mapping; any object IS. |
 | `is true` | none | True iff the value is `Bool` true (`Safe`-unwrapped first). |
+| `is eq(y)` / `is ne(y)` | one mandatory | Value equality and its negation via the one typed equality (`04-types-and-semantics.md` Section 4). |
+| `is lt(y)` / `is le(y)` / `is gt(y)` / `is ge(y)` | one mandatory | The four ordering relations via the one runtime ordering; total within the number tower and between two strings, a comparison error across unlike kinds. |
+
+The comparison tests take one argument each and are typed, total, and deterministic, so they
+back the named-test collection filters (Section 2.8): `people | selectattr("age", "ge", 18)`.
 
 ### 4.1 `is empty` -- the one emptiness predicate
 

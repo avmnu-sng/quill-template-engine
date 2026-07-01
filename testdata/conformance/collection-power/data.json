@@ -1,0 +1,11 @@
+{
+  "nums": [1, 2, 3, 4, 5],
+  "prices": [1, 2.5, 0.25],
+  "dups": [1, 2, 2, 3, 1, 3],
+  "people": [
+    {"name": "ann", "age": 30, "role": {"title": "eng"}},
+    {"name": "bob", "age": 15, "role": {"title": "sales"}},
+    {"name": "cal", "age": 18, "role": {"title": "eng"}},
+    {"name": "dee", "age": 40, "role": {"title": "sales"}}
+  ]
+}

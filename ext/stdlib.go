@@ -270,6 +270,24 @@ func registerCollectionFilters(s *ExtensionSet) {
 	s.AddFilter(&Filter{Name: "reduce", Fn: filterReduce})
 	s.AddFilter(&Filter{Name: "find", Fn: filterFind})
 	s.AddFilter(&Filter{Name: "shuffle", Fn: filterShuffle})
+	s.AddFilter(&Filter{Name: "sum", Fn: filterSum})
+	s.AddFilter(&Filter{Name: "unique", Fn: filterUnique})
+	s.AddFilter(&Filter{Name: "group_by", Fn: filterGroupBy})
+
+	// select/reject/selectattr/rejectattr resolve a named test from s, so they
+	// close over the set the same way constant/enum do.
+	s.AddFilter(&Filter{Name: "select", Fn: func(args []runtime.Value) (runtime.Value, error) {
+		return filterSelect(s, args, true)
+	}})
+	s.AddFilter(&Filter{Name: "reject", Fn: func(args []runtime.Value) (runtime.Value, error) {
+		return filterSelect(s, args, false)
+	}})
+	s.AddFilter(&Filter{Name: "selectattr", Fn: func(args []runtime.Value) (runtime.Value, error) {
+		return filterSelectAttr(s, args, true)
+	}})
+	s.AddFilter(&Filter{Name: "rejectattr", Fn: func(args []runtime.Value) (runtime.Value, error) {
+		return filterSelectAttr(s, args, false)
+	}})
 }
 
 // filterBatch chunks a collection into fixed-size lists, padding the last chunk
@@ -332,22 +350,81 @@ func filterColumn(args []runtime.Value) (runtime.Value, error) {
 }
 
 // filterMap applies an arrow to each (value, key) and returns a key-preserving
-// collection of the results (spec 03 Section 2.2).
+// collection of the results (spec 03 Section 2.2). When the argument is a dotted
+// path string rather than a callable -- the map(attribute:'path') form -- it
+// plucks that path from each element instead, key-preserving.
 func filterMap(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	fn := arg(args, 1)
 	if v.Kind != runtime.KArray || v.Arr == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "map expects a collection")
 	}
+	byAttr := isPathArg(fn)
+	if !byAttr && !runtime.IsCallable(fn) {
+		return runtime.Null(), errors.New(errors.KindRuntime,
+			"map expects a callable or a string attribute path, got %s", fn.Kind)
+	}
+	var path []runtime.Value
+	if byAttr {
+		p, err := parsePath(fn)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		path = p
+	}
 	out := runtime.NewArray()
 	for _, p := range v.Arr.Pairs() {
-		res, err := runtime.Call(fn, []runtime.Value{p.Val, p.Key})
+		var res runtime.Value
+		var err error
+		if byAttr {
+			res, err = pluck(p.Val, path)
+		} else {
+			res, err = runtime.Call(fn, []runtime.Value{p.Val, p.Key})
+		}
 		if err != nil {
 			return runtime.Null(), err
 		}
 		out.SetKey(p.Key, res)
 	}
 	return runtime.Arr(out), nil
+}
+
+// isPathArg reports whether v is a string value usable as an attribute path,
+// distinguishing the map/group_by attribute form from an arrow argument.
+func isPathArg(v runtime.Value) bool {
+	return v.Kind == runtime.KStr || v.Kind == runtime.KSafe
+}
+
+// parsePath splits a dotted-path string ("a.b.c") into its segment keys, used by
+// the attribute-projecting collection ops (map/sum/unique attribute:, group_by,
+// selectattr/rejectattr). A single segment with no dot is one key.
+func parsePath(v runtime.Value) ([]runtime.Value, error) {
+	s, err := wantString(v)
+	if err != nil {
+		return nil, err
+	}
+	segs := strings.Split(s, ".")
+	out := make([]runtime.Value, len(segs))
+	for i, seg := range segs {
+		out[i] = runtime.Str(seg)
+	}
+	return out, nil
+}
+
+// pluck walks a parsed dotted path from a value, resolving each segment as an
+// attribute (dot access, so a string segment reads a mapping key or an object
+// member). A missing segment yields Null, matching the lenient projection the
+// attribute-based collection ops expect.
+func pluck(v runtime.Value, path []runtime.Value) (runtime.Value, error) {
+	cur := v
+	for _, seg := range path {
+		got, err := runtime.GetAttribute(cur, seg, runtime.AccessDot, true)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		cur = got
+	}
+	return cur, nil
 }
 
 // filterFilter keeps elements where the arrow is truthy, key-preserving (spec 03
@@ -408,6 +485,238 @@ func filterFind(args []runtime.Value) (runtime.Value, error) {
 		}
 	}
 	return runtime.Null(), nil
+}
+
+// filterSum adds a numeric sequence, optionally projecting a dotted path from
+// each element first -- the sum(attribute:'path') form (spec 03 Section 2.2).
+// An int sequence sums to an Int; any float participant promotes the total to a
+// Float. An empty collection sums to Int 0.
+func filterSum(args []runtime.Value) (runtime.Value, error) {
+	v := arg(args, 0)
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return runtime.Null(), errors.New(errors.KindRuntime, "sum expects a collection")
+	}
+	var path []runtime.Value
+	if a := arg(args, 1); !a.IsNull() {
+		p, err := parsePath(a)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		path = p
+	}
+	var isum int64
+	var fsum float64
+	anyFloat := false
+	for _, p := range v.Arr.Pairs() {
+		val := p.Val
+		if path != nil {
+			got, err := pluck(val, path)
+			if err != nil {
+				return runtime.Null(), err
+			}
+			val = got
+		}
+		switch val.Kind {
+		case runtime.KInt:
+			isum += val.I
+			fsum += float64(val.I)
+		case runtime.KFloat:
+			anyFloat = true
+			fsum += val.F
+		default:
+			return runtime.Null(), errors.New(errors.KindRuntime,
+				"sum expects numbers, got %s", val.Kind)
+		}
+	}
+	if anyFloat {
+		return runtime.Float(fsum), nil
+	}
+	return runtime.Int(isum), nil
+}
+
+// filterUnique removes duplicate values, first occurrence wins and order is
+// preserved, reindexed as a list (spec 03 Section 2.2). With the
+// unique(attribute:'path') form it dedupes by the projected path rather than by
+// the whole value; the first element carrying each distinct key is kept.
+func filterUnique(args []runtime.Value) (runtime.Value, error) {
+	v := arg(args, 0)
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return runtime.Null(), errors.New(errors.KindRuntime, "unique expects a collection")
+	}
+	var path []runtime.Value
+	if a := arg(args, 1); !a.IsNull() {
+		p, err := parsePath(a)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		path = p
+	}
+	var seen []runtime.Value
+	out := runtime.NewArray()
+	idx := int64(0)
+	for _, p := range v.Arr.Pairs() {
+		key := p.Val
+		if path != nil {
+			got, err := pluck(p.Val, path)
+			if err != nil {
+				return runtime.Null(), err
+			}
+			key = got
+		}
+		dup := false
+		for _, s := range seen {
+			if runtime.Equal(key, s) {
+				dup = true
+				break
+			}
+		}
+		if dup {
+			continue
+		}
+		seen = append(seen, key)
+		out.SetInt(idx, p.Val)
+		idx++
+	}
+	return runtime.Arr(out), nil
+}
+
+// filterGroupBy partitions a collection into an ordered sequence of {key, items}
+// mappings, one group per distinct key, ordered by the FIRST appearance of each
+// key (spec 03 Section 2.2). The grouping selector is a dotted-path string that
+// is plucked from each element, or an arrow (value, key?) => key computed per
+// element. Groups are NOT sorted by key; first-appearance order is the contract.
+func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
+	v := arg(args, 0)
+	by := arg(args, 1)
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return runtime.Null(), errors.New(errors.KindRuntime, "group_by expects a collection")
+	}
+	byArrow := runtime.IsCallable(by)
+	if !byArrow && !isPathArg(by) {
+		return runtime.Null(), errors.New(errors.KindRuntime,
+			"group_by expects a string path or an arrow, got %s", by.Kind)
+	}
+	var path []runtime.Value
+	if !byArrow {
+		p, err := parsePath(by)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		path = p
+	}
+	var order []runtime.Value // group keys in first-appearance order
+	items := map[string]*runtime.Array{}
+	keyVals := map[string]runtime.Value{}
+	for _, p := range v.Arr.Pairs() {
+		var gk runtime.Value
+		var err error
+		if byArrow {
+			gk, err = runtime.Call(by, []runtime.Value{p.Val, p.Key})
+		} else {
+			gk, err = pluck(p.Val, path)
+		}
+		if err != nil {
+			return runtime.Null(), err
+		}
+		enc, err := runtime.ToText(gk)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		if _, ok := items[enc]; !ok {
+			items[enc] = runtime.NewArray()
+			keyVals[enc] = gk
+			order = append(order, gk)
+		}
+		items[enc].SetInt(int64(items[enc].Len()), p.Val)
+	}
+	out := runtime.NewArray()
+	for i, gk := range order {
+		enc, _ := runtime.ToText(gk)
+		group := runtime.NewArray()
+		group.SetStr("key", keyVals[enc])
+		group.SetStr("items", runtime.Arr(items[enc]))
+		out.SetInt(int64(i), runtime.Arr(group))
+	}
+	return runtime.Arr(out), nil
+}
+
+// filterSelect keeps (keep=true) or rejects (keep=false) elements for which a
+// named test passes, key-preserving on a mapping source (spec 03 Section 2.2).
+// The test name is the first argument; any further arguments are passed to the
+// test after the element value.
+func filterSelect(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Value, error) {
+	v := arg(args, 0)
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return runtime.Null(), errors.New(errors.KindRuntime, "select/reject expects a collection")
+	}
+	name, err := wantString(arg(args, 1))
+	if err != nil {
+		return runtime.Null(), err
+	}
+	t, ok := s.Test(name)
+	if !ok {
+		return runtime.Null(), errors.New(errors.KindRuntime, "unknown test %q", name)
+	}
+	var extra []runtime.Value
+	if len(args) > 2 {
+		extra = args[2:]
+	}
+	out := runtime.NewArray()
+	for _, p := range v.Arr.Pairs() {
+		testArgs := append([]runtime.Value{p.Val}, extra...)
+		pass, err := t.Fn(testArgs)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		if pass == keep {
+			out.SetKey(p.Key, p.Val)
+		}
+	}
+	return runtime.Arr(out), nil
+}
+
+// filterSelectAttr keeps (keep=true) or rejects (keep=false) elements for which
+// the named test passes on a projected dotted path (spec 03 Section 2.2). The
+// arguments are (path, test, extra...); the path is plucked from each element,
+// the test is applied to the plucked value with the extra arguments after it.
+// Key-preserving on a mapping source.
+func filterSelectAttr(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Value, error) {
+	v := arg(args, 0)
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return runtime.Null(), errors.New(errors.KindRuntime, "selectattr/rejectattr expects a collection")
+	}
+	path, err := parsePath(arg(args, 1))
+	if err != nil {
+		return runtime.Null(), err
+	}
+	name, err := wantString(arg(args, 2))
+	if err != nil {
+		return runtime.Null(), err
+	}
+	t, ok := s.Test(name)
+	if !ok {
+		return runtime.Null(), errors.New(errors.KindRuntime, "unknown test %q", name)
+	}
+	var extra []runtime.Value
+	if len(args) > 3 {
+		extra = args[3:]
+	}
+	out := runtime.NewArray()
+	for _, p := range v.Arr.Pairs() {
+		attr, err := pluck(p.Val, path)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		testArgs := append([]runtime.Value{attr}, extra...)
+		pass, err := t.Fn(testArgs)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		if pass == keep {
+			out.SetKey(p.Key, p.Val)
+		}
+	}
+	return runtime.Arr(out), nil
 }
 
 // filterShuffle permutes a collection's values, reindexed as a list. Per its
@@ -1017,6 +1326,56 @@ func registerStdlibTests(s *ExtensionSet) {
 	s.AddTest(&Test{Name: "constant", Fn: func(args []runtime.Value) (bool, error) {
 		return testConstant(s, args)
 	}})
+
+	// Comparison tests (spec 03 Section 4): each takes one argument and reports a
+	// typed, total, deterministic relation via the one runtime ordering/equality.
+	// They back the named-test collection ops, e.g. selectattr('age', 'ge', 18).
+	s.AddTest(&Test{Name: "eq", Fn: testEq})
+	s.AddTest(&Test{Name: "ne", Fn: testNe})
+	s.AddTest(&Test{Name: "lt", Fn: testLt})
+	s.AddTest(&Test{Name: "le", Fn: testLe})
+	s.AddTest(&Test{Name: "gt", Fn: testGt})
+	s.AddTest(&Test{Name: "ge", Fn: testGe})
+}
+
+// testEq reports value equality via the one typed equality (spec 03 Section 4).
+func testEq(args []runtime.Value) (bool, error) {
+	return runtime.Equal(arg(args, 0), arg(args, 1)), nil
+}
+
+// testNe is the complement of eq (spec 03 Section 4).
+func testNe(args []runtime.Value) (bool, error) {
+	return !runtime.Equal(arg(args, 0), arg(args, 1)), nil
+}
+
+// testLt reports x < y via the one runtime ordering (spec 03 Section 4).
+func testLt(args []runtime.Value) (bool, error) {
+	return orderTest(args, func(c int) bool { return c < 0 })
+}
+
+// testLe reports x <= y via the one runtime ordering (spec 03 Section 4).
+func testLe(args []runtime.Value) (bool, error) {
+	return orderTest(args, func(c int) bool { return c <= 0 })
+}
+
+// testGt reports x > y via the one runtime ordering (spec 03 Section 4).
+func testGt(args []runtime.Value) (bool, error) {
+	return orderTest(args, func(c int) bool { return c > 0 })
+}
+
+// testGe reports x >= y via the one runtime ordering (spec 03 Section 4).
+func testGe(args []runtime.Value) (bool, error) {
+	return orderTest(args, func(c int) bool { return c >= 0 })
+}
+
+// orderTest applies pred to the runtime ordering of the two arguments, surfacing
+// the comparison error when the two operands are not orderable against each other.
+func orderTest(args []runtime.Value, pred func(int) bool) (bool, error) {
+	c, err := runtime.Order(arg(args, 0), arg(args, 1))
+	if err != nil {
+		return false, err
+	}
+	return pred(c), nil
 }
 
 // testDivisibleBy reports integer divisibility x % n == 0 (spec 03 Section 4).
