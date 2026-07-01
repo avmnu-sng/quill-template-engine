@@ -391,11 +391,10 @@ func filterEntries(args []runtime.Value) (runtime.Value, error) {
 	return runtime.Arr(out), nil
 }
 
-// filterSortMap sorts a mapping deterministically by its keys or its values,
-// returning a new mapping with the same pairs in the sorted order (spec 03
-// Section 2.2). The by argument is "key" (default) or "value"; ties break by the
-// one total ordering applied to the other component, so the result is stable and
-// deterministic regardless of insertion order.
+// filterSortMap sorts a mapping by its keys or its values, returning a new
+// mapping with the same pairs in the sorted order (spec 03 Section 2.2). The by
+// argument is "key" (default) or "value". The sort is stable, so pairs comparing
+// equal on the chosen component keep their original insertion order.
 func filterSortMap(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	if v.Kind != runtime.KArray || v.Arr == nil {

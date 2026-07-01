@@ -188,6 +188,35 @@ func TestSortMap(t *testing.T) {
 			}
 		})
 	}
+
+	// Pairs comparing equal on the chosen component keep their original
+	// insertion order, because the sort is stable.
+	tied := mapOf(
+		kv(runtime.Str("b"), runtime.Int(5)),
+		kv(runtime.Str("a"), runtime.Int(5)),
+	)
+	tiedTests := []struct {
+		name string
+		by   []runtime.Value
+		want string
+	}{
+		{"stable-tied-values", []runtime.Value{runtime.Str("value")}, "b=5,a=5"},
+	}
+	for _, tc := range tiedTests {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]runtime.Value{tied}, tc.by...)
+			got := callFilter(t, "sort_map", args...)
+			var parts []string
+			for _, p := range got.Arr.Pairs() {
+				k, _ := runtime.ToText(p.Key)
+				val, _ := runtime.ToText(p.Val)
+				parts = append(parts, k+"="+val)
+			}
+			if g := strings.Join(parts, ","); g != tc.want {
+				t.Errorf("sort_map = %q, want %q", g, tc.want)
+			}
+		})
+	}
 }
 
 // TestSortMapErrors covers the non-mapping source and an unknown by argument.
