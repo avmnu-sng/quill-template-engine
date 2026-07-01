@@ -1,9 +1,7 @@
 # Taskfile for Quill -- a standard-library-only, pure-Go template engine.
 #
-# Quill is a standalone OSS Go library: there is no service, no container, and
-# no infrastructure to stand up. The targets here are the ones a Go library
-# actually needs -- build, test, coverage, lint, format/vet/tidy checks, and
-# supply-chain scans. Run `task` (or `task --list`) to see everything.
+# These targets cover the Go library workflow: build, test, coverage, lint,
+# format/vet/tidy checks, and supply-chain scans. Run `task --list` to see them.
 #
 # Toolchain note: goenv pins the local Go via .go-version (1.26.2) while go.mod
 # declares a MINIMUM (`go 1.23`). The version check below verifies the running
@@ -107,9 +105,10 @@ tasks:
       - go tool cover -func=coverage.out | tail -1
       - 'echo "HTML report: go tool cover -html=coverage.out"'
 
-  # cover:templates:
-  #   Native TEMPLATE coverage (which template lines/branches a render exercised)
-  #   is a separate upcoming feature, distinct from Go source coverage above.
+  cover:templates:
+    desc: "Report native template coverage for .ql templates (example: task cover:templates -- -root testdata -data d.json t.ql)"
+    cmds:
+      - go run ./cmd/quill cover {{.CLI_ARGS}}
 
   lint:golang:
     desc: Run the Go linter (golangci-lint)
@@ -176,7 +175,7 @@ tasks:
       - task: security:licenses
 
   ci:
-    desc: Full CI pipeline (lint, checks, tests, security) -- no docker/images
+    desc: "Full CI pipeline: lint, checks, tests, and security scans"
     deps: [go:version-check]
     cmds:
       - task: lint:all
