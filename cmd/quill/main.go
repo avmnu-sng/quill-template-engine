@@ -1,10 +1,13 @@
-// Command quill renders a Quill template from disk with JSON data.
+// Command quill renders a Quill template from disk with JSON data, and measures
+// template coverage.
 //
 // Usage:
 //
 //	quill -root templates -data data.json index.ql
 //	quill -root templates -autoescape html page.ql > page.html
 //	cat data.json | quill -root templates -data - index.ql
+//	quill cover -root templates -data data.json page.ql
+//	quill cover -root templates -cases cases.json -format html -o cover.html
 //
 // The named template is resolved by a filesystem loader rooted at -root, so an
 // @extends parent, an @include target, and an @import/@from source all resolve
@@ -13,6 +16,10 @@
 // renders against an empty variable set. The rendered output is written to
 // stdout; any load, parse, or render error is reported to stderr with a non-zero
 // exit status.
+//
+// The "cover" subcommand renders one template (or a JSON list of template+data
+// cases) with a coverage Collector attached and writes a text, LCOV, or HTML
+// report; -fail-under makes it a CI gate (see docs/coverage.md Section 5).
 package main
 
 import (
@@ -31,10 +38,20 @@ import (
 const version = "0.1.0"
 
 func main() {
-	if err := run(os.Args[1:], os.Stdout, os.Stdin); err != nil {
+	if err := dispatch(os.Args[1:], os.Stdout, os.Stderr, os.Stdin); err != nil {
 		fmt.Fprintf(os.Stderr, "quill: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// dispatch routes to a subcommand. The only subcommand is "cover"; anything else
+// is the default render path, so the plain "quill <template>" invocation and all
+// its flags keep working unchanged.
+func dispatch(args []string, out, errOut io.Writer, stdin io.Reader) error {
+	if len(args) > 0 && args[0] == "cover" {
+		return runCover(args[1:], out, errOut, stdin)
+	}
+	return run(args, out, stdin)
 }
 
 // run is the testable entry point: it parses args, loads the template, and
@@ -66,14 +83,9 @@ func run(args []string, out io.Writer, stdin io.Reader) error {
 	}
 	name := fs.Arg(0)
 
-	var autoHTML bool
-	switch *autoescape {
-	case "off":
-		autoHTML = false
-	case "html":
-		autoHTML = true
-	default:
-		return fmt.Errorf("unknown -autoescape %q (want \"off\" or \"html\")", *autoescape)
+	autoHTML, err := parseAutoescape(*autoescape)
+	if err != nil {
+		return err
 	}
 
 	vars, err := loadVars(*dataPath, stdin)

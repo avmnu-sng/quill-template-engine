@@ -115,6 +115,57 @@ Flags: `-root` (template directory, default `.`), `-data` (JSON object of
 variables; `-` reads stdin), `-autoescape` (`off` or `html`), `-strict`
 (strict-undefined handling, default on).
 
+## Template coverage
+
+Quill measures which parts of a `.ql` template your renders actually exercised:
+which statements and interpolations ran (**units**), and which arms of each
+branch were taken (**branches**) -- `@if`/`@elseif`/`@else`, `@for` looped vs
+empty, ternary/elvis/coalesce, postfix `if`/`unless`, and `@guard`. It is the
+analogue of `go tool cover` for templates, aggregated across many renders and
+exported as a text summary, LCOV `.info`, or a highlighted HTML report. Coverage
+is opt-in and zero-overhead when off: an Environment with no collector pays no
+per-node cost, and a template renders byte-identically with or without it.
+
+Enable it with a `cover.Collector` and the `WithCoverage` option, render your
+fixtures through the Environment, then take a `Report`:
+
+```go
+coll := cover.NewCollector()
+env := quill.New(loader.NewFilesystemLoader("templates"),
+    quill.WithCoverage(coll))
+
+_, _ = env.Render("page.ql", adminVars)    // covers the @if admin then-arm
+_, _ = env.Render("page.ql", guestVars)    // covers the else-arm
+
+report := coll.Report()
+_ = report.WriteText(os.Stdout)             // or WriteLCOV / WriteHTML
+if err := report.FailUnder(90.0); err != nil {
+    log.Fatal(err)                          // one-line CI/test gate on unit %
+}
+```
+
+In a test, build one Environment with a Collector, render every fixture through
+it, write an LCOV artifact for CI, and assert a threshold with
+`report.FailUnder(...)` (or compare `report.Totals().Units.Percent()`). For
+`t.Parallel()` fixtures give each goroutine its own Collector and combine them
+with `cover.MergeReports(...)`.
+
+The `quill cover` subcommand is the command-line front door to the same API. It
+renders a single template or a JSON list of `{template, data}` cases, unions
+coverage across them, and writes the report:
+
+```
+quill cover -root templates -data data.json page.ql
+quill cover -root templates -data data.json -format lcov -o coverage.info page.ql
+quill cover -root templates -cases cases.json -format html -o cover.html
+```
+
+`-format` is `text` (default), `lcov`, or `html`; `-o` is the output file
+(default stdout). `-fail-under N` (alias `-threshold N`) makes it a CI gate: it
+exits non-zero when total unit coverage is below `N`, printing the
+uncovered-region breakdown to stderr. The full model, the LCOV/HTML formats, and
+the seeding boundary are documented in [`docs/coverage.md`](docs/coverage.md).
+
 ## Examples
 
 Runnable examples live in [`examples/`](examples/):
@@ -123,6 +174,8 @@ Runnable examples live in [`examples/`](examples/):
   because escaping is off and the `@` form keeps `{`/`}` literal).
 - [`inheritance`](examples/inheritance) -- `@extends`, `@block`, and `parent()`.
 - [`filters`](examples/filters) -- pipe filters, postfix-if, and loop metadata.
+- [`coverage`](examples/coverage) -- collect template coverage across two data
+  cases and assert a threshold with `FailUnder`.
 
 ```
 go run ./examples/codegen

@@ -396,9 +396,14 @@ Flags:
     -format string   report format: text (default), lcov, or html
     -o string        output file (default stdout)
     -fail-under N    exit non-zero if unit coverage percent is below N
+    -threshold N     alias for -fail-under
     -autoescape      off (default) or html; matches the render option so instrumentation
                      runs under the same strategy the template ships with
     -strict          strict-undefined handling (default true)
+
+A single template is named as a positional argument alongside `-data`; `-cases`
+replaces the positional name and data with a JSON list. Supplying both, or
+neither, is an error.
 
 `-fail-under` makes `quill cover` a CI gate: it renders the cases, writes the report, and
 exits 1 when unit coverage is below the threshold, printing the uncovered-region breakdown to
