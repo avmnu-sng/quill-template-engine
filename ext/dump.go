@@ -8,7 +8,7 @@ import (
 )
 
 // Dump renders a value in a Go-native, %#v-style structured form for the dump()
-// debug function (spec 03 Section 3.3), NOT PHP var_dump. Each value is tagged
+// debug function (spec 03 Section 3.3). Each value is tagged
 // with its Quill kind so a debug dump is unambiguous about types (an Int 0 reads
 // differently from a Str "0"). Collections recurse with insertion order
 // preserved.

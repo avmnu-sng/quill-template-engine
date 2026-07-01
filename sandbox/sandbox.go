@@ -7,14 +7,14 @@
 // The policy is purely declarative data the host builds; the interpreter does
 // the enforcement (a per-render check of the statically-collected tags/filters/
 // functions, plus runtime member-access checks at each access site). Method-name
-// matching is CASE-SENSITIVE -- the Go-native choice -- as are property, filter,
-// function, and tag names. Allowlisting is uniform: there is NO grandfathering
-// of any tag or function, so a policy that wants inheritance must list extends,
-// use, and block explicitly (the deliberate divergence from Twig, B6).
+// matching is CASE-SENSITIVE, as are property, filter, function, and tag names.
+// Allowlisting is uniform: every tag and function is subject to the same
+// allowlist with none exempt, so a policy that wants inheritance must list
+// extends, use, and block explicitly (B6).
 //
-// The TYPE-GRAPH replaces PHP reflection: the host declares each Object type's
-// name and its supertypes/interfaces, and a per-type lookup walks that declared
-// graph so an allowlist entry on a base type or interface covers every
+// The TYPE-GRAPH drives method/property matching: the host declares each Object
+// type's name and its supertypes/interfaces, and a per-type lookup walks that
+// declared graph so an allowlist entry on a base type or interface covers every
 // registered subtype/implementor (B4). The same graph is intended to back the
 // gradual type checker's Object<"Type"> matching, so one host registration
 // serves both security and typing.
@@ -22,9 +22,9 @@ package sandbox
 
 // TypeGraph records each host Object type's declared supertypes and interfaces,
 // so a per-type allowlist entry on a base type or interface covers all
-// registered subtypes (the explicit substitute for PHP instanceof reflection,
-// B4). It is keyed by the host's registered type name (the ClassName a host
-// Object reports). A type with no registered parents matches only its own name.
+// registered subtypes (B4). It is keyed by the host's registered type name (the
+// ClassName a host Object reports). A type with no registered parents matches
+// only its own name.
 type TypeGraph struct {
 	// parents maps a type name to its direct declared supertypes/interfaces. The
 	// closure (a type plus all ancestors) is computed on demand by ancestors.

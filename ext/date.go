@@ -12,7 +12,7 @@ import (
 // dateValue is the host Object that carries a time.Time through the engine so
 // the date family (the date function, the date filter, date_modify) can pass
 // dates as first-class values (spec 03 Sections 2.4, 3.2). It uses the Go date
-// model: a time.Time and a location, NOT a PHP DateTime. Stringify renders the
+// model: a time.Time and a location. Stringify renders the
 // default layout so a bare {{ someDate }} has a sensible spelling.
 type dateValue struct {
 	t time.Time
@@ -31,7 +31,7 @@ func (d *dateValue) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 }
 
 // Stringify renders the date in the default Go reference layout (spec 03 Section
-// 2.6: Go layout, not PHP date codes).
+// 2.6: Go reference layout).
 func (d *dateValue) Stringify() (string, error) {
 	return d.t.Format(defaultDateLayout), nil
 }

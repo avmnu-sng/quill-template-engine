@@ -93,9 +93,9 @@ func (in *interp) checkPropertyAllowed(recv runtime.Value, prop string) error {
 
 // checkStringifyAllowed is the string-coercion gate (B12): before a host Object
 // is coerced to text -- at an interpolation, in ~ concat, or as a join/replace/
-// split argument -- the object's stringify member must be permitted. Quill has
-// no PHP __toString; the gated member name is the conventional "Stringify" hook,
-// matched against the policy's method allowlist through the type-graph. A Safe
+// split argument -- the object's stringify member must be permitted. The gated
+// member name is the conventional "Stringify" hook, matched against the policy's
+// method allowlist through the type-graph. A Safe
 // value, a non-object, and a trusted shim are not gated (B14).
 func (in *interp) checkStringifyAllowed(v runtime.Value) error {
 	if !in.sandboxOn || v.Kind != runtime.KObject {

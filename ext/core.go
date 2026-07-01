@@ -100,8 +100,8 @@ func filterLower(args []runtime.Value) (runtime.Value, error) {
 	return runtime.Str(strings.ToLower(s)), nil
 }
 
-// filterTrim folds Twig's trim/ltrim/rtrim: side in both/left/right (aliases
-// b/l/r), mask defaults to ASCII+Unicode whitespace (spec 03 Section 2.1).
+// filterTrim covers left, right, and both-side trimming: side in both/left/right
+// (aliases b/l/r), mask defaults to ASCII+Unicode whitespace (spec 03 Section 2.1).
 func filterTrim(args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {

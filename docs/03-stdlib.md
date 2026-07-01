@@ -1,9 +1,8 @@
 # Quill -- Standard Library
 
 This is the reference for Quill's built-in standard library: the filters piped with `|`, the
-functions called with `name(...)`, and the tests applied with `is` / `is not`. Every Twig
-built-in filter, function, and test has an equivalent here; where Quill renames, folds, or
-diverges, the divergence is stated with its reason. The runtime value rules these callables
+functions called with `name(...)`, and the tests applied with `is` / `is not`. Each entry
+states its Go semantics. The runtime value rules these callables
 operate under (truthiness, equality, ordering, coercion, undefined handling, escaping) are in
 `04-types-and-semantics.md`. The call surface (pipe/call/test forms, named and defaulted
 arguments) is in `01-language-reference.md` Sections 2 and 3.
@@ -29,11 +28,10 @@ same registered callable MAY be exposed as both a filter and a function; the sta
 does so for `range`/`..` and the include family.
 
 All filter and function names are lower `snake_case` (`format_number`, `url_encode`, `json`,
-`date_modify`), matching Twig's own spellings. Twig's two-word tests become single
-underscore-joined words at the canonical spelling (`is divisible_by(n)`, `is same_as(y)`);
-the Twig two-word spelling (`is divisible by`, `is same as`) is accepted as an alias and
-resolved greedily by the parser. Every callable accepts named, defaulted, and spread
-arguments per the call surface.
+`date_modify`). Two-word tests have a canonical single underscore-joined spelling
+(`is divisible_by(n)`, `is same_as(y)`); the spaced spelling (`is divisible by`,
+`is same as`) is accepted as an alias and resolved greedily by the parser. Every callable
+accepts named, defaulted, and spread arguments per the call surface.
 
 Signatures below are written in the gradual type notation of `04-types-and-semantics.md`
 Section 3: `T -> R` is "piped `T`, returns `R`"; `(T, A) -> R` lists the piped value first
@@ -51,16 +49,16 @@ then the explicit args; `T?` is nullable; `list<T>`/`map<K,V>` are the collectio
 | `lower` | `string -> string` | Unicode lower-case, charset-aware. |
 | `capitalize` | `string -> string` | First rune upper, REST lower-cased. |
 | `title` | `string -> string` | First rune of each word upper, rest lower. |
-| `trim(side: string = "both", mask: string = WS)` | `string -> string` | Strip from `side` (`"both"`/`"left"`/`"right"`, aliases `"b"`/`"l"`/`"r"`) using `mask`. One clean filter folds Twig's `trim`/`ltrim`/`rtrim`. |
+| `trim(side: string = "both", mask: string = WS)` | `string -> string` | Strip from `side` (`"both"`/`"left"`/`"right"`, aliases `"b"`/`"l"`/`"r"`) using `mask`. One filter covers left, right, and both-side trimming. |
 | `nl2br` | `string -> Safe` | Replace `\n` with `<br />\n`; pre-escapes HTML, marks `Safe` for html. |
-| `spaceless` | `string -> string` | Collapse inter-tag whitespace. Retained though Twig deprecates it. |
+| `spaceless` | `string -> string` | Collapse inter-tag whitespace. |
 | `striptags(allowed: string = "")` | `string -> string` | Remove markup tags, optionally keeping `allowed`. |
 | `replace(pairs: map<string,string>)` | `(string, map) -> string` | strtr-style: longest-key-first, non-overlapping, single-pass, byte-level. See Section 2.5. |
 | `split(delim: string, limit: int = 0)` | `(string, ...) -> list<string>` | Split on `delim`; positive `limit` puts the remainder in the last element; empty `delim` chunks into runes (or `limit`-length chunks). |
 | `slice(start: int, length: int? = null)` | `(string, ...) -> string` | Rune-based substring, negative `start` from the end; also backs `s[a:b]`. On a collection, slices elements. |
 | `first` | `any -> any` | First rune of a string / first element of a collection. |
 | `last` | `any -> any` | Last rune / last element. |
-| `format(...args)` | `(string, ...) -> string` | printf with Go `fmt` verbs (`%s %d %v %q ...`), NOT PHP sprintf. Divergence: Section 2.6. |
+| `format(...args)` | `(string, ...) -> string` | printf with Go `fmt` verbs (`%s %d %v %q ...`). See Section 2.6. |
 | `format_number(decimals: int = 0, point: string = ".", sep: string = ",")` | `(number, ...) -> string` | Fixed-decimal formatting with separators. Alias `number_format`. |
 | `convert_encoding(to: string, from: string)` | `(string, ...) -> string` | UTF-8-centric encoding conversion; documented mapping. |
 | `ucfirst` | `string -> string` | Upper-case first BYTE only, rest unchanged; host filter, distinct from `capitalize`. See Section 5.2. |
@@ -96,11 +94,11 @@ then the explicit args; `T?` is nullable; `list<T>`/`map<K,V>` are the collectio
 
 | Filter | Signature | Notes |
 |--------|-----------|-------|
-| `json(pretty: bool = false, indent: string = "  ")` | `any -> string` | Serialize via Go `encoding/json` output rules; `pretty` switches to indented. Alias `json_encode`. Divergence: Section 2.6. |
+| `json(pretty: bool = false, indent: string = "  ")` | `any -> string` | Serialize via Go `encoding/json` output rules; `pretty` switches to indented. Alias `json_encode`. See Section 2.6. |
 | `url_encode` | `any -> string` | Percent-encode a string, or build a query string from a mapping. |
 | `escape(strategy: string = "html")` | `any -> Safe` | Escape for a named strategy. Alias `e`. Escaping is OPT-IN; see Section 5.5. |
 | `raw` | `any -> Safe` | Compile-time no-op marking content already-safe; never auto-escaped. Load-bearing for source emission; Section 5.4. |
-| `date(layout: string = DEFAULT, tz: string? = null)` | `any -> string` | Format using a Go reference-time LAYOUT (`"2006-01-02 15:04:05"`), NOT PHP date codes. Divergence: Section 2.6. |
+| `date(layout: string = DEFAULT, tz: string? = null)` | `any -> string` | Format using a Go reference-time LAYOUT (`"2006-01-02 15:04:05"`). See Section 2.6. |
 | `date_modify(delta: string)` | `(date, string) -> date` | Apply a relative modification (`"+1 day"`, `"-2 hours"`). |
 | `default(fallback: any)` | `(any, any) -> any` | Yield `fallback` when the piped value is UNDEFINED or `Null`. See Section 2.7. |
 | `invoke(...args)` | `(callable, ...) -> any` | Call a piped callable with arguments. |
@@ -117,22 +115,26 @@ then the explicit args; `T?` is nullable; `list<T>`/`map<K,V>` are the collectio
   string-keyed values overwrite by key. Insertion order is preserved throughout. This is the
   array-union capability that `+` deliberately does NOT provide (`+` is numeric only).
 
-### 2.6 The three documented formatting-dialect divergences
+### 2.6 The three formatting filters and their Go semantics
 
-| Filter | Twig (PHP) dialect | Quill (Go) dialect | Reason |
-|--------|--------------------|--------------------|--------|
-| `format` | PHP `sprintf` specifiers | Go `fmt` verbs (`%v`, `%q`, `%05.2f`) | The runtime IS Go fmt; reimplementing PHP specifiers is pure liability. |
-| `json` | PHP `json_encode` byte shape (escapes `/`, `\uXXXX` non-ASCII, sorted keys) | Go `encoding/json` (no HTML escaping, ordered keys, literal `/`) | Source emission must not HTML-escape; ordered keys are deterministic. |
-| `date` | PHP `date()` codes (`Y-m-d H:i:s`) | Go reference layout (`2006-01-02 15:04:05`) | The runtime parses Go layouts; PHP codes would be a second date language. |
+Three formatting filters read their format string in Go's own notation, so the format language
+is the same one the host program already uses:
+
+- **`format`** takes Go `fmt` verbs (`%v`, `%q`, `%05.2f`, ...) and formats through Go `fmt`.
+- **`json`** serializes through Go `encoding/json`: `/` is emitted literally with no HTML
+  escaping, keys keep insertion order, and non-ASCII passes through unescaped. Ordered keys
+  make the output deterministic, and the absence of HTML escaping keeps emitted source intact.
+- **`date`** formats with a Go reference-time LAYOUT (`2006-01-02 15:04:05`), the same layout
+  string the runtime parses, so there is one date notation across parsing and formatting.
 
 ### 2.7 The `default` filter and emptiness
 
 `default(x, fallback)` yields `fallback` when `x` is UNDEFINED or `Null` (definedness,
 `04-types-and-semantics.md` Section 6), never raising on undefined. The anchor's
 `name | default("guest")` yields `"guest"` when `name` is undefined or null. `0 | default("y")`
-keeps `0` (it is defined and non-null) -- the one useful Twig behavior, without a bespoke
-emptiness predicate. The separate `is empty` test (Section 4.1) covers length-zero
-collections/strings and `Null`.
+keeps `0` because it is defined and non-null: `default` keys on definedness and `Null`, not on
+emptiness. The separate `is empty` test (Section 4.1) covers length-zero collections/strings
+and `Null`.
 
 --------------------------------------------------------------------------------
 
@@ -166,7 +168,7 @@ compile-time callable collection, a `..` counts as using the `range` function.
 
 | Function | Notes |
 |----------|-------|
-| `dump(...vars)` | Debug-dump the given variables, or the whole context if none; `null` outside debug mode. Go-native dump format (a `%#v`-style structured render), NOT PHP `var_dump`. |
+| `dump(...vars)` | Debug-dump the given variables, or the whole context if none; `null` outside debug mode. Go-native dump format (a `%#v`-style structured render). |
 | `template_from_string(source, name: string? = null)` | Compile a string into a template at runtime. Security-sensitive; gated behind host opt-in; never exposed to untrusted authors. |
 
 ### 3.4 Go-native convenience aliases (no floor change)
@@ -185,8 +187,8 @@ couple of illustrative host functions show the registration surface:
 | `slugify(s)` | `string -> string` | Lowercase and hyphenate a string for use as an identifier or URL slug. |
 | `pluralize(n, word)` | `int, string -> string` | Return the singular or plural form of a word based on a count. |
 
-The host-function registration mechanism itself is a parity capability (the extension surface,
-not just the functions); see `06-architecture-and-roadmap.md`.
+The host-function registration mechanism itself is part of the extension surface, not just the
+functions; see `06-architecture-and-roadmap.md`.
 
 ### 3.6 Runtime-injected parameters: charset, context, environment, sandbox state
 
@@ -212,7 +214,7 @@ reg.Filter("upper").NeedsCharset().Fn(upperImpl)        // upperImpl(charset, s)
 reg.Function("include").NeedsEnvironment().NeedsContext().Fn(includeImpl)
 ```
 
-This is the same plumbing the reused port already implements; Quill keeps it verbatim. The
+The
 charset value supplied to `needs_charset` callables is exactly the `_charset` special name
 (`01-language-reference.md` Section 1.7), so the case filters and the codepoint escapers
 operate against one configured charset. A host-registered callable with no injection flag set
@@ -231,7 +233,7 @@ one mandatory or parenthesized argument.
 | `is null` / `is none` | none | True iff the value is `Null`. Aliases. |
 | `is even` | none | True iff an integer is even. |
 | `is odd` | none | True iff an integer is odd. |
-| `is same_as(y)` (alias `is same as`) | one mandatory | True iff `x` and `y` are the same reference/kind; subsumes Twig `===`. Function form `same(x, y)`. |
+| `is same_as(y)` (alias `is same as`) | one mandatory | True iff `x` and `y` are the same reference/kind (raw identity). Function form `same(x, y)`. |
 | `is divisible_by(n)` (alias `is divisible by`) | one mandatory | Integer divisibility, `x % n == 0`. |
 | `is constant("NAME")` | one mandatory | True iff `x` equals the named host constant. |
 | `is empty` | none | TOTAL over all eight kinds: `Null` -> true; `Str`/`*Array` -> true iff length 0; `Int`/`Float`/`Bool`/`Object`/`Safe`(unwrapped) -> false. See Section 4.1. |
@@ -256,11 +258,11 @@ runtime error:
 | `Safe` | the result for its unwrapped content (a `Safe ""` is empty) |
 
 So `is empty` answers only "is this a length-zero string/collection or `Null`?"; `0`, `"0"`,
-`0.0`, `false`, and any object are NON-empty. This de-PHP-ifies the test and keeps it total, so
-`42 is empty`, `true is empty`, and `someObject is empty` are all defined (false) rather than a
-gap. Twig's four coexisting emptiness notions collapse to two in Quill -- truthiness and
-definedness -- plus this one explicit, total length check. It backs `default`'s sibling
-capability without a bespoke `testEmpty` rule.
+`0.0`, `false`, and any object are NON-empty. The test is total, so `42 is empty`,
+`true is empty`, and `someObject is empty` are all defined (false) rather than a gap. Emptiness
+in Quill is exactly this one explicit length check, kept separate from the truthiness rule
+(`04-types-and-semantics.md` Section 2) and the definedness rule (Section 6) that `default`
+keys on.
 
 ### 4.2 Host-test registration
 
@@ -281,7 +283,7 @@ real source-generation template sets.
 `n | tab` produces `n` levels of indentation standalone (e.g. `{{ 1 | tab }}` emits one
 indent), and `s | tab(n)` indents each non-blank line of `s` by `n` levels. The form
 `{{ 1 | tab() }}` (with empty parens) is valid Quill; the empty arg list is optional and may be
-dropped. Its argument check is expressed in Quill truthiness and length, NOT PHP `empty()`.
+dropped. Its argument check is expressed in Quill truthiness and length.
 
 ### 5.2 `ucfirst` -- byte-first upper-case
 
@@ -299,15 +301,14 @@ author wants explicit control over the indent string.
 The default output strategy is `off`: an interpolation renders the value's `ToText` bytes
 verbatim with no transformation. `raw` is a compile-time no-op safeness annotation that marks
 content already-safe; under the default it is a no-op, and under an `escape`-on region it
-switches a single site back to unescaped. The Twig corpus carried `| raw` on nearly every
-interpolation purely to cancel Twig's html-on default; in Quill those annotations become
-unnecessary because the correct default is the actual default. See `04-types-and-semantics.md`
-Section 8.
+switches a single site back to unescaped. Because autoescape is off by default, `| raw` is
+unnecessary for plain source emission and is only load-bearing inside an `escape`-on region.
+See `04-types-and-semantics.md` Section 8.
 
 ### 5.5 The `escape` filter and the six strategies
 
 `escape(strategy)` (alias `e`) escapes for a named strategy; escaping is opt-in. The six
-strategies retained from Twig for markup-emitting templates are:
+strategies for markup-emitting templates are:
 
 | Strategy | Escapes |
 |----------|---------|

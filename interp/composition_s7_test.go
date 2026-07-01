@@ -92,7 +92,7 @@ func TestSetListDestructureExact(t *testing.T) {
 	}
 }
 
-// Over/under-supply must error by default rather than pad or drop (the de-PHP-ified
+// Over/under-supply must error by default rather than pad or drop (the
 // generator-correctness default, spec 01 Section 3.2).
 func TestSetListDestructureArityErrors(t *testing.T) {
 	cases := []struct {

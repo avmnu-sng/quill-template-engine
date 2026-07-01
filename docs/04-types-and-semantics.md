@@ -4,9 +4,8 @@ This is the reference for Quill's runtime value layer and its gradual type syste
 domain, the one truthiness rule, the one equality and one ordering, the single narrow
 coercion that renders a value to text, the kind-dispatched attribute and index access rules,
 the strict-by-default undefined handling, the escaping and safety subsystem, and the sandbox.
-Each rule that diverges from Twig carries a named, justified "Twig divergence" note;
-faithfulness to Twig is required at the FEATURE level, not at the level of PHP value
-accidents.
+Each rule below is stated as a language rule with its rationale, chosen for the
+source-emitting workload rather than for value-juggling convenience.
 
 Every rule below serves the source-emitting axiom: Quill's primary consumer emits PROGRAM
 SOURCE CODE, one exact byte sequence at a time. A silently-absent value becomes a silently
@@ -51,10 +50,9 @@ template is expensive to find late: a silently-absent value emits an entire miss
 silently-coerced value emits a wrong literal into compiled code. The strict-by-default runtime
 turns those silent faults into loud runtime errors; the checker's job is to turn the subset a
 static reader can see into errors that fire at template-load time, before any output. Second,
-the corpus is large and mostly untyped (it descends from Twig, whose `types` block is inert
-metadata). A type system demanding annotations everywhere would be unadoptable; gradual typing
-lets a large corpus stay untyped while a single hot template opts into checking, incrementally,
-with no flag day.
+a real corpus is large and mostly untyped. A type system demanding annotations everywhere
+would be unadoptable; gradual typing lets a large corpus stay untyped while a single hot
+template opts into checking, incrementally, with no flag day.
 
 ### 1.3 The type lattice
 
@@ -117,9 +115,9 @@ strict-by-default runtime is the only line of defense -- so untyped Quill behave
 the dynamic floor. The two layers agree: the static checker promotes a runtime error to check
 time; it never permits something the runtime would reject.
 
-**Twig divergence.** Twig's `types` block is inert tooling metadata, never enforced. Quill's
-gradual layer enforces it where present. This EXCEEDS the Twig floor; it never lowers it,
-because an annotation-free template renders identical bytes.
+Quill's gradual layer enforces annotations where present and does nothing where absent, so an
+annotation-free template renders identical bytes and annotating a template only moves errors
+earlier in time.
 
 --------------------------------------------------------------------------------
 
@@ -138,7 +136,7 @@ A Quill value is exactly one of eight kinds:
 | `Str` | `string` | a BYTE string, may be invalid UTF-8 (for lossless byte emission) |
 | `*Array` | `*Array` | the ordered, dual-view collection (Section 7) |
 | `Object` | host interface | field read, method call, stringify, count, iterate, class name |
-| `Safe` | wrapper | already-safe-output carrier (Quill's rename of Twig's `Markup`) |
+| `Safe` | wrapper | already-safe-output carrier |
 
 The numeric model is int64 and float64: `/` is true division (float result unless exact), `//`
 is floor division, `%` is remainder, `**` is right-associative power. Int overflow is a defined
@@ -197,9 +195,8 @@ The falsy set is exactly `{ Null, false, 0, 0.0, "", empty *Array }`. Everything
 -- crucially, `"0"` is TRUTHY (a non-empty string), and any `Object` is truthy. This one rule is
 used by `if`, the postfix `if`, the ternary, `?:`, and the boolean operators.
 
-**Twig divergence.** PHP makes `"0"` falsy (a string-as-number accident); Quill never overloads
-strings as numbers, so the carve-out has no reason to exist and removing it erases the classic
-trap.
+Note that `"0"` is a non-empty string and therefore TRUTHY: Quill never overloads strings as
+numbers, so only the empty string is falsy and there is no per-value string carve-out.
 
 --------------------------------------------------------------------------------
 
@@ -229,10 +226,10 @@ This is a SECOND cross-kind bridge alongside `Int`/`Float`: the cross-kind equal
 array equality consistent regardless of which elements are wrapped, and transitive: two arrays
 that render identically compare equal.
 
-**Twig divergence.** PHP loose `==` (`0 == "foo"` false, `"1" == "1.0"` true, `null == false`
-true) is the single largest source of silent wrong behavior in PHP; a source generator needs
-equality it can reason about by type. Quill's `==` occupies the role of both Twig's `===` (for
-safety) and `==` (for ergonomics), keeping only the `Int`/`Float` numeric bridge.
+A source generator needs equality it can reason about by type, so `==` is strict and typed:
+there is no cross-kind coercion, and the only cross-kind bridges are the `Int`/`Float` numeric
+tower and `Safe`-unwraps-to-`Str`. This is why `1 == "1"`, `null == ""`, and `true == 1` are
+all false rather than silently equal.
 
 ### 3.2 Ordering
 
@@ -245,11 +242,10 @@ ordering, the exact failure this rules out at the source. Cross-kind ordering is
 error where types are known, else a runtime error -- never silent juggling. `Safe` orders as its
 wrapped `Str` (Section 3.1). Membership `in` uses typed `==`, so `"1" in [1]` is FALSE.
 
-**Twig divergence.** Twig used three comparison algorithms (`LooseEq` for `==`, `Compare` for
-`in`/sort, `Identical` for `===`), and routed `in` through a numeric `Compare` that bridged
-numeric strings. Quill collapses these to two -- typed `==` and one ordering comparator -- and
-`in`/`==`/`same as` share one equality definition. Three subtly different comparison algorithms
-in one engine is exactly the hazard this language removes.
+Comparison rests on exactly two definitions -- typed `==` and one ordering comparator -- and
+`in`/`==`/`same as` share the one equality definition. A single equality and a single ordering
+mean a comparison behaves the same everywhere it appears, with no per-site algorithm to
+reason about.
 
 --------------------------------------------------------------------------------
 
@@ -262,7 +258,7 @@ is a type error, not `7`. The `ToText` rules:
 | Value | Renders to |
 |-------|-----------|
 | `Null` | `""` |
-| `Bool` | `"true"` / `"false"` (NOT PHP `"1"` / `""`) |
+| `Bool` | `"true"` / `"false"` |
 | `Int` | decimal, no separators |
 | `Float` | shortest round-trippable decimal (`1.0` -> `"1"`, `1.5` -> `"1.5"`) |
 | `*Array` | RENDER ERROR (NOT the literal `"Array"`); use `join` / `json` |
@@ -271,26 +267,25 @@ is a type error, not `7`. The `ToText` rules:
 
 `~` concatenation renders each operand by these rules; `+` is numeric only.
 
-**Twig divergences, all byte-load-bearing for source emission.** `Bool` renders `true`/`false`
-(not PHP `true`->"1", `false`->""): an invisible empty string for `false` is a notorious silent
-bug, and `true`/`false` are the literal boolean tokens of nearly every target language. `Float`
-uses Go shortest round-trippable form, not PHP `precision` formatting, because Quill emits source
-not PHP output. An `*Array` render is an explicit error, not PHP's `"Array"` string, which would
-inject the literal word `Array` into the emitted program. An `Object` with no `Stringify` hook is
-a render error, not an ambient best-effort `__toString` -- the coercion is an explicit, auditable
-hook, not PHP magic.
+**Every `ToText` rule is byte-load-bearing for source emission.** `Bool` renders
+`true`/`false`, the literal boolean tokens of nearly every target language, so `false` never
+emits an invisible empty string. `Float` uses Go shortest round-trippable form, so an emitted
+numeric literal reads back as the same value. An `*Array` render is an explicit error rather
+than a placeholder word, so a stray collection can never inject the literal `Array` into the
+emitted program. An `Object` with no `Stringify` hook is a render error rather than an ambient
+best-effort stringify -- the coercion is an explicit, auditable hook.
 
 --------------------------------------------------------------------------------
 
 ## 5. Attribute and index access
 
-Two distinct operators with two distinct rules, NOT one fused PHP-style resolver:
+Two distinct operators with two distinct rules, each kind-dispatched:
 
 - **`a.b`** -- dotted access, kind-dispatched and short. If `a` is an `*Array`, read string key
   `"b"`; if `a` is an `Object`, read public field `b`, then accessor `getB`/`isB`/`hasB`
   (precedence `get > is > has`), then a class constant `b`. The kind of `a` selects the lookup
-  family; there is no cross-kind cascade, no `__call` magic, no DateTime special-casing. `a.b`
-  reads a field/accessor; `a.b()` invokes a method.
+  family; there is no cross-kind cascade and no dynamic-dispatch fallback. `a.b` reads a
+  field/accessor; `a.b()` invokes a method.
 - **`a[k]`** -- subscript. `*Array` by key, or an `Object` host index interface. Only int and
   string keys; bool/float/null subscripts are type errors. Slices `a[start:end]`, `a[:end]`,
   `a[start:]`, and negative indices route to the slice operation.
@@ -298,16 +293,16 @@ Two distinct operators with two distinct rules, NOT one fused PHP-style resolver
   regardless of strictness.
 - **Dynamic access** `attribute(a, name, args?)` for a runtime-computed member name.
 
-**Twig divergence.** PHP's single ANY_CALL cascade (array key -> property -> DateTime keys ->
-class constant -> exact method -> lowercased method -> `__call`) is replaced by kind dispatch. The
-get/is/has accessor sugar is kept with precedence `get > is > has`, but the PHP alphabetical-sort
-and no-overwrite tie-breaking cruft is dropped for a deterministic declared-order rule on the host
-object model. Bool/float/null subscripts are errors, not silent int-casts or the empty-string key,
-because indexing by a boolean or a fraction is always a generator mistake.
+Access is kind-dispatched: the kind of the receiver selects one lookup family, with no
+cross-kind cascade to reason about. The get/is/has accessor sugar resolves in a fixed
+`get > is > has` precedence and, on ties, follows the host object model's declared order, so
+resolution is deterministic. Bool/float/null subscripts are errors rather than being cast to
+an integer or an empty-string key, because indexing by a boolean or a fraction is always a
+generator mistake.
 
 --------------------------------------------------------------------------------
 
-## 6. Scoping and undefined handling -- the headline divergence
+## 6. Scoping and undefined handling
 
 Scoping is lexical and block-structured. `block`, `for`, `macro`, `with`, and `capture` each
 introduce a scope through the context save/restore: loop bodies restore pre-loop bindings
@@ -359,9 +354,8 @@ value). They compose: `u?.address.city ?? "n/a"` short-circuits if `u` is null a
 `address` or `city` is absent.
 - `is defined` is true for a present key even if its value is `Null`: it tests presence, not value,
   cleanly separating "absent" (an error to read) from "present but null" (renders empty).
-- A `lenient` mode flag restores silent-`Null` for migration; it is OFF by default. Under
-  `lenient`, a strict miss becomes `Null` and `for` over a non-iterable becomes an empty loop
-  (Twig-compatible).
+- A `lenient` mode flag makes a strict miss yield `Null`; it is OFF by default. Under
+  `lenient`, a missing read becomes `Null` and `for` over a non-iterable becomes an empty loop.
 
 The gradual type checker, where annotations are present, promotes many of these misses to
 check-time errors so they never reach run time.
@@ -375,12 +369,11 @@ insertion order; `for k, v in mapping` iterates in insertion order with both tar
 / `is mapping` split on list-shape (an empty `*Array` is a sequence, not a mapping). The key model:
 a canonical decimal-integer key is an integer key; everything else is a string key (`"01"`, `"1.0"`,
 `" 1"`, `"+1"` stay strings). `*Array` values are value types, copy-on-write at loop, include, and
-rebind boundaries -- a clean Go-native semantic matching the slice/map mental model, not a PHP
-accident.
+rebind boundaries -- a value semantic matching the slice/map mental model.
 
-**Twig divergence.** The numeric-string-key canonicalization is KEPT but tightened and stated as an
-explicit language rule rather than an emergent PHP behavior. Bool/float/null subscripts are type
-errors rather than silent int-casts (Section 5).
+The numeric-string-key canonicalization is an explicit language rule: only a canonical
+decimal-integer key is an integer key, and everything else stays a string key. Bool/float/null
+subscripts are type errors rather than silent integer casts (Section 5).
 
 --------------------------------------------------------------------------------
 
@@ -400,9 +393,8 @@ via `escape html { ... }`, or per site via `| escape` / `| e("html")`. The six s
 `js`, `css`, `html_attr`, `html_attr_relaxed`, `url`) are all retained as named strategies for
 markup-emitting templates, preserving the floor.
 
-**Twig divergence.** Twig defaults to html autoescape; the Twig corpus carried `| raw` on nearly
-every interpolation purely to cancel it. Quill makes the correct default the actual default; those
-`| raw` annotations become no-ops the corpus no longer needs.
+Autoescape is off by default: for plain source emission `| raw` is unnecessary, and a site
+that wants HTML escaping opts in with `| escape` (or an `escape html { ... }` region).
 
 ### 8.2 The safeness machinery
 
@@ -435,20 +427,16 @@ invalid UTF-8 (Section 2.1), so the escapers split into two classes:
 
 A markup-emitting template that opts into `escape js` (or `css`/`html_attr`) therefore has fully
 defined behavior on an invalid-UTF-8 `Str`: a load-time-clear escaping error, not undefined
-output. The escaper machinery is reused wholesale; only the DEFAULT flips from `html` to `off`,
-and the code-point strategies' charset decode is stated here rather than left implicit.
+output. The default strategy is `off`, and the code-point strategies decode against the
+configured charset as stated here.
 
 ### 8.3 The sandbox
 
 A host-supplied security policy restricts permitted tags, filters, functions, per-type methods, and
-per-type properties. Method/property allowlisting matches against an explicit host TYPE-GRAPH,
-replacing PHP reflection; matching is across registered subtype/interface relations, and
-method-name matching is case-sensitive (the Go-native choice). Strict versus lenient policy mode is
-supported, with NO grandfathered tags/functions -- allowlisting is uniform.
-
-**Twig divergence.** Twig matches via PHP `instanceof`/`class_parents` reflection and grandfathers
-`extends`/`use`/`parent`/`block`/`attribute`; Quill matches against an explicit type graph and drops
-the grandfathering for uniform allowlisting.
+per-type properties. Method/property allowlisting matches against an explicit host TYPE-GRAPH:
+matching is across registered subtype/interface relations, and method-name matching is
+case-sensitive. Strict versus lenient policy mode is supported, and allowlisting is uniform --
+every tag and function is subject to the same allowlist, with none exempt.
 
 The activation gate is global, runtime-toggled, or per-include via `sandboxed: true`. Compile-time
 collection of used callables (a `..` counts as the `range` function) feeds a single per-render check

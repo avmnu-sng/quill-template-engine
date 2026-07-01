@@ -9,10 +9,10 @@ import (
 // Object are traversable.
 //
 // Iterating a Null, a scalar, or any non-iterable is a KindIteration ERROR, NOT
-// a silent empty loop -- the strict divergence from Twig's ensureTraversable
-// (spec 04 Section 8.5). The lenient migration flag (off by default) restores
-// the empty-loop behavior; under lenient a non-iterable yields zero pairs and
-// no error. The explicit "empty is fine" idiom is for x in (coll ?? []).
+// a silent empty loop, so a missing collection cannot silently emit an empty
+// body (spec 04 Section 8.5). The lenient flag (off by default) restores the
+// empty-loop behavior; under lenient a non-iterable yields zero pairs and no
+// error. The explicit "empty is fine" idiom is for x in (coll ?? []).
 func EnsureTraversable(v Value, lenient bool) ([]Pair, error) {
 	switch v.Kind {
 	case KArray:

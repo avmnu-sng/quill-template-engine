@@ -5,7 +5,7 @@ import (
 )
 
 // AccessKind selects the access operator (spec 04 Section 7): dotted a.b versus
-// subscript a[k]. The two are distinct rules, not one fused PHP-style resolver.
+// subscript a[k]. The two are distinct, kind-dispatched rules.
 type AccessKind uint8
 
 const (

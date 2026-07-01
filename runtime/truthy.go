@@ -6,10 +6,9 @@ package runtime
 //
 //	Null   false   0 (Int)   0.0 (Float)   "" (empty Str)   [] (empty *Array)
 //
-// Everything else is truthy. In particular "0" is TRUTHY (a non-empty string --
-// the headline divergence from PHP), and any Object is truthy regardless of its
-// internal state. A Safe value takes the truthiness of its wrapped content, so
-// Safe("") is falsy.
+// Everything else is truthy. In particular "0" is TRUTHY (a non-empty string),
+// and any Object is truthy regardless of its internal state. A Safe value takes
+// the truthiness of its wrapped content, so Safe("") is falsy.
 func Truthy(v Value) bool {
 	switch v.Kind {
 	case KNull:

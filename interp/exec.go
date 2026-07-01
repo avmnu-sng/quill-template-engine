@@ -441,7 +441,7 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 }
 
 // loopMeta builds the loop.* metadata array for iteration i of length n. All
-// fields are always defined (a divergence from Twig), spec 01 Section 4.2.
+// fields are always defined, spec 01 Section 4.2.
 func loopMeta(i, n int, parent runtime.Value) runtime.Value {
 	m := runtime.NewArray()
 	m.SetStr("index0", runtime.Int(int64(i)))

@@ -1,6 +1,6 @@
 // Package runtime is the root of Quill's value system: the sealed Value
 // taxonomy, the ordered dual-view *Array, the Context variable scope, the host
-// Object interface, and the de-PHP-ified operations (Equal, Order, Truthy,
+// Object interface, and the typed operations (Equal, Order, Truthy,
 // Empty, ToText, GetAttribute, iteration). It imports nothing from the lexer,
 // parser, or interpreter, so the engine's correctness budget -- comparison,
 // truthiness, coercion, attribute access -- is spent once here and is testable
@@ -25,7 +25,7 @@ const (
 	KArray
 	// KObject is a host value behind the Object interface.
 	KObject
-	// KSafe is an already-safe-output carrier (Twig's Markup, renamed).
+	// KSafe is an already-safe-output carrier.
 	KSafe
 )
 
@@ -84,8 +84,8 @@ type Object interface {
 }
 
 // Stringifier is the explicit, auditable ToText hook for a host Object. An
-// Object without it is a render error, never an ambient __toString (spec 04
-// Section 5).
+// Object without it is a render error, never an ambient best-effort stringify
+// (spec 04 Section 5).
 type Stringifier interface {
 	Stringify() (string, error)
 }

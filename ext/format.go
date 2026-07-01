@@ -41,7 +41,7 @@ func goArg(v runtime.Value) interface{} {
 }
 
 // sprintfGo applies Go fmt verbs to args. It is a thin wrapper so the format
-// filter has a single, named home for the divergence from PHP sprintf.
+// filter's Go fmt semantics have a single, named home.
 func sprintfGo(format string, args []interface{}) string {
 	return fmt.Sprintf(format, args...)
 }

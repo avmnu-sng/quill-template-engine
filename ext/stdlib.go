@@ -126,8 +126,7 @@ func filterNl2br(args []runtime.Value) (runtime.Value, error) {
 }
 
 // filterSpaceless collapses whitespace between tags (">   <" -> "><"), spec 03
-// Section 2.1. Retained though Twig deprecates it because source-emission
-// templates still use it.
+// Section 2.1.
 func filterSpaceless(args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
@@ -215,8 +214,8 @@ func chunkRunes(s string, size int) []string {
 	return parts
 }
 
-// filterFormat is printf with Go fmt verbs, NOT PHP sprintf (spec 03 Section 2.6
-// divergence). The piped value is the format string; the explicit args fill it.
+// filterFormat is printf with Go fmt verbs (spec 03 Section 2.6). The piped
+// value is the format string; the explicit args fill it.
 func filterFormat(args []runtime.Value) (runtime.Value, error) {
 	format, err := wantString(arg(args, 0))
 	if err != nil {
@@ -633,10 +632,9 @@ func registerEncodingFilters(s *ExtensionSet) {
 	s.AddFilter(&Filter{Name: "invoke", Fn: filterInvoke})
 }
 
-// filterJSON serializes via Go encoding/json output rules, NOT PHP json_encode
-// (spec 03 Section 2.6 divergence): no HTML escaping of < > &, ordered keys,
-// literal '/'. pretty switches to indented with the given indent (default two
-// spaces).
+// filterJSON serializes via Go encoding/json output rules (spec 03 Section 2.6):
+// no HTML escaping of < > &, ordered keys, literal '/'. pretty switches to
+// indented with the given indent (default two spaces).
 func filterJSON(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	pretty := len(args) > 1 && runtime.Truthy(args[1])
@@ -702,7 +700,7 @@ func registerSourceFilters(s *ExtensionSet) {
 // filterTab is the indentation workhorse (spec 03 Section 5.1): n | tab emits n
 // levels of indentation standalone; s | tab(n) indents each non-blank line of s
 // by n levels. One level is one tab character. The argument check is expressed
-// in Quill truthiness and length, not PHP empty().
+// in Quill truthiness and length.
 func filterTab(args []runtime.Value) (runtime.Value, error) {
 	piped := arg(args, 0)
 	const unit = "\t"
@@ -941,7 +939,7 @@ func fnEnumCases(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
 
 func registerStdlibTests(s *ExtensionSet) {
 	s.AddTest(&Test{Name: "divisible_by", Fn: testDivisibleBy})
-	s.AddTest(&Test{Name: "divisible by", Fn: testDivisibleBy}) // Twig two-word alias
+	s.AddTest(&Test{Name: "divisible by", Fn: testDivisibleBy}) // spaced-spelling alias
 	s.AddTest(&Test{Name: "sequence", Fn: testSequence})
 	s.AddTest(&Test{Name: "mapping", Fn: testMapping})
 	s.AddTest(&Test{Name: "true", Fn: testTrue})

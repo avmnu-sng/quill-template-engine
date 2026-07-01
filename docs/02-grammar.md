@@ -328,7 +328,7 @@ uses the `@`-default, where these escapes are unnecessary.
 **R6 -- power vs unary minus.** `**` is right-associative and binds tighter than unary minus,
 but the unary prefix wraps the power node by AST shape: `Unary -> ("-") Unary | Postfix` and
 `Power -> Unary [ "**" Power ]` together yield `-1 ** 0 = -(1 ** 0) = -1` and
-`(-1) ** 2 = 1` from one consistent rule, with no PHP special case.
+`(-1) ** 2 = 1` from one consistent rule.
 
 **R7 -- two-word test names.** After `is`/`is not`, the parser greedily consumes up to two
 `NAME` tokens to form the test name (`same as`, `divisible by`), then optionally an argument.

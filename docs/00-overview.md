@@ -98,8 +98,8 @@ Both spellings denote the same template. Every construct here is core Quill:
   (`01-language-reference.md` Section 4).
 - `{{ u.name | upper }}` -- interpolation with a pipe filter
   (`01-language-reference.md` Sections 2, 3).
-- `{{ ", admin" if u.isAdmin }}` -- the postfix conditional on output, the one anchor
-  feature that exceeds Twig (`01-language-reference.md` Section 2.6).
+- `{{ ", admin" if u.isAdmin }}` -- the postfix conditional on output
+  (`01-language-reference.md` Section 2.6).
 - `@macro greet(name) { ... @}` -- a parameterized output function
   (`01-language-reference.md` Section 5).
 - `name | default("guest")` -- a filter taking an argument, undefined-safe
@@ -169,8 +169,8 @@ elaborated in the cited companion document.
    grammar-shape rejection) apply within that opt-in mode and to edge cases.
    (`01-language-reference.md` Section 2.)
 
-3. **One published precedence ladder with the power/unary fix.** Seventeen levels, with one
-   consistent AST-driven rule so the PHP `-1 ** 0 == -1` leak cannot occur. The pipe `|` is
+3. **One published precedence ladder.** Seventeen levels, with one consistent AST-driven rule
+   so `-1 ** 0` parses as `-(1 ** 0) = -1` directly from the table. The pipe `|` is
    the filter operator, so bitwise-or is the word `b_or` (with `|||`/`^`/`&` aliasing the
    bitwise family) to keep the pipe unambiguous. (`01-language-reference.md` Section 3.)
 

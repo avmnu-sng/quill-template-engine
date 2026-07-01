@@ -14,7 +14,7 @@ func TestToTextSpellings(t *testing.T) {
 		want string
 	}{
 		{"null is empty", Null(), ""},
-		// Bool renders the literal words, NOT PHP "1"/""
+		// Bool renders the literal words "true"/"false"
 		{"true word", Bool(true), "true"},
 		{"false word", Bool(false), "false"},
 		{"int", Int(42), "42"},
@@ -59,7 +59,7 @@ func TestToTextObjectHook(t *testing.T) {
 	if err != nil || got != "rendered" {
 		t.Fatalf("hook object = %q, %v; want rendered", got, err)
 	}
-	// Without a hook -> a render error, not ambient __toString.
+	// Without a hook -> a render error, not an ambient best-effort stringify.
 	noHook := Obj(newFieldObj("T", nil))
 	if _, err := ToText(noHook); err == nil {
 		t.Fatal("object without stringify hook must be a render error")

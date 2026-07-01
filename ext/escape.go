@@ -25,7 +25,7 @@ var htmlEscaper = strings.NewReplacer(
 )
 
 // Escape applies the named escaping strategy (spec 03 Section 5.5). The six
-// strategies retained from Twig for markup-emitting templates are html, js, css,
+// strategies for markup-emitting templates are html, js, css,
 // html_attr, html_attr_relaxed, and url. An unknown strategy is a caller error.
 //
 // The strategies split into two charset classes (spec 04 Section 8.2). html and

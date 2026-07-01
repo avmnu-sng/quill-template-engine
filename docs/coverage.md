@@ -5,10 +5,9 @@ statements and interpolations ran, and which arms of each branch were taken. Thi
 branch-aware coverage for templates, the analogue of `go tool cover` for Go, aggregated
 across many renders and exported as a text summary, LCOV, or a highlighted HTML report.
 
-Most template languages (ERB, Twig, Jinja, Go `text/template`) give you no coverage at
-all: a test can render a template a thousand times and you still cannot tell that the
-`@else` arm of one `@if` was never taken, or that a `@for` loop was only ever entered with
-a non-empty collection. Quill records exactly that.
+Coverage answers questions a plain render count cannot: whether the `@else` arm of an `@if`
+was ever taken, or whether a `@for` loop was ever entered with a non-empty collection. Quill
+records exactly that, per template node and aggregated across every render in a test run.
 
 Coverage is opt-in and zero-overhead when disabled: an Environment with no collector pays
 no per-node cost on the render hot path. The instrumentation records reachability only; it

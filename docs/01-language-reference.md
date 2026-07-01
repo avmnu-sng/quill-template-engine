@@ -340,7 +340,7 @@ The region ends at the first line equal to the fence token.
 
 ### 1.8 Fixed delimiters and source positions
 
-Quill FIXES its delimiters; it does not inherit Twig's runtime-configurable delimiters. The
+Quill FIXES its delimiters. The
 verbatim fence token and the `pragma bare` statement-lead mode (which opts out of the
 `@`-sigil default, Section 1.3) are the only per-template knobs, and neither changes the
 interpolation, comment, or string-interpolation sigil bytes. Source is CR/CRLF-normalized to LF before line
@@ -389,8 +389,7 @@ The postfix conditional is pure sugar: `{{ x if c }}` desugars to `{{ x if c els
 which desugars to the ternary `{{ c ? x : "" }}`. One AST node, zero new evaluation rules.
 The grammar reserves the postfix `if [...] [else ...]` tail specifically in interpolation
 context, parsed after the main expression at the lowest interpolation precedence, so it never
-collides with a ternary inside the expression. This feature EXCEEDS Twig, which has no
-postfix `if` on prints.
+collides with a ternary inside the expression.
 
 --------------------------------------------------------------------------------
 
@@ -426,17 +425,16 @@ binds tighter (evaluated first).
 | 2 | `? :` ternary, postfix `if`/`unless`/`else` | right |
 | 1 | `=>` arrow, `=` assignment / destructuring | right |
 
-**The power/unary-minus leak is fixed.** Power (level 15) binds tighter than unary minus
-(level 16 prefix), but the right operand of the right-associative `**` re-enters at the prefix
-level, and unary minus wraps the power by AST shape. There is exactly ONE rule (AST-driven
-precedence), so `-1 ** 0` parses as `-(1 ** 0) = -1` and `(-1) ** 2 = 1`, by the published,
-consistent precedence -- never by a parser accident. The PHP `-1 ** 0 == -1` special case is
-removed; the grammar is the whole story.
+**Power and unary minus.** Power (level 15) binds tighter than unary minus (level 16 prefix),
+but the right operand of the right-associative `**` re-enters at the prefix level, and unary
+minus wraps the power by AST shape. One rule (AST-driven precedence) governs both, so
+`-1 ** 0` parses as `-(1 ** 0) = -1` and `(-1) ** 2 = 1`, entirely from the published
+precedence table.
 
 **Bitwise-or spelling.** Because `|` is the filter pipe, bitwise OR is the word `b_or` (alias
 `|||`), bitwise XOR is `b_xor` (alias `^`), and bitwise AND is `b_and` (alias `&`). `b_or` is
-canonical. This mirrors Twig's own `b-or`/`b-xor`/`b-and` word spelling and keeps the pipe
-unambiguous while preserving the full bitwise capability.
+canonical. The word spelling keeps the pipe unambiguous while providing the full bitwise
+capability.
 
 ### 3.2 The operator catalogue
 
@@ -516,9 +514,9 @@ callable filling any parameter not supplied. The three short forms are special c
   `Primary`); `x is t(args)` is the full form and admits named and spread arguments, so
   `n is divisible_by(n: 3)` is legal. Declared defaults fill the rest in every form.
 
-Because all three resolve to the same `Args` grammar and the same callable signature, "named
-arguments everywhere Twig supports them" holds uniformly for filters, functions, methods, and
-tests; the bare and one-arg short forms are only sugar for the zero/one-positional cases.
+Because all three resolve to the same `Args` grammar and the same callable signature, named
+arguments are available uniformly across filters, functions, methods, and tests; the bare and
+one-arg short forms are only sugar for the zero/one-positional cases.
 
 --------------------------------------------------------------------------------
 
@@ -579,14 +577,12 @@ taken in the single truthiness rule (`04-types-and-semantics.md` Section 2). The
   `E is defined` before the loop rather than relying on the `else`.
 - **Loop metadata.** Inside the body, `loop` exposes `loop.parent`, `loop.index0`,
   `loop.index`, `loop.first`, `loop.last`, `loop.length`, `loop.revindex`, `loop.revindex0`.
-  Quill makes ALL loop fields ALWAYS defined (a divergence from Twig, which leaves
-  length-fields undefined for un-countable generators): the `*Array` always knows its length,
-  and a host iterator is drained to an `*Array` before the loop, trading a small memory cost
-  for an always-present `loop.last`.
+  ALL loop fields are ALWAYS defined: the `*Array` always knows its length, and a host iterator
+  is drained to an `*Array` before the loop, trading a small memory cost for an always-present
+  `loop.last`.
 - **Scoping.** The loop body is a child scope. A variable that existed before the loop and is
   reassigned inside keeps its last in-loop value after the loop; a variable introduced only in
-  the body (via `set`) does not leak. This is the observable Twig behavior, stated as lexical
-  scoping rather than a merge formula.
+  the body (via `set`) does not leak. The rule is lexical scoping.
 
 ### 4.3 Assignment and capture
 

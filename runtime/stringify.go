@@ -12,7 +12,7 @@ import (
 // comparison NEVER coerce. The spelling table, EXACTLY:
 //
 //   - Null    -> "" (the empty string)
-//   - Bool    -> "true" / "false" (NOT PHP "1" / "")
+//   - Bool    -> "true" / "false"
 //   - Int     -> decimal, no separators
 //   - Float   -> shortest round-trippable decimal (Go 'g'/-1: 1.0 -> "1",
 //     1.5 -> "1.5")
