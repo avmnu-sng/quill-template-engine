@@ -210,6 +210,15 @@ func TestStdlibSourceFilters(t *testing.T) {
 	if got := callFilter(t, "tab", runtime.Str("a\n\nb"), runtime.Int(1)).S; got != "\ta\n\n\tb" {
 		t.Errorf("tab blank line = %q", got)
 	}
+	// A negative level (e.g. a computed depth-1 yielding -1) clamps to zero
+	// levels, leaving the string unindented rather than panicking.
+	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(-1)).S; got != "a\nb" {
+		t.Errorf("tab negative level = %q", got)
+	}
+	// Level 0 is a no-op.
+	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(0)).S; got != "a\nb" {
+		t.Errorf("tab zero level = %q", got)
+	}
 	if got := callFilter(t, "indent", runtime.Str("x\ny"), runtime.Int(2)).S; got != "        x\n        y" {
 		t.Errorf("indent = %q", got)
 	}

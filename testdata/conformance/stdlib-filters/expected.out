@@ -12,6 +12,7 @@ column: a,b
 batch: 12|34|5
 url_encode: a%20b%26c
 tab: [		]end
+tab-neg: [x]end
 nl2br: a<br />
 b
 spaceless: <a><b></b>

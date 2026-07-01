@@ -720,6 +720,9 @@ func filterTab(args []runtime.Value) (runtime.Value, error) {
 	if len(args) > 1 && !args[1].IsNull() {
 		levels = int(toInt(args[1]))
 	}
+	if levels < 0 {
+		levels = 0
+	}
 	return runtime.Str(indentLines(s, strings.Repeat(unit, levels))), nil
 }
 

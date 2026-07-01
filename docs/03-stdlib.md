@@ -283,7 +283,9 @@ real source-generation template sets.
 `n | tab` produces `n` levels of indentation standalone (e.g. `{{ 1 | tab }}` emits one
 indent), and `s | tab(n)` indents each non-blank line of `s` by `n` levels. The form
 `{{ 1 | tab() }}` (with empty parens) is valid Quill; the empty arg list is optional and may be
-dropped. Its argument check is expressed in Quill truthiness and length.
+dropped. Its argument check is expressed in Quill truthiness and length. A level of zero or below
+emits no indentation, so a computed level such as `depth - 1` yields the text unindented at the
+top level.
 
 ### 5.2 `ucfirst` -- byte-first upper-case
 
