@@ -189,6 +189,13 @@ func (p *parser) parseSetTarget() (node *ast.Node, name string, typ *ast.Node) {
 		return p.toTarget(p.parseMap()), "", nil
 	case lex.NAME:
 		nameTok := p.advance()
+		// A member target -- NAME.member or NAME[key], possibly chained -- assigns
+		// through a receiver rather than binding a plain name (the mutable-cell
+		// form, @set c.value = expr). It is not a bindable name, so it reports an
+		// empty name to the capture-form lookahead.
+		if p.at(lex.DOT) || p.at(lex.LBRACKET) {
+			return p.parseMemberTarget(nameTok), "", nil
+		}
 		tgt := p.node(ast.KindTarget, nameTok)
 		tgt.Str = nameTok.Text
 		if p.accept(lex.COLON) {
@@ -200,6 +207,35 @@ func (p *parser) parseSetTarget() (node *ast.Node, name string, typ *ast.Node) {
 	}
 	p.fail("expected a set target, found %s", describe(p.cur()))
 	return nil, "", nil
+}
+
+// parseMemberTarget builds a member-assignment target from a leading NAME already
+// consumed as nameTok, followed by one or more ".member" / "[key]" steps. The
+// result is a KindAttr / KindIndex chain rooted at a KindName, the same shape a
+// member READ produces, so the interpreter can evaluate the receiver and assign
+// the final member. Only the dotted and subscript forms are targets here; a
+// null-safe "?." or a call is not an assignable place.
+func (p *parser) parseMemberTarget(nameTok lex.Token) *ast.Node {
+	recv := p.node(ast.KindName, nameTok)
+	recv.Str = nameTok.Text
+	for {
+		switch p.cur().Kind {
+		case lex.DOT:
+			t := p.advance()
+			name := p.memberName()
+			n := p.node(ast.KindAttr, t, recv)
+			n.Str = name
+			recv = n
+		case lex.LBRACKET:
+			t := p.advance()
+			key := p.parseExpr()
+			p.expect(lex.RBRACKET, "']' to close a member-assignment index")
+			n := p.node(ast.KindIndex, t, recv, key)
+			recv = n
+		default:
+			return recv
+		}
+	}
 }
 
 // parseWith parses "@with map [only] { body } @}" (design/control-flow Section 8).

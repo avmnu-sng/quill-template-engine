@@ -36,6 +36,21 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 			}
 			return in.invokeFunction(n, fn, ctx, args)
 		}
+		// A bare name bound in scope to a callable value is invoked directly, so a
+		// value produced by separator()/cell() or an arrow bound with @set is called
+		// as name(args). A registered function of the same name takes precedence
+		// (checked above), keeping the stdlib namespace stable.
+		if bound, ok := ctx.Get(name); ok && runtime.IsCallable(bound) {
+			args, err := in.collectArgs(n, ctx, nil)
+			if err != nil {
+				return runtime.Null(), err
+			}
+			res, err := runtime.Call(bound, args)
+			if err != nil {
+				return runtime.Null(), posErr(n, err)
+			}
+			return res, nil
+		}
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"unknown function or macro %q", name))
 	}

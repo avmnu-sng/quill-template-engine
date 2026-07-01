@@ -153,6 +153,78 @@ func keyList(a *Array) string {
 	return out
 }
 
+// FieldSetter lets a host Object accept an assignment to one of its members, the
+// write side of GetField (spec 04 Section 7.2). It backs the mutable-reference
+// values (a cell): @set c.value = expr routes through SetMember to this hook. An
+// Object without it is immutable, so a member assignment against it is a runtime
+// error rather than a silent no-op.
+type FieldSetter interface {
+	SetField(name string, v Value) error
+}
+
+// SetMember assigns v to the named member of recv, the write counterpart of
+// GetAttribute's dotted read. It is the single entry point behind a member set
+// target (@set recv.name = v). An *Array stores the string key; a host Object
+// must implement FieldSetter, otherwise the assignment is a runtime error naming
+// the immutable receiver. A non-collection receiver has no members to assign.
+func SetMember(recv Value, name string, v Value) error {
+	switch recv.Kind {
+	case KArray:
+		if recv.Arr == nil {
+			return errors.New(errors.KindRuntime,
+				"cannot assign member %q of an empty collection", name)
+		}
+		recv.Arr.SetStr(name, v)
+		return nil
+	case KObject:
+		if fs, ok := recv.Obj.(FieldSetter); ok {
+			return fs.SetField(name, v)
+		}
+		return errors.New(errors.KindRuntime,
+			"object %s does not support member assignment", objectClass(recv.Obj))
+	default:
+		return errors.New(errors.KindRuntime,
+			"cannot assign member %q of %s", name, recv.Kind)
+	}
+}
+
+// IndexSetter lets a host Object accept an a[k] = v subscript assignment, the
+// write side of Indexable (spec 04 Section 7.3). An Object without it does not
+// support subscript assignment, so such an assignment is a runtime error.
+type IndexSetter interface {
+	SetIndex(key, v Value) error
+}
+
+// SetIndex assigns v to the subscript key of recv, the write counterpart of the
+// a[k] read. The key must be Int or Str, matching the read side. An *Array stores
+// the key; a host Object must implement IndexSetter. It backs a subscript set
+// target (@set recv[key] = v).
+func SetIndex(recv, key, v Value) error {
+	switch key.Kind {
+	case KInt, KStr:
+		// ok
+	default:
+		return errors.New(errors.KindKey, "cannot subscript with a %s key", key.Kind)
+	}
+	switch recv.Kind {
+	case KArray:
+		if recv.Arr == nil {
+			return errors.New(errors.KindRuntime,
+				"cannot assign into an empty collection")
+		}
+		recv.Arr.SetKey(key, v)
+		return nil
+	case KObject:
+		if is, ok := recv.Obj.(IndexSetter); ok {
+			return is.SetIndex(key, v)
+		}
+		return errors.New(errors.KindRuntime,
+			"object %s does not support subscript assignment", objectClass(recv.Obj))
+	default:
+		return errors.New(errors.KindRuntime, "cannot subscript-assign %s", recv.Kind)
+	}
+}
+
 // IsDefinedAttribute is the access-chain side of the is defined test: it reports
 // presence of a member without ever throwing (spec 04 Section 8.3). It is true
 // for a present key even when its stored value is Null.

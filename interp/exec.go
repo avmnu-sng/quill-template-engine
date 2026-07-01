@@ -557,7 +557,40 @@ func (in *interp) execSet(n *ast.Node, ctx *runtime.Context) error {
 		if err != nil {
 			return err
 		}
+		if tg.Kind == ast.KindAttr || tg.Kind == ast.KindIndex {
+			if err := in.assignMember(tg, v, ctx); err != nil {
+				return err
+			}
+			continue
+		}
 		ctx.Set(tg.Str, v)
+	}
+	return nil
+}
+
+// assignMember writes v to a member-set target (@set recv.name = v or
+// @set recv[key] = v). It evaluates the receiver as a value, then routes the
+// write through runtime.SetMember, which stores an *Array key or calls a host
+// FieldSetter (the mutable-cell path). The receiver Object circulates by pointer,
+// so a mutation here is visible to every holder and survives a loop body while
+// the loop's own name rebindings still do not leak.
+func (in *interp) assignMember(tg *ast.Node, v runtime.Value, ctx *runtime.Context) error {
+	recv, err := in.eval(tg.Child(0), ctx, false)
+	if err != nil {
+		return err
+	}
+	if tg.Kind == ast.KindAttr {
+		if err := runtime.SetMember(recv, tg.Str, v); err != nil {
+			return posErr(tg, err)
+		}
+		return nil
+	}
+	key, err := in.eval(tg.Child(1), ctx, false)
+	if err != nil {
+		return err
+	}
+	if err := runtime.SetIndex(recv, keyOf(key), v); err != nil {
+		return posErr(tg, err)
 	}
 	return nil
 }

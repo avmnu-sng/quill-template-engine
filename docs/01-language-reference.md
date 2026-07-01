@@ -629,6 +629,13 @@ taken in the single truthiness rule (`04-types-and-semantics.md` Section 2). The
 annotation per target. Assignment is an expression returning the assigned value:
 `{{ b = 1 + 3 }}` both stores `b` and prints `4`; `@do b = 1 + 3` stores without printing.
 
+A target may also be a member place rather than a plain name: `@set recv.name = expr` and
+`@set recv[key] = expr` assign THROUGH a receiver. On a mapping this stores the key in place;
+on a host reference value (a `cell`, `03-stdlib.md` Section 3.2a) it calls the write hook, so
+`@set acc.value = acc.value + w` mutates the cell in place. Because a reference value
+circulates by pointer, such a mutation is visible after a loop body while the loop's own name
+rebindings still do not leak. A receiver that does not support assignment is a runtime error.
+
 Block capture:
 
 ```

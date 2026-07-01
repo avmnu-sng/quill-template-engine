@@ -79,6 +79,12 @@ func TestWellTyped(t *testing.T) {
 		// `??` still suppresses only absence, not a genuine type error on a present
 		// member, so a well-typed left chain checks fine here.
 		{"coalesce on member miss", "@types {\n  u: Object<\"User\">\n@}\n{{ u.naem ?? \"x\" }}", userRegistry()},
+		// A member-set target (the mutable-cell form) types its receiver and value
+		// and introduces no new binding.
+		{"member set target", "@set c = cell(0)\n@set c.value = 1\n{{ c.value }}", nil},
+		{"index set target", "@set m = {}\n@set m[\"k\"] = 1\n{{ m[\"k\"] }}", nil},
+		// The scalar-kind tests are boolean predicates over any value.
+		{"scalar kind tests", "@set x = 1\n{{ x is int }}{{ x is number }}{{ \"s\" is string }}", nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

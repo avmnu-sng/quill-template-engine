@@ -1,0 +1,14 @@
+string-str: true
+string-int: false
+number-int: true
+number-float: true
+number-str: false
+int-int: true
+int-float: false
+float-float: true
+float-int: false
+bool-true: true
+bool-int: false
+callable-sep: true
+callable-str: false
+not-callable: true

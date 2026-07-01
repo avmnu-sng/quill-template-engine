@@ -62,6 +62,10 @@ then the explicit args; `T?` is nullable; `list<T>`/`map<K,V>` are the collectio
 | `format_number(decimals: int = 0, point: string = ".", sep: string = ",")` | `(number, ...) -> string` | Fixed-decimal formatting with separators. Alias `number_format`. |
 | `convert_encoding(to: string, from: string)` | `(string, ...) -> string` | UTF-8-centric encoding conversion; documented mapping. |
 | `ucfirst` | `string -> string` | Upper-case first BYTE only, rest unchanged; host filter, distinct from `capitalize`. See Section 5.2. |
+| `wrap(width: int, break: string = "\n")` | `(string, ...) -> string` | Word-wrap to `width` runes, breaking only at spaces (a word is never split); `break` joins the lines. Existing newlines start fresh paragraphs, wrapped independently; a single word longer than `width` is emitted whole. |
+| `truncate(length: int, omission: string = "...", preserve: bool = false)` | `(string, ...) -> string` | Cap at `length` runes and append `omission` when shortened; the result is at most `length` runes INCLUDING the marker. `preserve` pulls the cut back to the last word boundary. Distinct from `slice`, which is a pure window with no marker. |
+| `center(width: int, fill: string = " ")` | `(string, ...) -> string` | Pad both sides with `fill` to `width` runes, centered; an odd pad puts the extra unit on the right. A string already at or over `width` is unchanged. |
+| `wordcount` | `string -> int` | Count maximal runs of non-space runes; leading/trailing/repeated whitespace does not inflate the count. |
 
 ### 2.2 Collection filters
 
@@ -213,6 +217,46 @@ compile-time callable collection, a `..` counts as using the `range` function.
 | `enum(name)` | First case of a host enumeration. |
 | `enum_cases(name)` | All cases of a host enumeration in declaration order. |
 | `date(date: any? = null, tz: string? = null)` | Construct a date/time value from a string/timestamp and timezone (Go date model). |
+| `separator(sep: string = ",")` | Return a CALLABLE that yields `""` on its first call and `sep` on every call after. Woven through a loop it emits the glue between elements and nothing before the first, so a list joins without a trailing separator. See Section 3.2a. |
+| `cell(initial: any = null)` | Return a mutable single-slot reference whose `value` member is assignable and survives a loop body. See Section 3.2a. |
+
+### 3.2a Reference values: `separator` and `cell`
+
+Both functions return a small reference-typed value that is opt-in and self-contained.
+
+`separator(sep)` returns a callable. The first call yields `""`; each later call yields
+`sep`. Calling it once per iteration, before the element, produces trailing-separator-free
+joining, and a fresh `separator()` has independent state:
+
+```
+@set sep = separator(", ")
+@for n in nums {~
+{{- sep() }}{{ n -}}
+@}
+```
+
+renders `1, 2, 3` for `nums = [1, 2, 3]`.
+
+`cell(initial)` returns a mutable reference with one member, `value`. Reading `c.value`
+yields the held value; `@set c.value = expr` replaces it in place. Because a reference value
+circulates by pointer, a cell mutated inside a loop body is visible after the loop, which
+lets an accumulator survive without weakening the default no-leak loop scoping (only the
+cell's own field mutates; a plain `@set` of a loop-local name still does not leak):
+
+```
+@set acc = cell(0)
+@for w in weights {
+@set acc.value = acc.value + w
+@}
+sum: {{ acc.value }}
+```
+
+Member assignment (`@set recv.name = expr` and `@set recv[key] = expr`) is a general set
+target: it stores a mapping key on an `*Array` and calls the host write hook on an Object
+that supports it. A receiver that does not support assignment is a runtime error.
+
+A value produced by `separator()`, an arrow bound with `@set`, or any other callable value
+in scope is invoked directly by name: `sep()` calls the bound callable.
 
 ### 3.3 Debug and dynamic functions (opt-in)
 
@@ -291,11 +335,22 @@ one mandatory or parenthesized argument.
 | `is sequence` | none | True iff a list-shaped `*Array`; empty IS a sequence. |
 | `is mapping` | none | True iff a non-list `*Array` or any `Object`; empty is NOT a mapping; any object IS. |
 | `is true` | none | True iff the value is `Bool` true (`Safe`-unwrapped first). |
+| `is string` | none | True iff the value is a string (`Str` or `Safe`). |
+| `is number` | none | True iff the value is numeric: `Int` OR `Float`. |
+| `is int` | none | True iff the value is an integer. |
+| `is float` | none | True iff the value is a float. |
+| `is bool` | none | True iff the value is a boolean; both `true` and `false` satisfy it, unlike `is true`. |
+| `is callable` | none | True iff the value can be invoked with arguments: an arrow function, a host callable, or a value produced by `separator()`. |
 | `is eq(y)` / `is ne(y)` | one mandatory | Value equality and its negation via the one typed equality (`04-types-and-semantics.md` Section 4). |
 | `is lt(y)` / `is le(y)` / `is gt(y)` / `is ge(y)` | one mandatory | The four ordering relations via the one runtime ordering; total within the number tower and between two strings, a comparison error across unlike kinds. |
 
 The comparison tests take one argument each and are typed, total, and deterministic, so they
 back the named-test collection filters (Section 2.8): `people | selectattr("age", "ge", 18)`.
+
+The scalar-kind tests (`is string`/`number`/`int`/`float`/`bool`/`callable`) are total,
+deterministic predicates over the value domain: they ask what a value IS, distinct from the
+`eq`/`ne` comparisons that ask how it relates to another value. `is number` is the union of
+`is int` and `is float`.
 
 ### 4.1 `is empty` -- the one emptiness predicate
 

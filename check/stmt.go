@@ -202,6 +202,18 @@ func (c *checker) checkSet(n *ast.Node, sc *scope) error {
 // value, checks an annotation for consistency, and records the binding. A
 // destructuring pattern (KindListPattern/KindMapPattern) binds its names as any.
 func (c *checker) bindTarget(tg, value *ast.Node, sc *scope) error {
+	// A member-set target (recv.name / recv[key]) assigns through a receiver rather
+	// than binding a name. Type the value and the receiver so an undefined receiver
+	// or value is still caught, and introduce no new binding.
+	if tg.Kind == ast.KindAttr || tg.Kind == ast.KindIndex {
+		if _, err := c.exprType(value, sc); err != nil {
+			return err
+		}
+		if _, err := c.exprType(tg, sc); err != nil {
+			return err
+		}
+		return nil
+	}
 	if tg.Kind != ast.KindTarget {
 		// A destructuring pattern target; type the value and bind names as any.
 		if value != nil {

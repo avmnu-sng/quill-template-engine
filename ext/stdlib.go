@@ -28,6 +28,7 @@ import (
 // here rather than as bare package functions.
 func registerStdlib(s *ExtensionSet) {
 	registerStringFilters(s)
+	registerShapingFilters(s)
 	registerCollectionFilters(s)
 	registerMathFilters(s)
 	registerEncodingFilters(s)
@@ -1141,6 +1142,7 @@ func indentLines(s, prefix string) string {
 
 func registerStdlibFunctions(s *ExtensionSet) {
 	s.AddFunction(&Function{Name: "attribute", Fn: fnAttribute})
+	registerRefFunctions(s)
 	s.AddFunction(&Function{Name: "cycle", Fn: fnCycle})
 	s.AddFunction(&Function{Name: "random", Fn: fnRandom})
 	s.AddFunction(&Function{Name: "date", Fn: fnDate})
@@ -1331,6 +1333,17 @@ func registerStdlibTests(s *ExtensionSet) {
 		return testConstant(s, args)
 	}})
 
+	// Scalar-kind tests (spec 03 Section 4): total, deterministic predicates over
+	// the value domain that report the runtime kind of a value. `is number` is the
+	// union of int and float. They are distinct from the eq/ne value comparisons:
+	// these ask what a value IS, not how it compares to another.
+	s.AddTest(&Test{Name: "string", Fn: testString})
+	s.AddTest(&Test{Name: "number", Fn: testNumber})
+	s.AddTest(&Test{Name: "int", Fn: testInt})
+	s.AddTest(&Test{Name: "float", Fn: testFloat})
+	s.AddTest(&Test{Name: "bool", Fn: testBool})
+	s.AddTest(&Test{Name: "callable", Fn: testCallable})
+
 	// Comparison tests (spec 03 Section 4): each takes one argument and reports a
 	// typed, total, deterministic relation via the one runtime ordering/equality.
 	// They back the named-test collection ops, e.g. selectattr('age', 'ge', 18).
@@ -1427,6 +1440,45 @@ func testConstant(s *ExtensionSet, args []runtime.Value) (bool, error) {
 		return false, errors.New(errors.KindRuntime, "undefined constant %q", name)
 	}
 	return runtime.Equal(x, v), nil
+}
+
+// testString reports whether the value is a string. A Safe carries string
+// content, so it counts as a string too (spec 03 Section 4).
+func testString(args []runtime.Value) (bool, error) {
+	k := arg(args, 0).Kind
+	return k == runtime.KStr || k == runtime.KSafe, nil
+}
+
+// testNumber reports whether the value is numeric: an int OR a float (spec 03
+// Section 4). It is the union of the int and float kind tests.
+func testNumber(args []runtime.Value) (bool, error) {
+	k := arg(args, 0).Kind
+	return k == runtime.KInt || k == runtime.KFloat, nil
+}
+
+// testInt reports whether the value is an integer (spec 03 Section 4).
+func testInt(args []runtime.Value) (bool, error) {
+	return arg(args, 0).Kind == runtime.KInt, nil
+}
+
+// testFloat reports whether the value is a float (spec 03 Section 4).
+func testFloat(args []runtime.Value) (bool, error) {
+	return arg(args, 0).Kind == runtime.KFloat, nil
+}
+
+// testBool reports whether the value is a boolean (spec 03 Section 4). It is a
+// kind predicate: both true and false satisfy it, unlike `is true` which asks
+// specifically for the Bool true value.
+func testBool(args []runtime.Value) (bool, error) {
+	return arg(args, 0).Kind == runtime.KBool, nil
+}
+
+// testCallable reports whether the value can be invoked with arguments: an arrow
+// function, a host callable Object, or a value produced by separator()/cell()
+// that carries a callable (spec 03 Section 4). It is the value-domain predicate
+// behind the higher-order collection ops.
+func testCallable(args []runtime.Value) (bool, error) {
+	return runtime.IsCallable(arg(args, 0)), nil
 }
 
 // --- shared helpers ---------------------------------------------------------

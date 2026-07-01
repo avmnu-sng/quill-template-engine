@@ -202,8 +202,9 @@ Quill ships a complete built-in library of filters, functions, and tests, all
 `snake_case`-named:
 
 - **String:** `upper`, `lower`, `title`, `capitalize`, `trim`, `replace`,
-  `split`, `join`, `slice`, `length`, `url_encode`, `nl2br`, the source-emission
-  helpers `indent`/`tab`/`ucfirst`, and the escapers `escape`/`e`/`raw`.
+  `split`, `join`, `slice`, `length`, `url_encode`, `nl2br`, the text-shaping
+  filters `wrap`/`truncate`/`center`/`wordcount`, the source-emission helpers
+  `indent`/`tab`/`ucfirst`, and the escapers `escape`/`e`/`raw`.
 - **Collection:** `first`, `last`, `keys`, `reverse`, `sort`, `merge`, `batch`,
   `column`, the higher-order `map`/`filter`/`reduce`/`find` (arrow-driven), the
   attribute-projecting `map`/`sum`/`unique` (`attribute: "path"`), the named-test
@@ -211,11 +212,14 @@ Quill ships a complete built-in library of filters, functions, and tests, all
   `has every` quantifiers.
 - **Number/format:** `abs`, `round`, `number_format`, `format`, `date`.
 - **Functions:** `range`, `min`, `max`, `random`, `cycle`, `constant`, `enum`,
-  `enum_cases`, `include`, `source`, `template_from_string`, `dump`, and the
-  indentation emitters `space`/`break`/`tab`.
+  `enum_cases`, `include`, `source`, `template_from_string`, `dump`, the
+  indentation emitters `space`/`break`/`tab`, and the reference values
+  `separator` (trailing-separator-free joining) and `cell` (a mutable accumulator
+  that survives a loop body).
 - **Tests:** `is defined`, `is empty`, `is even`/`odd`, `is iterable`,
   `is constant`, `is divisible by`, the comparison tests
-  `is eq`/`ne`/`lt`/`le`/`gt`/`ge`, and the type tests.
+  `is eq`/`ne`/`lt`/`le`/`gt`/`ge`, the scalar-kind tests
+  `is string`/`number`/`int`/`float`/`bool`/`callable`, and the type tests.
 
 The full catalogue with signatures is
 [`docs/03-stdlib.md`](docs/03-stdlib.md).

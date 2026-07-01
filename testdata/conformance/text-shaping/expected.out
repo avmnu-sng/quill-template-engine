@@ -1,0 +1,10 @@
+wrap: [the quick
+brown fox]
+wrap-break: [a b|c d]
+truncate: [hello wo...]
+truncate-word: [hello...]
+truncate-short: [short]
+center: [  hi  ]
+center-odd: [ hi  ]
+center-fill: [**x**]
+wordcount: 3

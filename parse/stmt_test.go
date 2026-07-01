@@ -133,6 +133,12 @@ func TestParseSetForms(t *testing.T) {
 		{"@set [a, b?, ...rest] = xs\n", "(Set targets=1 (ListPattern (Target a) (Optional (Target b)) (Spread (Name rest))) (Name xs))"},
 		// A nested pattern in an optional slot, and a slot type annotation.
 		{"@set [a: int, [b, c]?] = xs\n", "(Set targets=1 (ListPattern (Target a (Type int)) (Optional (ListPattern (Target b) (Target c)))) (Name xs))"},
+		// A member-set target (the mutable-cell form) parses the receiver chain as
+		// the target rather than binding a plain name.
+		{"@set c.value = 1\n", "(Set targets=1 (Attr .value (Name c)) (Int 1))"},
+		{"@set c.value = c.value + 1\n", "(Set targets=1 (Attr .value (Name c)) (Binary + (Attr .value (Name c)) (Int 1)))"},
+		{"@set m[\"k\"] = 1\n", "(Set targets=1 (Index (Name m) (String \"k\")) (Int 1))"},
+		{"@set a.b.c = 1\n", "(Set targets=1 (Attr .c (Attr .b (Name a))) (Int 1))"},
 	}
 	for _, tc := range tests {
 		got := parseDump(t, tc.src)
