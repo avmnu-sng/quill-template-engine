@@ -590,7 +590,11 @@ taken in the single truthiness rule (`04-types-and-semantics.md` Section 2). The
     the prior iteration; otherwise `false`. Each call site is tracked independently, so a body may
     watch several expressions, and a nested loop keeps its own memory. It is the idiom for
     section headers over grouped rows: `@if loop.changed(row.group) { [{{ row.group }}] @}`.
-    `expr` may reference the loop variable(s).
+    `expr` may reference the loop variable(s). It resolves against THIS loop's own memory,
+    including when it appears in a fused `if` filter clause: there it tracks each candidate
+    element on this loop's own iteration, so a top-level `@for x in xs if loop.changed(x)` keeps
+    one element per run of adjacent duplicates. A filter call site and a body call site are
+    tracked independently, and a nested loop's filter never disturbs an enclosing loop's memory.
 - **Fused loop filtering (`@for ... if cond`).** An optional `if <expr>` clause between the
   iterand and the body brace pre-filters the iterand to the elements for which `cond` is truthy,
   and the body runs only over those SURVIVORS:

@@ -1,0 +1,16 @@
+top-level dedup of adjacent duplicates:
+1: 1
+2: 2
+3: 3
+filter changed over a derived key:
+3
+10
+2
+nested filter answers for the inner loop, enclosing changed stays intact:
+group x first-here=true
+  - a
+  - b
+group x first-here=false
+  - c
+group y first-here=true
+  - d

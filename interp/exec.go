@@ -402,6 +402,18 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 	if err != nil {
 		return posErr(n, err)
 	}
+
+	// Push a fresh loop.changed(...) memory frame for this loop and pop it when the
+	// loop ends, so the innermost loop answers changed(...) and a nested loop keeps
+	// its own prior-value memory (spec 01 Section 4.2). The frame is established
+	// before the fused filter runs, so a loop.changed(...) call in the filter
+	// condition resolves against this loop's own frame -- tracking each candidate
+	// element on this loop's own iteration -- rather than the enclosing loop's
+	// frame. The filter's call site and any body call site are distinct AST nodes,
+	// so they track independently within the shared frame.
+	in.loopChanged = append(in.loopChanged, map[*ast.Node]runtime.Value{})
+	defer func() { in.loopChanged = in.loopChanged[:len(in.loopChanged)-1] }()
+
 	if filter != nil {
 		pairs, err = in.filterLoopPairs(filter, pairs, target1, target2, ctx)
 		if err != nil {
@@ -426,12 +438,6 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 	pre := ctx
 	loopCtx := pre.Clone()
 	parentLoop, _ := pre.Get("loop")
-
-	// Push a fresh loop.changed(...) memory frame for this loop and pop it when the
-	// loop ends, so the innermost loop answers changed(...) and a nested loop keeps
-	// its own prior-value memory (spec 01 Section 4.2).
-	in.loopChanged = append(in.loopChanged, map[*ast.Node]runtime.Value{})
-	defer func() { in.loopChanged = in.loopChanged[:len(in.loopChanged)-1] }()
 
 	for i, p := range pairs {
 		loopCtx.Set(target1.Str, p.Val)

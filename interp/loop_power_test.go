@@ -179,3 +179,53 @@ func TestForIfFilterScopeIsolation(t *testing.T) {
 		t.Errorf("loop target leaked past the loop: %q", got)
 	}
 }
+
+// TestLoopChangedInFilter covers loop.changed(expr) inside a fused @for..if
+// filter condition: the call resolves against this loop's own changed-frame,
+// tracking each candidate element on this loop's own iteration. At the outermost
+// level the frame is active during the filter, so a top-level filter may dedup
+// adjacent duplicates; when nested, the filter answers for the inner loop and the
+// enclosing loop's changed memory stays intact (spec 01 Section 4.2).
+func TestLoopChangedInFilter(t *testing.T) {
+	eng := newStub(nil)
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "top-level filter dedups adjacent duplicates",
+			body: "@for x in [1,1,2,2,3] if loop.changed(x) {\n{{ x }}\n@}\n",
+			want: "1\n2\n3\n",
+		},
+		{
+			name: "filter changed renumbers loop.index over survivors",
+			body: "@for x in [1,1,2,3,3] if loop.changed(x) {\n{{ loop.index }}:{{ x }}\n@}\n",
+			want: "1:1\n2:2\n3:3\n",
+		},
+		{
+			name: "nested filter answers for the inner loop only",
+			body: "@for a in [1,2] {\n@for b in [7,7,8] if loop.changed(b) {\n{{ a }}.{{ b }}\n@}\n@}\n",
+			want: "1.7\n1.8\n2.7\n2.8\n",
+		},
+		{
+			name: "nested filter leaves enclosing changed memory intact",
+			body: "@for a in [1,1,2] {\n" +
+				"a={{ loop.changed(a) }}\n" +
+				"@for b in [5,5] if loop.changed(b) {\nb={{ b }}\n@}\n@}\n",
+			want: "a=true\nb=5\na=false\nb=5\na=true\nb=5\n",
+		},
+		{
+			name: "filter and body watch the same expression independently",
+			body: "@for x in [1,1,2,2] if loop.changed(x) {\n{{ x }}:{{ loop.changed(x) }}\n@}\n",
+			want: "1:true\n2:true\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := renderStub(t, eng, c.body, nil); got != c.want {
+				t.Errorf("got %q want %q", got, c.want)
+			}
+		})
+	}
+}
