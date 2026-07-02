@@ -106,7 +106,7 @@ func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pai
 		} else {
 			loopCtx.Set(frame.target1, p.Val)
 		}
-		loopCtx.Set("loop", recursiveLoopMeta(i, pairs, depth0, parentLoop))
+		loopCtx.Set("loop", newRecursiveLoopValue(i, pairs, depth0, parentLoop))
 		if err := in.execItems(frame.body, loopCtx); err != nil {
 			return err
 		}
@@ -145,8 +145,10 @@ func (in *interp) callRecursiveLoop(n *ast.Node, ctx *runtime.Context) (runtime.
 	// The next level's depth0 is the enclosing element's depth0 plus one; read it
 	// from the loop mapping in scope so a re-entry deepens correctly.
 	depth0 := 1
-	if lv, ok := ctx.Get("loop"); ok && lv.Kind == runtime.KArray && lv.Arr != nil {
-		if d, ok := lv.Arr.GetStr("depth0"); ok && d.Kind == runtime.KInt {
+	if lv, ok := ctx.Get("loop"); ok {
+		// Read the enclosing level's depth0 through the generic attribute path so
+		// the loop value's representation stays private to loopvalue.go.
+		if d, err := runtime.GetAttribute(lv, runtime.Str("depth0"), runtime.AccessDot, true); err == nil && d.Kind == runtime.KInt {
 			depth0 = int(d.I) + 1
 		}
 	}
@@ -190,14 +192,4 @@ func (in *interp) filterRecursivePairs(frame *recursiveLoop, pairs []runtime.Pai
 		}
 	}
 	return survivors, nil
-}
-
-// recursiveLoopMeta builds the loop.* mapping for a recursive loop iteration. It
-// carries the usual index / first / last / length fields plus depth (1-based) and
-// depth0 (0-based) so a template can indent or number nested structures.
-func recursiveLoopMeta(i int, pairs []runtime.Pair, depth0 int, parent runtime.Value) runtime.Value {
-	m := loopMeta(i, pairs, parent)
-	m.Arr.SetStr("depth", runtime.Int(int64(depth0+1)))
-	m.Arr.SetStr("depth0", runtime.Int(int64(depth0)))
-	return m
 }

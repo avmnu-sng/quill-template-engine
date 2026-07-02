@@ -464,7 +464,7 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 			loopCtx.Set(target1.Str, p.Key)
 			loopCtx.Set(target2.Str, p.Val)
 		}
-		loopCtx.Set("loop", loopMeta(i, pairs, parentLoop))
+		loopCtx.Set("loop", newLoopValue(i, pairs, parentLoop))
 		if err := in.execItems(body.Children, loopCtx); err != nil {
 			return err
 		}
@@ -487,42 +487,6 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 		}
 	}
 	return nil
-}
-
-// loopMeta builds the loop.* metadata array for iteration i over pairs. All
-// fields are always defined (spec 01 Section 4.2). prev and next are the value of
-// the previous and next element (the mapping VALUE for a two-target loop over a
-// mapping), and Null at the first and last iteration respectively; Quill
-// materializes the sequence, so both are available without buffering. When a
-// fused filter pre-selected the survivors, pairs is already the survivor
-// sequence, so every field -- including first/last/length/revindex and prev/next
-// -- reflects the filtered subset.
-func loopMeta(i int, pairs []runtime.Pair, parent runtime.Value) runtime.Value {
-	n := len(pairs)
-	m := runtime.NewArray()
-	m.SetStr("index0", runtime.Int(int64(i)))
-	m.SetStr("index", runtime.Int(int64(i+1)))
-	m.SetStr("revindex0", runtime.Int(int64(n-1-i)))
-	m.SetStr("revindex", runtime.Int(int64(n-i)))
-	m.SetStr("first", runtime.Bool(i == 0))
-	m.SetStr("last", runtime.Bool(i == n-1))
-	m.SetStr("length", runtime.Int(int64(n)))
-	if i > 0 {
-		m.SetStr("prev", pairs[i-1].Val)
-	} else {
-		m.SetStr("prev", runtime.Null())
-	}
-	if i < n-1 {
-		m.SetStr("next", pairs[i+1].Val)
-	} else {
-		m.SetStr("next", runtime.Null())
-	}
-	if parent.Kind != runtime.KNull {
-		m.SetStr("parent", parent)
-	} else {
-		m.SetStr("parent", runtime.Null())
-	}
-	return runtime.Arr(m)
 }
 
 // filterLoopPairs pre-selects the pairs whose fused filter condition is truthy,
