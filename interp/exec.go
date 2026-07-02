@@ -14,7 +14,7 @@ import (
 // derived definitions win) and the TOPMOST parent's body is rendered, with each
 // @block site delegating to the resolved definition (spec 01 Section 5.2).
 // Otherwise the template's own body is rendered top to bottom.
-func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Context) error {
+func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Scope) error {
 	chain, err := in.buildChain(tmpl, ctx)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Context) error {
 // (index 0 most-derived, last least-derived). A non-inheriting template yields a
 // one-element chain. The extends operand is a string-coerced expression or a
 // candidate list (first existing wins), spec 01 Section 5.2.
-func (in *interp) buildChain(tmpl *Template, ctx *runtime.Context) ([]*Template, error) {
+func (in *interp) buildChain(tmpl *Template, ctx *runtime.Scope) ([]*Template, error) {
 	chain := []*Template{tmpl}
 	cur := tmpl
 	for cur.extendsNode != nil {
@@ -82,7 +82,7 @@ func (in *interp) buildChain(tmpl *Template, ctx *runtime.Context) ([]*Template,
 
 // resolveExtendsName evaluates the @extends operand to a template name, handling
 // a candidate list (the first existing template wins).
-func (in *interp) resolveExtendsName(extends *ast.Node, ctx *runtime.Context) (string, error) {
+func (in *interp) resolveExtendsName(extends *ast.Node, ctx *runtime.Scope) (string, error) {
 	v, err := in.eval(extends.Child(0), ctx, false)
 	if err != nil {
 		return "", err
@@ -230,7 +230,7 @@ func (in *interp) useAliases(use *ast.Node) (map[string]string, error) {
 // any brought in by file-scope @import (namespace) and @from (selective). A
 // macro's lexical home (for its own visible namespace and globals) is recorded
 // (spec 01 Section 5.3).
-func (in *interp) loadMacros(tmpl *Template, ctx *runtime.Context) {
+func (in *interp) loadMacros(tmpl *Template, ctx *runtime.Scope) {
 	in.macros = map[string]*macroEntry{}
 	for _, name := range tmpl.macroOrder {
 		node, _ := tmpl.Macro(name)
@@ -242,7 +242,7 @@ func (in *interp) loadMacros(tmpl *Template, ctx *runtime.Context) {
 }
 
 // execItems renders a run of body items in order.
-func (in *interp) execItems(items []*ast.Node, ctx *runtime.Context) error {
+func (in *interp) execItems(items []*ast.Node, ctx *runtime.Scope) error {
 	for _, item := range items {
 		if err := in.execItem(item, ctx); err != nil {
 			return err
@@ -254,7 +254,7 @@ func (in *interp) execItems(items []*ast.Node, ctx *runtime.Context) error {
 // execItem renders one item: text, interpolation, a control statement, or a
 // composition head. Composition heads that only declare (macro, import, extends)
 // emit nothing; @block renders its resolved definition in place.
-func (in *interp) execItem(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execItem(n *ast.Node, ctx *runtime.Scope) error {
 	switch n.Kind {
 	case ast.KindText:
 		in.covUnit(n, cover.UnitText)
@@ -342,7 +342,7 @@ func (in *interp) execItem(n *ast.Node, ctx *runtime.Context) error {
 }
 
 // execPrint evaluates and emits an interpolation.
-func (in *interp) execPrint(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execPrint(n *ast.Node, ctx *runtime.Scope) error {
 	v, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return err
@@ -353,7 +353,7 @@ func (in *interp) execPrint(n *ast.Node, ctx *runtime.Context) error {
 // execIf renders the first clause whose condition is truthy, else the else
 // clause if present (spec 01 Section 4.1). A clause body runs in the current
 // scope (an if introduces no new scope).
-func (in *interp) execIf(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execIf(n *ast.Node, ctx *runtime.Scope) error {
 	for _, clause := range n.Children {
 		if clause.Bool { // if / elseif: child 0 condition, rest body
 			cond, err := in.eval(clause.Child(0), ctx, false)
@@ -380,7 +380,7 @@ func (in *interp) execIf(n *ast.Node, ctx *runtime.Context) error {
 // The iterand is drained to pairs; a non-iterable is a runtime error (NOT a
 // silent empty loop) unless lenient mode is on. The body runs in a child scope;
 // reassignments to pre-existing names persist, body-local sets do not leak.
-func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 	count := int(n.Int & ast.ForTargetCount)
 	target1 := n.Child(0)
 	var target2 *ast.Node
@@ -454,7 +454,7 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 	// back reassignments of pre-existing names after the loop (lexical scoping,
 	// spec 01 Section 4.2).
 	pre := ctx
-	loopCtx := pre.Clone()
+	loopCtx := pre.Child()
 	parentLoop, _ := pre.Get("loop")
 
 	for i, p := range pairs {
@@ -497,9 +497,9 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Context) error {
 // in a child scope with the loop target(s) bound to each candidate element, so it
 // may reference the loop variable(s); its own bindings do not leak. A single
 // target binds the value; two targets bind the key and value like the loop body.
-func (in *interp) filterLoopPairs(filter *ast.Node, pairs []runtime.Pair, target1, target2 *ast.Node, ctx *runtime.Context) ([]runtime.Pair, error) {
+func (in *interp) filterLoopPairs(filter *ast.Node, pairs []runtime.Pair, target1, target2 *ast.Node, ctx *runtime.Scope) ([]runtime.Pair, error) {
 	cond := filter.Child(0)
-	scope := ctx.Clone()
+	scope := ctx.Child()
 	survivors := make([]runtime.Pair, 0, len(pairs))
 	for _, p := range pairs {
 		scope.Set(target1.Str, p.Val)
@@ -521,7 +521,7 @@ func (in *interp) filterLoopPairs(filter *ast.Node, pairs []runtime.Pair, target
 // execSet binds one or more targets to one or more values (spec 01 Section 4.3).
 // Multi-target and destructuring forms are bound positionally; a type annotation
 // is ignored at render time (the checker consumes it).
-func (in *interp) execSet(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execSet(n *ast.Node, ctx *runtime.Scope) error {
 	count := int(n.Int)
 	targets := n.Children[:count]
 	values := n.Children[count:]
@@ -558,7 +558,7 @@ func (in *interp) execSet(n *ast.Node, ctx *runtime.Context) error {
 // spec 04 Section 6.3). A host Object receiver (the mutable-cell path) keeps
 // reference identity, so a cell mutation is still visible to every holder and
 // survives a loop body, while the loop's own name rebindings do not leak.
-func (in *interp) assignMember(tg *ast.Node, v runtime.Value, ctx *runtime.Context) error {
+func (in *interp) assignMember(tg *ast.Node, v runtime.Value, ctx *runtime.Scope) error {
 	recv, err := in.ownPath(tg.Child(0), ctx)
 	if err != nil {
 		return err
@@ -589,7 +589,7 @@ func (in *interp) assignMember(tg *ast.Node, v runtime.Value, ctx *runtime.Conte
 // scalar receiver passes through for SetMember/SetIndex to reject as before.
 // Member targets are always rooted at a name (parse/control.go), so the root is a
 // KindName and reads through the strict-undefined eval path unchanged.
-func (in *interp) ownPath(node *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) ownPath(node *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	switch node.Kind {
 	case ast.KindName:
 		cur, err := in.eval(node, ctx, false)
@@ -647,7 +647,7 @@ func (in *interp) ownPath(node *ast.Node, ctx *runtime.Context) (runtime.Value, 
 // pattern binds slots positionally from a sequence; a map/object pattern binds
 // each named slot from the value's member of that key, supporting the rename
 // form {key: alias}.
-func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Context) error {
+func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Scope) error {
 	switch pat.Kind {
 	case ast.KindListPattern:
 		return in.bindListPattern(pat, v, ctx)
@@ -671,7 +671,7 @@ func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Conte
 // generator should not silently drop trailing elements). Optional slots make the
 // fixed count an upper, not exact, bound -- the difference between required and
 // fixed is null-padded.
-func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Context) error {
+func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Scope) error {
 	if v.Kind != runtime.KArray || v.Arr == nil {
 		return posErr(pat, errors.New(errors.KindRuntime,
 			"destructuring expects a sequence"))
@@ -763,7 +763,7 @@ func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.C
 // path for an optional slot whose source element was missing: a plain name binds
 // null directly, while a nested list/map pattern null-binds each of its own slots
 // (recursively) so the absent shape leaves no name undefined (spec 01 Section 2.1).
-func (in *interp) bindTargetNull(target *ast.Node, ctx *runtime.Context) {
+func (in *interp) bindTargetNull(target *ast.Node, ctx *runtime.Scope) {
 	switch target.Kind {
 	case ast.KindName, ast.KindTarget:
 		ctx.Set(target.Str, runtime.Null())
@@ -799,7 +799,7 @@ func (in *interp) bindTargetNull(target *ast.Node, ctx *runtime.Context) {
 // bindSlot binds one value to a non-elided, non-tail sequence slot: a plain name
 // target binds directly, while a nested list/map pattern recurses. It is shared by
 // the required- and optional-slot paths so both bind nested patterns identically.
-func (in *interp) bindSlot(target *ast.Node, val runtime.Value, ctx *runtime.Context) error {
+func (in *interp) bindSlot(target *ast.Node, val runtime.Value, ctx *runtime.Scope) error {
 	switch target.Kind {
 	case ast.KindName, ast.KindTarget:
 		ctx.Set(target.Str, val)
@@ -816,7 +816,7 @@ func (in *interp) bindSlot(target *ast.Node, val runtime.Value, ctx *runtime.Con
 // itself otherwise ({name}). A missing key follows the engine's strictness:
 // under strict variables it is an undefined error, under lenient mode it binds
 // null (spec 04 Section 6).
-func (in *interp) bindMapPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Context) error {
+func (in *interp) bindMapPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Scope) error {
 	allowAbsent := !in.eng.StrictVariables()
 	for _, slot := range pat.Children {
 		if slot.Kind != ast.KindMapTarget {
@@ -838,7 +838,7 @@ func (in *interp) bindMapPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Co
 // execCapture renders the body to a string-like value and binds it (spec 01
 // Section 4.3). Under escaping off it is a plain Str; under any active escape
 // strategy it is a Safe value.
-func (in *interp) execCapture(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execCapture(n *ast.Node, ctx *runtime.Scope) error {
 	// The capture node carries an optional KindType child before the body items;
 	// skip it. The body is rendered into a fresh sink.
 	body := n.Children
@@ -867,7 +867,7 @@ func (in *interp) execCapture(n *ast.Node, ctx *runtime.Context) error {
 // already-rendered output, so it is spliced verbatim with emitString -- under an
 // active escape strategy it was produced through the same escaper as a capture
 // and must not be escaped a second time.
-func (in *interp) execCache(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execCache(n *ast.Node, ctx *runtime.Scope) error {
 	count := int(n.Int)
 	args := n.Children[:count]
 	body := n.Children[count:]
@@ -912,7 +912,7 @@ func (in *interp) execCache(n *ast.Node, ctx *runtime.Context) error {
 
 	// Miss: render the body in a child scope so body-local sets do not leak.
 	preLabels, preBytes := in.slotStamp()
-	out, err := in.captureItems(body, ctx.Clone())
+	out, err := in.captureItems(body, ctx.Child())
 	if err != nil {
 		return err
 	}
@@ -947,7 +947,7 @@ func (in *interp) slotStamp() (labels, bytes int) {
 }
 
 // evalCacheTags evaluates the optional tags expression to a list of strings.
-func (in *interp) evalCacheTags(tagsExpr *ast.Node, ctx *runtime.Context) ([]string, error) {
+func (in *interp) evalCacheTags(tagsExpr *ast.Node, ctx *runtime.Scope) ([]string, error) {
 	if tagsExpr == nil {
 		return nil, nil
 	}
@@ -971,7 +971,7 @@ func (in *interp) evalCacheTags(tagsExpr *ast.Node, ctx *runtime.Context) ([]str
 
 // captureItems renders items into a separate sink and returns the produced
 // string, used by capture, apply, and the function-form include.
-func (in *interp) captureItems(items []*ast.Node, ctx *runtime.Context) (string, error) {
+func (in *interp) captureItems(items []*ast.Node, ctx *runtime.Scope) (string, error) {
 	sub := &captureSink{}
 	saved := in.out
 	// A capture renders into its own sink, so the active @tab indentation must not
@@ -989,16 +989,16 @@ func (in *interp) captureItems(items []*ast.Node, ctx *runtime.Context) (string,
 
 // execWith introduces a scope merging the given vars; "only" replaces the
 // context entirely for the body (spec 01 Section 4.5).
-func (in *interp) execWith(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execWith(n *ast.Node, ctx *runtime.Scope) error {
 	mapVal, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return err
 	}
-	var scope *runtime.Context
+	var scope *runtime.Scope
 	if n.Bool { // only
-		scope = runtime.NewContext()
+		scope = runtime.NewScope()
 	} else {
-		scope = ctx.Clone()
+		scope = ctx.Child()
 	}
 	if mapVal.Kind == runtime.KArray && mapVal.Arr != nil {
 		for _, p := range mapVal.Arr.Pairs() {
@@ -1014,7 +1014,7 @@ func (in *interp) execWith(n *ast.Node, ctx *runtime.Context) error {
 
 // execApply captures the body, then pipes it through the filter chain (spec 01
 // Section 4.5).
-func (in *interp) execApply(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execApply(n *ast.Node, ctx *runtime.Scope) error {
 	filterCount := int(n.Int)
 	filters := n.Children[:filterCount]
 	body := n.Children[filterCount:]
@@ -1081,7 +1081,7 @@ func (in *interp) execApply(n *ast.Node, ctx *runtime.Context) error {
 // recorded by the caller before this runs, so a @log line that executes counts
 // as covered even though it emits nothing (contrast a comment, which the lexer
 // consumes and which is never a coverable node).
-func (in *interp) execLog(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execLog(n *ast.Node, ctx *runtime.Scope) error {
 	v, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return err
@@ -1101,7 +1101,7 @@ func (in *interp) execLog(n *ast.Node, ctx *runtime.Context) error {
 // one. A level of zero or below adds nothing. Blank lines stay blank. The
 // indentation is applied by the output layer (in.write), so it composes with
 // whitespace control and escaping, which run before output reaches the sink.
-func (in *interp) execTabBlock(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execTabBlock(n *ast.Node, ctx *runtime.Scope) error {
 	levelVal, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return err
@@ -1153,7 +1153,7 @@ func tabLevels(v runtime.Value) (int, error) {
 // or an outer region) when the body ends. "off"/"raw"/"none" disable escaping;
 // the six named strategies (html, js, css, html_attr, html_attr_relaxed, url)
 // each apply their escaper to every interpolated value in the body via emit.
-func (in *interp) execEscape(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execEscape(n *ast.Node, ctx *runtime.Scope) error {
 	saved := in.escape
 	strategy, err := normalizeEscapeStrategy(n.Str)
 	if err != nil {
@@ -1186,7 +1186,7 @@ func normalizeEscapeStrategy(word string) (string, error) {
 
 // execGuard selects a branch on whether the named callable is registered (spec
 // 01 Section 4.6). The dead branch is not rendered.
-func (in *interp) execGuard(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execGuard(n *ast.Node, ctx *runtime.Scope) error {
 	name := n.Child(0).Str // the KindString name node
 	var present bool
 	switch n.Str {

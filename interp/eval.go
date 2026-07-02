@@ -14,7 +14,7 @@ import (
 // set by ??, default, and is defined over the WHOLE left operand (spec 04 Section
 // 8.2): when true, an undefined variable or absent member yields Null instead of
 // a strict-undefined error.
-func (in *interp) eval(n *ast.Node, ctx *runtime.Context, allowAbsent bool) (runtime.Value, error) {
+func (in *interp) eval(n *ast.Node, ctx *runtime.Scope, allowAbsent bool) (runtime.Value, error) {
 	switch n.Kind {
 	case ast.KindInt:
 		return runtime.Int(n.Int), nil
@@ -76,7 +76,7 @@ func (in *interp) eval(n *ast.Node, ctx *runtime.Context, allowAbsent bool) (run
 // KindUndefined error listing the available names; under allowAbsent or lenient
 // mode it is Null. The reserved name "loop" inside a for body is bound in the
 // context like any other variable (see exec_for), so it resolves here.
-func (in *interp) evalName(n *ast.Node, ctx *runtime.Context, allowAbsent bool) (runtime.Value, error) {
+func (in *interp) evalName(n *ast.Node, ctx *runtime.Scope, allowAbsent bool) (runtime.Value, error) {
 	if v, ok := ctx.Get(n.Str); ok {
 		return v, nil
 	}
@@ -94,7 +94,7 @@ func (in *interp) evalName(n *ast.Node, ctx *runtime.Context, allowAbsent bool) 
 }
 
 // evalSpecialName resolves _self / _context / _charset (spec 01 Section 1.7).
-func (in *interp) evalSpecialName(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalSpecialName(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	switch n.Str {
 	case "_self":
 		// _self exposes the current template's macros for the me.macro() path.
@@ -115,7 +115,7 @@ func (in *interp) evalSpecialName(n *ast.Node, ctx *runtime.Context) (runtime.Va
 }
 
 // evalList builds a sequence *Array, flattening spread elements (spec 02).
-func (in *interp) evalList(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalList(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	out := runtime.NewArray()
 	idx := int64(0)
 	for _, el := range n.Children {
@@ -143,7 +143,7 @@ func (in *interp) evalList(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 }
 
 // evalMap builds a mapping *Array from keyed/shorthand/computed/spread entries.
-func (in *interp) evalMap(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalMap(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	out := runtime.NewArray()
 	for _, e := range n.Children {
 		switch e.Int {
@@ -202,7 +202,7 @@ func keyOf(v runtime.Value) runtime.Value {
 // evalAttr evaluates a.b / a?.b. The null-safe form short-circuits on a Null
 // receiver (spec 04 Section 5). The receiver is evaluated with the SAME
 // allowAbsent flag so suppression covers the whole chain (spec 04 Section 8.2).
-func (in *interp) evalAttr(n *ast.Node, ctx *runtime.Context, allowAbsent bool) (runtime.Value, error) {
+func (in *interp) evalAttr(n *ast.Node, ctx *runtime.Scope, allowAbsent bool) (runtime.Value, error) {
 	recv, err := in.eval(n.Child(0), ctx, allowAbsent)
 	if err != nil {
 		return runtime.Null(), err
@@ -230,7 +230,7 @@ func (in *interp) evalAttr(n *ast.Node, ctx *runtime.Context, allowAbsent bool) 
 }
 
 // evalIndex evaluates a[k] / a?[k].
-func (in *interp) evalIndex(n *ast.Node, ctx *runtime.Context, allowAbsent bool) (runtime.Value, error) {
+func (in *interp) evalIndex(n *ast.Node, ctx *runtime.Scope, allowAbsent bool) (runtime.Value, error) {
 	recv, err := in.eval(n.Child(0), ctx, allowAbsent)
 	if err != nil {
 		return runtime.Null(), err
@@ -251,7 +251,7 @@ func (in *interp) evalIndex(n *ast.Node, ctx *runtime.Context, allowAbsent bool)
 
 // evalSlice evaluates a[start:end] by delegating to the slice filter semantics
 // (rune-based on a string, element-based on a collection), spec 03 Section 2.1.
-func (in *interp) evalSlice(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalSlice(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	recv, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return runtime.Null(), err
@@ -285,7 +285,7 @@ func (in *interp) evalSlice(n *ast.Node, ctx *runtime.Context) (runtime.Value, e
 }
 
 // evalUnary applies not / - / +.
-func (in *interp) evalUnary(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalUnary(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	v, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return runtime.Null(), err
@@ -320,7 +320,7 @@ func negate(n *ast.Node, v runtime.Value) (runtime.Value, error) {
 }
 
 // evalLogical short-circuits and / or / xor over the one truthiness rule.
-func (in *interp) evalLogical(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalLogical(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	left, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return runtime.Null(), err
@@ -360,7 +360,7 @@ func (in *interp) evalLogical(n *ast.Node, ctx *runtime.Context) (runtime.Value,
 // evalTernary, evalCoalesce, evalElvis implement c?a:b, a??b, a?:b. The coalesce
 // evaluates its left operand under allowAbsent so an undefined chain falls back
 // rather than erroring (spec 04 Section 8.2).
-func (in *interp) evalTernary(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalTernary(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	cond, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return runtime.Null(), err
@@ -376,7 +376,7 @@ func (in *interp) evalTernary(n *ast.Node, ctx *runtime.Context) (runtime.Value,
 	return in.eval(n.Child(2), ctx, false)
 }
 
-func (in *interp) evalCoalesce(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalCoalesce(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	left, err := in.eval(n.Child(0), ctx, true) // suppress undefined over the whole left
 	if err != nil {
 		return runtime.Null(), err
@@ -391,7 +391,7 @@ func (in *interp) evalCoalesce(n *ast.Node, ctx *runtime.Context) (runtime.Value
 	return in.eval(n.Child(1), ctx, false)
 }
 
-func (in *interp) evalElvis(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalElvis(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	left, err := in.eval(n.Child(0), ctx, true)
 	if err != nil {
 		return runtime.Null(), err
@@ -409,7 +409,7 @@ func (in *interp) evalElvis(n *ast.Node, ctx *runtime.Context) (runtime.Value, e
 // evalAssign performs an inline assignment "{{ b = expr }}", binding b and
 // yielding the value (spec 01 Section 4.3). Only a plain name target is
 // supported inline this slice; destructuring inline is deferred.
-func (in *interp) evalAssign(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalAssign(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	target := n.Child(0)
 	val, err := in.eval(n.Child(1), ctx, false)
 	if err != nil {

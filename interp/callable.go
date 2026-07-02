@@ -12,7 +12,7 @@ import (
 // namespace, spec 01 Section 5.3), a dotted macro reference (forms.input(),
 // _self.tree()), or a method call a.b() on a host Object. The parser leaves the
 // callee as child 0 and the arguments as KindArg children.
-func (in *interp) evalCall(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalCall(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	callee := n.Child(0)
 
 	// f(...) where f is a bare name: a composition builtin, a function, or a macro.
@@ -117,7 +117,7 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 // site within the innermost active loop (spec 01 Section 4.2). The call takes
 // exactly one positional argument (the watched expression). Outside any loop it
 // is a runtime error, matching the undefined `loop` a bare loop.* read would hit.
-func (in *interp) callLoopChanged(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) callLoopChanged(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	args, err := in.collectArgs(n, ctx, nil)
 	if err != nil {
 		return runtime.Null(), err
@@ -143,7 +143,7 @@ func (in *interp) callLoopChanged(n *ast.Node, ctx *runtime.Context) (runtime.Va
 // evalFilter handles "x | name(args)" == name(x, args). Host filters shadow core
 // ones (the registry resolves that). The piped value is the implicit first user
 // argument; injected engine values are prepended per the Needs* flags.
-func (in *interp) evalFilter(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalFilter(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	// The piped value is evaluated under allowAbsent for `default`, so an
 	// undefined chain piped into default falls back rather than erroring
 	// (spec 03 Section 2.7, spec 04 Section 8.2).
@@ -185,7 +185,7 @@ func (in *interp) evalFilter(n *ast.Node, ctx *runtime.Context) (runtime.Value, 
 // evalTest handles "x is name" / "x is not name(arg)". `is defined` is special:
 // it flips its operand to existence-check mode and never evaluates the value
 // (spec 03 Section 4, spec 04 Section 8.3). Other tests evaluate the operand.
-func (in *interp) evalTest(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalTest(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	if n.Str == "defined" {
 		ok := in.isDefined(n.Child(0), ctx)
 		if n.Bool {
@@ -275,7 +275,7 @@ func (in *interp) registryTest(name string, subject runtime.Value) (present, ok 
 // throwing: a bare name tests context presence; a.b / a[k] test member presence
 // over a receiver evaluated under allowAbsent so an absent intermediate is false
 // rather than an error (spec 04 Section 8.2, the whole-chain rule).
-func (in *interp) isDefined(n *ast.Node, ctx *runtime.Context) bool {
+func (in *interp) isDefined(n *ast.Node, ctx *runtime.Scope) bool {
 	switch n.Kind {
 	case ast.KindName:
 		return ctx.Has(n.Str)
@@ -309,7 +309,7 @@ func (in *interp) isDefined(n *ast.Node, ctx *runtime.Context) bool {
 // to a host callable can only be passed in source order; macro calls use
 // collectArgsNamed instead to bind by parameter name (design/expressions.md
 // Section 7).
-func (in *interp) collectArgs(n *ast.Node, ctx *runtime.Context, prefix []runtime.Value) ([]runtime.Value, error) {
+func (in *interp) collectArgs(n *ast.Node, ctx *runtime.Scope, prefix []runtime.Value) ([]runtime.Value, error) {
 	args := append([]runtime.Value(nil), prefix...)
 	for _, c := range n.Children {
 		if c.Kind != ast.KindArg {
@@ -350,7 +350,7 @@ type namedArg struct {
 // of a mapping contributes named arguments by string key; a spread of a
 // sequence contributes positionals. design/expressions.md Section 7 requires
 // named args to bind by name and appear in any order.
-func (in *interp) collectArgsNamed(n *ast.Node, ctx *runtime.Context) (positional []runtime.Value, named []namedArg, err error) {
+func (in *interp) collectArgsNamed(n *ast.Node, ctx *runtime.Scope) (positional []runtime.Value, named []namedArg, err error) {
 	for _, c := range n.Children {
 		if c.Kind != ast.KindArg {
 			continue
@@ -390,11 +390,11 @@ func (in *interp) collectArgsNamed(n *ast.Node, ctx *runtime.Context) (positiona
 // injectFilter prepends the engine values a filter's Needs* flags request, in
 // the fixed order environment, context, charset, ahead of the piped value and
 // user arguments (spec 03 Section 3.6).
-func (in *interp) injectFilter(f *ext.Filter, ctx *runtime.Context, args []runtime.Value) []runtime.Value {
+func (in *interp) injectFilter(f *ext.Filter, ctx *runtime.Scope, args []runtime.Value) []runtime.Value {
 	return in.inject(f.NeedsEnvironment, f.NeedsContext, f.NeedsCharset, ctx, args)
 }
 
-func (in *interp) invokeFunction(n *ast.Node, f *ext.Function, ctx *runtime.Context, args []runtime.Value) (runtime.Value, error) {
+func (in *interp) invokeFunction(n *ast.Node, f *ext.Function, ctx *runtime.Scope, args []runtime.Value) (runtime.Value, error) {
 	args = in.inject(f.NeedsEnvironment, f.NeedsContext, f.NeedsCharset, ctx, args)
 	res, err := f.Fn(args)
 	if err != nil {
@@ -411,7 +411,7 @@ func (in *interp) invokeFunction(n *ast.Node, f *ext.Function, ctx *runtime.Cont
 // evalCall/evalFilter, so a needs_context function sees the variables in scope
 // where it was called. A nil ctx (no scope available) materializes as an empty
 // mapping.
-func (in *interp) inject(needsEnv, needsCtx, needsCharset bool, ctx *runtime.Context, args []runtime.Value) []runtime.Value {
+func (in *interp) inject(needsEnv, needsCtx, needsCharset bool, ctx *runtime.Scope, args []runtime.Value) []runtime.Value {
 	var pre []runtime.Value
 	if needsEnv {
 		pre = append(pre, runtime.Obj(&engineRef{eng: in.eng, in: in}))

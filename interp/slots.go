@@ -59,7 +59,7 @@ func (in *interp) mergeYieldedInto(parent *interp) {
 // append order is the render (execution) order across every contributing site, so
 // a symbol table or an import list collected from many partials comes out in the
 // order the partials ran (deterministic accumulation).
-func (in *interp) execProvide(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execProvide(n *ast.Node, ctx *runtime.Scope) error {
 	out, err := in.captureItems(n.Children, ctx)
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func (in *interp) execProvide(n *ast.Node, ctx *runtime.Context) error {
 // empty string, so a shell may reserve a slot no site fed. The placeholder is
 // written verbatim so it survives escaping untouched; the resolved content was
 // already produced through the active escaper by its @provide bodies.
-func (in *interp) execYield(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execYield(n *ast.Node, ctx *runtime.Scope) error {
 	in.yieldedLabels = append(in.yieldedLabels, n.Str)
 	return posErr(n, in.emitString(in.yieldToken+n.Str+in.yieldToken))
 }
@@ -117,7 +117,7 @@ func (in *interp) slotContent(label string) string {
 // placed after its @provide contributions. Under an active escape strategy the
 // content is already-escaped and wrapped Safe so a downstream print does not
 // escape it twice.
-func (in *interp) callSlot(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) callSlot(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	args, err := in.collectArgs(n, ctx, nil)
 	if err != nil {
 		return runtime.Null(), err
@@ -143,7 +143,7 @@ func (in *interp) callSlot(n *ast.Node, ctx *runtime.Context) (runtime.Value, er
 // invocation and popped afterward, so caller() resolves to the innermost @call.
 type callerFrame struct {
 	body   []*ast.Node
-	ctx    *runtime.Context
+	ctx    *runtime.Scope
 	params []string
 }
 
@@ -154,7 +154,7 @@ type callerFrame struct {
 // block's scope and renders it, so values round-trip from the macro back into the
 // block. The macro's captured return value is emitted at the @call position, so a
 // macro that wraps caller() in a header/footer surfaces the whole wrapped output.
-func (in *interp) execCallBlock(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execCallBlock(n *ast.Node, ctx *runtime.Scope) error {
 	entry, ok := in.macros[n.Str]
 	if !ok {
 		return posErr(n, errors.New(errors.KindRuntime, "unknown macro %q", n.Str))
@@ -189,7 +189,7 @@ func (in *interp) execCallBlock(n *ast.Node, ctx *runtime.Context) error {
 // pass a value -- a section title, a row index -- back into the block. Extra
 // arguments beyond the declared parameters are ignored; a declared parameter with
 // no matching argument binds null. Outside any @call it is a runtime error.
-func (in *interp) callCaller(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) callCaller(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	frame := in.caller
 	if frame == nil {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
@@ -206,7 +206,7 @@ func (in *interp) callCaller(n *ast.Node, ctx *runtime.Context) (runtime.Value, 
 	// parameters are visible without leaking into the call site's context.
 	saved := in.caller
 	in.caller = nil
-	scope := frame.ctx.Clone()
+	scope := frame.ctx.Child()
 	for i, name := range frame.params {
 		if i < len(args) {
 			scope.Set(name, args[i])

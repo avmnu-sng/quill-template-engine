@@ -20,9 +20,9 @@ import (
 // closed-over scope (spec 04 Section 8 scope rules).
 type arrowClosure struct {
 	in     *interp
-	params []*ast.Node      // the KindParam children, in order
-	body   *ast.Node        // the body expression (last child)
-	ctx    *runtime.Context // the captured definition scope
+	params []*ast.Node    // the KindParam children, in order
+	body   *ast.Node      // the body expression (last child)
+	ctx    *runtime.Scope // the captured definition scope
 }
 
 // GetField satisfies runtime.Object; an arrow exposes no fields, so it always
@@ -42,7 +42,7 @@ func (a *arrowClosure) CallMethod(string, []runtime.Value) (runtime.Value, error
 // collects the remaining arguments into a list (spec 01 Section 5 parameter
 // model, shared with macros).
 func (a *arrowClosure) Invoke(args []runtime.Value) (runtime.Value, error) {
-	scope := a.ctx.Clone()
+	scope := a.ctx.Child()
 	for i, p := range a.params {
 		if p.Bool { // variadic: collect the rest
 			rest := runtime.NewArray()
@@ -76,7 +76,7 @@ func (a *arrowClosure) Invoke(args []runtime.Value) (runtime.Value, error) {
 // evalArrow builds the closure value for an arrow expression, capturing the
 // current scope. The arrow is not invoked here; it becomes a Callable value the
 // higher-order filters and quantifiers apply later (spec 03 Section 2.2).
-func (in *interp) evalArrow(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalArrow(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	if len(n.Children) == 0 {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"arrow function has no body"))

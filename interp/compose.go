@@ -12,7 +12,7 @@ import (
 // the resolved definition's body is rendered at the most-derived (index 0)
 // position of the name's definition chain (spec 01 Section 5.2, design/
 // composition Section 2.5).
-func (in *interp) execBlockSite(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execBlockSite(n *ast.Node, ctx *runtime.Scope) error {
 	entry, ok := in.blocks[n.Str]
 	if !ok {
 		// No table entry (e.g. an embed-local block); render the node's own body.
@@ -23,7 +23,7 @@ func (in *interp) execBlockSite(n *ast.Node, ctx *runtime.Context) error {
 
 // renderBlockAt renders the depth-th definition in a block's chain (0 is the
 // most-derived override). parent() inside that body renders depth+1.
-func (in *interp) renderBlockAt(entry *blockEntry, depth int, ctx *runtime.Context) error {
+func (in *interp) renderBlockAt(entry *blockEntry, depth int, ctx *runtime.Scope) error {
 	if depth >= len(entry.chain) {
 		return nil
 	}
@@ -41,7 +41,7 @@ func (in *interp) renderBlockAt(entry *blockEntry, depth int, ctx *runtime.Conte
 // renderBlockBody renders a block node's body. A brace-body block (Int==0) emits
 // its items; a shortcut block (Int==1) prints its single value expression (spec
 // 01 Section 5.2). A leading KindParams/KindType signature child is skipped.
-func (in *interp) renderBlockBody(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) renderBlockBody(n *ast.Node, ctx *runtime.Scope) error {
 	// Record the block UNIT at the definition actually rendered (anchored under its
 	// own template name via the node's Src), so an override counts under the child
 	// and a never-overridden parent block under the parent. parent() renders the
@@ -67,7 +67,7 @@ func (in *interp) renderBlockBody(n *ast.Node, ctx *runtime.Context) error {
 // callParent renders the parent's version of the block currently being rendered
 // (spec 01 Section 5.2). It is legal only inside an overriding block; it renders
 // the next definition down the chain and returns the captured output.
-func (in *interp) callParent(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) callParent(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	if in.curBlock == nil {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"parent() is only valid inside an overriding block"))
@@ -91,7 +91,7 @@ func (in *interp) callParent(n *ast.Node, ctx *runtime.Context) (runtime.Value, 
 // callBlock renders a named block of this template (block("x")) or another
 // (block("x", "other.ql")), spec 03 Section 3.2 / 01 Section 5.2. With no second
 // argument it renders from the current merged block table.
-func (in *interp) callBlock(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) callBlock(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	args, err := in.collectArgs(n, ctx, nil)
 	if err != nil {
 		return runtime.Null(), err
@@ -147,7 +147,7 @@ func (in *interp) callBlock(n *ast.Node, ctx *runtime.Context) (runtime.Value, e
 // the macro namespace (spec 01 Section 5.4). The imported template's macros
 // become callable; @import also binds a namespace name in the context for the
 // ns.macro() dotted form.
-func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Context) {
+func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Scope) {
 	name, ok := in.importSourceName(imp, ctx)
 	if !ok {
 		return
@@ -192,7 +192,7 @@ func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Context) {
 
 // importSourceName extracts the import/from source: a _self special name or a
 // string-coerced expression (child 0).
-func (in *interp) importSourceName(imp *ast.Node, ctx *runtime.Context) (string, bool) {
+func (in *interp) importSourceName(imp *ast.Node, ctx *runtime.Scope) (string, bool) {
 	src := imp.Child(0)
 	if src == nil {
 		return "", false
@@ -214,7 +214,7 @@ func (in *interp) importSourceName(imp *ast.Node, ctx *runtime.Context) (string,
 // callMacro invokes a macro from the current namespace by name (spec 01 Section
 // 5.3). A macro sees ONLY its parameters, defaults, variadics, the macro
 // namespace, and globals -- never the caller's locals.
-func (in *interp) callMacro(n *ast.Node, name string, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) callMacro(n *ast.Node, name string, ctx *runtime.Scope) (runtime.Value, error) {
 	entry, ok := in.macros[name]
 	if !ok {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime, "unknown macro %q", name))
@@ -228,7 +228,7 @@ func (in *interp) callMacro(n *ast.Node, name string, ctx *runtime.Context) (run
 
 // callMacroIn invokes a macro defined in template home (the ns.macro() and
 // _self.macro() paths).
-func (in *interp) callMacroIn(n *ast.Node, home *Template, name string, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) callMacroIn(n *ast.Node, home *Template, name string, ctx *runtime.Scope) (runtime.Value, error) {
 	node, ok := home.Macro(name)
 	if !ok {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
@@ -258,7 +258,7 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 	in.pendingCaller = nil
 
 	params := entry.node.Child(0) // KindParams
-	scope := runtime.NewContext()
+	scope := runtime.NewScope()
 
 	// Map each named argument to its parameter. A "**name" kwargs tail, when
 	// present, absorbs any named argument that matches no declared parameter into a
@@ -430,7 +430,7 @@ type macroHomeState struct {
 // the source (a candidate list selects the first existing), builds the child
 // context per with/only, tolerates a miss under ignore-missing, and splices the
 // rendered output.
-func (in *interp) execInclude(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execInclude(n *ast.Node, ctx *runtime.Scope) error {
 	out, err := in.renderInclude(n, ctx)
 	if err != nil {
 		return err
@@ -440,7 +440,7 @@ func (in *interp) execInclude(n *ast.Node, ctx *runtime.Context) error {
 
 // renderInclude does the include work and returns the rendered string. It is
 // shared by the @include statement and could back the include() function.
-func (in *interp) renderInclude(n *ast.Node, ctx *runtime.Context) (string, error) {
+func (in *interp) renderInclude(n *ast.Node, ctx *runtime.Scope) (string, error) {
 	flags := n.Int
 	srcExpr := n.Child(0)
 	var withExpr *ast.Node
@@ -470,11 +470,11 @@ func (in *interp) renderInclude(n *ast.Node, ctx *runtime.Context) (string, erro
 
 	// Build the child context: "only" starts empty, otherwise inherit the current
 	// context; a with-map adds/overrides vars (spec 01 Section 5.6).
-	var childCtx *runtime.Context
+	var childCtx *runtime.Scope
 	if flags&ast.IncOnly != 0 {
-		childCtx = runtime.NewContext()
+		childCtx = runtime.NewScope()
 	} else {
-		childCtx = ctx.Clone()
+		childCtx = ctx.Child()
 	}
 	if withExpr != nil {
 		wv, err := in.eval(withExpr, ctx, false)
@@ -518,7 +518,7 @@ func (in *interp) renderInclude(n *ast.Node, ctx *runtime.Context) (string, erro
 // resolveCandidates evaluates an include/extends source to a template name,
 // taking the first existing entry of a candidate list. found is false when no
 // candidate exists (the caller decides ignore-missing vs error).
-func (in *interp) resolveCandidates(srcExpr *ast.Node, ctx *runtime.Context) (name string, found bool, err error) {
+func (in *interp) resolveCandidates(srcExpr *ast.Node, ctx *runtime.Scope) (name string, found bool, err error) {
 	v, err := in.eval(srcExpr, ctx, false)
 	if err != nil {
 		return "", false, err
@@ -546,7 +546,7 @@ func (in *interp) resolveCandidates(srcExpr *ast.Node, ctx *runtime.Context) (na
 // child, with the inline @block definitions overriding the embedded template's
 // blocks (spec 01 Section 5.5). It is a focused implementation supporting with/
 // only/ignore-missing and block overrides.
-func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Scope) error {
 	flags := n.Int
 	name, found, err := in.resolveCandidates(n.Child(0), ctx)
 	if err != nil {
@@ -580,11 +580,11 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Context) error {
 		}
 	}
 
-	var childCtx *runtime.Context
+	var childCtx *runtime.Scope
 	if flags&ast.IncOnly != 0 {
-		childCtx = runtime.NewContext()
+		childCtx = runtime.NewScope()
 	} else {
-		childCtx = ctx.Clone()
+		childCtx = ctx.Child()
 	}
 	if withExpr != nil {
 		wv, err := in.eval(withExpr, ctx, false)

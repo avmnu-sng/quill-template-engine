@@ -106,7 +106,7 @@ func powInt64(a, e int64) (int64, bool) {
 // evalBinary handles the KindBinary operators: arithmetic, concat, range,
 // comparison, bitwise. Comparison routes to runtime.Equal/Order so there is one
 // equality and one ordering (spec 04 Sections 3, 4); arithmetic never coerces.
-func (in *interp) evalBinary(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalBinary(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	op := n.Str
 	// "~" renders each operand by ToText (the only coercion besides print).
 	if op == "~" {
@@ -260,7 +260,7 @@ func (in *interp) bitwise(n *ast.Node, op string, l, r runtime.Value) (runtime.V
 
 // evalConcat implements "~": render both operands by ToText and join (spec 04
 // Section 4). It is the only binary operator that coerces.
-func (in *interp) evalConcat(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalConcat(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	l, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return runtime.Null(), err
@@ -292,7 +292,7 @@ func (in *interp) evalConcat(n *ast.Node, ctx *runtime.Context) (runtime.Value, 
 
 // evalPower implements ** (right-associative; the AST already encodes
 // associativity and the unary-minus interaction, spec 02 R6).
-func (in *interp) evalPower(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalPower(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	base, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return runtime.Null(), err
@@ -325,7 +325,7 @@ func (in *interp) evalPower(n *ast.Node, ctx *runtime.Context) (runtime.Value, e
 // has some / has every (spec 04 Section 4.3). The regex matches operator uses
 // the stdlib RE2 engine; the quantifiers apply an arrow predicate to each
 // element of the left collection.
-func (in *interp) evalMembership(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) evalMembership(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	left, err := in.eval(n.Child(0), ctx, false)
 	if err != nil {
 		return runtime.Null(), err

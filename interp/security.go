@@ -205,7 +205,7 @@ func isTrustedShim(o runtime.Object) bool {
 // only what the region actually references is validated. If the sandbox was
 // already on, the enclosing render already ran the whole-template Phase-1 check,
 // so the region just keeps it on for nested includes.
-func (in *interp) execSandbox(n *ast.Node, ctx *runtime.Context) error {
+func (in *interp) execSandbox(n *ast.Node, ctx *runtime.Scope) error {
 	wasOn := in.sandboxOn
 	in.sandboxOn = true
 	if !wasOn {

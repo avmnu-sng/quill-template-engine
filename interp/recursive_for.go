@@ -7,16 +7,15 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
-// recursiveLoop is one active "@for .. recursive" descent: the loop body, the
-// loop target name(s), and the scope the body renders in. loop(children) inside
-// the body re-enters the body over a subtree one depth deeper, so the frame
-// carries everything a re-entry needs without re-reading the @for node.
+// recursiveLoop is one active "@for .. recursive" descent: the loop body and
+// the loop target name(s). loop(children) inside the body re-enters the body
+// over a subtree one depth deeper, so the frame carries everything a re-entry
+// needs without re-reading the @for node.
 type recursiveLoop struct {
 	body    []*ast.Node
 	target1 string
 	target2 string // "" for the single-target form
 	twoTgt  bool
-	base    *runtime.Context
 	// filter is the fused "if" condition (the KindClause's child 0) when the loop
 	// was written "@for .. recursive if cond", else nil. It is applied at every
 	// descent level so a node whose condition is false -- and its whole subtree --
@@ -40,7 +39,7 @@ func (in *interp) curRecursive() *recursiveLoop {
 // empty top-level iterand takes the @else body (or nothing), mirroring the plain
 // @for empty arm. The loop.* metadata gains depth / depth0 fields on top of the
 // usual index / first / last set (design/composition, recursive @for).
-func (in *interp) execRecursiveFor(n *ast.Node, ctx *runtime.Context, target1, target2 *ast.Node, iterand *ast.Node, body, elseBody *ast.Node, filter *ast.Node) error {
+func (in *interp) execRecursiveFor(n *ast.Node, ctx *runtime.Scope, target1, target2 *ast.Node, iterand *ast.Node, body, elseBody *ast.Node, filter *ast.Node) error {
 	collVal, err := in.eval(iterand, ctx, false)
 	if err != nil {
 		return err
@@ -53,7 +52,6 @@ func (in *interp) execRecursiveFor(n *ast.Node, ctx *runtime.Context, target1, t
 	frame := &recursiveLoop{
 		body:    body.Children,
 		target1: target1.Str,
-		base:    ctx,
 	}
 	if target2 != nil {
 		frame.target2 = target2.Str
@@ -89,7 +87,7 @@ func (in *interp) execRecursiveFor(n *ast.Node, ctx *runtime.Context, target1, t
 // depth0) for each element. It writes directly to the active sink, so the
 // top-level call emits in place; a nested level called via loop(children) renders
 // into the capture the callable set up.
-func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pair, depth0 int, outer *runtime.Context, preFiltered bool) error {
+func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pair, depth0 int, outer *runtime.Scope, preFiltered bool) error {
 	if frame.filter != nil && !preFiltered {
 		var err error
 		pairs, err = in.filterRecursivePairs(frame, pairs, outer)
@@ -97,7 +95,7 @@ func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pai
 			return err
 		}
 	}
-	loopCtx := outer.Clone()
+	loopCtx := outer.Child()
 	parentLoop, _ := outer.Get("loop")
 	for i, p := range pairs {
 		if frame.twoTgt {
@@ -119,7 +117,7 @@ func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pai
 // returning it as a value so the body can print it (for example
 // "{{ loop(node.children) }}"). A non-traversable argument (a leaf's absent or
 // empty children) renders nothing and returns the empty string.
-func (in *interp) callRecursiveLoop(n *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+func (in *interp) callRecursiveLoop(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {
 	frame := in.curRecursive()
 	if frame == nil {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
@@ -173,8 +171,8 @@ func (in *interp) callRecursiveLoop(n *ast.Node, ctx *runtime.Context) (runtime.
 // the loop target(s) bound to each candidate, mirroring the plain @for fused
 // filter (filterLoopPairs); a pruned node's subtree is never descended into, since
 // loop(children) is reached only from a surviving node's body.
-func (in *interp) filterRecursivePairs(frame *recursiveLoop, pairs []runtime.Pair, ctx *runtime.Context) ([]runtime.Pair, error) {
-	scope := ctx.Clone()
+func (in *interp) filterRecursivePairs(frame *recursiveLoop, pairs []runtime.Pair, ctx *runtime.Scope) ([]runtime.Pair, error) {
+	scope := ctx.Child()
 	survivors := make([]runtime.Pair, 0, len(pairs))
 	for _, p := range pairs {
 		if frame.twoTgt {
