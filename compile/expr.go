@@ -183,8 +183,14 @@ func (c *compiler) exprMap(n *ast.Node) (string, error) {
 
 // exprAttr lowers a.b / a?.b: the null-safe form and whole-chain suppression
 // short-circuit a null receiver to null; otherwise the read routes through
-// runtime.GetAttribute exactly like evalAttr.
+// runtime.GetAttribute exactly like evalAttr. A read the loop escape analysis
+// approved lowers to inline loop arithmetic instead; such a read is total
+// (every approved field is always defined on a live loop), so neither the
+// null-safe form nor absence suppression can change its value.
 func (c *compiler) exprAttr(n *ast.Node, allowAbsent bool) (string, error) {
+	if ir, ok := c.an.inlineReads[n]; ok {
+		return c.emitInlineLoopField(ir), nil
+	}
 	recv, err := c.expr(n.Child(0), allowAbsent)
 	if err != nil {
 		return "", err
@@ -210,8 +216,13 @@ func (c *compiler) exprAttr(n *ast.Node, allowAbsent bool) (string, error) {
 }
 
 // exprIndex lowers a[k] / a?[k] like evalIndex, evaluating the key only when
-// the null-receiver short-circuit does not fire.
+// the null-receiver short-circuit does not fire. A string-literal subscript
+// the loop escape analysis approved is the dotted read and lowers to inline
+// loop arithmetic; its literal key needs no evaluation.
 func (c *compiler) exprIndex(n *ast.Node, allowAbsent bool) (string, error) {
+	if ir, ok := c.an.inlineReads[n]; ok {
+		return c.emitInlineLoopField(ir), nil
+	}
 	recv, err := c.expr(n.Child(0), allowAbsent)
 	if err != nil {
 		return "", err

@@ -19,7 +19,10 @@ import "github.com/avmnu-sng/quill-template-engine/runtime"
 // Filter is a callable invoked through the pipe: x | name(args) is name(x, args)
 // (spec 03 Section 1). Fn receives the injected engine values (per the Needs*
 // flags) first, then the piped value, then the explicit arguments, already
-// flattened from positional/named/spread by the interpreter.
+// flattened from positional/named/spread by the interpreter. Fn must treat
+// its argument values as immutable: mutating an argument array in place is
+// unsupported and breaks engine invariants (build and return a new value
+// instead).
 type Filter struct {
 	Name string
 	Fn   func(args []runtime.Value) (runtime.Value, error)
@@ -33,7 +36,9 @@ type Filter struct {
 
 // Function is a callable invoked as name(args) with all arguments explicit (spec
 // 03 Section 1). The injection flags behave as for Filter; there is no implicit
-// piped value.
+// piped value. Fn must treat its argument values as immutable: mutating an
+// argument array in place is unsupported and breaks engine invariants (build
+// and return a new value instead).
 type Function struct {
 	Name string
 	Fn   func(args []runtime.Value) (runtime.Value, error)

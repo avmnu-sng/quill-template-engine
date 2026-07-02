@@ -51,8 +51,14 @@ type compiler struct {
 	condDepth int
 
 	// loops is the stack of lexically enclosing @for lowerings, used by
-	// loop.changed call sites to attach their per-loop memory locals.
+	// loop.changed call sites to attach their per-loop memory locals and by
+	// the loop optimizer's inline reads and on-demand materialization.
 	loops []*loopInfo
+
+	// an is the module's loop escape analysis, computed before lowering; it
+	// decides which loops skip the per-iteration loop-value materialization
+	// and which member reads lower to inline loop arithmetic.
+	an *loopAnalysis
 
 	// inArrow counts enclosing arrow-body lowerings; loop.changed resolves
 	// its loop dynamically there, so it is outside the compilable subset.
@@ -63,9 +69,31 @@ type compiler struct {
 }
 
 // loopInfo carries the codegen state of one @for being lowered: the memory
-// locals its loop.changed call sites need, declared at the loop frame's block.
+// locals its loop.changed call sites need (declared at the loop frame's
+// block), the AST node the escape analysis keyed its decision on, and the
+// counter and pair-slice locals the optimizer's inline arithmetic reads.
 type loopInfo struct {
-	changed []changedSite
+	changed  []changedSite
+	forNode  *ast.Node
+	frame    *frame
+	iVar     string
+	pairsVar string
+	// inline marks a loop proven non-escaping: no per-iteration loop value is
+	// bound, and scope-enumerating consumers materialize one on demand.
+	inline bool
+	// parentVar names the local holding the parent loop value probed once at
+	// loop entry (the interpreter's pre.Get("loop") timing). Every on-demand
+	// materialization of an inline loop's value consumes this local instead of
+	// re-probing, so a scope entry named loop that changes mid-loop cannot
+	// skew the parent away from what the interpreter bound.
+	parentVar string
+	// live marks a loop proven mutation-free (loopAnalysis.liveFor): a KArray
+	// iterand iterates zero-copy off arrVar with nVar the entry-time length
+	// snapshot, and pairsVar holds only the runtime fallback for non-array
+	// iterands (nil on the array path).
+	live   bool
+	arrVar string
+	nVar   string
 }
 
 // changedSite is one loop.changed(...) call site's per-loop memory locals.
@@ -554,13 +582,24 @@ func (c *compiler) emitContext() string {
 		// Walk the frame's runtime first-bind order so entries land in the
 		// order the interpreter's Scope.Names yields; the switch maps each
 		// bound name back to its value local (a name in the slice is bound by
-		// construction, so no flag check is needed).
+		// construction, so no flag check is needed). An inline loop frame has
+		// no live loop value, so its loop entry materializes on demand; when a
+		// deeper loop frame follows, that entry is overwritten in place, so
+		// the innermost (and only observable) value is the deepest frame's.
 		n := c.tmp("qn")
 		c.openf("for _, %s := range %s {", n, f.ord)
 		c.openf("switch %s {", n)
 		for _, b := range f.order {
 			c.linef("case %s:", q(b.name))
 			c.ind++
+			if b.name == "loop" && f.kind == frameLoop {
+				if li := c.loopByFrame(f); li != nil && li.inline {
+					lv := c.emitLoopValue(li)
+					c.linef("%s.SetStr(%s, %s)", arr, q(b.name), lv)
+					c.ind--
+					continue
+				}
+			}
 			c.linef("%s.SetStr(%s, runtime.ShareValue(%s))", arr, q(b.name), b.val)
 			c.ind--
 		}

@@ -257,6 +257,17 @@ func (a *Array) keyValue(enc string) Value {
 	return Str(enc)
 }
 
+// PairAt returns the key and value at insertion-order position i, the same
+// entry Pairs()[i] would hold, without materializing the pair slice. It exists
+// for iteration paths that must not pay the O(n) snapshot allocation: the key
+// reconstruction (keyValue over isCanonicalIntKey / fastCanonInt / Str) and the
+// value lookup are both allocation-free. The caller owns the bounds contract
+// (0 <= i < Len()) exactly as it would for a Pairs() index.
+func (a *Array) PairAt(i int) (Value, Value) {
+	enc := a.keys[i]
+	return a.keyValue(enc), a.vals[enc]
+}
+
 // Pairs returns the entries as key/value Pairs in insertion order, the form the
 // for loop consumes.
 func (a *Array) Pairs() []Pair {

@@ -423,6 +423,18 @@ func TestGeneratedVet(t *testing.T) {
 	samples := []compiledCase{
 		{name: "vet-a", template: "@set total = 0\n@for x in items if x > 1 {\n{{ loop.index }}:{{ x | upper ?? x }}\n@if loop.changed(x) {\nc\n@}\n@set total = total + 1\n@}\n{{ total }}\n"},
 		{name: "vet-b", template: "@escape bogus {\nx\n@}\n{{ loop.changed(1) }}\n@with {a: 1} only {\n{{ a }}\n@}\n@set m = {}\n@set m.k = [1]\n@set m.k[0] = 2\n@tab(1) {\n{{ [1,2] | map(v => v * 2) | join(\",\") }}\n@}\n"},
+		// The loop-optimizer shapes: inline field arithmetic and prev/next
+		// fallbacks, the on-demand loop materialization inside a needs-context
+		// guard across an inline nested chain, a materialized loop beside an
+		// inline one, and a with frame on the on-demand parent-probe path.
+		{name: "vet-c", template: "@for a in [1,2] {\n@for b in [3] {\n{{ dump() }}{{ loop.parent.prev ?? 0 }}{{ loop.parent.next ?? 0 }}{{ loop.parent.revindex0 }}{{ loop.index0 }}{{ loop[\"last\"] }}\n@}\n@}\n@for y in [1] {\n@set snap = loop\n{{ snap.first }}{{ _context | length }}\n@}\n@with {w: 1} {\n@for z in [2] {\n{{ dump() }}{{ loop.length }}\n@}\n@}\n"},
+		// The live-path shapes: the runtime array/pairs split, PairAt target
+		// loads (single- and two-target), live prev/next fallbacks, the live
+		// length snapshot in inline arithmetic, the on-demand loop-object
+		// materialization off the live path (dump), a parent-chain read from
+		// a fused (pairs) inner into a live outer, and a mutating sibling
+		// loop lowered on the pairs path beside the live ones.
+		{name: "vet-d", template: "@for k, v in m {\n{{ loop.prev ?? 0 }}{{ loop.next ?? 0 }}{{ k }}{{ v }}{{ loop.revindex }}\n@}\n@for a in [1,2] {\n{{ dump() }}{{ loop.length }}\n@for b in [3,4] if b > 3 {\n{{ loop.index }}{{ loop.parent.last }}\n@}\n@}\n@set ys = [0]\n@for x in [1] {\n@set ys[0] = x\n{{ loop.changed(x) }}\n@}\n"},
 	}
 	dir := t.TempDir()
 	root := repoRoot(t)

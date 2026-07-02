@@ -135,6 +135,38 @@ func TestArrayIsList(t *testing.T) {
 	}
 }
 
+func TestArrayPairAt(t *testing.T) {
+	a := NewArray()
+	a.SetStr("b", Int(1))
+	a.SetInt(5, Int(2))
+	a.SetStr("01", Int(3))
+	a.SetInt(-1, Int(4))
+	a.SetInt(1000, Int(5))
+
+	// PairAt(i) must be exactly Pairs()[i], entry for entry.
+	pairs := a.Pairs()
+	for i := range pairs {
+		k, v := a.PairAt(i)
+		if !Equal(k, pairs[i].Key) || k.Kind != pairs[i].Key.Kind {
+			t.Errorf("PairAt(%d) key = %v, want %v", i, k, pairs[i].Key)
+		}
+		if !Equal(v, pairs[i].Val) {
+			t.Errorf("PairAt(%d) val = %v, want %v", i, v, pairs[i].Val)
+		}
+	}
+
+	// The indexed accessor exists so live loop iteration never allocates,
+	// covering both the interned and the wide integer-key reconstruction.
+	allocs := testing.AllocsPerRun(100, func() {
+		for i := 0; i < a.Len(); i++ {
+			_, _ = a.PairAt(i)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("PairAt allocates %v times per sweep, want 0", allocs)
+	}
+}
+
 func TestArrayCloneIsDeepValueCopy(t *testing.T) {
 	inner := NewList(Int(1), Int(2))
 	outer := NewArray()

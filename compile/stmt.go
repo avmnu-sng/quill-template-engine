@@ -7,8 +7,10 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
-// compileModule lowers the module body after prescanning the root frame.
+// compileModule lowers the module body after prescanning the root frame and
+// running the loop escape analysis the @for lowerings consult.
 func (c *compiler) compileModule(mod *ast.Node) error {
+	c.an = analyzeLoops(mod)
 	binds := bindNames(mod.Children)
 	if err := c.checkBindNames(binds, mod); err != nil {
 		return err
@@ -632,21 +634,50 @@ func (c *compiler) stmtFor(n *ast.Node) error {
 	if err != nil {
 		return err
 	}
-	pairs := c.tmp("qp")
-	e := c.tmp("qe")
-	c.linef("%s, %s := runtime.EnsureTraversable(%s, %v)", pairs, e, iv, c.lenient)
-	c.checkErr(e, n.Line)
+	it := iterVars{live: c.an.liveFor(n)}
+	if it.live {
+		// The zero-copy path: a KArray iterand iterates live off the array's
+		// insertion-ordered keys with the length snapshotted once at entry (so
+		// appends beyond it would stay invisible, matching the snapshot;
+		// liveFor's mutation rule already forbids them). Anything else falls
+		// back to the materialized pair slice at runtime, keeping the
+		// EnsureTraversable error and lenient behavior byte-identical.
+		iv = c.spill(iv)
+		it.arr = c.tmp("qr")
+		it.pairs = c.tmp("qp")
+		it.n = c.tmp("qn")
+		c.linef("var %s *runtime.Array", it.arr)
+		c.linef("var %s []runtime.Pair", it.pairs)
+		c.linef("%s := 0", it.n)
+		c.openf("if %s.Kind == runtime.KArray && %s.Arr != nil {", iv, iv)
+		c.linef("%s = %s.Arr", it.arr, iv)
+		c.linef("%s = %s.Len()", it.n, it.arr)
+		c.ind--
+		c.linef("} else {")
+		c.ind++
+		e := c.tmp("qe")
+		c.linef("var %s error", e)
+		c.linef("%s, %s = runtime.EnsureTraversable(%s, %v)", it.pairs, e, iv, c.lenient)
+		c.checkErr(e, n.Line)
+		c.linef("%s = len(%s)", it.n, it.pairs)
+		c.closeb()
+	} else {
+		it.pairs = c.tmp("qp")
+		e := c.tmp("qe")
+		c.linef("%s, %s := runtime.EnsureTraversable(%s, %v)", it.pairs, e, iv, c.lenient)
+		c.checkErr(e, n.Line)
+	}
 
 	// Lower the filter, the loop, and the copy-back into a side buffer so the
 	// loop.changed memory locals its body registers can be declared first,
 	// mirroring the interpreter's changed frame pushed before the filter runs.
-	li := &loopInfo{}
+	li := &loopInfo{forNode: n}
 	c.loops = append(c.loops, li)
 	saved := c.body
 	c.body = bytes.Buffer{}
 	c.ind++ // the side buffer's code sits inside the loop-scope block
 
-	lowerErr := c.stmtForInner(n, target1, target2, filter, body, elseBody, pairs)
+	lowerErr := c.stmtForInner(n, target1, target2, filter, body, elseBody, it)
 
 	c.ind--
 	seg := c.body
@@ -667,15 +698,37 @@ func (c *compiler) stmtFor(n *ast.Node) error {
 	return nil
 }
 
+// iterVars names the generated locals one @for lowering iterates over. Every
+// loop has a pair-slice local; a live loop additionally carries the array
+// local (nil at runtime when the iterand was not a KArray) and the entry-time
+// length snapshot local, which is the single length source on both of its
+// runtime paths.
+type iterVars struct {
+	live  bool
+	arr   string
+	pairs string
+	n     string
+}
+
+// count renders the Go expression for the iteration count.
+func (it iterVars) count() string {
+	if it.live {
+		return it.n
+	}
+	return "len(" + it.pairs + ")"
+}
+
 // stmtForInner lowers the filter pre-pass, the empty/body split, the
 // iteration, and the copy-back, inside the loop-scope block.
-func (c *compiler) stmtForInner(n *ast.Node, target1, target2, filter, body, elseBody *ast.Node, pairs string) error {
+func (c *compiler) stmtForInner(n *ast.Node, target1, target2, filter, body, elseBody *ast.Node, it iterVars) error {
 	if filter != nil {
-		if err := c.stmtForFilter(filter, target1, target2, pairs); err != nil {
+		// A fused loop is never live (liveFor), so the filter always works the
+		// materialized pair slice.
+		if err := c.stmtForFilter(filter, target1, target2, it.pairs); err != nil {
 			return err
 		}
 	}
-	c.openf("if len(%s) == 0 {", pairs)
+	c.openf("if %s == 0 {", it.count())
 	c.condDepth++
 	if elseBody != nil {
 		if err := c.stmtList(elseBody.Children); err != nil {
@@ -686,7 +739,7 @@ func (c *compiler) stmtForInner(n *ast.Node, target1, target2, filter, body, els
 	c.ind--
 	c.linef("} else {")
 	c.ind++
-	if err := c.stmtForBody(n, target1, target2, body, pairs); err != nil {
+	if err := c.stmtForBody(n, target1, target2, body, it); err != nil {
 		return err
 	}
 	c.closeb()
@@ -738,7 +791,7 @@ func (c *compiler) stmtForFilter(filter *ast.Node, target1, target2 *ast.Node, p
 
 // stmtForBody lowers the non-empty arm: the persistent loop frame, the
 // per-iteration target and loop bindings, the body, and the copy-back.
-func (c *compiler) stmtForBody(n *ast.Node, target1, target2, body *ast.Node, pairs string) error {
+func (c *compiler) stmtForBody(n *ast.Node, target1, target2, body *ast.Node, it iterVars) error {
 	binds := []string{target1.Str}
 	if target2 != nil {
 		binds = append(binds, target2.Str)
@@ -750,25 +803,68 @@ func (c *compiler) stmtForBody(n *ast.Node, target1, target2, body *ast.Node, pa
 		return err
 	}
 
+	// The loop optimizer's decision: a loop proven non-escaping binds no
+	// per-iteration loop value at all; anything else materializes it exactly
+	// as the interpreter does. A live loop is non-escaping by liveFor's rule.
+	inline := c.an.inlineFor(n)
+
 	// The parent loop value resolves in the enclosing chain before iteration,
-	// like pre.Get("loop").
-	parentVal, _ := c.probeName("loop")
-	parentLoop := c.spill(parentVal)
+	// like pre.Get("loop") -- on both paths, because the probe's TIMING is
+	// observable: a with-map or root entry named loop that changes mid-loop
+	// must not skew an on-demand materialization away from the parent the
+	// interpreter bound at entry. An inline loop cannot go through probeName
+	// (an enclosing inline loop's value local is never assigned), so it takes
+	// the loop-aware probe, which materializes an enclosing inline loop's
+	// value from that loop's own entry-time locals.
+	var parentLoop string
+	if inline {
+		parentLoop = c.emitLoopParent(len(c.frames))
+	} else {
+		parentVal, _ := c.probeName("loop")
+		parentLoop = c.spill(parentVal)
+	}
 
 	c.openf("{")
 	f := c.pushFrame(frameLoop, dedupe(binds))
 	savedCond := c.condDepth
 	c.condDepth = 0
 
+	li := c.currentLoop()
+	li.frame = f
+	li.pairsVar = it.pairs
+	li.inline = inline
+	li.live = it.live
+	li.arrVar = it.arr
+	li.nVar = it.n
+	li.parentVar = parentLoop
+
+	pairs := it.pairs
 	i := c.tmp("qi")
-	c.openf("for %s := 0; %s < len(%s); %s++ {", i, i, pairs, i)
-	if target2 != nil {
+	li.iVar = i
+	c.openf("for %s := 0; %s < %s; %s++ {", i, i, it.count(), i)
+	if it.live {
+		c.emitLiveTargets(it, target1, target2, i)
+	} else if target2 != nil {
 		c.bindName(target1.Str, fmt.Sprintf("%s[%s].Key", pairs, i), false)
 		c.bindName(target2.Str, fmt.Sprintf("%s[%s].Val", pairs, i), false)
 	} else {
 		c.bindName(target1.Str, fmt.Sprintf("%s[%s].Val", pairs, i), false)
 	}
-	c.bindName("loop", fmt.Sprintf("runtime.NewLoopValue(%s, %s, %s)", i, pairs, parentLoop), false)
+	if inline {
+		// The interpreter still binds the NAME loop every iteration, so the
+		// frame's first-bind order (hints, _context ordering) must list it;
+		// only the value allocation is elided.
+		b := f.byName["loop"]
+		if f.ord != "" {
+			c.openf("if !%s {", b.flag)
+			c.linef("%s = append(%s, %s)", f.ord, f.ord, q("loop"))
+			c.closeb()
+		}
+		c.linef("%s = true", b.flag)
+		b.everBound = true
+	} else {
+		c.bindName("loop", fmt.Sprintf("runtime.NewLoopValue(%s, %s, %s)", i, pairs, parentLoop), false)
+	}
 	if err := c.stmtList(body.Children); err != nil {
 		return err
 	}
@@ -779,6 +875,38 @@ func (c *compiler) stmtForBody(n *ast.Node, target1, target2, body *ast.Node, pa
 	c.popFrame()
 	c.closeb()
 	return nil
+}
+
+// emitLiveTargets lowers a live loop's per-iteration target loads: the entry
+// at position i comes from Array.PairAt on the array path and from the
+// fallback pair slice otherwise, then binds exactly what the pair-slice
+// lowering binds -- the value for a single target, key and value for two.
+func (c *compiler) emitLiveTargets(it iterVars, target1, target2 *ast.Node, i string) {
+	if target2 != nil {
+		kv := c.tmp("qt")
+		vv := c.tmp("qt")
+		c.linef("var %s, %s runtime.Value", kv, vv)
+		c.openf("if %s != nil {", it.arr)
+		c.linef("%s, %s = %s.PairAt(%s)", kv, vv, it.arr, i)
+		c.ind--
+		c.linef("} else {")
+		c.ind++
+		c.linef("%s, %s = %s[%s].Key, %s[%s].Val", kv, vv, it.pairs, i, it.pairs, i)
+		c.closeb()
+		c.bindName(target1.Str, kv, false)
+		c.bindName(target2.Str, vv, false)
+		return
+	}
+	vv := c.tmp("qt")
+	c.linef("var %s runtime.Value", vv)
+	c.openf("if %s != nil {", it.arr)
+	c.linef("_, %s = %s.PairAt(%s)", vv, it.arr, i)
+	c.ind--
+	c.linef("} else {")
+	c.ind++
+	c.linef("%s = %s[%s].Val", vv, it.pairs, i)
+	c.closeb()
+	c.bindName(target1.Str, vv, false)
 }
 
 // emitCopyBack reproduces execFor's exit pass over every pre-existing name:
