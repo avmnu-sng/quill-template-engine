@@ -909,11 +909,22 @@ func (in *interp) execCache(n *ast.Node, ctx *runtime.Context) error {
 	}
 
 	// Miss: render the body in a child scope so body-local sets do not leak.
+	preLabels, preBytes := in.slotStamp()
 	out, err := in.captureItems(body, ctx.Clone())
 	if err != nil {
 		return err
 	}
-	if rc != nil {
+	// A body that interacted with the deferred-slot machinery must NOT be
+	// stored: a @yield placeholder embeds this render's unique token, which no
+	// later render's resolveSlots could substitute (a replay would emit the raw
+	// token), and a @provide is a render-scoped side effect a replay would
+	// silently lose. Such a region renders fresh every time; correctness wins
+	// over memoization. The slot stamp catches provides from nested includes and
+	// embeds too, because they append into this render's shared slot buffers.
+	postLabels, postBytes := in.slotStamp()
+	usedSlots := postLabels != preLabels || postBytes != preBytes ||
+		strings.Contains(out, in.yieldToken)
+	if rc != nil && !usedSlots {
 		tags, err := in.evalCacheTags(tagsExpr, ctx)
 		if err != nil {
 			return err
@@ -921,6 +932,16 @@ func (in *interp) execCache(n *ast.Node, ctx *runtime.Context) error {
 		rc.Put(fullKey, out, tags)
 	}
 	return posErr(n, in.emitString(out))
+}
+
+// slotStamp summarizes the deferred-slot state as (label count, total buffered
+// bytes). Slot buffers only ever grow, so an unchanged stamp across a capture
+// proves no @provide ran inside it.
+func (in *interp) slotStamp() (labels, bytes int) {
+	for _, b := range in.slots {
+		bytes += b.Len()
+	}
+	return len(in.slots), bytes
 }
 
 // evalCacheTags evaluates the optional tags expression to a list of strings.
