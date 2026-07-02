@@ -76,7 +76,9 @@ func arrayEqual(a, b *Array) bool {
 	// Same keys in the SAME order, recursively Equal on the paired values.
 	for i := range a.keys {
 		ka, kb := a.keys[i], b.keys[i]
-		if ka != kb || a.ints[ka] != b.ints[kb] {
+		// Equal key encodings imply equal int-ness (int-ness is a function of the
+		// encoding), so comparing the encodings is sufficient.
+		if ka != kb {
 			return false
 		}
 		if !Equal(a.vals[ka], b.vals[kb]) {

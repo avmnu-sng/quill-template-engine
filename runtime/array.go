@@ -18,12 +18,11 @@ import (
 type Array struct {
 	keys []string         // insertion order of canonical key encodings
 	vals map[string]Value // canonical key encoding -> value
-	ints map[string]bool  // canonical key encoding -> true when the key is an Int
 }
 
 // NewArray returns an empty *Array.
 func NewArray() *Array {
-	return &Array{vals: map[string]Value{}, ints: map[string]bool{}}
+	return &Array{vals: map[string]Value{}}
 }
 
 // NewList builds a list-shaped *Array from values, assigning contiguous integer
@@ -39,8 +38,78 @@ func NewList(vals ...Value) *Array {
 // Len returns the number of entries.
 func (a *Array) Len() int { return len(a.keys) }
 
-// canonInt encodes an integer key.
-func canonInt(k int64) string { return strconv.FormatInt(k, 10) }
+// smallIntKeyLo / smallIntKeyHi bound the interned canonical key strings. Lists
+// and small maps key overwhelmingly on 0..255 (and occasionally -1), so canonInt
+// hands back a shared string for those instead of minting a fresh one; the
+// strconv small-integer cache already covers 0..99 without allocating, so the
+// interning adds coverage for the negative key and 100..255.
+const (
+	smallIntKeyLo = -1
+	smallIntKeyHi = 255
+)
+
+var smallIntKeys = func() [smallIntKeyHi - smallIntKeyLo + 1]string {
+	var t [smallIntKeyHi - smallIntKeyLo + 1]string
+	for k := smallIntKeyLo; k <= smallIntKeyHi; k++ {
+		t[k-smallIntKeyLo] = strconv.FormatInt(int64(k), 10)
+	}
+	return t
+}()
+
+// canonInt encodes an integer key, returning an interned string for the common
+// small range so a list build and its clones reuse one string per key.
+func canonInt(k int64) string {
+	if k >= smallIntKeyLo && k <= smallIntKeyHi {
+		return smallIntKeys[k-smallIntKeyLo]
+	}
+	return strconv.FormatInt(k, 10)
+}
+
+// isCanonicalIntKey reports whether a stored key encoding is an integer key,
+// replacing the former parallel ints map: a key is an Int key exactly when it is
+// the canonical decimal spelling of an int64. It is allocation-free -- it never
+// calls ParseInt -- by pairing the looksCanonicalInt shape gate with a fits-int64
+// bound check (a canonical run of fewer digits than the int64 limit always fits;
+// at the limit width it compares lexically). A canonical-looking but overflowing
+// run such as "99999999999999999999" is therefore correctly a STRING key, exactly
+// as SetStr routes it (spec 04 Section 6.1).
+func isCanonicalIntKey(enc string) bool {
+	if !looksCanonicalInt(enc) {
+		return false
+	}
+	digits := enc
+	bound := "9223372036854775807" // MaxInt64
+	if enc[0] == '-' {
+		digits = enc[1:]
+		bound = "9223372036854775808" // -MinInt64 magnitude
+	}
+	if len(digits) != len(bound) {
+		return len(digits) < len(bound)
+	}
+	return digits <= bound
+}
+
+// fastCanonInt folds a canonical integer key encoding back to its int64 without
+// allocating (the encoding was minted by canonInt or accepted by isCanonicalIntKey,
+// so it is well-formed and in range). Digits accumulate as a non-positive number
+// so the int64 minimum, whose magnitude does not fit as a positive value, is
+// representable.
+func fastCanonInt(enc string) int64 {
+	i := 0
+	neg := false
+	if enc[0] == '-' {
+		neg = true
+		i = 1
+	}
+	var n int64
+	for ; i < len(enc); i++ {
+		n = n*10 - int64(enc[i]-'0')
+	}
+	if neg {
+		return n
+	}
+	return -n
+}
 
 // canonicalizeStringKey decides whether a string subscript names an integer
 // slot. A canonical decimal-integer literal (matching strconv's round-trip)
@@ -109,14 +178,14 @@ func looksCanonicalInt(s string) bool {
 
 // SetInt sets the value at an integer key.
 func (a *Array) SetInt(k int64, v Value) {
-	a.set(canonInt(k), true, v)
+	a.set(canonInt(k), v)
 }
 
 // SetStr sets the value at a string subscript, canonicalizing it (so SetStr("1")
 // targets the same slot as SetInt(1)).
 func (a *Array) SetStr(k string, v Value) {
-	enc, isInt := canonicalizeStringKey(k)
-	a.set(enc, isInt, v)
+	enc, _ := canonicalizeStringKey(k)
+	a.set(enc, v)
 }
 
 // SetKey sets using a key Value (Int or Str). A non-key kind is a programming
@@ -131,12 +200,11 @@ func (a *Array) SetKey(key, v Value) {
 	}
 }
 
-func (a *Array) set(enc string, isInt bool, v Value) {
+func (a *Array) set(enc string, v Value) {
 	if _, exists := a.vals[enc]; !exists {
 		a.keys = append(a.keys, enc)
 	}
 	a.vals[enc] = v
-	a.ints[enc] = isInt
 }
 
 // GetInt reads the value at an integer key.
@@ -171,11 +239,12 @@ func (a *Array) Keys() []Value {
 	return out
 }
 
-// keyValue reconstructs the original-kind key Value from a canonical encoding.
+// keyValue reconstructs the original-kind key Value from a canonical encoding,
+// deriving int-ness from the encoding itself (isCanonicalIntKey) rather than a
+// stored flag.
 func (a *Array) keyValue(enc string) Value {
-	if a.ints[enc] {
-		i, _ := strconv.ParseInt(enc, 10, 64)
-		return Int(i)
+	if isCanonicalIntKey(enc) {
+		return Int(fastCanonInt(enc))
 	}
 	return Str(enc)
 }
@@ -196,7 +265,7 @@ func (a *Array) Pairs() []Pair {
 // negation (over a non-empty array) backs is mapping.
 func (a *Array) IsList() bool {
 	for i, enc := range a.keys {
-		if !a.ints[enc] {
+		if !isCanonicalIntKey(enc) {
 			return false
 		}
 		if enc != canonInt(int64(i)) {
@@ -215,13 +284,9 @@ func (a *Array) Clone() *Array {
 	cp := &Array{
 		keys: append([]string(nil), a.keys...),
 		vals: make(map[string]Value, len(a.vals)),
-		ints: make(map[string]bool, len(a.ints)),
 	}
 	for k, v := range a.vals {
 		cp.vals[k] = CopyValue(v)
-	}
-	for k, b := range a.ints {
-		cp.ints[k] = b
 	}
 	return cp
 }
