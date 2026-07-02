@@ -18,6 +18,14 @@ import (
 type Array struct {
 	keys []string         // insertion order of canonical key encodings
 	vals map[string]Value // canonical key encoding -> value
+
+	// shared marks an array whose pointer may be reachable from more than one
+	// binding or collection slot (the copy-on-write state). A value bound to a
+	// name marks its array shared (ShareValue); a shared array is privatized (Own)
+	// before an in-place mutation so the write cannot reach any alias, realizing
+	// the *Array value-type semantics of spec 04 Section 6.3 lazily. A single-owner
+	// array (shared false) mutates in place.
+	shared bool
 }
 
 // NewArray returns an empty *Array.
@@ -294,10 +302,58 @@ func (a *Array) Clone() *Array {
 // CopyValue value-copies a Value at a boundary. Scalars and Safe copy by value;
 // an *Array copies deeply; an Object is shared by reference (host objects are
 // reference identities, not value-copied -- spec 04 Section 6.3 covers *Array,
-// and Object equality is identity by Section 4.1).
+// and Object equality is identity by Section 4.1). It is the eager deep copy,
+// retained for callers that need a fully independent tree up front; the render
+// path uses the lazy copy-on-write pair ShareValue / Own instead.
 func CopyValue(v Value) Value {
 	if v.Kind == KArray && v.Arr != nil {
 		return Arr(v.Arr.Clone())
 	}
 	return v
+}
+
+// ShareValue marks a KArray value as shared and returns it unchanged; every other
+// kind passes through (scalars are values, a host Object keeps reference
+// identity). It is the copy-on-write bind primitive: binding a value to a name or
+// a collection slot shares the array pointer in O(1) rather than deep-copying it,
+// and the first in-place mutation of a shared array privatizes it (Own). Sharing
+// each binding independently means two names that come to hold one array both mark
+// it shared, so mutating one privatizes and diverges from the other -- the value
+// semantics of spec 04 Section 6.3, paid lazily.
+func ShareValue(v Value) Value {
+	if v.Kind == KArray && v.Arr != nil {
+		v.Arr.shared = true
+	}
+	return v
+}
+
+// Own returns a Value whose array the caller may mutate in place without reaching
+// any alias: a shared array is replaced by a shallow copy-on-write clone (with its
+// shared flag cleared); an unshared array, and every non-array kind, is returned
+// unchanged. The bool reports whether a clone was made, so a caller walking an
+// assignment path knows to rebind the fresh array under its name or parent slot.
+func Own(v Value) (Value, bool) {
+	if v.Kind == KArray && v.Arr != nil && v.Arr.shared {
+		return Arr(v.Arr.cloneShallowCOW()), true
+	}
+	return v, false
+}
+
+// cloneShallowCOW copies a's key order and value map one level deep and marks
+// every nested *Array element shared, so a subsequent mutation one level deeper
+// privatizes that child in turn. It is O(len(a)), not O(deep data): the copy-on-
+// write cost is paid one path node at a time as writes descend, never as an eager
+// whole-tree copy. The returned array is unshared -- the caller owns it.
+func (a *Array) cloneShallowCOW() *Array {
+	cp := &Array{
+		keys: append([]string(nil), a.keys...),
+		vals: make(map[string]Value, len(a.vals)),
+	}
+	for k, v := range a.vals {
+		if v.Kind == KArray && v.Arr != nil {
+			v.Arr.shared = true
+		}
+		cp.vals[k] = v
+	}
+	return cp
 }

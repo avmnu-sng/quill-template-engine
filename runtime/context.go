@@ -16,9 +16,25 @@ func NewContext() *Context {
 	return &Context{vars: map[string]Value{}}
 }
 
-// Set binds name to v, recording first-seen order. Re-setting an existing name
-// updates the value and keeps its original position.
+// Set binds name to v, recording first-seen order. An array value is marked
+// shared (ShareValue) so a later mutation through this or any aliasing binding
+// copies on write, giving *Array value semantics (spec 04 Section 6.3); scalars
+// and host Objects pass through. Re-setting an existing name updates the value and
+// keeps its original position.
 func (c *Context) Set(name string, v Value) {
+	c.bind(name, ShareValue(v))
+}
+
+// SetOwned binds name to v WITHOUT marking its array shared, for a value the
+// caller exclusively owns -- the privatized root of a member assignment. Marking
+// it shared would force a needless copy-on-write clone on the next mutation, which
+// would make a run of member writes to one array quadratic.
+func (c *Context) SetOwned(name string, v Value) {
+	c.bind(name, v)
+}
+
+// bind stores name -> v, recording first-seen order.
+func (c *Context) bind(name string, v Value) {
 	if _, ok := c.vars[name]; !ok {
 		c.order = append(c.order, name)
 	}
@@ -47,17 +63,21 @@ func (c *Context) Names() []string {
 	return append([]string(nil), c.order...)
 }
 
-// Clone returns a value-copy of the context: a fresh binding set where each
-// value is itself value-copied (so a nested *Array does not alias across the
-// boundary, per spec 04 Section 6.3). This is the scope-entry primitive; on
-// scope exit the caller simply discards the clone and keeps the parent.
+// Clone returns a copy-on-write value-copy of the context: a fresh binding set in
+// which each array binding is SHARED (marked copy-on-write) rather than deep-
+// copied, so a nested *Array still does not alias across the boundary (spec 04
+// Section 6.3) but the copy is paid lazily, only when a side mutates. This is the
+// scope-entry primitive; on scope exit the caller discards the clone and keeps the
+// parent. Sharing each binding independently means two parent bindings that hold
+// one array become distinct copy-on-write views, so mutating one through the clone
+// diverges from the other exactly as an eager deep copy would.
 func (c *Context) Clone() *Context {
 	cp := &Context{
 		order: append([]string(nil), c.order...),
 		vars:  make(map[string]Value, len(c.vars)),
 	}
 	for k, v := range c.vars {
-		cp.vars[k] = CopyValue(v)
+		cp.vars[k] = ShareValue(v)
 	}
 	return cp
 }

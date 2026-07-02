@@ -549,13 +549,15 @@ func (in *interp) execSet(n *ast.Node, ctx *runtime.Context) error {
 }
 
 // assignMember writes v to a member-set target (@set recv.name = v or
-// @set recv[key] = v). It evaluates the receiver as a value, then routes the
-// write through runtime.SetMember, which stores an *Array key or calls a host
-// FieldSetter (the mutable-cell path). The receiver Object circulates by pointer,
-// so a mutation here is visible to every holder and survives a loop body while
-// the loop's own name rebindings still do not leak.
+// @set recv[key] = v). It first takes ownership of the receiver path (ownPath):
+// any copy-on-write array from the root name down is privatized and rebound, so
+// the in-place write lands only on arrays this scope exclusively owns and cannot
+// reach an alias a scope-entry boundary left it sharing (proper value semantics,
+// spec 04 Section 6.3). A host Object receiver (the mutable-cell path) keeps
+// reference identity, so a cell mutation is still visible to every holder and
+// survives a loop body, while the loop's own name rebindings do not leak.
 func (in *interp) assignMember(tg *ast.Node, v runtime.Value, ctx *runtime.Context) error {
-	recv, err := in.eval(tg.Child(0), ctx, false)
+	recv, err := in.ownPath(tg.Child(0), ctx)
 	if err != nil {
 		return err
 	}
@@ -573,6 +575,70 @@ func (in *interp) assignMember(tg *ast.Node, v runtime.Value, ctx *runtime.Conte
 		return posErr(tg, err)
 	}
 	return nil
+}
+
+// ownPath returns the receiver value at an assignment-path node, having
+// privatized every shared copy-on-write array from the root name downward and
+// rebound each fresh copy under its name (root) or into its owned parent slot
+// (intermediate hop). Because it recurses to the root first, ownership flows
+// top-down: a node is owned and rebound before its child is read, so a copy at one
+// level marks its children shared (cloneShallowCOW) and the next level privatizes
+// in turn. A host Object hop passes through by reference (cells persist); a
+// scalar receiver passes through for SetMember/SetIndex to reject as before.
+// Member targets are always rooted at a name (parse/control.go), so the root is a
+// KindName and reads through the strict-undefined eval path unchanged.
+func (in *interp) ownPath(node *ast.Node, ctx *runtime.Context) (runtime.Value, error) {
+	switch node.Kind {
+	case ast.KindName:
+		cur, err := in.eval(node, ctx, false)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		if owned, copied := runtime.Own(cur); copied {
+			ctx.SetOwned(node.Str, owned)
+			return owned, nil
+		}
+		return cur, nil
+	case ast.KindAttr:
+		parent, err := in.ownPath(node.Child(0), ctx)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		cur, err := runtime.GetAttribute(parent, runtime.Str(node.Str), runtime.AccessDot, false)
+		if err != nil {
+			return runtime.Null(), posErr(node, err)
+		}
+		if owned, copied := runtime.Own(cur); copied {
+			if err := runtime.SetMember(parent, node.Str, owned); err != nil {
+				return runtime.Null(), posErr(node, err)
+			}
+			return owned, nil
+		}
+		return cur, nil
+	case ast.KindIndex:
+		parent, err := in.ownPath(node.Child(0), ctx)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		keyv, err := in.eval(node.Child(1), ctx, false)
+		if err != nil {
+			return runtime.Null(), err
+		}
+		key := keyOf(keyv)
+		cur, err := runtime.GetAttribute(parent, key, runtime.AccessIndex, false)
+		if err != nil {
+			return runtime.Null(), posErr(node, err)
+		}
+		if owned, copied := runtime.Own(cur); copied {
+			if err := runtime.SetIndex(parent, key, owned); err != nil {
+				return runtime.Null(), posErr(node, err)
+			}
+			return owned, nil
+		}
+		return cur, nil
+	default:
+		return in.eval(node, ctx, false)
+	}
 }
 
 // bindPattern binds a destructuring pattern (spec 01 Sections 2.1, 3.2). A list
