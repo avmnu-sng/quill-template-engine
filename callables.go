@@ -76,9 +76,11 @@ func (e *Environment) registerEngineCallables() {
 
 // engineTabWidth returns the host-configured spaces-per-indent-level width from
 // the injected engine handle, or the ext default when the handle is missing.
+// The handle is consumed through ext.EngineConfig so both the interpreter's
+// engine handle and a compiled render's options handle satisfy it.
 func engineTabWidth(envRef runtime.Value) int {
-	if eng, ok := interp.EngineFromValue(envRef); ok {
-		return eng.TabWidth()
+	if cfg, ok := ext.EngineConfigFromValue(envRef); ok {
+		return cfg.TabWidth()
 	}
 	return ext.DefaultTabWidth
 }
@@ -102,11 +104,12 @@ func tabFunctionFn(args []runtime.Value) (runtime.Value, error) {
 }
 
 // engineRNG returns a source seeded from the host's configured seed when one is
-// set, else a fresh time-seeded source (spec 03 Section 3.2, X15). args[0] is the
-// injected engine handle.
+// set, else a fresh time-seeded source (spec 03 Section 3.2, X15). args[0] is
+// the injected engine handle, consumed through ext.EngineConfig so both the
+// interpreter's engine handle and a compiled render's options handle satisfy it.
 func engineRNG(envRef runtime.Value) *rand.Rand {
-	if eng, ok := interp.EngineFromValue(envRef); ok {
-		if seed, set := eng.RandomSeed(); set {
+	if cfg, ok := ext.EngineConfigFromValue(envRef); ok {
+		if seed, set := cfg.RandomSeed(); set {
 			return rand.New(rand.NewSource(seed))
 		}
 	}

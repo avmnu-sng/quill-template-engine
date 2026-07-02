@@ -51,6 +51,35 @@ type Test struct {
 	Fn   func(args []runtime.Value) (bool, error)
 }
 
+// EngineConfig is the read-only engine-configuration surface a
+// needs-environment callable can read off its injected engine handle: the
+// knobs the width- and seed-aware stdlib overrides consume (WithTabWidth,
+// WithRandomSeed). Defining the interface here, at the consumption side, lets
+// any render path -- the interpreter's engine handle or a compiled render's
+// options handle -- satisfy it without this package importing either.
+type EngineConfig interface {
+	// TabWidth returns the number of spaces one indent level expands to for
+	// the tab filter and the tab() function (default 4).
+	TabWidth() int
+	// RandomSeed returns the host-configured RNG seed and whether one was
+	// set; unset means a time-seeded source per call.
+	RandomSeed() (int64, bool)
+}
+
+// EngineConfigFromValue recovers the EngineConfig surface from the host Object
+// a render path injects into a needs-environment callable. It reports false
+// for a missing or configuration-less handle, in which case the callable falls
+// back to its engine-default behavior.
+func EngineConfigFromValue(v runtime.Value) (EngineConfig, bool) {
+	if v.Kind != runtime.KObject {
+		return nil, false
+	}
+	if cfg, ok := v.Obj.(EngineConfig); ok {
+		return cfg, true
+	}
+	return nil, false
+}
+
 // ExtensionSet is the callable registry: three name-keyed maps, one per kind,
 // plus the host-supplied constant and enumeration tables the constant/enum
 // callables read (spec 03 Sections 3.2, 4). Lookups are by exact name; the

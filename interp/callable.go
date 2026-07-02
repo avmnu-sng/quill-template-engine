@@ -510,6 +510,15 @@ func (e *engineRef) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 	return runtime.Null(), errors.New(errors.KindRuntime, "engine handle is not directly callable")
 }
 
+// TabWidth reports the engine's spaces-per-indent-level width, satisfying
+// ext.EngineConfig so the width-aware tab callables read the handle without
+// this package exporting the shim type.
+func (e *engineRef) TabWidth() int { return e.eng.TabWidth() }
+
+// RandomSeed reports the host-configured RNG seed and whether one was set,
+// satisfying ext.EngineConfig for the seed-aware random/shuffle callables.
+func (e *engineRef) RandomSeed() (int64, bool) { return e.eng.RandomSeed() }
+
 // EngineFromValue recovers the Engine from the host Object the runtime injects
 // into a needs_environment callable (the engineRef shim). It lets a callable
 // registered outside this package -- e.g. the facade's include() -- reach the
