@@ -52,6 +52,26 @@ type Template struct {
 	// (Phase 1) validates this set against the policy in one pass when the sandbox
 	// is active, mapping any violation back to the recorded source node.
 	used usedCallables
+
+	// usesSlots reports whether this template's own body contains a deferred-slot
+	// construct: @yield, @provide, or a slot() function call. It is computed once
+	// by Prepare (collectStreamInfo). A render whose whole template closure has
+	// usesSlots false emits no yield placeholder, so RenderTo can stream directly
+	// to an io.Writer with no whole-buffer resolveSlots post-pass.
+	usesSlots bool
+
+	// staticRefs lists the literal names of every template this one references:
+	// @extends/@include/@embed/@import/@from/@use sources that are string
+	// literals (including each member of a literal candidate list) and the
+	// literal second argument of a block(name, other) call. The streaming
+	// closure walk (renderClosureUsesSlots) recurses through these.
+	staticRefs []string
+
+	// hasDynamicRef records that at least one template reference is a
+	// non-literal expression, so the set of templates a render touches cannot be
+	// proven statically. RenderTo then conservatively buffers, which is always
+	// byte-safe; only the streaming fast path is forgone.
+	hasDynamicRef bool
 }
 
 // usedCallables is the statically collected set of tags/filters/functions a
@@ -98,7 +118,96 @@ func Prepare(name string, mod *ast.Node) *Template {
 	}
 	t.index(mod)
 	t.collectUsed(mod, t.used)
+	t.collectStreamInfo(mod)
 	return t
+}
+
+// collectStreamInfo walks the module once at Prepare, recording whether the
+// template body contains a deferred-slot construct (@yield, @provide, or a
+// slot() call) and which other templates it references. It backs the streaming
+// RenderTo entry: a render whose closure provably contains no slot construct
+// can stream, and any unprovable reference (a dynamic source expression) is
+// recorded so the render conservatively buffers. It is separate from
+// collectUsed because collectUsed is re-run at render time over @sandbox
+// region subtrees, and this walk must mutate the Template exactly once, at
+// Prepare, before the Template is shared read-only across renders.
+func (t *Template) collectStreamInfo(n *ast.Node) {
+	if n == nil {
+		return
+	}
+	switch n.Kind {
+	case ast.KindYield, ast.KindProvide:
+		t.usesSlots = true
+	case ast.KindExtends, ast.KindInclude, ast.KindEmbed, ast.KindImport,
+		ast.KindFrom, ast.KindUse:
+		t.recordRef(n.Child(0))
+	case ast.KindCall:
+		if callee := n.Child(0); callee != nil && callee.Kind == ast.KindName {
+			switch callee.Str {
+			case "slot":
+				// The slot(label) function reads accumulated slot content, so its
+				// presence forces the buffered path.
+				t.usesSlots = true
+			case "block":
+				t.recordBlockCallRef(n)
+			}
+		}
+	}
+	for _, c := range n.Children {
+		t.collectStreamInfo(c)
+	}
+}
+
+// recordRef classifies one template-reference operand. A string literal is a
+// static reference; a list literal of string literals contributes every
+// candidate (a superset of the one the render picks, which is safe: the walk
+// only ORs slot usage); the _self special name needs no reference because the
+// module's own constructs are already collected; anything else is a dynamic
+// reference that defeats static slot-freedom.
+func (t *Template) recordRef(src *ast.Node) {
+	switch {
+	case src == nil:
+		t.hasDynamicRef = true
+	case src.Kind == ast.KindString:
+		t.staticRefs = append(t.staticRefs, src.Str)
+	case src.Kind == ast.KindSpecialName && src.Str == "_self":
+		// Covered by this template's own usesSlots.
+	case src.Kind == ast.KindList:
+		for _, c := range src.Children {
+			if c == nil || c.Kind != ast.KindString {
+				t.hasDynamicRef = true
+				return
+			}
+			t.staticRefs = append(t.staticRefs, c.Str)
+		}
+	default:
+		t.hasDynamicRef = true
+	}
+}
+
+// recordBlockCallRef handles a block(...) function call. block(name, other)
+// renders a block of another template inside this render's stream (sharing its
+// slot state), so the second argument is a template reference: a literal is
+// recorded, anything else (including a spread or named argument, which defeats
+// positional analysis) marks the reference dynamic. A one-argument block(name)
+// reads the current inheritance chain, which the @extends/@use references
+// already cover.
+func (t *Template) recordBlockCallRef(n *ast.Node) {
+	var args []*ast.Node
+	for _, c := range n.Children {
+		if c.Kind != ast.KindArg {
+			continue
+		}
+		if c.Int != ast.ArgPositional {
+			t.hasDynamicRef = true
+			return
+		}
+		args = append(args, c.Child(0))
+	}
+	if len(args) < 2 {
+		return
+	}
+	t.recordRef(args[1])
 }
 
 // collectUsed walks the whole AST once, recording every statement keyword,

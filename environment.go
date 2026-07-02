@@ -365,10 +365,59 @@ func (e *Environment) RenderString(name, body string, vars map[string]runtime.Va
 	return interp.Render(e, tmpl, vars)
 }
 
-// Display renders the named template directly into a Sink (the push model),
-// avoiding an intermediate full-output string when the caller streams.
-func (e *Environment) Display(name string, vars map[string]runtime.Value) (string, error) {
-	return e.Render(name, vars)
+// RenderTo loads the named template and renders it directly to w. When the
+// template closure uses no deferred-slot construct (@yield, @provide, slot()),
+// the output streams to w incrementally with bounded memory; otherwise the
+// full output is buffered, its slot placeholders are resolved, and the result
+// is written to w in one call (nothing is written on a render error). The
+// bytes written equal Render's returned string in both cases. RenderTo neither
+// wraps nor flushes w; pass a bufio.Writer for buffered throughput and flush
+// it after RenderTo returns (a @flush statement flushes such a writer
+// mid-render).
+func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime.Value) error {
+	tmpl, err := e.LoadTemplate(name)
+	if err != nil {
+		return err
+	}
+	return interp.RenderTo(e, tmpl, vars, w)
+}
+
+// RenderToValues renders the named template directly to w like RenderTo, but
+// from native Go bindings: each value in vars is marshaled through
+// runtime.FromGo exactly as RenderValues does.
+func (e *Environment) RenderToValues(w io.Writer, name string, vars map[string]any) error {
+	rv, err := fromGoVars(vars)
+	if err != nil {
+		return err
+	}
+	return e.RenderTo(w, name, rv)
+}
+
+// RenderStringTo parses an ad-hoc template body (not added to the loader) and
+// renders it directly to w with RenderTo's streaming-vs-buffered behavior.
+// Inheritance/include/import targets in the body still resolve through the
+// loader by name.
+func (e *Environment) RenderStringTo(w io.Writer, name, body string, vars map[string]runtime.Value) error {
+	mod, err := parse.Parse(source.New(name, body))
+	if err != nil {
+		return err
+	}
+	if err := check.Check(mod, e.typeRegistry); err != nil {
+		return err
+	}
+	tmpl, err := interp.PrepareChecked(name, mod)
+	if err != nil {
+		return err
+	}
+	return interp.RenderTo(e, tmpl, vars, w)
+}
+
+// Display renders the named template directly into w -- the push model of the
+// Template contract, under its traditional name. It is RenderTo: a slot-free
+// template closure streams with bounded memory, a slot-using one buffers then
+// writes, and the bytes written equal Render's returned string.
+func (e *Environment) Display(w io.Writer, name string, vars map[string]runtime.Value) error {
+	return e.RenderTo(w, name, vars)
 }
 
 // RenderValues renders the named template from native Go bindings: each value in

@@ -288,7 +288,9 @@ func (in *interp) execItem(n *ast.Node, ctx *runtime.Context) error {
 		_, err := in.eval(n.Child(0), ctx, false)
 		return err
 	case ast.KindFlush:
-		return nil // documented no-op for a string sink (spec 01 Section 4.4)
+		// A no-op for every string sink (spec 01 Section 4.4); under a streaming
+		// RenderTo it flushes a flushable destination writer (see interp.flush).
+		return in.flush()
 	case ast.KindEscape:
 		in.covUnit(n, cover.UnitEscape)
 		return in.execEscape(n, ctx)

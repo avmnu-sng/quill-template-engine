@@ -1,8 +1,6 @@
 package interp
 
 import (
-	"strings"
-
 	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/errors"
 	"github.com/avmnu-sng/quill-template-engine/ext"
@@ -546,15 +544,5 @@ func SandboxActiveFromValue(v runtime.Value) bool {
 // per-render sandbox turned on regardless of the engine's global setting; the
 // Phase-1 check and runtime gates then enforce the policy for this render.
 func RenderSandboxed(eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, error) {
-	var b strings.Builder
-	in := newInterp(eng, tmpl, &b)
-	in.sandboxOn = true
-	ctx := runtime.NewContext()
-	for k, v := range vars {
-		ctx.Set(k, v)
-	}
-	if err := in.renderTemplate(tmpl, ctx); err != nil {
-		return b.String(), err
-	}
-	return in.resolveSlots(b.String()), nil
+	return renderBuffered(eng, tmpl, vars, true)
 }

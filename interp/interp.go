@@ -18,6 +18,7 @@
 package interp
 
 import (
+	"io"
 	"log"
 	"regexp"
 	"strings"
@@ -99,8 +100,20 @@ type Sink interface {
 // string. It is the entry the facade calls; it resolves the inheritance chain,
 // builds the merged block table, and walks the root (or the topmost parent).
 func Render(eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, error) {
+	return renderBuffered(eng, tmpl, vars, false)
+}
+
+// renderBuffered is the single buffered render core shared by Render,
+// RenderSandboxed, and RenderTo's slot fallback: it renders into a
+// strings.Builder and resolves the deferred slot placeholders over the
+// finished buffer. On a render error it returns the partial, unresolved buffer
+// alongside the error, preserving Render's documented error shape.
+func renderBuffered(eng Engine, tmpl *Template, vars map[string]runtime.Value, sandboxed bool) (string, error) {
 	var b strings.Builder
 	in := newInterp(eng, tmpl, &b)
+	if sandboxed {
+		in.sandboxOn = true
+	}
 	ctx := runtime.NewContext()
 	for k, v := range vars {
 		ctx.Set(k, v)
@@ -109,6 +122,79 @@ func Render(eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, 
 		return b.String(), err
 	}
 	return in.resolveSlots(b.String()), nil
+}
+
+// RenderTo renders tmpl with the given top-level variables, writing the output
+// to w. When the render's template closure provably contains no deferred-slot
+// construct (@yield, @provide, slot()) the output streams to w as it is
+// produced, so peak memory is bounded by the deepest capture region rather
+// than the total output size; a mid-render error may then leave partial output
+// already written. Otherwise it falls back to the buffered render: the full
+// output is built and its slot placeholders resolved, then written to w in one
+// call, and nothing is written on error. Both paths write bytes identical to
+// Render's returned string. RenderTo neither wraps nor flushes w; a caller
+// wanting buffered throughput passes a bufio.Writer and flushes it afterward
+// (a @flush statement flushes such a writer mid-render).
+func RenderTo(eng Engine, tmpl *Template, vars map[string]runtime.Value, w io.Writer) error {
+	if renderClosureUsesSlots(eng, tmpl) {
+		out, err := renderBuffered(eng, tmpl, vars, false)
+		if err != nil {
+			return err
+		}
+		_, werr := io.WriteString(w, out)
+		return werr
+	}
+	sink := newWriterSink(w)
+	in := newInterp(eng, tmpl, sink)
+	ctx := runtime.NewContext()
+	for k, v := range vars {
+		ctx.Set(k, v)
+	}
+	if err := in.renderTemplate(tmpl, ctx); err != nil {
+		return err
+	}
+	return sink.err
+}
+
+// renderClosureUsesSlots reports whether tmpl or any template statically
+// reachable from it (extends parents, use traits, literal include/embed
+// candidates, import homes, block(name, other) targets) contains a
+// deferred-slot construct. A dynamic reference makes the closure unprovable
+// and the answer a conservative true, so RenderTo buffers; a false proves no
+// @yield placeholder can enter the stream. A referenced name that does not
+// exist is skipped -- the render cannot reach it either -- while a name that
+// exists but fails to load counts as unprovable. Every reference resolves
+// through eng.LoadTemplate, including one that matches tmpl's own name: an
+// ad-hoc template (RenderStringTo) can shadow a loader entry by name, and a
+// render-time include loads the loader's version, so the walk must too. The
+// walk assumes the loader is stable between it and the render; a loader that
+// mutates in that window can defeat the classification.
+func renderClosureUsesSlots(eng Engine, tmpl *Template) bool {
+	visited := map[string]bool{}
+	var walk func(t *Template) bool
+	walk = func(t *Template) bool {
+		if t.usesSlots || t.hasDynamicRef {
+			return true
+		}
+		for _, name := range t.staticRefs {
+			if visited[name] {
+				continue
+			}
+			visited[name] = true
+			ref, err := eng.LoadTemplate(name)
+			if err != nil {
+				if !eng.TemplateExists(name) {
+					continue
+				}
+				return true
+			}
+			if walk(ref) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(tmpl)
 }
 
 // interp holds one render's mutable state: the engine, the output sink, the
