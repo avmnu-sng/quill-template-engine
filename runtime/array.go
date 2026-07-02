@@ -56,17 +56,55 @@ func canonicalizeStringKey(s string) (enc string, isInt bool) {
 // parseCanonicalInt reports whether s is the canonical decimal form of an int64
 // (the exact bytes strconv.FormatInt would produce). "0" yes; "-3" yes; "01",
 // "+1", " 1", "1.0", "1e3", "" no.
+//
+// The allocation-free looksCanonicalInt gate runs first because this is a hot
+// path: every string map subscript flows through here, and calling
+// strconv.ParseInt on a non-integer key allocates a discarded *NumError (with a
+// cloned copy of the key) every time. Gating it out means only well-formed
+// canonical digit strings reach ParseInt, whose success path does not allocate;
+// the gate already fixes the spelling, so the prior FormatInt round-trip is
+// unnecessary and its allocation is gone too. ParseInt can still fail here only
+// when a well-formed digit run overflows int64, and such a subscript correctly
+// stays a string key, matching the old round-trip behavior exactly.
 func parseCanonicalInt(s string) (int64, bool) {
+	if !looksCanonicalInt(s) {
+		return 0, false
+	}
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		return 0, false
 	}
-	// Reject non-canonical spellings (leading zeros, '+', surrounding space)
-	// by requiring an exact round-trip.
-	if strconv.FormatInt(i, 10) != s {
-		return 0, false
-	}
 	return i, true
+}
+
+// looksCanonicalInt reports whether s has the exact shape of a canonical decimal
+// int64 spelling without allocating: an optional single leading '-', then either
+// "0" alone or a nonzero leading digit followed by digits. It rejects every
+// non-canonical spelling a subscript must keep as a string key -- "01", "+1",
+// "-0", " 1", "1.0", "1e3", "-", "" -- so the string "01" stays distinct from
+// the integer 1 (spec 04 Section 6.1).
+func looksCanonicalInt(s string) bool {
+	if s == "" {
+		return false
+	}
+	i := 0
+	if s[0] == '-' {
+		i = 1
+	}
+	if i >= len(s) { // a lone "-" is not a number
+		return false
+	}
+	if s[i] == '0' {
+		// A canonical zero is exactly "0": no sign, no leading zero, no trailing
+		// digits ("-0", "00", "01" are all non-canonical).
+		return len(s) == 1
+	}
+	for ; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // SetInt sets the value at an integer key.
