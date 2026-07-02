@@ -104,7 +104,7 @@ func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pai
 		} else {
 			loopCtx.Set(frame.target1, p.Val)
 		}
-		loopCtx.Set("loop", newRecursiveLoopValue(i, pairs, depth0, parentLoop))
+		loopCtx.Set("loop", runtime.NewRecursiveLoopValue(i, pairs, depth0, parentLoop))
 		if err := in.execItems(frame.body, loopCtx); err != nil {
 			return err
 		}

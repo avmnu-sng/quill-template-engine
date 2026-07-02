@@ -466,7 +466,7 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 			loopCtx.Set(target1.Str, p.Key)
 			loopCtx.Set(target2.Str, p.Val)
 		}
-		loopCtx.Set("loop", newLoopValue(i, pairs, parentLoop))
+		loopCtx.Set("loop", runtime.NewLoopValue(i, pairs, parentLoop))
 		if err := in.execItems(body.Children, loopCtx); err != nil {
 			return err
 		}

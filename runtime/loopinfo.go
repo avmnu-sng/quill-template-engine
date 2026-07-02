@@ -1,11 +1,10 @@
-package interp
+package runtime
 
-import (
-	"github.com/avmnu-sng/quill-template-engine/errors"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
-)
+import "github.com/avmnu-sng/quill-template-engine/errors"
 
-// loopInfo is the loop.* metadata for one iteration, computed on access instead
+// loopInfo is the loop.* metadata for one iteration -- shared by the tree-walking
+// interpreter and the compiled backend so both spend the loop-metadata
+// correctness budget once -- computed on access instead
 // of stored in a per-iteration map. index / index0 / first / last / length /
 // revindex / revindex0 derive from the pair (i, n); prev / next read the
 // neighbouring element from the materialized pairs on demand; parent is the
@@ -21,26 +20,26 @@ import (
 // loop["index"] resolves like loop.index, and it reports as a mapping.
 type loopInfo struct {
 	i, n      int
-	pairs     []runtime.Pair
-	parent    runtime.Value
+	pairs     []Pair
+	parent    Value
 	recursive bool // a recursive @for level additionally exposes depth / depth0
 	depth0    int
 }
 
-// newLoopValue binds the loop.* metadata for iteration i over pairs, with parent
+// NewLoopValue binds the loop.* metadata for iteration i over pairs, with parent
 // the enclosing loop's value (Null at the top level). n is the pair count, so
 // every field -- including first/last/length/revindex and prev/next -- reflects
 // the sequence pairs actually holds (already the survivor subset when a fused
 // filter ran).
-func newLoopValue(i int, pairs []runtime.Pair, parent runtime.Value) runtime.Value {
-	return runtime.Obj(&loopInfo{i: i, n: len(pairs), pairs: pairs, parent: parent})
+func NewLoopValue(i int, pairs []Pair, parent Value) Value {
+	return Obj(&loopInfo{i: i, n: len(pairs), pairs: pairs, parent: parent})
 }
 
-// newRecursiveLoopValue binds the loop.* metadata for a recursive @for level,
+// NewRecursiveLoopValue binds the loop.* metadata for a recursive @for level,
 // which additionally exposes depth (1-based) and depth0 (0-based) for the current
 // descent so a template can indent or number nested structures.
-func newRecursiveLoopValue(i int, pairs []runtime.Pair, depth0 int, parent runtime.Value) runtime.Value {
-	return runtime.Obj(&loopInfo{i: i, n: len(pairs), pairs: pairs, parent: parent, recursive: true, depth0: depth0})
+func NewRecursiveLoopValue(i int, pairs []Pair, depth0 int, parent Value) Value {
+	return Obj(&loopInfo{i: i, n: len(pairs), pairs: pairs, parent: parent, recursive: true, depth0: depth0})
 }
 
 // GetField resolves a loop.* field on access. Every field is always defined for
@@ -48,60 +47,60 @@ func newRecursiveLoopValue(i int, pairs []runtime.Pair, depth0 int, parent runti
 // additionally resolves depth/depth0. An unknown name -- including "changed",
 // which is recognized syntactically as a method rather than a field -- reports ok
 // false, so a strict read raises undefined exactly as the former mapping did.
-func (li *loopInfo) GetField(name string) (runtime.Value, bool) {
+func (li *loopInfo) GetField(name string) (Value, bool) {
 	switch name {
 	case "index0":
-		return runtime.Int(int64(li.i)), true
+		return Int(int64(li.i)), true
 	case "index":
-		return runtime.Int(int64(li.i + 1)), true
+		return Int(int64(li.i + 1)), true
 	case "revindex0":
-		return runtime.Int(int64(li.n - 1 - li.i)), true
+		return Int(int64(li.n - 1 - li.i)), true
 	case "revindex":
-		return runtime.Int(int64(li.n - li.i)), true
+		return Int(int64(li.n - li.i)), true
 	case "first":
-		return runtime.Bool(li.i == 0), true
+		return Bool(li.i == 0), true
 	case "last":
-		return runtime.Bool(li.i == li.n-1), true
+		return Bool(li.i == li.n-1), true
 	case "length":
-		return runtime.Int(int64(li.n)), true
+		return Int(int64(li.n)), true
 	case "prev":
 		if li.i > 0 {
 			return li.pairs[li.i-1].Val, true
 		}
-		return runtime.Null(), true
+		return Null(), true
 	case "next":
 		if li.i < li.n-1 {
 			return li.pairs[li.i+1].Val, true
 		}
-		return runtime.Null(), true
+		return Null(), true
 	case "parent":
 		return li.parent, true
 	case "depth":
 		if li.recursive {
-			return runtime.Int(int64(li.depth0 + 1)), true
+			return Int(int64(li.depth0 + 1)), true
 		}
 	case "depth0":
 		if li.recursive {
-			return runtime.Int(int64(li.depth0)), true
+			return Int(int64(li.depth0)), true
 		}
 	}
-	return runtime.Null(), false
+	return Null(), false
 }
 
 // CallMethod reports that loop has no callable members. loop.changed(...) is
 // recognized syntactically before any member call, so it never routes here.
-func (li *loopInfo) CallMethod(name string, _ []runtime.Value) (runtime.Value, error) {
-	return runtime.Null(), errors.New(errors.KindAttribute, "loop has no method %q", name)
+func (li *loopInfo) CallMethod(name string, _ []Value) (Value, error) {
+	return Null(), errors.New(errors.KindAttribute, "loop has no method %q", name)
 }
 
 // GetIndex resolves loop["field"] the same way as loop.field, so a subscript read
 // matches dotted access. Only a string subscript names a field; any other key is
 // absent.
-func (li *loopInfo) GetIndex(key runtime.Value) (runtime.Value, bool) {
-	if key.Kind == runtime.KStr {
+func (li *loopInfo) GetIndex(key Value) (Value, bool) {
+	if key.Kind == KStr {
 		return li.GetField(key.S)
 	}
-	return runtime.Null(), false
+	return Null(), false
 }
 
 // ClassName reports "loop" so a read of an unknown field names the loop value in
