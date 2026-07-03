@@ -200,7 +200,10 @@ set.AddEnum("Color", []runtime.Value{runtime.Str("red"), runtime.Str("green")})
 ```
 
 Adding a name that already exists **shadows** the earlier entry -- this is exactly
-how a host overrides a built-in of the same kind and name. Lookups
+how a host overrides a built-in of the same kind and name. All filter, function,
+and test registration must complete before rendering begins: renders read the
+registry without synchronization, so mutating an `ExtensionSet` mid-render is
+unsupported. Lookups
 (`Filter`/`Function`/`Test`) and existence checks (`HasFilter`/`HasFunction`/
 `HasTest`, which back the `@guard` statement) are by exact name. `Clone` returns a
 shallow copy with independent maps, so you can layer additions over a base set

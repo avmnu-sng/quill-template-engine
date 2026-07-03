@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/avmnu-sng/quill-template-engine/errors"
 )
@@ -64,24 +65,59 @@ func FromGo(v any) (Value, error) {
 		}
 		return Obj(rv), nil
 	}
-	return fromReflect(reflect.ValueOf(v))
+	// The switch above peeled every dynamic type the passthrough probe can
+	// match (Value, *Array, and any Object implementation), so the reflect walk
+	// starts with its probe already settled as a miss.
+	return fromReflectPass(reflect.ValueOf(v), false)
 }
 
-// fromReflect is the reflect-driven core of FromGo. It is factored out so the
-// recursive cases (slice elements, map values, struct fields) reuse the exact
-// same kind dispatch, including the Value/Object passthrough on interface-typed
-// members.
+// reflectTypeValue, reflectTypeArray, and reflectTypeObject anchor the
+// passthrough gate: a member can only pass through as a finished value when its
+// static type is one of these (or implements the Object interface).
+var (
+	reflectTypeValue  = reflect.TypeOf(Value{})
+	reflectTypeArray  = reflect.TypeOf((*Array)(nil))
+	reflectTypeObject = reflect.TypeOf((*Object)(nil)).Elem()
+)
+
+// canPassThrough reports whether a member of static type t can satisfy the
+// passthrough probe, so the probe's boxing (reflect's Interface allocates for
+// any member wider than a machine word) is paid only by members that can
+// actually carry a finished value. An interface type reports false: an
+// interface-kind member routes through the reflect.Interface branch, which
+// re-enters FromGo on the dynamic value and applies the same passthrough there,
+// keeping the guarantee true at every depth. The checks run in the probe's own
+// match order (Value, then *Array, then Object).
+func canPassThrough(t reflect.Type) bool {
+	if t == reflectTypeValue || t == reflectTypeArray {
+		return true
+	}
+	return t.Kind() != reflect.Interface && t.Implements(reflectTypeObject)
+}
+
+// fromReflect is the reflect-driven core of FromGo. It classifies rv's static
+// type for the passthrough probe and dispatches; the pointer case re-enters
+// here so the classification follows the pointee's concrete type at every
+// depth.
 func fromReflect(rv reflect.Value) (Value, error) {
 	if !rv.IsValid() {
 		return Null(), nil
 	}
-	// A concretely-typed runtime.Value, *Array, or Object member passes through
-	// as itself, exactly as the FromGo entry point does for a top-level value.
-	// This keeps the passthrough guarantee true at every depth: a struct field
-	// declared `V runtime.Value` (or `A *runtime.Array`, or an Object) carries a
-	// finished value that must reach the render untouched rather than being
-	// re-marshalled through its reflected fields.
-	if rv.CanInterface() {
+	return fromReflectPass(rv, canPassThrough(rv.Type()))
+}
+
+// fromReflectPass is fromReflect with the passthrough classification supplied
+// by the caller. Bulk callers -- slice elements, map values, planned struct
+// fields -- share one static member type, so they classify once and skip the
+// per-member probe entirely for types that can never pass through.
+//
+// A concretely-typed runtime.Value, *Array, or Object member passes through as
+// itself, exactly as the FromGo entry point does for a top-level value: a
+// struct field declared `V runtime.Value` (or `A *runtime.Array`, or an Object)
+// carries a finished value that must reach the render untouched rather than
+// being re-marshalled through its reflected fields.
+func fromReflectPass(rv reflect.Value, pass bool) (Value, error) {
+	if pass && rv.CanInterface() {
 		switch iv := rv.Interface().(type) {
 		case Value:
 			return iv, nil
@@ -138,6 +174,13 @@ func fromReflect(rv reflect.Value) (Value, error) {
 	}
 }
 
+// newArraySized returns an empty *Array whose key slice and value map are
+// pre-sized for n entries, so a FromGo build of known size skips the append and
+// rehash growth steps of an incremental build.
+func newArraySized(n int) *Array {
+	return &Array{keys: make([]string, 0, n), vals: make(map[string]Value, n)}
+}
+
 // fromSequence marshals a Go slice or array into a list-shaped *Array with
 // contiguous 0-based integer keys in element order. A nil slice becomes Null,
 // matching the nil-pointer treatment.
@@ -145,9 +188,13 @@ func fromSequence(rv reflect.Value) (Value, error) {
 	if rv.Kind() == reflect.Slice && rv.IsNil() {
 		return Null(), nil
 	}
-	arr := NewArray()
-	for i := 0; i < rv.Len(); i++ {
-		elem, err := fromReflect(rv.Index(i))
+	n := rv.Len()
+	// Every element shares the sequence's one static element type, so the
+	// passthrough classification hoists out of the loop.
+	pass := canPassThrough(rv.Type().Elem())
+	arr := newArraySized(n)
+	for i := 0; i < n; i++ {
+		elem, err := fromReflectPass(rv.Index(i), pass)
 		if err != nil {
 			return Null(), err
 		}
@@ -196,9 +243,12 @@ func fromMap(rv reflect.Value) (Value, error) {
 	} else {
 		sort.Slice(entries, func(i, j int) bool { return entries[i].key < entries[j].key })
 	}
-	arr := NewArray()
+	// Every value shares the map's one static element type, so the passthrough
+	// classification hoists out of the loop.
+	pass := canPassThrough(rv.Type().Elem())
+	arr := newArraySized(len(entries))
 	for _, e := range entries {
-		val, err := fromReflect(e.val)
+		val, err := fromReflectPass(e.val, pass)
 		if err != nil {
 			return Null(), err
 		}
@@ -251,45 +301,89 @@ func mapKeyString(k reflect.Value) (string, error) {
 	}
 }
 
-// fromStruct marshals a struct into an *Array mapping its exported fields in
-// declaration order. The emitted key for a field is, in order of preference,
-// the name from a `quill:"..."` tag, then a `json:"..."` tag, then the field's
-// Go name. A field tagged `-` under either tag is skipped, an unexported field
-// is skipped, and an embedded (anonymous) struct field is flattened so its
-// members appear inline.
-func fromStruct(rv reflect.Value) (Value, error) {
-	arr := NewArray()
-	if err := marshalStructInto(arr, rv); err != nil {
-		return Null(), err
-	}
-	return Arr(arr), nil
+// structPlans caches one immutable *structPlan per struct reflect.Type. FromGo
+// re-walks the same host row types on every call (fromGoVars runs per render),
+// so tag parsing and embedded-field analysis pay once per type rather than per
+// value. Plans are write-once and content-deterministic, so concurrent
+// first-use builders of the same type publish interchangeable plans and
+// LoadOrStore keeps exactly one.
+var structPlans sync.Map // reflect.Type -> *structPlan
+
+// structPlan is the precomputed field walk for one struct type: every decision
+// that depends only on the type -- tag names, skip markers, the
+// embedded-flattening shape, the passthrough classification -- resolved ahead
+// of the per-value marshal.
+type structPlan struct {
+	fields []fieldPlan
 }
 
-// marshalStructInto walks a struct's fields into arr, recursing into embedded
-// anonymous structs so their fields flatten in place under the parent.
-func marshalStructInto(arr *Array, rv reflect.Value) error {
-	t := rv.Type()
+// fieldPlan is one emission step of a structPlan.
+type fieldPlan struct {
+	// index locates the field in its immediate struct.
+	index int
+	// name is the emitted key, resolved through the quill-then-json tag order.
+	name string
+	// pass is the passthrough classification of the field's static type.
+	pass bool
+	// flattenType, when non-nil, is the embedded struct type whose fields this
+	// field flattens into its parent after ptrDepth pointer dereferences. It is
+	// held as a type rather than an eager *structPlan so a recursively embedded
+	// type (a struct embedding a pointer to itself) terminates at build time;
+	// the sub-plan resolves lazily per value, exactly where the value walk
+	// terminates on a nil pointer.
+	flattenType reflect.Type
+	// ptrDepth counts the dereferences from the field to the embedded struct.
+	ptrDepth int
+	// nilFallback marks a flatten field that, when its pointer chain is nil,
+	// reverts to an ordinary named emission under name; a flatten field that is
+	// unexported or tag-skipped emits nothing on a nil chain.
+	nilFallback bool
+}
+
+// planFor returns the cached plan for struct type t, building and publishing it
+// on first use.
+func planFor(t reflect.Type) *structPlan {
+	if p, ok := structPlans.Load(t); ok {
+		return p.(*structPlan)
+	}
+	p, _ := structPlans.LoadOrStore(t, buildStructPlan(t))
+	return p.(*structPlan)
+}
+
+// buildStructPlan derives the emission steps for one struct type. The field
+// rules match the documented FromGo struct mapping: exported fields in
+// declaration order, quill-then-json tag naming, `-` skips, unexported skips,
+// and in-place flattening of untagged embedded structs.
+func buildStructPlan(t reflect.Type) *structPlan {
+	fields := make([]fieldPlan, 0, t.NumField())
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		fv := rv.Field(i)
-		// Flatten an embedded anonymous struct (or pointer-to-struct) only when
-		// it carries no explicit name tag; a tagged embedded field maps as a
-		// nested member under its tag name, matching encoding/json. This is
-		// checked before the unexported skip below because an embedded field of
-		// an unexported struct type still promotes its own exported members.
+		// An embedded field without an explicit tag name flattens when its
+		// pointer-peeled type is a struct; a tagged embedded field maps as a
+		// named nested member, matching encoding/json. The flatten decision
+		// precedes the unexported skip because an embedded field of an
+		// unexported struct type still promotes its own exported members.
 		if field.Anonymous && !hasExplicitName(field) {
-			ev := fv
-			for ev.Kind() == reflect.Ptr {
-				if ev.IsNil() {
-					ev = reflect.Value{}
-					break
-				}
-				ev = ev.Elem()
+			et := field.Type
+			depth := 0
+			for et.Kind() == reflect.Ptr {
+				et = et.Elem()
+				depth++
 			}
-			if ev.IsValid() && ev.Kind() == reflect.Struct {
-				if err := marshalStructInto(arr, ev); err != nil {
-					return err
+			if et.Kind() == reflect.Struct {
+				fp := fieldPlan{index: i, flattenType: et, ptrDepth: depth}
+				if depth > 0 && field.PkgPath == "" {
+					// A nil pointer in the embedded chain reverts the field to
+					// the ordinary named path, so the fallback name and probe
+					// classification resolve here; an unexported or tag-skipped
+					// embedded field stays silent on a nil chain.
+					if name, skip := structFieldName(field); !skip {
+						fp.name = name
+						fp.pass = canPassThrough(field.Type)
+						fp.nilFallback = true
+					}
 				}
+				fields = append(fields, fp)
 				continue
 			}
 		}
@@ -301,11 +395,60 @@ func marshalStructInto(arr *Array, rv reflect.Value) error {
 		if skip {
 			continue
 		}
-		val, err := fromReflect(fv)
+		fields = append(fields, fieldPlan{index: i, name: name, pass: canPassThrough(field.Type)})
+	}
+	return &structPlan{fields: fields}
+}
+
+// fromStruct marshals a struct into an *Array mapping its exported fields in
+// declaration order. The emitted key for a field is, in order of preference,
+// the name from a `quill:"..."` tag, then a `json:"..."` tag, then the field's
+// Go name. A field tagged `-` under either tag is skipped, an unexported field
+// is skipped, and an embedded (anonymous) struct field is flattened so its
+// members appear inline.
+func fromStruct(rv reflect.Value) (Value, error) {
+	p := planFor(rv.Type())
+	arr := newArraySized(len(p.fields))
+	if err := p.marshalInto(arr, rv); err != nil {
+		return Null(), err
+	}
+	return Arr(arr), nil
+}
+
+// marshalInto walks the planned fields of rv into arr, recursing into embedded
+// struct plans so their fields flatten in place under the parent.
+func (p *structPlan) marshalInto(arr *Array, rv reflect.Value) error {
+	for i := range p.fields {
+		f := &p.fields[i]
+		fv := rv.Field(f.index)
+		if f.flattenType != nil {
+			ev := fv
+			flat := true
+			for d := 0; d < f.ptrDepth; d++ {
+				if ev.IsNil() {
+					flat = false
+					break
+				}
+				ev = ev.Elem()
+			}
+			if flat {
+				if err := planFor(f.flattenType).marshalInto(arr, ev); err != nil {
+					return err
+				}
+				continue
+			}
+			if !f.nilFallback {
+				continue
+			}
+			// The nil chain falls through to the named emission below with the
+			// original field value, which the probe or the pointer walk resolves
+			// exactly as it would a plain named field.
+		}
+		val, err := fromReflectPass(fv, f.pass)
 		if err != nil {
 			return err
 		}
-		arr.SetStr(name, val)
+		arr.SetStr(f.name, val)
 	}
 	return nil
 }
