@@ -3,7 +3,9 @@ package quill
 import (
 	"io"
 	"log"
+	"sync"
 
+	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/cache"
 	"github.com/avmnu-sng/quill-template-engine/check"
 	"github.com/avmnu-sng/quill-template-engine/cover"
@@ -29,6 +31,20 @@ type Environment struct {
 	cache       *cache.Cache
 	renderCache *cache.RenderCache
 	extensions  *ext.ExtensionSet
+
+	// prepared memoizes the prepared *interp.Template per template name so a warm
+	// LoadTemplate skips re-running interp.PrepareChecked over an already-indexed
+	// module; the parse cache alone still pays the full table build on every load.
+	// The memo lives here rather than in package cache because interp imports
+	// cache, so a Template-holding entry there would be an import cycle. Each
+	// entry pins the parsed module it was prepared from, and a hit requires
+	// pointer equality with the parse cache's current module, keeping the memo
+	// coherent under any future parse-cache eviction: a re-parsed module can never
+	// be served a stale Template. Prepared Templates are immutable after
+	// PrepareChecked and shared read-only across renders, so racing duplicate
+	// prepares are benign (idempotent, last-write-wins).
+	preparedMu sync.RWMutex
+	prepared   map[string]preparedEntry
 
 	// hostLayers are the host-supplied extension layers gathered by WithExtensions
 	// and WithExtension, kept in one ordered list so sets and bundles interleave in
@@ -82,6 +98,15 @@ type Environment struct {
 	// host configures none it is a logger over io.Discard, so @log always has a
 	// valid destination and produces no rendered output.
 	logger *log.Logger
+}
+
+// preparedEntry is one memoized prepared template: the Template plus the parsed
+// module it was prepared from. The module pointer is the coherence witness --
+// LoadTemplate honors the entry only while the parse cache still serves the
+// identical *ast.Node, so the memo can never outlive the parse it derives from.
+type preparedEntry struct {
+	mod  *ast.Node
+	tmpl *interp.Template
 }
 
 // Option configures an Environment at construction.
@@ -220,6 +245,7 @@ func New(ldr loader.Loader, opts ...Option) *Environment {
 		loader:          ldr,
 		cache:           cache.New(),
 		renderCache:     cache.NewRenderCache(),
+		prepared:        map[string]preparedEntry{},
 		extensions:      ext.Core(),
 		autoescapeHTML:  false,
 		strictVariables: true,
@@ -282,10 +308,15 @@ func (e *Environment) TabWidth() int { return e.tabWidth }
 // never nil; without WithLogger it discards.
 func (e *Environment) Logger() *log.Logger { return e.logger }
 
-// LoadTemplate parses (memoized) and prepares the named template (interp.Engine).
+// LoadTemplate parses and prepares the named template (interp.Engine), with
+// both steps memoized: the parse cache pins the module and the prepared memo
+// pins the Template built from it, so a warm load is two map hits. LoadTemplate
+// therefore returns the SAME *Template pointer across calls for an unchanged
+// template; a Template is immutable after prepare and safe to share across
+// concurrent renders. CompileString and the RenderString family stay uncached.
 func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
 	if mod, ok := e.cache.Get(name); ok {
-		return interp.PrepareChecked(name, mod)
+		return e.prepare(name, mod)
 	}
 	src, err := e.loader.Get(name)
 	if err != nil {
@@ -303,7 +334,31 @@ func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
 		return nil, err
 	}
 	e.cache.Put(name, mod)
-	return interp.PrepareChecked(name, mod)
+	return e.prepare(name, mod)
+}
+
+// prepare returns the memoized prepared Template for name when the memo entry
+// was built from this exact module, and runs interp.PrepareChecked then stores
+// the result otherwise. The module pointer-equality guard ties the memo's
+// staleness class to the parse cache's: whatever module the parse cache serves
+// is the module the returned Template was prepared from. A PrepareChecked
+// failure (an invalid literal regex) is never memoized, so every load of a
+// malformed template reports the identical error the unmemoized path did.
+func (e *Environment) prepare(name string, mod *ast.Node) (*interp.Template, error) {
+	e.preparedMu.RLock()
+	entry, ok := e.prepared[name]
+	e.preparedMu.RUnlock()
+	if ok && entry.mod == mod {
+		return entry.tmpl, nil
+	}
+	tmpl, err := interp.PrepareChecked(name, mod)
+	if err != nil {
+		return nil, err
+	}
+	e.preparedMu.Lock()
+	e.prepared[name] = preparedEntry{mod: mod, tmpl: tmpl}
+	e.preparedMu.Unlock()
+	return tmpl, nil
 }
 
 // TemplateExists reports whether the named template can be loaded (interp.Engine).
