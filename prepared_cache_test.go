@@ -283,8 +283,16 @@ func TestTemplateFieldsClassifiedImmutablePostPrepare(t *testing.T) {
 		"usesSlots":     immutable,
 		"staticRefs":    immutable,
 		"hasDynamicRef": immutable,
+		// lastOut is the one sanctioned mutable Template field: an atomic
+		// output-length hint renderBuffered reads to pre-size its builder and
+		// stores after each successful render. It can only influence buffer
+		// capacity, never rendered bytes, so cross-render races reduce to
+		// benign last-write-wins on a sizing heuristic.
+		"lastOut": "exempt-atomic-output-size-hint",
 	}
-	tt := reflect.TypeOf(interp.Template{})
+	// Template contains an atomic (a noCopy type), so the reflection subject
+	// must be reached through a pointer rather than a by-value literal.
+	tt := reflect.TypeOf((*interp.Template)(nil)).Elem()
 	seen := map[string]bool{}
 	for i := 0; i < tt.NumField(); i++ {
 		name := tt.Field(i).Name

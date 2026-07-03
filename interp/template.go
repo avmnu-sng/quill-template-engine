@@ -3,6 +3,7 @@ package interp
 import (
 	"regexp"
 	"strings"
+	"sync/atomic"
 
 	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/errors"
@@ -72,6 +73,21 @@ type Template struct {
 	// proven statically. RenderTo then conservatively buffers, which is always
 	// byte-safe; only the streaming fast path is forgone.
 	hasDynamicRef bool
+
+	// lastOut remembers the byte length of this template's most recent
+	// successful buffered render (the pre-slot-resolution builder length,
+	// since that is exactly the stream the next buffered render writes), so
+	// renderBuffered can size its output Builder with one Grow instead of
+	// paying the append doubling ladder on every render. It is the ONE
+	// sanctioned mutable Template field: every other field is immutable once
+	// PrepareChecked returns, and this one is an atomic whose value can only
+	// influence buffer capacity, never rendered bytes, so racing renders on a
+	// shared Template stay correct under last-write-wins. Storing the latest
+	// length rather than a running maximum lets the hint decay when a
+	// template's outputs shrink, and renderBuffered caps the Grow it takes
+	// from the hint so one huge historical output cannot pin large buffers
+	// forever.
+	lastOut atomic.Int64
 }
 
 // usedCallables is the statically collected set of tags/filters/functions a

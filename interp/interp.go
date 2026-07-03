@@ -103,13 +103,45 @@ func Render(eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, 
 	return renderBuffered(eng, tmpl, vars, false)
 }
 
+// outHintCap bounds the pre-Grow renderBuffered takes from a Template's
+// remembered output length, so one huge historical render cannot make every
+// later render of that template pre-commit an arbitrarily large buffer; an
+// output beyond the cap simply resumes the doubling ladder from the cap.
+const outHintCap = 1 << 20
+
+// outGrowHint converts a Template's remembered output length into the Builder
+// pre-Grow size: the remembered length itself, bounded by outHintCap. A
+// non-positive length (no successful buffered render yet, or a render that
+// produced nothing) yields zero, meaning the builder starts empty exactly as
+// an unhinted render would.
+func outGrowHint(last int64) int {
+	if last <= 0 {
+		return 0
+	}
+	if last > outHintCap {
+		return outHintCap
+	}
+	return int(last)
+}
+
 // renderBuffered is the single buffered render core shared by Render,
 // RenderSandboxed, and RenderTo's slot fallback: it renders into a
 // strings.Builder and resolves the deferred slot placeholders over the
 // finished buffer. On a render error it returns the partial, unresolved buffer
 // alongside the error, preserving Render's documented error shape.
+//
+// The builder is pre-grown from the template's remembered output length and
+// the length is stored back after a successful render, so a warm template
+// (one the Environment's prepared memo keeps serving) pays a single sized
+// allocation instead of the append doubling ladder. Capacity cannot affect
+// content, a failed render leaves the hint untouched, and the store is
+// last-write-wins by design: concurrent renders of one shared Template each
+// record a size that was recently true.
 func renderBuffered(eng Engine, tmpl *Template, vars map[string]runtime.Value, sandboxed bool) (string, error) {
 	var b strings.Builder
+	if hint := outGrowHint(tmpl.lastOut.Load()); hint > 0 {
+		b.Grow(hint)
+	}
 	in := newInterp(eng, tmpl, &b)
 	if sandboxed {
 		in.sandboxOn = true
@@ -121,6 +153,7 @@ func renderBuffered(eng Engine, tmpl *Template, vars map[string]runtime.Value, s
 	if err := in.renderTemplate(tmpl, ctx); err != nil {
 		return b.String(), err
 	}
+	tmpl.lastOut.Store(int64(b.Len()))
 	return in.resolveSlots(b.String()), nil
 }
 
