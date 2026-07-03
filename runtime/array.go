@@ -269,13 +269,36 @@ func (a *Array) PairAt(i int) (Value, Value) {
 }
 
 // Pairs returns the entries as key/value Pairs in insertion order, the form the
-// for loop consumes.
+// for loop consumes. It sizes the slice exactly, the right call for the many
+// one-shot readers (destructuring, with-maps, candidate lists); a loop that
+// recycles a buffer across iterations uses PairsInto instead.
 func (a *Array) Pairs() []Pair {
 	out := make([]Pair, 0, len(a.keys))
 	for _, enc := range a.keys {
 		out = append(out, Pair{Key: a.keyValue(enc), Val: a.vals[enc]})
 	}
 	return out
+}
+
+// PairsInto materializes the entries as key/value Pairs in insertion order into
+// buf, reusing its backing storage instead of allocating a fresh slice. It
+// truncates buf to length zero and appends every entry, so the returned slice
+// holds exactly the same Pairs -- in the same order -- Pairs() would; the
+// append grows buf when it is too small and reuses it otherwise. It exists so a
+// loop can recycle one snapshot buffer across renders and iterations rather
+// than paying the O(n) Pairs() allocation each time.
+//
+// The returned slice aliases buf's backing array, so a caller recycling one
+// buffer across loops must have finished reading the prior loop's Pairs before
+// the next PairsInto overwrites them -- the same discipline a fresh Pairs()
+// slice per loop would enforce structurally. Each Pair is a value copy of the
+// entry, so a Pair already read out of the slice is unaffected by a later reuse.
+func (a *Array) PairsInto(buf []Pair) []Pair {
+	buf = buf[:0]
+	for _, enc := range a.keys {
+		buf = append(buf, Pair{Key: a.keyValue(enc), Val: a.vals[enc]})
+	}
+	return buf
 }
 
 // IsList reports whether the array is list-shaped: contiguous integer keys

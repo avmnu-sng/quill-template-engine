@@ -167,6 +167,58 @@ func TestArrayPairAt(t *testing.T) {
 	}
 }
 
+// TestArrayPairsInto pins the buffer-reuse contract of PairsInto: it produces
+// the same entries in the same order as Pairs(), reuses a supplied buffer's
+// backing array when the capacity suffices (the loop snapshot pool relies on
+// this to stay allocation-free in steady state), and correctly shrinks when a
+// smaller array is materialized into a larger buffer.
+func TestArrayPairsInto(t *testing.T) {
+	a := NewArray()
+	a.SetStr("b", Int(1))
+	a.SetInt(5, Int(2))
+	a.SetStr("01", Int(3))
+	a.SetInt(-1, Int(4))
+	a.SetInt(1000, Int(5))
+
+	want := a.Pairs()
+	// PairsInto(nil) equals Pairs() entry for entry.
+	got := a.PairsInto(nil)
+	if len(got) != len(want) {
+		t.Fatalf("PairsInto(nil) length = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if !Equal(got[i].Key, want[i].Key) || got[i].Key.Kind != want[i].Key.Kind || !Equal(got[i].Val, want[i].Val) {
+			t.Errorf("PairsInto(nil)[%d] = %v, want %v", i, got[i], want[i])
+		}
+	}
+
+	// Reusing a buffer with enough capacity must not allocate and must yield the
+	// same entries, proving the pool's recycled buffer path is allocation-free.
+	buf := make([]Pair, 0, a.Len())
+	allocs := testing.AllocsPerRun(100, func() {
+		buf = a.PairsInto(buf)
+	})
+	if allocs != 0 {
+		t.Fatalf("PairsInto into a sized buffer allocates %v times, want 0", allocs)
+	}
+	if len(buf) != len(want) {
+		t.Fatalf("reused PairsInto length = %d, want %d", len(buf), len(want))
+	}
+	for i := range want {
+		if !Equal(buf[i].Val, want[i].Val) {
+			t.Errorf("reused PairsInto[%d].Val = %v, want %v", i, buf[i].Val, want[i].Val)
+		}
+	}
+
+	// A smaller array materialized into the larger buffer shrinks to its own
+	// length; the tail beyond len is stale but out of range.
+	small := NewList(Str("x"), Str("y"))
+	buf = small.PairsInto(buf)
+	if len(buf) != 2 || buf[0].Val.S != "x" || buf[1].Val.S != "y" {
+		t.Fatalf("PairsInto did not shrink to the smaller array: %v", buf)
+	}
+}
+
 func TestArrayCloneIsDeepValueCopy(t *testing.T) {
 	inner := NewList(Int(1), Int(2))
 	outer := NewArray()

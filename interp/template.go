@@ -89,6 +89,16 @@ type Template struct {
 	// historical output cannot pin large buffers forever.
 	lastOut atomic.Int64
 
+	// forSafe marks the @for nodes of this template whose per-iteration loop
+	// value provably never escapes the loop's iteration, computed once by
+	// Prepare (analyzeLoopEscapes). execFor consults it to recycle a pooled
+	// snapshot buffer for a safe KArray loop instead of allocating a fresh pair
+	// slice per render; a loop absent from the set -- including any construct
+	// the analysis could not prove safe -- keeps the fresh-Pairs() path, where a
+	// captured loop snapshot may be read arbitrarily late. It is immutable once
+	// PrepareChecked returns, read-only across renders.
+	forSafe map[*ast.Node]bool
+
 	// compStatic reports whether this template's own composition inputs are
 	// fully static: the @extends operand (when present) is a single string
 	// literal, and every @import/@from source is a string literal. Only a
@@ -201,6 +211,7 @@ func Prepare(name string, mod *ast.Node) *Template {
 	t.compStatic = t.staticCompositionInputs()
 	t.collectUsed(mod, t.used)
 	t.collectStreamInfo(mod)
+	t.forSafe = analyzeLoopEscapes(mod)
 	return t
 }
 

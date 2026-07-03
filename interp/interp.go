@@ -381,6 +381,18 @@ type interp struct {
 	// nested renders (includes, embeds) so a partial's coverage aggregates under
 	// its own name.
 	cov *cover.Collector
+
+	// forSafe answers whether a given @for node's loop value provably never
+	// escapes, so execFor can pool its snapshot buffer. It is folded from the
+	// Prepare-built forSafe set of every template that enters this render (root,
+	// inheritance parents, traits, macro homes) via absorbForSafe, keyed by the
+	// @for node so a node from any template resolves. A single-template render
+	// aliases the root template's own map with no allocation; forSafeOwned marks
+	// the rarer merged copy. A render with no pool-safe loop keeps it nil, and
+	// the lookup reads a nil map safely (every node reads false, forcing the
+	// fresh-Pairs() path).
+	forSafe      map[*ast.Node]bool
+	forSafeOwned bool
 }
 
 // blockEntry is one resolved block: the template that owns the definition and
@@ -441,14 +453,50 @@ func newInterp(eng Engine, root *Template, out Sink) *interp {
 // from the lookup (dynamic patterns, or a template not yet absorbed) fall back
 // to a runtime compile.
 func (in *interp) absorb(t *Template) {
-	if t == nil || len(t.regexps) == 0 {
+	if t == nil {
 		return
 	}
-	if in.regexps == nil {
-		in.regexps = make(map[*ast.Node]*regexp.Regexp, len(t.regexps))
+	if len(t.regexps) != 0 {
+		if in.regexps == nil {
+			in.regexps = make(map[*ast.Node]*regexp.Regexp, len(t.regexps))
+		}
+		for n, re := range t.regexps {
+			in.regexps[n] = re
+		}
 	}
-	for n, re := range t.regexps {
-		in.regexps[n] = re
+	in.absorbForSafe(t)
+}
+
+// absorbForSafe folds a template's pool-safe @for set into the render's lookup,
+// copy-on-write. The common render touches one template with loops, so the
+// render aliases that template's already-built map directly and allocates
+// nothing; only a SECOND contributing template forces a fresh merged map, at
+// which point both sets copy in. Node pointers are unique per AST, so the union
+// never collides across templates.
+func (in *interp) absorbForSafe(t *Template) {
+	if len(t.forSafe) == 0 {
+		return
+	}
+	switch {
+	case in.forSafe == nil:
+		// First contributor: alias its map read-only, no allocation.
+		in.forSafe = t.forSafe
+	case !in.forSafeOwned:
+		// A second contributor arrived and the current map is an alias; copy both
+		// into a fresh owned map so neither template's map is mutated.
+		merged := make(map[*ast.Node]bool, len(in.forSafe)+len(t.forSafe))
+		for n, ok := range in.forSafe {
+			merged[n] = ok
+		}
+		for n, ok := range t.forSafe {
+			merged[n] = ok
+		}
+		in.forSafe = merged
+		in.forSafeOwned = true
+	default:
+		for n, ok := range t.forSafe {
+			in.forSafe[n] = ok
+		}
 	}
 }
 

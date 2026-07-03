@@ -284,6 +284,7 @@ func TestTemplateFieldsClassifiedImmutablePostPrepare(t *testing.T) {
 		"staticRefs":    immutable,
 		"hasDynamicRef": immutable,
 		"compStatic":    immutable,
+		"forSafe":       immutable,
 		// lastOut is a sanctioned mutable Template field: an atomic
 		// output-length hint renderBuffered reads to pre-size its builder and
 		// stores after each successful render. It can only influence buffer

@@ -2,6 +2,7 @@ package interp
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/cover"
@@ -459,6 +460,56 @@ func probeLoopParent(pre *runtime.Scope) *runtime.Value {
 	return parent
 }
 
+// poolLoopSnapshots is the master switch for gate-scoped loop snapshot pooling.
+// It is true in every build; the differential test battery flips it off to
+// render the exact same templates through the fresh-Pairs() path and assert the
+// two renders are byte-identical, proving pooling is a pure buffer-reuse. It is
+// read once per loop and must only be toggled between renders (never during
+// one), which the single-threaded byte-diff tests observe.
+var poolLoopSnapshots = true
+
+// pairBufPool recycles []Pair loop snapshot buffers across renders. It is a
+// sync.Pool, so it is goroutine-safe (each P holds its own shard, so concurrent
+// renders never contend) and it survives render boundaries -- which is where the
+// win is: a template rendered repeatedly reuses one steady-state buffer instead
+// of allocating the O(rows) snapshot every render. A pointer to the header is
+// pooled so a Get/Put pair boxes nothing. GC may drain the pool under pressure,
+// bounding the *Array pointers a parked buffer's tail retains.
+//
+// Within one render the pool still hands distinct buffers to nested loops: an
+// enclosing loop holds its buffer (it is not Put back) while an inner loop Gets
+// a different one, so the inner never overwrites the slice the outer is ranging
+// over. The acquire/release discipline is a defer per loop, so error and panic
+// paths return the buffer too.
+var pairBufPool = sync.Pool{New: func() any { return new([]runtime.Pair) }}
+
+// acquirePairBuf takes a snapshot buffer from the shared pool, pre-sized to hold
+// n pairs. A pooled buffer with enough capacity is reused as-is (truncated to
+// zero by PairsInto); one too small, or the pool's fresh zero-length slice, is
+// grown to n in a single allocation so the caller's PairsInto never pays the
+// append doubling ladder. It returns the pointer the pool owns and the buffer to
+// materialize into.
+func acquirePairBuf(n int) (*[]runtime.Pair, []runtime.Pair) {
+	bp := pairBufPool.Get().(*[]runtime.Pair)
+	buf := *bp
+	if cap(buf) < n {
+		buf = make([]runtime.Pair, 0, n)
+	}
+	return bp, buf
+}
+
+// releasePairBuf returns a snapshot buffer to the shared pool for the next
+// render or sibling loop to reuse, storing the grown slice back through the
+// pooled pointer so its capacity survives. The buffer is NOT wiped: a parked
+// buffer retains the *Array pointers of its tail elements past len until the
+// next PairsInto overwrites them or the pool is drained, a bounded retention
+// (the largest pooled loop's pair count) that wiping on every release would
+// trade for the O(n) cost pooling exists to remove.
+func releasePairBuf(bp *[]runtime.Pair, buf []runtime.Pair) {
+	*bp = buf
+	pairBufPool.Put(bp)
+}
+
 // execFor renders a for loop with full loop.* metadata (spec 01 Section 4.2).
 // The iterand is drained to pairs; a non-iterable is a runtime error (NOT a
 // silent empty loop) unless lenient mode is on. The body runs in a child scope;
@@ -499,9 +550,31 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 	if err != nil {
 		return err
 	}
-	pairs, err := runtime.EnsureTraversable(collVal, !in.eng.StrictVariables())
-	if err != nil {
-		return posErr(n, err)
+
+	// Materialize the entry-time pair snapshot. A plain (non-fused) KArray loop
+	// whose Prepare-time escape bit proved its loop value never outlives the
+	// iteration recycles a pooled buffer via PairsInto: the snapshot is fully
+	// materialized exactly as EnsureTraversable's Pairs() would be -- same
+	// entries, same order, so iteration and rendered bytes are identical -- but
+	// in memory reused across renders and sibling loops. The deferred release
+	// returns the buffer on the normal and error returns, so a body error never
+	// leaks it; a genuine panic aborts the whole render and merely drops the
+	// buffer (the pool refills), which is harmless. A fused loop (its survivors
+	// slice is a separate allocation), a KObject Iterable, or any escaping or
+	// non-array iterand keeps today's fresh path.
+	var pairs []runtime.Pair
+	if poolLoopSnapshots && filter == nil && in.forSafe[n] && collVal.Kind == runtime.KArray && collVal.Arr != nil {
+		bp, buf := acquirePairBuf(collVal.Arr.Len())
+		pairs = collVal.Arr.PairsInto(buf)
+		// The pooled path never reruns the filter block, so pairs is final here;
+		// deferring the direct call (not a closure) captures it now and avoids a
+		// per-loop closure heap allocation.
+		defer releasePairBuf(bp, pairs)
+	} else {
+		pairs, err = runtime.EnsureTraversable(collVal, !in.eng.StrictVariables())
+		if err != nil {
+			return posErr(n, err)
+		}
 	}
 
 	// Push a fresh loop.changed(...) memory frame for this loop and pop it when the
