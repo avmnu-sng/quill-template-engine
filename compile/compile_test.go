@@ -185,7 +185,7 @@ var loweringCases = []compiledCase{
 	// Non-root frame name ordering: hints, _context, and the needs-context
 	// injection must list names in actual first-bind order (a name whose first
 	// SOURCE appearance sits in a non-executed arm binds later at runtime),
-	// exactly like the interpreter's Scope.order.
+	// exactly like the interpreter's insertion-ordered Scope frame entries.
 	{name: "hint-order-loop", template: "@for i in [1] {\n@if i > 5 {\n@set b = 1\n@}\n@set a = 2\n@set b = 3\n{{ nope }}\n@}\n"},
 	{name: "ctx-order-loop", template: "@for i in [1] {\n@if i > 5 {\n@set b = 1\n@}\n@set a = 2\n@set b = 3\n{{ _context | keys | join(\",\") }}\n@}\n"},
 	{name: "ctx-order-with", template: "@with {} {\n@if false {\n@set b = 1\n@}\n@set a = 1\n@set b = 2\n{{ _context | keys | join(\",\") }}\n@}\n"},
@@ -435,6 +435,10 @@ func TestGeneratedVet(t *testing.T) {
 		// a fused (pairs) inner into a live outer, and a mutating sibling
 		// loop lowered on the pairs path beside the live ones.
 		{name: "vet-d", template: "@for k, v in m {\n{{ loop.prev ?? 0 }}{{ loop.next ?? 0 }}{{ k }}{{ v }}{{ loop.revindex }}\n@}\n@for a in [1,2] {\n{{ dump() }}{{ loop.length }}\n@for b in [3,4] if b > 3 {\n{{ loop.index }}{{ loop.parent.last }}\n@}\n@}\n@set ys = [0]\n@for x in [1] {\n@set ys[0] = x\n{{ loop.changed(x) }}\n@}\n"},
+		// The strict dotted-read shapes: the inline KArray fast path over an
+		// elided binding local, a spilled literal-map receiver, a chained read,
+		// the discarded @do position, and the closure (arrow) return path.
+		{name: "vet-e", template: "@set u = {name: \"a\"}\n@set w = {inner: {v: 1}}\n{{ u.name }}{{ w.inner.v }}{{ {a: 1}.a }}\n@do u.name\n{{ [u] | map(r => r.name) | join(\",\") }}\n"},
 	}
 	dir := t.TempDir()
 	root := repoRoot(t)

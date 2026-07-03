@@ -277,10 +277,11 @@ type frame struct {
 	byName  map[string]*binding
 	withVar string // frameWith / frameWithOnly: the with-map value variable
 	// ord names the generated []string local recording this frame's names in
-	// actual first-bind order, mirroring the interpreter's Scope.order: a name
-	// whose first source appearance sits in a non-executed branch must not
-	// enter hints or _context until a bind really runs. The root frame uses
-	// qNames instead; a frame with no prescanned names has no slice.
+	// actual first-bind order, mirroring the first-bind order the interpreter
+	// records in a Scope frame's insertion-ordered entries slice: a name whose
+	// first source appearance sits in a non-executed branch must not enter
+	// hints or _context until a bind really runs. The root frame uses qNames
+	// instead; a frame with no prescanned names has no slice.
 	ord string
 }
 
@@ -521,7 +522,8 @@ func (c *compiler) emitHint() string {
 			continue
 		}
 		// The frame's runtime order slice lists exactly the actually-bound
-		// names in first-bind order, matching the interpreter's Scope.order.
+		// names in first-bind order, matching the insertion order of the
+		// interpreter's Scope frame entries slice.
 		n := c.tmp("qn")
 		c.openf("for _, %s := range %s {", n, f.ord)
 		c.linef("%s = qaddName(%s, %s)", h, h, n)
@@ -685,6 +687,40 @@ func (c *compiler) spill(expr string) string {
 	t := c.tmp("qt")
 	c.linef("%s := %s", t, expr)
 	return t
+}
+
+// spillAdjacent captures expr for a lowering that embeds it several times
+// across immediately adjacent generated statements with no expression lowering
+// between them. The one hazard spill guards against is a later interleaved
+// lowering rebinding a mutable qv_* binding local before an earlier operand's
+// value is consumed; adjacency removes every point where such a rebind could
+// execute, so a binding local may be embedded directly and only the shapes
+// isSpilled would reject for re-evaluation reasons (calls, share-marking
+// wrappers, subscripts) are copied. Callers own the adjacency obligation: any
+// c.expr call between the uses reopens the rebind window and requires the
+// general spill.
+func (c *compiler) spillAdjacent(expr string) string {
+	if isSpilled(expr) || isBindingLocal(expr) {
+		return expr
+	}
+	return c.spill(expr)
+}
+
+// isBindingLocal reports whether expr is a mutable qv_* binding local: a plain
+// identifier the general spill model always copies because only a later
+// interleaved lowering can rebind it.
+func isBindingLocal(expr string) bool {
+	if len(expr) < 3 || expr[:3] != "qv_" {
+		return false
+	}
+	for i := 0; i < len(expr); i++ {
+		ch := expr[i]
+		alnum := (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
+		if !alnum {
+			return false
+		}
+	}
+	return true
 }
 
 // isSpilled reports whether expr is safe to embed later without capturing: a

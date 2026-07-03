@@ -183,10 +183,18 @@ func (c *compiler) exprMap(n *ast.Node) (string, error) {
 
 // exprAttr lowers a.b / a?.b: the null-safe form and whole-chain suppression
 // short-circuit a null receiver to null; otherwise the read routes through
-// runtime.GetAttribute exactly like evalAttr. A read the loop escape analysis
-// approved lowers to inline loop arithmetic instead; such a read is total
-// (every approved field is always defined on a live loop), so neither the
-// null-safe form nor absence suppression can change its value.
+// runtime.GetAttribute exactly like evalAttr. The strict form opens with an
+// inline KArray fast path reading through Arr.GetStr -- the same canonicalizing
+// lookup getDot performs, so key semantics are inherited -- and any miss or
+// non-Array receiver re-enters the unchanged GetAttribute, which produces the
+// byte-identical value or error. The receiver skips the general spill through
+// spillAdjacent: every use sits in the adjacent statements emitted here, the
+// literal member name needs no evaluation between them, and the hit value is
+// captured into its own temporary, so no later lowering can observe or rebind
+// the receiver mid-read. A read the loop escape analysis approved lowers to
+// inline loop arithmetic instead; such a read is total (every approved field
+// is always defined on a live loop), so neither the null-safe form nor absence
+// suppression can change its value.
 func (c *compiler) exprAttr(n *ast.Node, allowAbsent bool) (string, error) {
 	if ir, ok := c.an.inlineReads[n]; ok {
 		return c.emitInlineLoopField(ir), nil
@@ -195,14 +203,25 @@ func (c *compiler) exprAttr(n *ast.Node, allowAbsent bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	recv = c.spill(recv)
 	if !n.Bool && !allowAbsent {
+		recv = c.spillAdjacent(recv)
 		v := c.tmp("qt")
+		hit := c.tmp("qk")
+		c.linef("var %s runtime.Value", v)
+		c.linef("%s := false", hit)
+		c.openf("if %s.Kind == runtime.KArray && %s.Arr != nil {", recv, recv)
+		c.linef("%s, %s = %s.Arr.GetStr(%s)", v, hit, recv, q(n.Str))
+		c.closeb()
+		c.openf("if !%s {", hit)
+		gv := c.tmp("qt")
 		e := c.tmp("qe")
-		c.linef("%s, %s := runtime.GetAttribute(%s, runtime.Str(%s), runtime.AccessDot, false)", v, e, recv, q(n.Str))
+		c.linef("%s, %s := runtime.GetAttribute(%s, runtime.Str(%s), runtime.AccessDot, false)", gv, e, recv, q(n.Str))
 		c.checkErr(e, n.Line)
+		c.linef("%s = %s", v, gv)
+		c.closeb()
 		return v, nil
 	}
+	recv = c.spill(recv)
 	res := c.tmp("qt")
 	c.linef("%s := runtime.Null()", res)
 	c.openf("if !%s.IsNull() {", recv)
