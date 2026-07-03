@@ -330,9 +330,12 @@ func CopyValue(v Value) Value {
 // and the first in-place mutation of a shared array privatizes it (Own). Sharing
 // each binding independently means two names that come to hold one array both mark
 // it shared, so mutating one privatizes and diverges from the other -- the value
-// semantics of spec 04 Section 6.3, paid lazily.
+// semantics of spec 04 Section 6.3, paid lazily. An already-shared array is left
+// untouched rather than re-stored: cross-frame Scope.Get re-marks on every read,
+// and skipping the redundant store keeps those hot reads from dirtying the
+// array's cache line.
 func ShareValue(v Value) Value {
-	if v.Kind == KArray && v.Arr != nil {
+	if v.Kind == KArray && v.Arr != nil && !v.Arr.shared {
 		v.Arr.shared = true
 	}
 	return v

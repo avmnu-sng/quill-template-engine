@@ -12,24 +12,66 @@ package runtime
 // error and the _context snapshot stay deterministic and match the flat-map
 // ordering the engine always had (spec 04 Section 8.1).
 //
+// A frame stores its bindings in an insertion-ordered entries slice scanned
+// linearly: template frames hold a handful of names with the hot ones bound
+// first, so a short scan beats a map's hashing and its minimum bucket
+// footprint, and the slice doubles as the order record that a separate order
+// slice used to carry. A frame that grows past scopeSpillWidth gains a
+// name-to-index side map (spill) so lookups in a wide frame -- a root frame
+// fed dozens of host vars, a large @with mapping -- stay O(1); the entries
+// slice remains the single source of order and of the values themselves.
+//
 // Context remains beside Scope as the raw ordered-map primitive with an eager
 // Clone; the interpreter's render path uses Scope.
 type Scope struct {
-	parent *Scope
-	order  []string
-	vars   map[string]Value
+	parent  *Scope
+	entries []scopeEntry
+	spill   map[string]int32
 }
 
-// NewScope returns an empty root scope.
+// scopeEntry is one name binding held inline in a frame's ordered entries
+// slice; keeping the Value in the slice (the spill map stores only indexes)
+// means order, presence, and value live in one allocation.
+type scopeEntry struct {
+	name string
+	v    Value
+}
+
+// scopeSpillWidth is the frame width above which bind builds the name-to-index
+// spill map. Measured on the engine's access mix (uniform hits, parent-chain
+// misses, hot-name rebinds), the linear scan and the map cross between 8 and
+// 10 entries; 8 keeps every typical template frame on the scan while a
+// 12-name frame -- the width where a scan-only frame measurably regressed --
+// is already indexed.
+const scopeSpillWidth = 8
+
+// NewScope returns an empty root scope. It allocates no binding storage; the
+// first bind does, so a scope that only reads stays a single small allocation.
 func NewScope() *Scope {
-	return &Scope{vars: map[string]Value{}}
+	return &Scope{}
+}
+
+// NewScopeSized returns an empty root scope pre-sized for n bindings: the
+// entries slice is allocated at capacity n up front, and a width past
+// scopeSpillWidth builds the spill index eagerly so the binds that follow
+// never re-index. Render entrypoints use it to size the root frame from
+// len(vars), replacing the bind-time doubling ladder with one allocation.
+func NewScopeSized(n int) *Scope {
+	s := &Scope{}
+	if n > 0 {
+		s.entries = make([]scopeEntry, 0, n)
+	}
+	if n > scopeSpillWidth {
+		s.spill = make(map[string]int32, n)
+	}
+	return s
 }
 
 // Child pushes a fresh frame whose reads fall through to this scope. It copies
 // nothing: the child starts empty and shadows on write, which is what makes
 // scope entry O(1) regardless of how many bindings are visible.
 func (s *Scope) Child() *Scope {
-	return &Scope{parent: s, vars: map[string]Value{}}
+	return &Scope{parent: s}
 }
 
 // Set binds name in this frame, shadowing any outer binding, recording
@@ -48,12 +90,51 @@ func (s *Scope) SetOwned(name string, v Value) {
 	s.bind(name, v)
 }
 
-// bind stores name -> v in this frame, recording first-seen order.
+// bind stores name -> v in this frame, recording first-seen order: a name
+// already present is overwritten in place at its original position, a new name
+// appends. Appending past scopeSpillWidth builds the spill index once; from
+// then on the frame binds and looks up through the map.
 func (s *Scope) bind(name string, v Value) {
-	if _, ok := s.vars[name]; !ok {
-		s.order = append(s.order, name)
+	if s.spill != nil {
+		if i, ok := s.spill[name]; ok {
+			s.entries[i].v = v
+			return
+		}
+		s.spill[name] = int32(len(s.entries))
+		s.entries = append(s.entries, scopeEntry{name: name, v: v})
+		return
 	}
-	s.vars[name] = v
+	for i := range s.entries {
+		if s.entries[i].name == name {
+			s.entries[i].v = v
+			return
+		}
+	}
+	s.entries = append(s.entries, scopeEntry{name: name, v: v})
+	if len(s.entries) > scopeSpillWidth {
+		m := make(map[string]int32, 2*scopeSpillWidth)
+		for i := range s.entries {
+			m[s.entries[i].name] = int32(i)
+		}
+		s.spill = m
+	}
+}
+
+// lookup returns this frame's own binding for name, without falling through to
+// the parent chain and without any share-marking; Get layers both on top.
+func (s *Scope) lookup(name string) (Value, bool) {
+	if s.spill != nil {
+		if i, ok := s.spill[name]; ok {
+			return s.entries[i].v, true
+		}
+		return Value{}, false
+	}
+	for i := range s.entries {
+		if s.entries[i].name == name {
+			return s.entries[i].v, true
+		}
+	}
+	return Value{}, false
 }
 
 // Get returns the binding for name, reading the innermost frame that binds it.
@@ -72,7 +153,7 @@ func (s *Scope) bind(name string, v Value) {
 // member writes to one name in one scope stays linear, not quadratic.
 func (s *Scope) Get(name string) (Value, bool) {
 	for f := s; f != nil; f = f.parent {
-		if v, ok := f.vars[name]; ok {
+		if v, ok := f.lookup(name); ok {
 			if f != s {
 				return ShareValue(v), true
 			}
@@ -103,10 +184,10 @@ func (s *Scope) Names() []string {
 	seen := map[string]bool{}
 	var out []string
 	for i := len(frames) - 1; i >= 0; i-- {
-		for _, n := range frames[i].order {
-			if !seen[n] {
-				seen[n] = true
-				out = append(out, n)
+		for _, e := range frames[i].entries {
+			if !seen[e.name] {
+				seen[e.name] = true
+				out = append(out, e.name)
 			}
 		}
 	}

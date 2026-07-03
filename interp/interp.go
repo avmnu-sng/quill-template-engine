@@ -146,7 +146,7 @@ func renderBuffered(eng Engine, tmpl *Template, vars map[string]runtime.Value, s
 	if sandboxed {
 		in.sandboxOn = true
 	}
-	ctx := runtime.NewScope()
+	ctx := runtime.NewScopeSized(len(vars))
 	for k, v := range vars {
 		ctx.Set(k, v)
 	}
@@ -179,7 +179,7 @@ func RenderTo(eng Engine, tmpl *Template, vars map[string]runtime.Value, w io.Wr
 	}
 	sink := newWriterSink(w)
 	in := newInterp(eng, tmpl, sink)
-	ctx := runtime.NewScope()
+	ctx := runtime.NewScopeSized(len(vars))
 	for k, v := range vars {
 		ctx.Set(k, v)
 	}
