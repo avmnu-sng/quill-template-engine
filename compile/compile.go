@@ -158,6 +158,32 @@ func Module(name string, mod *ast.Node, opts Options) (*Result, error) {
 	if mod == nil || mod.Kind != ast.KindModule {
 		return nil, fmt.Errorf("compile: Module expects a %s node", ast.KindModule)
 	}
+	normalized, err := normalizeOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+	opts = normalized
+
+	// The facade's load-time gates, in the facade's order (LoadTemplate runs
+	// check.Check, then PrepareChecked validates literal regexes), so Module
+	// rejects exactly what the facade rejects at load, with the same error.
+	if err := check.Check(mod, opts.Types); err != nil {
+		return nil, err
+	}
+	if err := checkLiteralRegexps(mod); err != nil {
+		return nil, err
+	}
+
+	c := newCompiler(moduleSource(name, mod), opts)
+	if err := c.compileModule(mod); err != nil {
+		return nil, err
+	}
+	return c.finish()
+}
+
+// normalizeOptions applies the Options defaults and validates the generated
+// Go identifiers, shared by the Module and Unit entry points.
+func normalizeOptions(opts Options) (Options, error) {
 	if opts.PackageName == "" {
 		opts.PackageName = "qtpl"
 	}
@@ -171,39 +197,34 @@ func Module(name string, mod *ast.Node, opts Options) (*Result, error) {
 		opts.TabWidth = 0
 	}
 	if !isGoIdent(opts.PackageName) {
-		return nil, fmt.Errorf("compile: package name %q is not a Go identifier", opts.PackageName)
+		return opts, fmt.Errorf("compile: package name %q is not a Go identifier", opts.PackageName)
 	}
 	if !isGoIdent(opts.FuncName) {
-		return nil, fmt.Errorf("compile: func name %q is not a Go identifier", opts.FuncName)
+		return opts, fmt.Errorf("compile: func name %q is not a Go identifier", opts.FuncName)
 	}
 	// A Go keyword passes the identifier shape check but crashes go/format
 	// with a whole-file dump; reject it upfront with a clear error.
 	if goKeywords[opts.PackageName] {
-		return nil, fmt.Errorf("compile: package name %q is a Go keyword", opts.PackageName)
+		return opts, fmt.Errorf("compile: package name %q is a Go keyword", opts.PackageName)
 	}
 	if goKeywords[opts.FuncName] {
-		return nil, fmt.Errorf("compile: func name %q is a Go keyword", opts.FuncName)
+		return opts, fmt.Errorf("compile: func name %q is a Go keyword", opts.FuncName)
 	}
+	return opts, nil
+}
 
-	// The facade's load-time gates, in the facade's order (LoadTemplate runs
-	// check.Check, then PrepareChecked validates literal regexes), so Module
-	// rejects exactly what the facade rejects at load, with the same error.
-	if err := check.Check(mod, opts.Types); err != nil {
-		return nil, err
+// moduleSource returns the parse source of one member module, synthesizing an
+// empty-code source when the module carries none so error positions still
+// name the template.
+func moduleSource(name string, mod *ast.Node) *source.Source {
+	if mod.Src != nil {
+		return mod.Src
 	}
-	if err := checkLiteralRegexps(mod); err != nil {
-		return nil, err
-	}
+	return source.New(name, "")
+}
 
-	src := mod.Src
-	if src == nil {
-		src = source.New(name, "")
-	}
-	c := newCompiler(src, opts)
-	if err := c.compileModule(mod); err != nil {
-		return nil, err
-	}
-
+// finish assembles, formats, and hygiene-checks the generated file.
+func (c *compiler) finish() (*Result, error) {
 	raw := c.assemble()
 	formatted, err := format.Source(raw)
 	if err != nil {
@@ -216,7 +237,7 @@ func Module(name string, mod *ast.Node, opts Options) (*Result, error) {
 	}
 	return &Result{
 		Source:   formatted,
-		FuncName: opts.FuncName,
+		FuncName: c.opts.FuncName,
 		LineMap:  parseLineMap(formatted),
 	}, nil
 }
@@ -293,9 +314,18 @@ func isGoIdent(s string) bool {
 	return true
 }
 
-// notCompilable builds the typed subset error for the construct at node n.
+// notCompilable builds the typed subset error for the construct at node n,
+// naming the member template whose statements are being lowered.
 func (c *compiler) notCompilable(construct string, n *ast.Node) error {
-	e := &NotCompilableError{Construct: construct, Template: c.src.Name()}
+	name := c.src.Name()
+	ref := c.srcRef()
+	for _, s := range c.srcs {
+		if c.srcVars[s] == ref {
+			name = s.Name()
+			break
+		}
+	}
+	e := &NotCompilableError{Construct: construct, Template: name}
 	if n != nil {
 		e.Line = n.Line
 	}
@@ -328,8 +358,19 @@ func (c *compiler) assemble() []byte {
 	b.WriteString(")\n\n")
 	b.WriteString("// qSrc anchors every runtime error this render function raises to the\n")
 	b.WriteString("// template it was compiled from, so error text matches the interpreter's.\n")
-	fmt.Fprintf(&b, "var qSrc = source.New(%s, %s)\n\n",
-		strconv.QuoteToASCII(c.src.Name()), strconv.QuoteToASCII(c.src.Code()))
+	if len(c.srcs) == 1 {
+		fmt.Fprintf(&b, "var qSrc = source.New(%s, %s)\n\n",
+			strconv.QuoteToASCII(c.src.Name()), strconv.QuoteToASCII(c.src.Code()))
+	} else {
+		// A unit carries one source anchor per member template, so an error
+		// raised by an inlined block body cites the defining template.
+		b.WriteString("var (\n")
+		for _, s := range c.srcs {
+			fmt.Fprintf(&b, "\t%s = source.New(%s, %s)\n",
+				c.srcVars[s], strconv.QuoteToASCII(s.Name()), strconv.QuoteToASCII(s.Code()))
+		}
+		b.WriteString(")\n\n")
+	}
 	b.WriteString("// qEnvVal is the engine handle injected into needs-environment callables,\n")
 	b.WriteString("// carrying this compilation's engine configuration exactly as the\n")
 	b.WriteString("// interpreter's handle carries its Environment's.\n")
@@ -379,7 +420,16 @@ func (c *compiler) assemble() []byte {
 	b.WriteString("// entry point.\n")
 	fmt.Fprintf(&b, "var %sManifest = &compiled.Manifest{\n", c.opts.FuncName)
 	b.WriteString("\tEntry:   qSrc.Name(),\n")
-	b.WriteString("\tSources: map[string]string{qSrc.Name(): qSrc.Code()},\n")
+	if len(c.srcs) == 1 {
+		b.WriteString("\tSources: map[string]string{qSrc.Name(): qSrc.Code()},\n")
+	} else {
+		b.WriteString("\tSources: map[string]string{\n")
+		for _, s := range c.srcs {
+			v := c.srcVars[s]
+			fmt.Fprintf(&b, "\t\t%s.Name(): %s.Code(),\n", v, v)
+		}
+		b.WriteString("\t},\n")
+	}
 	fmt.Fprintf(&b, "\tFingerprint: compiled.Fingerprint{AutoescapeHTML: %v, LenientVariables: %v, TabWidth: %d, RandomSeed: %d, RandomSeedSet: %v},\n",
 		c.opts.AutoescapeHTML, c.opts.LenientVariables, c.opts.TabWidth, c.opts.RandomSeed, c.opts.RandomSeedSet)
 	fmt.Fprintf(&b, "\tUsesLog: %v,\n", c.usesLog)

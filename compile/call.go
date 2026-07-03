@@ -124,7 +124,7 @@ func (c *compiler) exprFilter(n *ast.Node) (string, error) {
 	piped = c.spill(piped)
 	fv, fok := c.callable("Filter", n.Str)
 	c.openf("if !%s {", fok)
-	c.linef(c.ret(fmt.Sprintf("qpos(qerrors.New(qerrors.KindRuntime, \"unknown filter %%q\", %s), %d)", q(n.Str), n.Line)))
+	c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"unknown filter %%q\", %s)", q(n.Str)), n.Line)))
 	c.closeb()
 	v := c.tmp("qt")
 	e := c.tmp("qe")
@@ -169,6 +169,16 @@ func (c *compiler) exprCall(n *ast.Node) (string, error) {
 
 	if callee.Kind == ast.KindName {
 		name := callee.Str
+		if c.unit != nil {
+			// A Unit resolves parent() and block() through the statically
+			// linked block table; caller() and slot() stay outside the subset.
+			switch name {
+			case "parent":
+				return c.unitParentCall(n)
+			case "block":
+				return c.unitBlockCall(n)
+			}
+		}
 		if construct, ok := compositionBuiltins[name]; ok {
 			return "", c.notCompilable(construct, n)
 		}
@@ -192,7 +202,7 @@ func (c *compiler) exprCall(n *ast.Node) (string, error) {
 	res := c.tmp("qt")
 	c.linef("%s := runtime.Null()", res)
 	c.openf("if true {")
-	c.linef(c.ret(fmt.Sprintf(`qpos(qerrors.New(qerrors.KindRuntime, "expression is not callable"), %d)`, n.Line)))
+	c.linef(c.ret(c.qposE(`qerrors.New(qerrors.KindRuntime, "expression is not callable")`, n.Line)))
 	c.closeb()
 	return res, nil
 }
@@ -240,7 +250,7 @@ func (c *compiler) exprNameCall(n *ast.Node, name string) (string, error) {
 	c.ind--
 	c.linef("} else {")
 	c.ind++
-	c.linef(c.ret(fmt.Sprintf("qpos(qerrors.New(qerrors.KindRuntime, \"unknown function or macro %%q\", %s), %d)", q(name), n.Line)))
+	c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"unknown function or macro %%q\", %s)", q(name)), n.Line)))
 	c.closeb()
 	c.condDepth--
 	c.closeb()
@@ -270,7 +280,7 @@ func (c *compiler) exprMethodCall(n *ast.Node, callee *ast.Node) (string, error)
 	c.ind--
 	c.linef("} else {")
 	c.ind++
-	c.linef(c.ret(fmt.Sprintf("qpos(qerrors.New(qerrors.KindAttribute, \"cannot call method %%q on %%s\", %s, %s.Kind), %d)", q(callee.Str), recv, n.Line)))
+	c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindAttribute, \"cannot call method %%q on %%s\", %s, %s.Kind)", q(callee.Str), recv), n.Line)))
 	c.closeb()
 	return res, nil
 }
@@ -290,7 +300,7 @@ func (c *compiler) exprLoopChanged(n *ast.Node) (string, error) {
 	count, static := staticArgCount(n)
 	if !static || count != 1 {
 		c.openf("if len(%s) != 1 {", args)
-		c.linef(c.ret(fmt.Sprintf("qpos(qerrors.New(qerrors.KindRuntime, \"loop.changed expects exactly one argument, got %%d\", len(%s)), %d)", args, n.Line)))
+		c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"loop.changed expects exactly one argument, got %%d\", len(%s))", args), n.Line)))
 		c.closeb()
 	}
 	li := c.currentLoop()
@@ -299,12 +309,22 @@ func (c *compiler) exprLoopChanged(n *ast.Node) (string, error) {
 		c.linef("%s := runtime.Null()", res)
 		c.linef("_ = %s", args)
 		c.openf("if true {")
-		c.linef(c.ret(fmt.Sprintf(`qpos(qerrors.New(qerrors.KindRuntime, "loop.changed is only available inside a for loop"), %d)`, n.Line)))
+		c.linef(c.ret(c.qposE(`qerrors.New(qerrors.KindRuntime, "loop.changed is only available inside a for loop")`, n.Line)))
 		c.closeb()
 		return res, nil
 	}
-	site := changedSite{prev: c.tmp("qchp"), seen: c.tmp("qchs")}
-	li.changed = append(li.changed, site)
+	// The memory is keyed by the call NODE within the innermost loop, exactly
+	// like the interpreter's per-frame map: a node a Unit inlines at several
+	// sites of one loop shares one memory across those sites.
+	site, ok := li.changedByNode[n]
+	if !ok {
+		site = changedSite{prev: c.tmp("qchp"), seen: c.tmp("qchs")}
+		li.changed = append(li.changed, site)
+		if li.changedByNode == nil {
+			li.changedByNode = map[*ast.Node]changedSite{}
+		}
+		li.changedByNode[n] = site
+	}
 	cur := c.tmp("qt")
 	c.linef("%s := %s[0]", cur, args)
 	ch := c.tmp("qk")
@@ -400,7 +420,7 @@ func (c *compiler) exprTest(n *ast.Node) (string, error) {
 	}
 
 	c.openf("if !%s {", tok)
-	c.linef(c.ret(fmt.Sprintf("qpos(qerrors.New(qerrors.KindRuntime, \"unknown test %%q\", %s), %d)", q(n.Str), n.Line)))
+	c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"unknown test %%q\", %s)", q(n.Str)), n.Line)))
 	c.closeb()
 	if err := emitOrdinary(); err != nil {
 		return "", err

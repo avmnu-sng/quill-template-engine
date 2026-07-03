@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/compile"
 	"github.com/avmnu-sng/quill-template-engine/parse"
 	"github.com/avmnu-sng/quill-template-engine/source"
@@ -22,6 +23,11 @@ type compiledCase struct {
 	template string // template body (the main template)
 	varsJSON string // data as a JSON object; "" means no vars
 	opts     compile.Options
+	// templates, when non-nil, makes this a multi-template Unit case: it maps
+	// member names to bodies, entry names the unit's entry template, and
+	// template above is ignored.
+	templates map[string]string
+	entry     string
 	// envCheck additionally renders the case by name through a quill
 	// Environment with the generated manifest installed (frame "<name>@env"),
 	// probes the dispatch gate with a tracer manifest (frame "<name>@tracer",
@@ -57,16 +63,28 @@ func repoRoot(t *testing.T) string {
 }
 
 // compileCase parses and compiles one case, failing the test on a parse error
-// and returning the compile result or error.
+// and returning the compile result or error. A case carrying a templates map
+// compiles through Unit, otherwise through Module.
 func compileCase(t *testing.T, cs compiledCase) (*compile.Result, error) {
 	t.Helper()
-	mod, err := parse.Parse(source.New(cs.name+".ql", cs.template))
-	if err != nil {
-		t.Fatalf("%s: parse: %v", cs.name, err)
-	}
 	opts := cs.opts
 	if opts.PackageName == "" {
 		opts.PackageName = pkgName(cs.name)
+	}
+	if cs.templates != nil {
+		mods := map[string]*ast.Node{}
+		for name, body := range cs.templates {
+			mod, err := parse.Parse(source.New(name, body))
+			if err != nil {
+				t.Fatalf("%s: parse %s: %v", cs.name, name, err)
+			}
+			mods[name] = mod
+		}
+		return compile.Unit(cs.entry, mods, opts)
+	}
+	mod, err := parse.Parse(source.New(cs.name+".ql", cs.template))
+	if err != nil {
+		t.Fatalf("%s: parse: %v", cs.name, err)
 	}
 	return compile.Module(cs.name+".ql", mod, opts)
 }

@@ -132,16 +132,42 @@ type chainRead struct {
 // between the reference and that body (a with frame, an arrow, a user binding
 // of the name loop) makes the resolution unprovable.
 type loopAnalyzer struct {
-	res        *loopAnalysis
-	reads      []chainRead
-	parentOf   map[*ast.Node]*ast.Node
+	res   *loopAnalysis
+	reads []chainRead
+	// parents records every enclosing loop a @for's parent link resolved to
+	// across its walk visits: a Unit inlines one body at several sites, so a
+	// loop node can have one parent per site and outward propagation must
+	// reach them all.
+	parents    map[*ast.Node][]*ast.Node
 	stack      []aframe
 	arrowDepth int
+
+	// noInline marks Attr/Index nodes at least one walk visit could NOT
+	// approve as an inline read: a Unit inlines one body at several sites, so
+	// a node approved at a loop site may also lower at a site with no loop in
+	// scope, where the inline arithmetic has no counter to read. Any recorded
+	// read of a disapproved node materializes its base loop instead.
+	noInline map[*ast.Node]bool
+
+	// unit, uctx, and udepth mirror the lowering's linker state so the walk
+	// descends into resolved block bodies exactly where the lowering inlines
+	// them; they stay zero for a single-template Module.
+	unit   *unitInfo
+	uctx   []unitBlockCtx
+	udepth int
 }
 
 // analyzeLoops runs the escape analysis over a parsed module and returns the
 // per-loop materialization decisions and the approved inline reads.
 func analyzeLoops(mod *ast.Node) *loopAnalysis {
+	return analyzeUnitLoops(mod, nil)
+}
+
+// analyzeUnitLoops runs the escape analysis over the statement tree the
+// lowering actually walks: for a Unit, the topmost module with every block
+// site, parent() call, and static block() call descended into its resolved
+// body, so a loop inside an inlined body is analyzed in its inline context.
+func analyzeUnitLoops(mod *ast.Node, unit *unitInfo) *loopAnalysis {
 	a := &loopAnalyzer{
 		res: &loopAnalysis{
 			analyzed:     map[*ast.Node]bool{},
@@ -150,8 +176,10 @@ func analyzeLoops(mod *ast.Node) *loopAnalysis {
 			fused:        map[*ast.Node]bool{},
 			inlineReads:  map[*ast.Node]inlineLoopRead{},
 		},
-		parentOf: map[*ast.Node]*ast.Node{},
+		parents:  map[*ast.Node][]*ast.Node{},
+		noInline: map[*ast.Node]bool{},
 		stack:    []aframe{{kind: afRoot}},
+		unit:     unit,
 	}
 	a.walkItems(mod.Children)
 	a.fixpoint()
@@ -167,15 +195,33 @@ func analyzeLoops(mod *ast.Node) *loopAnalysis {
 // base loop materializes (and rule one then pulls the rest of its chain).
 func (a *loopAnalyzer) fixpoint() {
 	res := a.res
+	// A read node a Unit inlines at several sites records one chain per
+	// visit; the shared per-node approval can only hold when every visit
+	// resolved the same chain, so differing chains materialize their bases
+	// before the closure rules run.
+	byNode := map[*ast.Node][]chainRead{}
+	for _, r := range a.reads {
+		byNode[r.node] = append(byNode[r.node], r)
+	}
+	for _, r := range a.reads {
+		group := byNode[r.node]
+		if a.noInline[r.node] || (len(group) > 1 && !sameChains(group)) {
+			for _, g := range group {
+				res.materialized[g.chain[0]] = true
+			}
+		}
+	}
 	for changed := true; changed; {
 		changed = false
 		for _, n := range res.fors {
 			if !res.materialized[n] {
 				continue
 			}
-			if p := a.parentOf[n]; p != nil && !res.materialized[p] {
-				res.materialized[p] = true
-				changed = true
+			for _, p := range a.parents[n] {
+				if !res.materialized[p] {
+					res.materialized[p] = true
+					changed = true
+				}
 			}
 		}
 		for _, r := range a.reads {
@@ -192,13 +238,30 @@ func (a *loopAnalyzer) fixpoint() {
 		}
 	}
 	for _, r := range a.reads {
-		if !res.materialized[r.chain[0]] {
+		if !res.materialized[r.chain[0]] && !a.noInline[r.node] {
 			res.inlineReads[r.node] = inlineLoopRead{
 				target: r.chain[len(r.chain)-1],
 				field:  r.field,
 			}
 		}
 	}
+}
+
+// sameChains reports whether every recorded chain of one read node lists the
+// same loops in the same order.
+func sameChains(group []chainRead) bool {
+	first := group[0].chain
+	for _, g := range group[1:] {
+		if len(g.chain) != len(first) {
+			return false
+		}
+		for i, l := range g.chain {
+			if l != first[i] {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // push adds one scope frame.
@@ -347,10 +410,94 @@ func (a *loopAnalyzer) walkStmt(n *ast.Node) {
 		a.walkItems(n.Children[1:])
 	case ast.KindEscape:
 		a.walkItems(n.Children)
+	case ast.KindBlock:
+		// A Unit inlines the resolved definition body here; a Module aborts
+		// on the construct before any analysis result is consumed.
+		if a.unit != nil {
+			a.uwalkBlockSite(n)
+		}
 	default:
 		// Text, checker-only declarations, and not-compilable statements hold
 		// no analyzable loop references.
 	}
+}
+
+// uwalkBlockSite walks the body a block site resolves to, mirroring the
+// lowering's unitBlockSite.
+func (a *loopAnalyzer) uwalkBlockSite(n *ast.Node) {
+	if e, ok := a.unit.blocks[n.Str]; ok {
+		a.uwalkBlockAt(e, 0)
+		return
+	}
+	a.uwalkBlockBody(n)
+}
+
+// uwalkBlockAt walks the depth-th definition of a chain at the current scope
+// stack, bounded by the same inline-depth limit the lowering rejects at.
+func (a *loopAnalyzer) uwalkBlockAt(e *unitBlockEntry, depth int) {
+	if depth >= len(e.chain) || a.udepth >= maxUnitInline {
+		return
+	}
+	a.udepth++
+	def := e.chain[depth]
+	a.uctx = append(a.uctx, unitBlockCtx{entry: e, depth: depth})
+	a.uwalkBlockBody(def.node)
+	a.uctx = a.uctx[:len(a.uctx)-1]
+	a.udepth--
+}
+
+// uwalkBlockBody walks a block body: a shortcut block's value is one emitted
+// expression, a brace body is a statement list in the shared enclosing scope.
+func (a *loopAnalyzer) uwalkBlockBody(n *ast.Node) {
+	body := unitBlockBody(n)
+	if n.Int == 1 {
+		if len(body) > 0 {
+			a.walkExpr(body[len(body)-1], true)
+		}
+		return
+	}
+	a.walkItems(body)
+}
+
+// uwalkCall descends into the body a parent() or block() call splices in,
+// reporting whether it consumed the node. parent() never evaluates its
+// arguments (callParent collects none); block() evaluates every argument
+// before rendering, so those walk first.
+func (a *loopAnalyzer) uwalkCall(n, callee *ast.Node) bool {
+	if a.unit == nil || callee == nil || callee.Kind != ast.KindName {
+		return false
+	}
+	switch callee.Str {
+	case "parent":
+		if len(a.uctx) > 0 {
+			top := a.uctx[len(a.uctx)-1]
+			a.uwalkBlockAt(top.entry, top.depth+1)
+		}
+		return true
+	case "block":
+		for _, ch := range n.Children {
+			if ch != nil && ch.Kind == ast.KindArg {
+				a.walkExpr(ch.Child(0), true)
+			}
+		}
+		name, other, ok := staticBlockCallTarget(n)
+		if !ok {
+			return true
+		}
+		if other != "" {
+			if t := a.unit.byName[other]; t != nil {
+				if node, found := t.blocks[name]; found {
+					a.uwalkBlockBody(node)
+				}
+			}
+			return true
+		}
+		if e, found := a.unit.blocks[name]; found {
+			a.uwalkBlockAt(e, 0)
+		}
+		return true
+	}
+	return false
 }
 
 // walkFor walks one @for with the interpreter's exact scoping: the iterand
@@ -380,9 +527,17 @@ func (a *loopAnalyzer) walkFor(n *ast.Node) {
 		elseBody = n.Child(bodyIdx + 1)
 	}
 
-	a.res.analyzed[n] = true
-	a.res.fors = append(a.res.fors, n)
-	a.parentOf[n] = a.nearestLoop()
+	if a.res.analyzed[n] {
+		// A body inlined at more than one site revisits its loops; the shared
+		// per-node decisions cannot hold two contexts, so materialize.
+		a.mark(n)
+	} else {
+		a.res.analyzed[n] = true
+		a.res.fors = append(a.res.fors, n)
+	}
+	if p := a.nearestLoop(); p != nil {
+		a.parents[n] = append(a.parents[n], p)
+	}
 	if filter != nil {
 		a.res.fused[n] = true
 	}
@@ -485,6 +640,10 @@ func (a *loopAnalyzer) walkExpr(n *ast.Node, allowInline bool) {
 		if allowInline && a.tryChain(n) {
 			return
 		}
+		// This visit did not approve the node; under a Unit another visit of
+		// the same node (a body inlined elsewhere) may have, and the shared
+		// per-node approval must not survive a disapproving context.
+		a.noInline[n] = true
 		a.walkExpr(n.Child(0), allowInline)
 		if n.Kind == ast.KindIndex {
 			a.walkExpr(n.Child(1), allowInline)
@@ -500,6 +659,9 @@ func (a *loopAnalyzer) walkExpr(n *ast.Node, allowInline bool) {
 					a.walkExpr(ch.Child(0), allowInline)
 				}
 			}
+			return
+		}
+		if a.uwalkCall(n, callee) {
 			return
 		}
 		if a.arrowDepth > 0 && callee != nil && callee.Kind == ast.KindName {

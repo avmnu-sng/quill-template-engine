@@ -304,7 +304,7 @@ func (c *compiler) exprSlice(n *ast.Node) (string, error) {
 	}
 	fv, fok := c.callable("Filter", "slice")
 	c.openf("if !%s {", fok)
-	c.linef(c.ret(fmt.Sprintf(`qpos(qerrors.New(qerrors.KindRuntime, "slice filter is not registered"), %d)`, n.Line)))
+	c.linef(c.ret(c.qposE(`qerrors.New(qerrors.KindRuntime, "slice filter is not registered")`, n.Line)))
 	c.closeb()
 	args := c.tmp("qa")
 	c.linef("%s := []runtime.Value{%s, %s}", args, recv, start)
@@ -579,7 +579,7 @@ func (c *compiler) exprAssign(n *ast.Node) (string, error) {
 		res := c.tmp("qt")
 		c.linef("%s := runtime.Null()", res)
 		c.openf("if true {")
-		c.linef(c.ret(fmt.Sprintf(`qpos(qerrors.New(qerrors.KindRuntime, "inline assignment supports a single name target only"), %d)`, n.Line)))
+		c.linef(c.ret(c.qposE(`qerrors.New(qerrors.KindRuntime, "inline assignment supports a single name target only")`, n.Line)))
 		c.closeb()
 		return res, nil
 	}
@@ -596,7 +596,7 @@ func (c *compiler) exprArrow(n *ast.Node) (string, error) {
 		res := c.tmp("qt")
 		c.linef("%s := runtime.Null()", res)
 		c.openf("if true {")
-		c.linef(c.ret(fmt.Sprintf(`qpos(qerrors.New(qerrors.KindRuntime, "arrow function has no body"), %d)`, n.Line)))
+		c.linef(c.ret(c.qposE(`qerrors.New(qerrors.KindRuntime, "arrow function has no body")`, n.Line)))
 		c.closeb()
 		return res, nil
 	}

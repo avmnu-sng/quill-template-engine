@@ -94,34 +94,36 @@ func qemitw(w io.Writer, strategy string, v runtime.Value) error {
 	return err
 }
 
-// qpos attaches this template's source and the given line to an error that
-// lacks a position, reproducing the interpreter's posErr.
-func qpos(err error, line int) error {
+// qpos attaches the raising member template's source and the given line to an
+// error that lacks a position, reproducing the interpreter's posErr; each call
+// site passes the qSrc variable of the template its statement was lowered
+// from, so a multi-template unit positions errors in the defining template.
+func qpos(err error, src *source.Source, line int) error {
 	if err == nil {
 		return nil
 	}
 	var qs *qerrors.Security
 	if stderrors.As(err, &qs) {
 		if qs.Src() == nil && qs.Line() == 0 {
-			return qs.At(qSrc, line)
+			return qs.At(src, line)
 		}
 		return qs
 	}
 	var qe *qerrors.Error
 	if stderrors.As(err, &qe) {
 		if qe.Src == nil && qe.Line == 0 {
-			return qe.At(qSrc, line)
+			return qe.At(src, line)
 		}
 		return qe
 	}
-	return qerrors.Wrap(qerrors.KindRuntime, err, "%s", err.Error()).At(qSrc, line)
+	return qerrors.Wrap(qerrors.KindRuntime, err, "%s", err.Error()).At(src, line)
 }
 
 // qundef builds the strict-undefined variable error with the available-names
-// hint, positioned at the given template line.
-func qundef(name string, names []string, line int) error {
+// hint, positioned at the given member template and line.
+func qundef(name string, names []string, src *source.Source, line int) error {
 	return qerrors.New(qerrors.KindUndefined,
-		"undefined variable %q (available: %s)", name, qjoin(names)).At(qSrc, line)
+		"undefined variable %q (available: %s)", name, qjoin(names)).At(src, line)
 }
 
 // qjoin renders a name list for the undefined-variable hint.

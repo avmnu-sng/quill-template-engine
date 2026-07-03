@@ -78,16 +78,41 @@ func (c *compiler) stmtItem(n *ast.Node) error {
 		// the interpreter.
 		return nil
 	case ast.KindExtends:
+		// A Unit resolved the chain at link time; the head emits nothing,
+		// exactly like execItem's declaration arm.
+		if c.unit != nil {
+			return nil
+		}
 		return c.notCompilable("@extends", n)
 	case ast.KindBlock:
+		if c.unit != nil {
+			return c.unitBlockSite(n)
+		}
 		return c.notCompilable("@block", n)
 	case ast.KindMacro:
+		// A non-entry member's macro declaration is inert for this render
+		// (only the entry's macros enter the namespace, and an entry with
+		// macros was rejected at link time), so a Unit lowers it as the
+		// interpreter's declaration no-op.
+		if c.unit != nil {
+			return nil
+		}
 		return c.notCompilable("@macro", n)
 	case ast.KindImport:
+		if c.unit != nil {
+			return nil
+		}
 		return c.notCompilable("@import", n)
 	case ast.KindFrom:
+		if c.unit != nil {
+			return nil
+		}
 		return c.notCompilable("@from", n)
 	case ast.KindUse:
+		// A Unit merged trait blocks into the table at link time.
+		if c.unit != nil {
+			return nil
+		}
 		return c.notCompilable("@use", n)
 	case ast.KindInclude:
 		return c.notCompilable("@include", n)
@@ -120,21 +145,27 @@ func (c *compiler) stmtText(s string) {
 	c.emitWrite(q(s), func(e string) string { return e })
 }
 
-// stmtPrint lowers an interpolation: evaluate, then emit through the active
-// escape strategy, with emit errors positioned at the print node. With no
-// active strategy the site specializes by kind instead of calling the emit
-// helper unconditionally.
+// stmtPrint lowers an interpolation through the shared value-emission shape.
 func (c *compiler) stmtPrint(n *ast.Node) error {
+	return c.stmtEmitValue(n.Child(0), n)
+}
+
+// stmtEmitValue lowers one emitted value expression: evaluate val, then emit
+// through the active escape strategy, with emit errors positioned at pos (the
+// print node, or the block node of a shortcut @block). With no active
+// strategy the site specializes by kind instead of calling the emit helper
+// unconditionally.
+func (c *compiler) stmtEmitValue(val, pos *ast.Node) error {
 	if c.escapeStrategy() == "" {
-		return c.stmtPrintPlain(n)
+		return c.stmtPrintPlain(val, pos)
 	}
-	v, err := c.expr(n.Child(0), false)
+	v, err := c.expr(val, false)
 	if err != nil {
 		return err
 	}
 	e := c.tmp("qe")
 	c.openf("if %s := %s(%s, %s, %s); %s != nil {", e, c.emitFn(), c.writer(), q(c.escapeStrategy()), v, e)
-	c.linef(c.ret(fmt.Sprintf("qpos(%s, %d)", e, n.Line)))
+	c.linef(c.ret(c.qposE(e, pos.Line)))
 	c.closeb()
 	return nil
 }
@@ -148,14 +179,14 @@ func (c *compiler) stmtPrint(n *ast.Node) error {
 // spellings and their authoritative errors. The guarded value skips the
 // general spill through spillAdjacent: its uses sit only in the adjacent
 // guard statements emitted here, with no expression lowering between them.
-func (c *compiler) stmtPrintPlain(n *ast.Node) error {
-	wrap := func(e string) string { return fmt.Sprintf("qpos(%s, %d)", e, n.Line) }
-	if inner, ok := c.staticIntPrint(n.Child(0)); ok {
+func (c *compiler) stmtPrintPlain(val, pos *ast.Node) error {
+	wrap := func(e string) string { return c.qposE(e, pos.Line) }
+	if inner, ok := c.staticIntPrint(val); ok {
 		c.usesStrconv = true
 		c.emitWrite(fmt.Sprintf("strconv.FormatInt(%s, 10)", inner), wrap)
 		return nil
 	}
-	v, err := c.expr(n.Child(0), false)
+	v, err := c.expr(val, false)
 	if err != nil {
 		return err
 	}
@@ -286,7 +317,7 @@ func (c *compiler) stmtEscape(n *ast.Node) error {
 	strategy, ok := normalizeEscapeStrategy(n.Str)
 	if !ok {
 		c.openf("if true {")
-		c.linef(c.ret(fmt.Sprintf("qpos(qerrors.New(qerrors.KindRuntime, \"unknown escape strategy %%q; expected one of off, html, js, css, \"+\"html_attr, html_attr_relaxed, url\", %s), %d)", q(n.Str), n.Line)))
+		c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"unknown escape strategy %%q; expected one of off, html, js, css, \"+\"html_attr, html_attr_relaxed, url\", %s)", q(n.Str)), n.Line)))
 		c.closeb()
 		return nil
 	}
@@ -351,7 +382,7 @@ func (c *compiler) stmtWith(n *ast.Node) error {
 		return err
 	}
 	mv = c.spill(mv)
-	binds := bindNames(n.Children[1:])
+	binds := c.scanBinds(n.Children[1:])
 	if err := c.checkBindNames(binds, n); err != nil {
 		return err
 	}
@@ -420,7 +451,7 @@ func (c *compiler) assignMember(tg *ast.Node, val string) error {
 	if tg.Kind == ast.KindAttr {
 		e := c.tmp("qe")
 		c.openf("if %s := runtime.SetMember(%s, %s, %s); %s != nil {", e, recv, q(tg.Str), val, e)
-		c.linef(c.ret(fmt.Sprintf("qpos(%s, %d)", e, tg.Line)))
+		c.linef(c.ret(c.qposE(e, tg.Line)))
 		c.closeb()
 		return nil
 	}
@@ -430,7 +461,7 @@ func (c *compiler) assignMember(tg *ast.Node, val string) error {
 	}
 	e := c.tmp("qe")
 	c.openf("if %s := runtime.SetIndex(%s, qkeyOf(%s), %s); %s != nil {", e, recv, key, val, e)
-	c.linef(c.ret(fmt.Sprintf("qpos(%s, %d)", e, tg.Line)))
+	c.linef(c.ret(c.qposE(e, tg.Line)))
 	c.closeb()
 	return nil
 }
@@ -466,7 +497,7 @@ func (c *compiler) ownPath(n *ast.Node) (string, error) {
 		c.openf("if %s {", cp)
 		e2 := c.tmp("qe")
 		c.openf("if %s := runtime.SetMember(%s, %s, %s); %s != nil {", e2, parent, q(n.Str), o, e2)
-		c.linef(c.ret(fmt.Sprintf("qpos(%s, %d)", e2, n.Line)))
+		c.linef(c.ret(c.qposE(e2, n.Line)))
 		c.closeb()
 		c.linef("%s = %s", cur, o)
 		c.closeb()
@@ -492,7 +523,7 @@ func (c *compiler) ownPath(n *ast.Node) (string, error) {
 		c.openf("if %s {", cp)
 		e2 := c.tmp("qe")
 		c.openf("if %s := runtime.SetIndex(%s, %s, %s); %s != nil {", e2, parent, key, o, e2)
-		c.linef(c.ret(fmt.Sprintf("qpos(%s, %d)", e2, n.Line)))
+		c.linef(c.ret(c.qposE(e2, n.Line)))
 		c.closeb()
 		c.linef("%s = %s", cur, o)
 		c.closeb()
@@ -516,7 +547,7 @@ func (c *compiler) bindPattern(pat *ast.Node, val string) error {
 		return c.bindMapPattern(pat, val)
 	default:
 		c.openf("if true {")
-		c.linef(c.ret(fmt.Sprintf(`qpos(qerrors.New(qerrors.KindRuntime, "unknown destructuring pattern"), %d)`, pat.Line)))
+		c.linef(c.ret(c.qposE(`qerrors.New(qerrors.KindRuntime, "unknown destructuring pattern")`, pat.Line)))
 		c.closeb()
 		return nil
 	}
@@ -527,7 +558,7 @@ func (c *compiler) bindPattern(pat *ast.Node, val string) error {
 // optional slots null-padded, and a trailing spread capturing the rest.
 func (c *compiler) bindListPattern(pat *ast.Node, val string) error {
 	c.openf("if %s.Kind != runtime.KArray || %s.Arr == nil {", val, val)
-	c.linef(c.ret(fmt.Sprintf(`qpos(qerrors.New(qerrors.KindRuntime, "destructuring expects a sequence"), %d)`, pat.Line)))
+	c.linef(c.ret(c.qposE(`qerrors.New(qerrors.KindRuntime, "destructuring expects a sequence")`, pat.Line)))
 	c.closeb()
 	ps := c.tmp("qp")
 	c.linef("%s := %s.Arr.Pairs()", ps, val)
@@ -546,11 +577,11 @@ func (c *compiler) bindListPattern(pat *ast.Node, val string) error {
 	}
 
 	c.openf("if len(%s) < %d {", ps, required)
-	c.linef(c.ret(fmt.Sprintf("qpos(qerrors.New(qerrors.KindRuntime, \"sequence destructuring expects at least %%d element(s) but got %%d\", %d, len(%s)), %d)", required, ps, pat.Line)))
+	c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"sequence destructuring expects at least %%d element(s) but got %%d\", %d, len(%s))", required, ps), pat.Line)))
 	c.closeb()
 	if tail == nil {
 		c.openf("if len(%s) > %d {", ps, len(fixed))
-		c.linef(c.ret(fmt.Sprintf("qpos(qerrors.New(qerrors.KindRuntime, \"sequence destructuring expects %%d element(s) but got %%d\", %d, len(%s)), %d)", len(fixed), ps, pat.Line)))
+		c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"sequence destructuring expects %%d element(s) but got %%d\", %d, len(%s))", len(fixed), ps), pat.Line)))
 		c.closeb()
 	}
 
@@ -825,8 +856,12 @@ func (c *compiler) stmtForFilter(filter *ast.Node, target1, target2 *ast.Node, p
 		binds = append(binds, target2.Str)
 	}
 	// The condition is an expression; only its inline assignments bind in the
-	// filter frame.
+	// filter frame, plus the block-bind union when the condition splices a
+	// composition body (a parent() or block() call renders into this frame).
 	exprBinds(filter.Child(0), func(name string) { binds = append(binds, name) })
+	if c.unit != nil && nodeContainsComposition(filter.Child(0)) {
+		binds = append(binds, c.unit.compBinds...)
+	}
 	if err := c.checkBindNames(binds, filter); err != nil {
 		return err
 	}
@@ -867,7 +902,7 @@ func (c *compiler) stmtForBody(n *ast.Node, target1, target2, body *ast.Node, it
 		binds = append(binds, target2.Str)
 	}
 	binds = append(binds, "loop")
-	bodyBinds := bindNames(body.Children)
+	bodyBinds := c.scanBinds(body.Children)
 	binds = append(binds, bodyBinds...)
 	if err := c.checkBindNames(binds, n); err != nil {
 		return err

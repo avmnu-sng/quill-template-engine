@@ -279,6 +279,10 @@ func renderInterp(t *testing.T, cs compiledCase) (string, error) {
 	if err != nil {
 		t.Fatalf("%s: vars: %v", cs.name, err)
 	}
+	if cs.templates != nil {
+		env := quill.NewWithArray(cs.templates, opts...)
+		return env.Render(cs.entry, vars)
+	}
 	env := quill.NewWithArray(map[string]string{cs.name + ".ql": cs.template}, opts...)
 	return env.Render(cs.name+".ql", vars)
 }
@@ -444,6 +448,25 @@ func TestGeneratedVet(t *testing.T) {
 		// its builder, and the hoisted-injection arms for a needs-context
 		// function and an argful filter beside a bare fast-flag pipe.
 		{name: "vet-f", template: "@set b = capture {\n{{ 1 }}|{{ s ?? \"x\" }}\n@}\n{{ b }}{{ dump() }}{{ 2.5 }}\n@for i in (1..3) {\n{{ loop.index }}:{{ loop.revindex0 }} {{ b | upper }} {{ [i] | join(\"-\") }}\n@}\n"},
+		// The Unit shapes: multi-source qSrc anchors, inlined block bodies,
+		// the parent() capture writer, block() captures with their guarded
+		// miss error, a loop inside an inlined body, and the guarded
+		// parent()-outside-a-block return.
+		{name: "vet-u", entry: "page.ql", templates: map[string]string{
+			"trait.ql": "@block t {\ntrait\n@}\n",
+			"base.ql":  "@use \"trait.ql\" with {t: b}\n@block b {\nbase({{ parent() }})\n@}\n@for x in [1,2] {\n@block row {\nr{{ loop.index }}\n@}\n@}\n{{ block(\"nope\") }}\n",
+			"page.ql":  "@extends \"base.ql\"\n@block b {\npage({{ parent() }})\n@}\n@block row {\nR{{ loop.index }} {{ block(\"t\", \"trait.ql\") }}\n@}\n",
+		}},
+		// The Unit @tab shapes: the parent() capture seeding and copying back
+		// the qWriter state, and the composition-error stub body.
+		{name: "vet-u-tab", entry: "page.ql", templates: map[string]string{
+			"base.ql": "@tab(1) {\n@block b {\nbase\n@}\n@}\n",
+			"page.ql": "@extends \"base.ql\"\n@block b {\n{{ parent() }}+\n@}\n",
+		}},
+		{name: "vet-u-stub", entry: "page.ql", templates: map[string]string{
+			"trait.ql": "not a trait\n",
+			"page.ql":  "@use \"trait.ql\"\nbody\n",
+		}},
 	}
 	dir := t.TempDir()
 	root := repoRoot(t)

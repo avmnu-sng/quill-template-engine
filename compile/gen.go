@@ -9,13 +9,39 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
-// compiler holds one Module compilation's state: the output buffers, the
-// compile-time frame stack that models the interpreter's scope chain, the
+// compiler holds one Module or Unit compilation's state: the output buffers,
+// the compile-time frame stack that models the interpreter's scope chain, the
 // callable pre-resolution table, and the compile-time escape-strategy and
 // output-writer stacks.
 type compiler struct {
 	src  *source.Source
 	opts Options
+
+	// unit is the multi-template linker state of a Unit compilation, nil for a
+	// single-template Module. When set, composition heads lower through the
+	// statically linked block table instead of the typed subset rejection.
+	unit *unitInfo
+
+	// srcs lists every member template source in link order (the entry first),
+	// srcVars maps each to its generated qSrc variable, and srcStack tracks
+	// which member the statements currently being lowered belong to, so every
+	// generated error position cites the defining template's name and line. A
+	// Module has exactly one member; a Unit pushes a member's variable while
+	// inlining its block bodies.
+	srcs     []*source.Source
+	srcVars  map[*source.Source]string
+	srcStack []string
+
+	// blockCtx is the compile-time equivalent of the interpreter's
+	// curBlock/curBlockDepth pair: the chain entry and depth of the block
+	// definition currently being inlined, so parent() resolves the next
+	// definition down exactly where renderBlockAt would.
+	blockCtx []unitBlockCtx
+
+	// blockInline counts the active block-body inlinings, bounding recursive
+	// block composition (which the interpreter would re-render forever) with a
+	// typed subset rejection instead of unbounded compile-time expansion.
+	blockInline int
 
 	// rootDecls receives the root frame's hoisted binding declarations; body
 	// receives every lowered statement. Non-root frame declarations are
@@ -90,11 +116,15 @@ type compiler struct {
 // block), the AST node the escape analysis keyed its decision on, and the
 // counter and pair-slice locals the optimizer's inline arithmetic reads.
 type loopInfo struct {
-	changed  []changedSite
-	forNode  *ast.Node
-	frame    *frame
-	iVar     string
-	pairsVar string
+	changed []changedSite
+	// changedByNode maps a loop.changed call node to its memory locals, so a
+	// call node a Unit inlines at several sites within ONE loop shares one
+	// memory exactly like the interpreter's per-frame map keyed by node.
+	changedByNode map[*ast.Node]changedSite
+	forNode       *ast.Node
+	frame         *frame
+	iVar          string
+	pairsVar      string
 	// inline marks a loop proven non-escaping: no per-iteration loop value is
 	// bound, and scope-enumerating consumers materialize one on demand.
 	inline bool
@@ -140,7 +170,7 @@ type callableRef struct {
 }
 
 func newCompiler(src *source.Source, opts Options) *compiler {
-	return &compiler{
+	c := &compiler{
 		src:         src,
 		opts:        opts,
 		ind:         1,
@@ -150,7 +180,44 @@ func newCompiler(src *source.Source, opts Options) *compiler {
 		retPrefix:   []string{""},
 		lenient:     opts.LenientVariables,
 		tabWidth:    opts.TabWidth,
+		srcVars:     map[*source.Source]string{},
 	}
+	c.srcStack = []string{c.registerSrc(src)}
+	return c
+}
+
+// registerSrc assigns a generated qSrc variable to one member source: the
+// first registered source (the entry) is qSrc, later members count up from
+// qSrc2 in registration order, so recompilation stays byte-identical.
+func (c *compiler) registerSrc(s *source.Source) string {
+	if v, ok := c.srcVars[s]; ok {
+		return v
+	}
+	v := "qSrc"
+	if len(c.srcs) > 0 {
+		v = fmt.Sprintf("qSrc%d", len(c.srcs)+1)
+	}
+	c.srcs = append(c.srcs, s)
+	c.srcVars[s] = v
+	return v
+}
+
+// srcRef names the qSrc variable of the template whose statements are being
+// lowered, the source every generated error position at this point cites.
+func (c *compiler) srcRef() string { return c.srcStack[len(c.srcStack)-1] }
+
+// pushSrc makes s the current error-position source for a nested inlined body.
+func (c *compiler) pushSrc(s *source.Source) {
+	c.srcStack = append(c.srcStack, c.registerSrc(s))
+}
+
+// popSrc restores the enclosing body's error-position source.
+func (c *compiler) popSrc() { c.srcStack = c.srcStack[:len(c.srcStack)-1] }
+
+// qposE builds the qpos call expression positioning errExpr at line within the
+// template currently being lowered.
+func (c *compiler) qposE(errExpr string, line int) string {
+	return fmt.Sprintf("qpos(%s, %s, %d)", errExpr, c.srcRef(), line)
 }
 
 func autoStrategy(opts Options) string {
@@ -211,10 +278,11 @@ func (c *compiler) ret(expr string) string {
 	return "return " + c.retPrefix[len(c.retPrefix)-1] + expr
 }
 
-// checkErr emits the error check for errVar, positioning it at template line.
+// checkErr emits the error check for errVar, positioning it at template line
+// of the member currently being lowered.
 func (c *compiler) checkErr(errVar string, line int) {
 	c.openf("if %s != nil {", errVar)
-	c.linef(c.ret(fmt.Sprintf("qpos(%s, %d)", errVar, line)))
+	c.linef(c.ret(c.qposE(errVar, line)))
 	c.closeb()
 }
 
@@ -481,7 +549,7 @@ func (c *compiler) readName(name string, line int, allowAbsent bool) string {
 	if !terminal && !allowAbsent && !c.lenient {
 		c.openf("if !%s {", found)
 		hint := c.emitHint()
-		c.linef(c.ret(fmt.Sprintf("qundef(%s, %s, %d)", q(name), hint, line)))
+		c.linef(c.ret(fmt.Sprintf("qundef(%s, %s, %s, %d)", q(name), hint, c.srcRef(), line)))
 		c.closeb()
 	} else {
 		c.linef("_ = %s", found)
