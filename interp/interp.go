@@ -209,6 +209,9 @@ type interp struct {
 	// blocks is the merged block table for the current inheritance chain: a block
 	// name resolves to the most-derived definition. parentChain lists templates
 	// from most-derived to least, so parent() can find the next-up definition.
+	// The map is created on the first recorded definition (appendBlockDef and
+	// execEmbed's override layering), so a chain that defines no blocks renders
+	// against a nil table, which every lookup reads safely.
 	blocks      map[string]*blockEntry
 	parentChain []*Template
 
@@ -222,6 +225,9 @@ type interp struct {
 
 	// macros holds the macro namespace visible to the current render: the root
 	// template's own macros plus any imported under a namespace or selectively.
+	// It is created when the first macro binds (loadMacros over a template that
+	// declares macros, or loadImport's selective @from arm), so a macro-free
+	// render keeps a nil namespace that every lookup reads safely.
 	macros map[string]*macroEntry
 
 	// curBlock / curBlockDepth track the block being rendered so parent() inside
@@ -233,7 +239,10 @@ type interp struct {
 	// regexps merges the literal-`matches` regexp caches of every template that
 	// enters this render (the root, its inheritance parents, and macro homes), so
 	// matches() reuses one compile per literal pattern instead of recompiling each
-	// evaluation. Seeded from each template's Prepare-built table via absorb.
+	// evaluation. Seeded from each template's Prepare-built table via absorb,
+	// which creates the map on the first non-empty table it merges; a render
+	// with no literal patterns keeps it nil, and the matches() lookup reads a
+	// nil map safely.
 	regexps map[*ast.Node]*regexp.Regexp
 
 	// sandboxOn is the active sandbox gate for this render (spec 04 Section 8.3,
@@ -266,11 +275,21 @@ type interp struct {
 	// within one loop and each tracks independently.
 	loopChanged []map[*ast.Node]runtime.Value
 
+	// slotOwner is the interp whose slot state this render contributes to: the
+	// interp itself for a top-level render, or the top-level ancestor for a
+	// nested render (an include or embed) after shareSlotsFrom. Routing every
+	// slot access through the owner keeps one shared slots map and one yield
+	// token per top-level render while both stay unallocated until a slot
+	// construct actually runs.
+	slotOwner *interp
+
 	// slots holds the named accumulating content buffers of @provide/@yield: each
 	// @provide label appends its rendered body to slots[label] in execution order,
 	// and @yield label (or the slot(label) function) surfaces the accumulated
 	// content once. The append order is the deterministic render order across every
-	// contributing site (design/composition, named accumulating slots).
+	// contributing site (design/composition, named accumulating slots). The map
+	// lives on the slot owner and is created by the first @provide; every access
+	// routes through slotOwner, so a slot-free render keeps it nil.
 	slots map[string]*strings.Builder
 
 	// yieldedLabels records every label a deferred @yield reserved, so resolveSlots
@@ -284,7 +303,10 @@ type interp struct {
 	// accumulated content. This DEFERRAL is what lets a file shell @yield a slot at
 	// the TOP and have partials feed it further down -- the collect-many-emit-once
 	// use case (design/composition). The token embeds a per-render counter so slot
-	// content, which is authored text, never collides with it.
+	// content, which is authored text, never collides with it. It lives on the
+	// slot owner and is minted by yieldTok on the first @yield, so a render that
+	// defers nothing keeps it empty; consumers that scan output for it (the
+	// @cache slot gate) treat the empty token as "no deferral ran".
 	yieldToken string
 
 	// caller is the caller() binding visible in the macro body a @call currently
@@ -341,6 +363,10 @@ type macroEntry struct {
 	node *ast.Node
 }
 
+// newInterp builds one render's interp. The block, macro, regexp, and slot
+// state all start nil and materialize on first use, so a render that never
+// touches a feature never allocates its scaffolding; only the fields with
+// non-zero defaults are set here.
 func newInterp(eng Engine, root *Template, out Sink) *interp {
 	autoesc := ""
 	if eng.AutoescapeHTML() {
@@ -350,16 +376,14 @@ func newInterp(eng Engine, root *Template, out Sink) *interp {
 		eng:         eng,
 		out:         out,
 		root:        root,
-		blocks:      map[string]*blockEntry{},
-		macros:      map[string]*macroEntry{},
 		escape:      autoesc,
-		regexps:     map[*ast.Node]*regexp.Regexp{},
 		sandboxOn:   eng.SandboxActive(),
 		atLineStart: true,
-		slots:       map[string]*strings.Builder{},
-		yieldToken:  newYieldToken(),
 		cov:         eng.Coverage(),
 	}
+	// Every interp starts as its own slot owner; a nested render redirects to
+	// its parent's owner via shareSlotsFrom.
+	in.slotOwner = in
 	in.absorb(root)
 	return in
 }
@@ -368,11 +392,16 @@ func newInterp(eng Engine, root *Template, out Sink) *interp {
 // lookup, so matches() can find the Prepare-compiled regexp for any literal
 // pattern node reachable in the render. It is called as each template enters the
 // render (root at construction, parents in buildChain, macro homes in
-// loadMacros). Nodes absent from the lookup (dynamic patterns, or a template not
-// yet absorbed) fall back to a runtime compile.
+// loadMacros). The lookup map is created on the first non-empty table merged,
+// sized for it, so absorbing pattern-free templates costs nothing. Nodes absent
+// from the lookup (dynamic patterns, or a template not yet absorbed) fall back
+// to a runtime compile.
 func (in *interp) absorb(t *Template) {
-	if t == nil {
+	if t == nil || len(t.regexps) == 0 {
 		return
+	}
+	if in.regexps == nil {
+		in.regexps = make(map[*ast.Node]*regexp.Regexp, len(t.regexps))
 	}
 	for n, re := range t.regexps {
 		in.regexps[n] = re

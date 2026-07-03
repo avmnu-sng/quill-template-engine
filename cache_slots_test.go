@@ -86,6 +86,66 @@ func TestCacheRegionWithIncludedProvideKeepsAccumulating(t *testing.T) {
 	}
 }
 
+// TestCacheRegionWithoutSlotsIsServedFromStore proves the replay path of a
+// slot-free region end to end: the first render must store the body, and a
+// later render must emit the stored bytes instead of re-rendering. The yield
+// token of a render with zero slot activity is never minted, and an unguarded
+// scan for the empty token matches every string, so a regression here shows up
+// as the region silently rendering fresh (the sentinel never appearing).
+func TestCacheRegionWithoutSlotsIsServedFromStore(t *testing.T) {
+	tmpls := map[string]string{
+		"plain.ql": "@cache key=\"p\" {\nbody\n@}\n",
+	}
+	env := New(loader.NewArrayLoader(tmpls))
+	if _, err := env.Render("plain.ql", nil); err != nil {
+		t.Fatalf("first render: %v", err)
+	}
+	if _, ok := env.RenderCache().Get("plain.ql\x00p"); !ok {
+		t.Fatal("slot-free cache region was not memoized")
+	}
+	env.RenderCache().Put("plain.ql\x00p", "SENTINEL\n", nil)
+	second, err := env.Render("plain.ql", nil)
+	if err != nil {
+		t.Fatalf("second render: %v", err)
+	}
+	if !strings.Contains(second, "SENTINEL") {
+		t.Fatalf("second render did not replay the stored body: %q", second)
+	}
+}
+
+// TestCacheRegionSlotFreeAmidSlotActivity pins that slot machinery running
+// OUTSIDE a cache region never poisons the region's cacheability, in both
+// orderings around the region: a @provide that runs before it (slot buffers
+// exist, yield token still unminted at region time) and a @yield that runs
+// before it (token minted, but the region's own output is token-free). Both
+// regions must be memoized.
+func TestCacheRegionSlotFreeAmidSlotActivity(t *testing.T) {
+	tmpls := map[string]string{
+		"pre.ql":  "@provide syms {\nSYM\n@}\n@cache key=\"side\" {\nplain-body\n@}\n@yield syms\n",
+		"post.ql": "@yield syms\n@cache key=\"side\" {\nplain-body\n@}\n@provide syms {\nSYM\n@}\n",
+	}
+	env := New(loader.NewArrayLoader(tmpls))
+	for _, name := range []string{"pre.ql", "post.ql"} {
+		first, err := env.Render(name, nil)
+		if err != nil {
+			t.Fatalf("%s first render: %v", name, err)
+		}
+		if _, ok := env.RenderCache().Get(name + "\x00side"); !ok {
+			t.Fatalf("%s: slot-free cache region amid slot activity was not memoized", name)
+		}
+		second, err := env.Render(name, nil)
+		if err != nil {
+			t.Fatalf("%s second render: %v", name, err)
+		}
+		if first != second {
+			t.Fatalf("%s diverged across renders\nfirst:  %q\nsecond: %q", name, first, second)
+		}
+		if !strings.Contains(second, "SYM") {
+			t.Fatalf("%s: second render lost the provided slot content: %q", name, second)
+		}
+	}
+}
+
 // TestCacheRegionSlotGating asserts the store contents directly: a slot-free
 // region is memoized under its namespaced key, while a slot-using region is
 // not stored at all (the render cache keys are root name + NUL + user key).

@@ -30,17 +30,29 @@ func newYieldToken() string {
 }
 
 // shareSlotsFrom makes this (nested) interp contribute to and read from the
-// parent render's slot state instead of its own: the same slot buffers, the same
-// render-unique yield token, and the same coverage collector. A @provide in an
-// included or embedded partial then appends to the parent's buffer, and a @yield
-// writes a placeholder the parent's single top-level resolveSlots backfills. This
-// is what lets body partials feed a shell's @yield region and keeps a
+// parent render's slot state instead of its own: the same slot buffers and the
+// same render-unique yield token, reached through the shared slot owner. A
+// @provide in an included or embedded partial then appends to the owner's
+// buffer -- even one the owner creates lazily after this share -- and a @yield
+// writes a placeholder the parent's single top-level resolveSlots backfills.
+// This is what lets body partials feed a shell's @yield region and keeps a
 // self-contained partial correct in isolation (design/composition, named
 // accumulating slots). Labels a nested @yield reserves are merged back into the
 // parent by mergeYieldedInto after the sub-render.
 func (in *interp) shareSlotsFrom(parent *interp) {
-	in.slots = parent.slots
-	in.yieldToken = parent.yieldToken
+	in.slotOwner = parent.slotOwner
+}
+
+// yieldTok returns this render's unique placeholder wrapper, minting it on the
+// slot owner at first use so a render that never defers a slot skips the token
+// allocation entirely. Every nested interp routes through the same owner, so
+// all contributors of one top-level render agree on one token.
+func (in *interp) yieldTok() string {
+	own := in.slotOwner
+	if own.yieldToken == "" {
+		own.yieldToken = newYieldToken()
+	}
+	return own.yieldToken
 }
 
 // mergeYieldedInto appends the labels this nested interp's @yield statements
@@ -64,10 +76,16 @@ func (in *interp) execProvide(n *ast.Node, ctx *runtime.Scope) error {
 	if err != nil {
 		return err
 	}
-	buf, ok := in.slots[n.Str]
+	// The buffers live on the slot owner so nested contributors share them; the
+	// render's first @provide creates the map itself.
+	own := in.slotOwner
+	buf, ok := own.slots[n.Str]
 	if !ok {
+		if own.slots == nil {
+			own.slots = map[string]*strings.Builder{}
+		}
 		buf = &strings.Builder{}
-		in.slots[n.Str] = buf
+		own.slots[n.Str] = buf
 	}
 	buf.WriteString(out)
 	return nil
@@ -82,8 +100,9 @@ func (in *interp) execProvide(n *ast.Node, ctx *runtime.Scope) error {
 // written verbatim so it survives escaping untouched; the resolved content was
 // already produced through the active escaper by its @provide bodies.
 func (in *interp) execYield(n *ast.Node, ctx *runtime.Scope) error {
+	tok := in.yieldTok()
 	in.yieldedLabels = append(in.yieldedLabels, n.Str)
-	return posErr(n, in.emitString(in.yieldToken+n.Str+in.yieldToken))
+	return posErr(n, in.emitString(tok+n.Str+tok))
 }
 
 // resolveSlots substitutes every deferred @yield placeholder in the finished
@@ -95,16 +114,19 @@ func (in *interp) resolveSlots(out string) string {
 	if len(in.yieldedLabels) == 0 {
 		return out
 	}
+	// A reserved label proves some @yield ran, so the owner's token is minted.
+	tok := in.slotOwner.yieldToken
 	for _, label := range in.yieldedLabels {
-		placeholder := in.yieldToken + label + in.yieldToken
+		placeholder := tok + label + tok
 		out = strings.ReplaceAll(out, placeholder, in.slotContent(label))
 	}
 	return out
 }
 
 // slotContent returns a slot's accumulated text, or "" when nothing provided it.
+// The lookup routes through the slot owner, where every contribution lands.
 func (in *interp) slotContent(label string) string {
-	if buf, ok := in.slots[label]; ok {
+	if buf, ok := in.slotOwner.slots[label]; ok {
 		return buf.String()
 	}
 	return ""

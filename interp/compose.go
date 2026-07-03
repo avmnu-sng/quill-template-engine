@@ -185,6 +185,11 @@ func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Scope) {
 			if item.Bool {
 				local = item.Child(0).Str // the alias KindName
 			}
+			// A @from into a render whose root declares no macros binds the render's
+			// first macro, so it creates the lazily-built namespace map here.
+			if in.macros == nil {
+				in.macros = map[string]*macroEntry{}
+			}
 			in.macros[local] = &macroEntry{home: src, node: node}
 		}
 	}
@@ -623,6 +628,11 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Scope) error {
 			e.chain = append([]blockDef{def}, e.chain...)
 			e.node = node
 		} else {
+			// An override onto a blockless embedded template records the sub-render's
+			// first definition, so it creates the lazily-built block table here.
+			if sub.blocks == nil {
+				sub.blocks = map[string]*blockEntry{}
+			}
 			sub.blocks[name] = &blockEntry{owner: tmpl, node: node, chain: []blockDef{def}}
 		}
 	}

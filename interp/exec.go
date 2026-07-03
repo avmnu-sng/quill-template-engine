@@ -111,9 +111,10 @@ func (in *interp) resolveExtendsName(extends *ast.Node, ctx *runtime.Scope) (str
 // blocks it pulls in via @use, so a template's own definition wins over a trait's
 // and parent() reaches the trait version before the extends-parent version (spec
 // 01 Section 5.4) -- it returns an error if a @use target is missing or not
-// traitable, or an alias names a block the trait does not define.
+// traitable, or an alias names a block the trait does not define. The table
+// itself materializes inside appendBlockDef on the first definition, so a
+// chain that defines no blocks renders against a nil table.
 func (in *interp) buildBlockTable(chain []*Template) error {
-	in.blocks = map[string]*blockEntry{}
 	for _, t := range chain {
 		// A template's own block definitions take precedence over any trait blocks
 		// it uses, so own defs are merged first; traits follow in source order.
@@ -130,11 +131,15 @@ func (in *interp) buildBlockTable(chain []*Template) error {
 
 // appendBlockDef records one definition for a block name: it becomes the entry's
 // most-derived definition when the name is new, otherwise it is appended to the
-// existing definition chain (so parent() walks to it).
+// existing definition chain (so parent() walks to it). The first definition of
+// the render creates the block table, keeping a blockless render map-free.
 func (in *interp) appendBlockDef(name string, def blockDef) {
 	if e, ok := in.blocks[name]; ok {
 		e.chain = append(e.chain, def)
 		return
+	}
+	if in.blocks == nil {
+		in.blocks = map[string]*blockEntry{}
 	}
 	in.blocks[name] = &blockEntry{owner: def.owner, node: def.node, chain: []blockDef{def}}
 }
@@ -229,12 +234,16 @@ func (in *interp) useAliases(use *ast.Node) (map[string]string, error) {
 // loadMacros populates the macro namespace: the root template's own macros plus
 // any brought in by file-scope @import (namespace) and @from (selective). A
 // macro's lexical home (for its own visible namespace and globals) is recorded
-// (spec 01 Section 5.3).
+// (spec 01 Section 5.3). The namespace map materializes only when a macro
+// actually binds -- here for declared macros, sized for them, or inside
+// loadImport for a selective @from -- so a macro-free render keeps it nil.
 func (in *interp) loadMacros(tmpl *Template, ctx *runtime.Scope) {
-	in.macros = map[string]*macroEntry{}
-	for _, name := range tmpl.macroOrder {
-		node, _ := tmpl.Macro(name)
-		in.macros[name] = &macroEntry{home: tmpl, node: node}
+	if len(tmpl.macroOrder) > 0 {
+		in.macros = make(map[string]*macroEntry, len(tmpl.macroOrder))
+		for _, name := range tmpl.macroOrder {
+			node, _ := tmpl.Macro(name)
+			in.macros[name] = &macroEntry{home: tmpl, node: node}
+		}
 	}
 	for _, imp := range tmpl.imports {
 		in.loadImport(imp, ctx)
@@ -923,9 +932,13 @@ func (in *interp) execCache(n *ast.Node, ctx *runtime.Scope) error {
 	// silently lose. Such a region renders fresh every time; correctness wins
 	// over memoization. The slot stamp catches provides from nested includes and
 	// embeds too, because they append into this render's shared slot buffers.
+	// The token scan runs only once a @yield minted the token: every string
+	// contains the empty unminted token, so scanning for it would classify
+	// every region as slot-using and silently disable @cache storage.
 	postLabels, postBytes := in.slotStamp()
+	tok := in.slotOwner.yieldToken
 	usedSlots := postLabels != preLabels || postBytes != preBytes ||
-		strings.Contains(out, in.yieldToken)
+		(tok != "" && strings.Contains(out, tok))
 	if rc != nil && !usedSlots {
 		tags, err := in.evalCacheTags(tagsExpr, ctx)
 		if err != nil {
@@ -938,12 +951,14 @@ func (in *interp) execCache(n *ast.Node, ctx *runtime.Scope) error {
 
 // slotStamp summarizes the deferred-slot state as (label count, total buffered
 // bytes). Slot buffers only ever grow, so an unchanged stamp across a capture
-// proves no @provide ran inside it.
+// proves no @provide ran inside it. The buffers live on the slot owner, so the
+// stamp sees contributions from every nested interp of this render.
 func (in *interp) slotStamp() (labels, bytes int) {
-	for _, b := range in.slots {
+	own := in.slotOwner
+	for _, b := range own.slots {
 		bytes += b.Len()
 	}
-	return len(in.slots), bytes
+	return len(own.slots), bytes
 }
 
 // evalCacheTags evaluates the optional tags expression to a list of strings.
