@@ -363,6 +363,17 @@ type interp struct {
 	// loop (design/composition, recursive @for).
 	recursiveLoops []*recursiveLoop
 
+	// lastFilterName and lastFilter memoize the most recent filter-registry
+	// resolution so consecutive pipes through the same filter -- the loop-body
+	// pattern -- skip the registry map lookup. The pair caches resolution only,
+	// never dispatch state: the pointer is exactly what Extensions().Filter
+	// returned, so host shadowing (decided when the registry was built) is
+	// honored, and the registry is fixed for the render because its maps are
+	// unsynchronized, making mid-render mutation unsupported regardless of the
+	// memo. Nested renders build their own interp and thus their own memo.
+	lastFilterName string
+	lastFilter     *ext.Filter
+
 	// cov is the coverage Collector for this render, or nil when coverage is off.
 	// When nil every coverage hook (in cover.go) is a single nil comparison the
 	// branch predictor makes free -- the zero-overhead-when-disabled guarantee. It

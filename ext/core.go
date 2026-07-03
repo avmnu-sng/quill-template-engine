@@ -29,23 +29,52 @@ func Core() *ExtensionSet {
 }
 
 func registerCoreFilters(s *ExtensionSet) {
-	s.AddFilter(&Filter{Name: "upper", Fn: filterUpper})
-	s.AddFilter(&Filter{Name: "lower", Fn: filterLower})
+	addFilterFast1(s, NewFilter1("upper", filterUpper1))
+	addFilterFast1(s, NewFilter1("lower", filterLower1))
 	s.AddFilter(&Filter{Name: "default", Fn: filterDefault})
-	s.AddFilter(&Filter{Name: "length", Fn: filterLength})
+	addFilterFast1(s, NewFilter1("length", filterLength1))
 	s.AddFilter(&Filter{Name: "join", Fn: filterJoin})
-	s.AddFilter(&Filter{Name: "trim", Fn: filterTrim})
+	addFilterFast1(s, &Filter{Name: "trim", Fn: filterTrim, Fn1: filterTrim1})
 	s.AddFilter(&Filter{Name: "replace", Fn: filterReplace})
-	s.AddFilter(&Filter{Name: "raw", Fn: filterRaw})
+	addFilterFast1(s, NewFilter1("raw", filterRaw1))
 	s.AddFilter(&Filter{Name: "escape", Fn: filterEscape})
 	s.AddFilter(&Filter{Name: "e", Fn: filterEscape}) // alias
-	s.AddFilter(&Filter{Name: "first", Fn: filterFirst})
-	s.AddFilter(&Filter{Name: "last", Fn: filterLast})
-	s.AddFilter(&Filter{Name: "keys", Fn: filterKeys})
-	s.AddFilter(&Filter{Name: "reverse", Fn: filterReverse})
+	addFilterFast1(s, NewFilter1("first", filterFirst1))
+	addFilterFast1(s, NewFilter1("last", filterLast1))
+	addFilterFast1(s, NewFilter1("keys", filterKeys1))
+	addFilterFast1(s, &Filter{Name: "reverse", Fn: filterReverse, Fn1: filterReverse1})
 	s.AddFilter(&Filter{Name: "sort", Fn: filterSortArrow})
 	s.AddFilter(&Filter{Name: "merge", Fn: filterMerge})
 	s.AddFilter(&Filter{Name: "slice", Fn: filterSlice})
+}
+
+// sandboxChokeFilters names the filters the interpreter's sandbox choke points
+// treat specially by name: the string-coercion gate (B12) scans join/replace/
+// split arguments, and the arrow-gating rule (B13) governs the callable
+// arguments of the higher-order collection filters. The Fn1 fast call skips
+// the argument-slice build those gates scan, so the audited Fn1 set must stay
+// disjoint from these names; addFilterFast1 enforces the disjointness at
+// registration time, before any template can render.
+var sandboxChokeFilters = map[string]bool{
+	"join":    true,
+	"replace": true,
+	"split":   true,
+	"map":     true,
+	"filter":  true,
+	"sort":    true,
+	"reduce":  true,
+	"find":    true,
+}
+
+// addFilterFast1 registers a stdlib filter that carries an Fn1 fast call,
+// panicking when the name collides with a sandbox choke-point filter. Core()
+// runs on every engine construction, so a bad audited registration fails the
+// process immediately rather than silently bypassing a sandbox gate.
+func addFilterFast1(s *ExtensionSet, f *Filter) {
+	if f.Fn1 != nil && sandboxChokeFilters[f.Name] {
+		panic("ext: core filter " + f.Name + " is a sandbox choke point and must not carry an Fn1 fast call")
+	}
+	s.AddFilter(f)
 }
 
 func registerCoreFunctions(s *ExtensionSet) {
@@ -84,37 +113,55 @@ func arg(args []runtime.Value, i int) runtime.Value {
 
 // --- string filters ---
 
-func filterUpper(args []runtime.Value) (runtime.Value, error) {
-	s, err := wantString(arg(args, 0))
+// filterUpper1 is the unary upper implementation; the pipe form and the fast
+// call share it, so the two dispatch routes are one function.
+func filterUpper1(v runtime.Value) (runtime.Value, error) {
+	s, err := wantString(v)
 	if err != nil {
 		return runtime.Null(), err
 	}
 	return runtime.Str(strings.ToUpper(s)), nil
 }
 
-func filterLower(args []runtime.Value) (runtime.Value, error) {
-	s, err := wantString(arg(args, 0))
+// filterLower1 is the unary lower implementation shared by both dispatch routes.
+func filterLower1(v runtime.Value) (runtime.Value, error) {
+	s, err := wantString(v)
 	if err != nil {
 		return runtime.Null(), err
 	}
 	return runtime.Str(strings.ToLower(s)), nil
 }
 
+// defaultTrimMask is trim's default character set: ASCII+Unicode whitespace
+// (spec 03 Section 2.1), shared by the general and unary trim paths.
+const defaultTrimMask = " \t\n\r\x00\x0B"
+
+// filterTrim1 is trim's zero-extra-argument behavior (both sides, the default
+// whitespace mask); filterTrim delegates the argument-less call here so the
+// fast call and the general path cannot drift.
+func filterTrim1(v runtime.Value) (runtime.Value, error) {
+	s, err := wantString(v)
+	if err != nil {
+		return runtime.Null(), err
+	}
+	return runtime.Str(strings.Trim(s, defaultTrimMask)), nil
+}
+
 // filterTrim covers left, right, and both-side trimming: side in both/left/right
 // (aliases b/l/r), mask defaults to ASCII+Unicode whitespace (spec 03 Section 2.1).
 func filterTrim(args []runtime.Value) (runtime.Value, error) {
+	if len(args) <= 1 {
+		return filterTrim1(arg(args, 0))
+	}
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
 	}
-	side := "both"
-	if len(args) > 1 {
-		side, err = wantString(args[1])
-		if err != nil {
-			return runtime.Null(), err
-		}
+	side, err := wantString(args[1])
+	if err != nil {
+		return runtime.Null(), err
 	}
-	mask := " \t\n\r\x00\x0B"
+	mask := defaultTrimMask
 	if len(args) > 2 {
 		mask, err = wantString(args[2])
 		if err != nil {
@@ -164,11 +211,11 @@ func filterReplace(args []runtime.Value) (runtime.Value, error) {
 
 // --- safeness filters ---
 
-// filterRaw marks content already-safe. Under the default (escaping off) it is a
-// passthrough; the interpreter's escape pass leaves a Safe value untouched. Its
-// effect is load-bearing only under an escape-on region (spec 03 Section 5.4).
-func filterRaw(args []runtime.Value) (runtime.Value, error) {
-	v := arg(args, 0)
+// filterRaw1 marks content already-safe. Under the default (escaping off) it is
+// a passthrough; the interpreter's escape pass leaves a Safe value untouched.
+// Its effect is load-bearing only under an escape-on region (spec 03 Section
+// 5.4). It is the unary implementation both dispatch routes share.
+func filterRaw1(v runtime.Value) (runtime.Value, error) {
 	s, err := runtime.ToText(v)
 	if err != nil {
 		return runtime.Null(), err
@@ -217,10 +264,9 @@ func filterDefault(args []runtime.Value) (runtime.Value, error) {
 	return v, nil
 }
 
-// filterLength returns string runes, collection count, or 1 for a scalar (spec
-// 03 Section 2.2).
-func filterLength(args []runtime.Value) (runtime.Value, error) {
-	v := arg(args, 0)
+// filterLength1 returns string runes, collection count, or 1 for a scalar
+// (spec 03 Section 2.2); the unary implementation both dispatch routes share.
+func filterLength1(v runtime.Value) (runtime.Value, error) {
 	switch v.Kind {
 	case runtime.KStr, runtime.KSafe:
 		return runtime.Int(int64(len([]rune(v.S)))), nil
@@ -286,20 +332,30 @@ func filterJoin(args []runtime.Value) (runtime.Value, error) {
 	return runtime.Str(strings.Join(parts, glue)), nil
 }
 
-// filterKeys returns the keys of a collection as a list, in insertion order
-// (spec 03 Section 2.2).
-func filterKeys(args []runtime.Value) (runtime.Value, error) {
-	v := arg(args, 0)
+// filterLength adapts the unary length implementation to the n-ary callable
+// shape, backing the len() function alias (spec 03 Section 3.4).
+func filterLength(args []runtime.Value) (runtime.Value, error) {
+	return filterLength1(arg(args, 0))
+}
+
+// filterKeys1 returns the keys of a collection as a list, in insertion order
+// (spec 03 Section 2.2); the unary implementation both dispatch routes share.
+func filterKeys1(v runtime.Value) (runtime.Value, error) {
 	if v.Kind != runtime.KArray || v.Arr == nil {
 		return runtime.Arr(runtime.NewArray()), nil
 	}
 	return runtime.Arr(runtime.NewList(v.Arr.Keys()...)), nil
 }
 
-// filterFirst returns the first element of a collection or the first rune of a
-// string (spec 03 Section 2.1).
-func filterFirst(args []runtime.Value) (runtime.Value, error) {
-	v := arg(args, 0)
+// filterKeys adapts the unary keys implementation to the n-ary callable shape,
+// backing the keys() function alias (spec 03 Section 3.4).
+func filterKeys(args []runtime.Value) (runtime.Value, error) {
+	return filterKeys1(arg(args, 0))
+}
+
+// filterFirst1 returns the first element of a collection or the first rune of
+// a string (spec 03 Section 2.1); the unary implementation both routes share.
+func filterFirst1(v runtime.Value) (runtime.Value, error) {
 	switch v.Kind {
 	case runtime.KArray:
 		if v.Arr == nil || v.Arr.Len() == 0 {
@@ -317,9 +373,9 @@ func filterFirst(args []runtime.Value) (runtime.Value, error) {
 	}
 }
 
-// filterLast returns the last element / last rune (spec 03 Section 2.1).
-func filterLast(args []runtime.Value) (runtime.Value, error) {
-	v := arg(args, 0)
+// filterLast1 returns the last element / last rune (spec 03 Section 2.1); the
+// unary implementation both dispatch routes share.
+func filterLast1(v runtime.Value) (runtime.Value, error) {
 	switch v.Kind {
 	case runtime.KArray:
 		if v.Arr == nil || v.Arr.Len() == 0 {
@@ -338,14 +394,26 @@ func filterLast(args []runtime.Value) (runtime.Value, error) {
 	}
 }
 
-// filterReverse reverses a collection (keys preserved by default) or a string by
-// runes (spec 03 Section 2.2).
+// filterReverse reverses a collection (keys preserved by default) or a string
+// by runes (spec 03 Section 2.2). It parses the optional preserve-keys flag and
+// delegates to the shared core.
 func filterReverse(args []runtime.Value) (runtime.Value, error) {
-	v := arg(args, 0)
 	preserveKeys := true
 	if len(args) > 1 {
 		preserveKeys = runtime.Truthy(args[1])
 	}
+	return reverseCore(arg(args, 0), preserveKeys)
+}
+
+// filterReverse1 is reverse's zero-extra-argument behavior (keys preserved),
+// routed through the same core as the general path so the two cannot drift.
+func filterReverse1(v runtime.Value) (runtime.Value, error) {
+	return reverseCore(v, true)
+}
+
+// reverseCore is the single reverse implementation behind filterReverse and
+// filterReverse1.
+func reverseCore(v runtime.Value, preserveKeys bool) (runtime.Value, error) {
 	switch v.Kind {
 	case runtime.KStr, runtime.KSafe:
 		r := []rune(v.S)

@@ -103,7 +103,13 @@ func (c *compiler) emitInject(cv, args string) {
 // exprFilter lowers "x | name(args)" like evalFilter: the piped value is the
 // first argument (evaluated under undefined suppression for the default
 // filter), the filter resolves through the registry at the call site, and the
-// Needs* injection prepends engine values.
+// Needs* injection prepends engine values. A site with zero explicit
+// arguments branches on the hoisted fast flag: when the resolved filter
+// publishes Fn1 and needs no injection, the call dispatches on the piped
+// value alone and no argument slice exists; the else arm is the general path
+// verbatim, so a filter without Fn1 (every host filter that does not opt in)
+// is lowered exactly as before. The unknown-filter check stays at the call
+// site because its timing is observable in streamed output.
 func (c *compiler) exprFilter(n *ast.Node) (string, error) {
 	piped, err := c.expr(n.Child(0), n.Str == "default")
 	if err != nil {
@@ -114,13 +120,32 @@ func (c *compiler) exprFilter(n *ast.Node) (string, error) {
 	c.openf("if !%s {", fok)
 	c.linef(c.ret(fmt.Sprintf("qpos(qerrors.New(qerrors.KindRuntime, \"unknown filter %%q\", %s), %d)", q(n.Str), n.Line)))
 	c.closeb()
+	v := c.tmp("qt")
+	e := c.tmp("qe")
+	if count, static := staticArgCount(n); static && count == 0 {
+		ffast := c.callableFilterFast(n.Str)
+		c.linef("var %s runtime.Value", v)
+		c.linef("var %s error", e)
+		c.openf("if %s {", ffast)
+		c.linef("%s, %s = %s.Fn1(%s)", v, e, fv, piped)
+		c.ind--
+		c.linef("} else {")
+		c.ind++
+		args, err := c.collectArgs(n, []string{piped})
+		if err != nil {
+			return "", err
+		}
+		c.emitInject(fv, args)
+		c.linef("%s, %s = %s.Fn(%s)", v, e, fv, args)
+		c.closeb()
+		c.checkErr(e, n.Line)
+		return v, nil
+	}
 	args, err := c.collectArgs(n, []string{piped})
 	if err != nil {
 		return "", err
 	}
 	c.emitInject(fv, args)
-	v := c.tmp("qt")
-	e := c.tmp("qe")
 	c.linef("%s, %s := %s.Fn(%s)", v, e, fv, args)
 	c.checkErr(e, n.Line)
 	return v, nil

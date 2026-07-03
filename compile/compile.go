@@ -338,6 +338,16 @@ func (c *compiler) assemble() []byte {
 	for _, cr := range c.callables {
 		fmt.Fprintf(&b, "\t%s, %s := exts.%s(%s)\n", cr.val, cr.ok, cr.method, strconv.QuoteToASCII(cr.name))
 		fmt.Fprintf(&b, "\t_, _ = %s, %s\n", cr.val, cr.ok)
+		if cr.fast == "" {
+			continue
+		}
+		// The arity-known dispatch decision, hoisted with the lookup: the
+		// filter's Fn1 runs only when it exists and no Needs* flag asks for
+		// engine-value injection, so a host re-registration without Fn1 or
+		// with injection flags turns every site back to the general path.
+		fmt.Fprintf(&b, "\t%s := %s && %s.Fn1 != nil && !%s.NeedsEnvironment && !%s.NeedsContext && !%s.NeedsCharset\n",
+			cr.fast, cr.ok, cr.val, cr.val, cr.val, cr.val)
+		fmt.Fprintf(&b, "\t_ = %s\n", cr.fast)
 	}
 	b.Write(c.rootDecls.Bytes())
 	b.Write(c.body.Bytes())

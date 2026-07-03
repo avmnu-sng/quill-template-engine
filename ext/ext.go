@@ -27,11 +27,41 @@ type Filter struct {
 	Name string
 	Fn   func(args []runtime.Value) (runtime.Value, error)
 
+	// Fn1 is the optional arity-known fast call: the filter's behavior for a
+	// bare pipe x | name with no explicit arguments. The engine consults it
+	// only when the call site proved zero explicit arguments syntactically and
+	// no Needs* flag is set; every other invocation builds a fresh argument
+	// slice and goes through Fn, so an implementation retaining or scanning
+	// its slice is unaffected. A registration that sets Fn1 must keep Fn's
+	// zero-extra-argument behavior identical to Fn1 (the core registrations
+	// route both through one unary implementation), because which of the two
+	// runs is an engine-internal dispatch choice, never observable. Fn1 makes
+	// unkeyed Filter composite literals position-sensitive; construct Filter
+	// values with keyed literals or NewFilter1.
+	Fn1 func(v runtime.Value) (runtime.Value, error)
+
 	// Injection flags (spec 03 Section 3.6). When set, the interpreter prepends
 	// the named engine value ahead of the piped value and user arguments.
 	NeedsEnvironment bool
 	NeedsContext     bool
 	NeedsCharset     bool
+}
+
+// NewFilter1 builds a Filter from one unary implementation: fn becomes the
+// Fn1 fast call and Fn applies fn to the first argument (the piped value), so
+// the two dispatch routes cannot drift apart. It suits filters that read only
+// the piped value; a filter that consumes optional arguments or Needs*
+// injection sets Fn and Fn1 explicitly, sharing a core, and a filter built
+// here must keep its Needs* flags unset because the wrapped Fn reads the
+// piped value at position zero, where an injected engine value would land.
+func NewFilter1(name string, fn func(v runtime.Value) (runtime.Value, error)) *Filter {
+	return &Filter{
+		Name: name,
+		Fn: func(args []runtime.Value) (runtime.Value, error) {
+			return fn(arg(args, 0))
+		},
+		Fn1: fn,
+	}
 }
 
 // Function is a callable invoked as name(args) with all arguments explicit (spec

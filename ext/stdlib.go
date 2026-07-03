@@ -40,8 +40,8 @@ func registerStdlib(s *ExtensionSet) {
 // --- string filters ---------------------------------------------------------
 
 func registerStringFilters(s *ExtensionSet) {
-	s.AddFilter(&Filter{Name: "capitalize", Fn: filterCapitalize})
-	s.AddFilter(&Filter{Name: "title", Fn: filterTitle})
+	addFilterFast1(s, NewFilter1("capitalize", filterCapitalize1))
+	addFilterFast1(s, NewFilter1("title", filterTitle1))
 	s.AddFilter(&Filter{Name: "ucfirst", Fn: filterUcfirst})
 	s.AddFilter(&Filter{Name: "nl2br", Fn: filterNl2br})
 	s.AddFilter(&Filter{Name: "spaceless", Fn: filterSpaceless})
@@ -51,10 +51,11 @@ func registerStringFilters(s *ExtensionSet) {
 	s.AddFilter(&Filter{Name: "convert_encoding", Fn: filterConvertEncoding})
 }
 
-// filterCapitalize upper-cases the first rune and lower-cases the rest (spec 03
-// Section 2.1). Distinct from ucfirst, which leaves the remainder unchanged.
-func filterCapitalize(args []runtime.Value) (runtime.Value, error) {
-	s, err := wantString(arg(args, 0))
+// filterCapitalize1 upper-cases the first rune and lower-cases the rest (spec
+// 03 Section 2.1). Distinct from ucfirst, which leaves the remainder unchanged.
+// The unary implementation both dispatch routes share.
+func filterCapitalize1(v runtime.Value) (runtime.Value, error) {
+	s, err := wantString(v)
 	if err != nil {
 		return runtime.Null(), err
 	}
@@ -67,10 +68,11 @@ func filterCapitalize(args []runtime.Value) (runtime.Value, error) {
 	return runtime.Str(head + tail), nil
 }
 
-// filterTitle upper-cases the first rune of each word and lower-cases the rest
-// (spec 03 Section 2.1). A word boundary is any non-letter/non-digit rune.
-func filterTitle(args []runtime.Value) (runtime.Value, error) {
-	s, err := wantString(arg(args, 0))
+// filterTitle1 upper-cases the first rune of each word and lower-cases the
+// rest (spec 03 Section 2.1). A word boundary is any non-letter/non-digit
+// rune. The unary implementation both dispatch routes share.
+func filterTitle1(v runtime.Value) (runtime.Value, error) {
+	s, err := wantString(v)
 	if err != nil {
 		return runtime.Null(), err
 	}

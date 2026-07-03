@@ -103,12 +103,16 @@ type changedSite struct {
 }
 
 // callableRef is one pre-resolved registry lookup: the ExtensionSet accessor
-// method, the callable name, and the generated value/ok variable names.
+// method, the callable name, and the generated value/ok variable names. A
+// Filter ref also carries the fast-flag variable holding the hoisted "Fn1
+// applies" decision, so per-iteration filter sites branch on one bool instead
+// of re-testing Fn1 and the Needs* flags.
 type callableRef struct {
 	method string // "Filter", "Function", or "Test"
 	name   string
 	val    string
 	ok     string
+	fast   string // Filter refs only: the hoisted Fn1-dispatch flag variable
 }
 
 func newCompiler(src *source.Source, opts Options) *compiler {
@@ -218,9 +222,21 @@ func (c *compiler) callable(method, name string) (string, string) {
 		val:    fmt.Sprintf("%s%d", prefix, len(c.callables)),
 		ok:     fmt.Sprintf("%sok%d", prefix, len(c.callables)),
 	}
+	if method == "Filter" {
+		cr.fast = fmt.Sprintf("%sfast%d", prefix, len(c.callables))
+	}
 	c.callables = append(c.callables, cr)
 	c.callableKey[key] = cr
 	return cr.val, cr.ok
+}
+
+// callableFilterFast returns the hoisted fast-flag variable of the named
+// filter's pre-resolved ref: true exactly when the resolved filter publishes
+// Fn1 and needs no engine injection, the whole arity-known dispatch decision
+// evaluated once per render.
+func (c *compiler) callableFilterFast(name string) string {
+	c.callable("Filter", name)
+	return c.callableKey["Filter\x00"+name].fast
 }
 
 // ---- compile-time scope model ------------------------------------------------

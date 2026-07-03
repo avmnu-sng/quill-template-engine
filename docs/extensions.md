@@ -30,6 +30,10 @@ type Filter struct {
 	Name string
 	Fn   func(args []runtime.Value) (runtime.Value, error)
 
+	// Fn1 is the optional arity-known fast call for a bare pipe (x | name
+	// with no explicit arguments); see Section 1.1.
+	Fn1 func(v runtime.Value) (runtime.Value, error)
+
 	NeedsEnvironment bool
 	NeedsContext     bool
 	NeedsCharset     bool
@@ -73,6 +77,38 @@ set.AddFilter(&ext.Filter{
 	},
 })
 ```
+
+### 1.1 The unary fast call (`Fn1`)
+
+A filter may additionally publish `Fn1`, its behavior for a bare pipe with no
+explicit arguments. The engine consults `Fn1` only when the call site proved
+zero explicit arguments syntactically and none of the `Needs*` flags is set;
+every other invocation -- explicit arguments, spreads (even ones that expand to
+nothing), injection flags, or a registration without `Fn1` -- builds the usual
+fresh argument slice and goes through `Fn`. Which of the two runs is an engine
+dispatch choice the template author never observes, so a registration that sets
+`Fn1` must keep `Fn`'s zero-extra-argument behavior identical; the easiest way
+is `NewFilter1`, which builds both from one unary function:
+
+```go
+set.AddFilter(ext.NewFilter1("shout", func(v runtime.Value) (runtime.Value, error) {
+	s, err := runtime.ToText(v)
+	if err != nil {
+		return runtime.Null(), err
+	}
+	return runtime.Str(strings.ToUpper(s) + "!"), nil
+}))
+```
+
+A `NewFilter1`-built filter must keep its `Needs*` flags unset: the wrapped `Fn`
+reads the piped value at position zero, where an injected engine value would
+land. The audited core filters (`upper`, `lower`, `trim`, `capitalize`,
+`title`, `length`, `first`, `last`, `reverse`, `keys`, `raw`) register this
+way, which is why a bare pipe through them allocates no argument slice.
+
+Because `Fn1` sits between `Fn` and the flags, **unkeyed** `ext.Filter`
+composite literals from before the field existed no longer compile; use keyed
+literals (as every example in this document does) or `NewFilter1`.
 
 --------------------------------------------------------------------------------
 

@@ -152,10 +152,42 @@ func (in *interp) evalFilter(n *ast.Node, ctx *runtime.Scope) (runtime.Value, er
 	if err != nil {
 		return runtime.Null(), err
 	}
-	filt, ok := in.eng.Extensions().Filter(n.Str)
-	if !ok {
-		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
-			"unknown filter %q", n.Str))
+	// The one-entry memo short-circuits the registry map lookup for consecutive
+	// calls of the same filter, the loop-body pattern. It caches only the
+	// resolution, never dispatch state, so shadowing decided at registration
+	// time is honored: the memoized pointer IS the registered filter. Mutating
+	// the registry mid-render is unsupported (the lookup maps are not
+	// synchronized), so the memo cannot observably go stale within a render.
+	filt := in.lastFilter
+	if filt == nil || in.lastFilterName != n.Str {
+		f, ok := in.eng.Extensions().Filter(n.Str)
+		if !ok {
+			return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
+				"unknown filter %q", n.Str))
+		}
+		in.lastFilterName, in.lastFilter = n.Str, f
+		filt = f
+	}
+	// Arity-known fast call: a bare pipe with zero explicit arguments into a
+	// filter that publishes Fn1 and needs no engine injection dispatches on the
+	// piped value alone -- no argument slice exists, so retaining or mutating
+	// one is structurally impossible. The zero-argument proof is syntactic
+	// (any KindArg child, including a spread expanding to nothing, keeps the
+	// general path), and the sandbox gates still run over the piped value,
+	// exactly the one value the general path's gates would scan here.
+	if filt.Fn1 != nil && !filt.NeedsEnvironment && !filt.NeedsContext &&
+		!filt.NeedsCharset && !hasArgChildren(n) {
+		if err := in.checkArrowArg(n, piped); err != nil {
+			return runtime.Null(), err
+		}
+		if err := in.checkStringifyArg(n.Str, piped); err != nil {
+			return runtime.Null(), posErr(n, err)
+		}
+		res, err := filt.Fn1(piped)
+		if err != nil {
+			return runtime.Null(), posErr(n, err)
+		}
+		return res, nil
 	}
 	args, err := in.collectArgs(n, ctx, []runtime.Value{piped})
 	if err != nil {
@@ -335,6 +367,20 @@ func (in *interp) collectArgs(n *ast.Node, ctx *runtime.Scope, prefix []runtime.
 		}
 	}
 	return args, nil
+}
+
+// hasArgChildren reports whether a call/filter node carries any explicit
+// argument (positional, named, or spread). The filter fast call keys off this
+// syntactic test rather than an evaluated argument count so a spread that
+// expands to zero values still takes the general argument-slice path, keeping
+// the fast call's zero-argument proof independent of runtime data.
+func hasArgChildren(n *ast.Node) bool {
+	for _, c := range n.Children {
+		if c.Kind == ast.KindArg {
+			return true
+		}
+	}
+	return false
 }
 
 // namedArg is one resolved name:value argument, kept ordered so a duplicate or

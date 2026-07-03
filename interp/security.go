@@ -146,6 +146,18 @@ func (in *interp) checkStringifyArgs(filter string, args []runtime.Value) error 
 	return nil
 }
 
+// checkStringifyArg applies the string-coercion gate (B12) to one argument
+// value under the same filter-name key as checkStringifyArgs. The filter fast
+// call runs it on the piped value, so a host filter that shadows a coercing
+// name AND publishes Fn1 still has its one reachable argument gated -- the
+// fast call cannot open a coercion path the general path would have gated.
+func (in *interp) checkStringifyArg(filter string, a runtime.Value) error {
+	if !in.sandboxOn || !coercingFilters[filter] {
+		return nil
+	}
+	return in.checkStringifyDeep(a)
+}
+
 // checkStringifyDeep applies the Stringify gate to v and, when v is a collection,
 // to each element and map key/value -- the elements the coercing filters render
 // through ToText. A callable Object is skipped: it is not a coercion target and
@@ -226,19 +238,27 @@ func (in *interp) execSandbox(n *ast.Node, ctx *runtime.Scope) error {
 // disallowed function. Non-callable arguments are untouched, so ordinary
 // filters are unaffected.
 func (in *interp) checkArrowArgs(n *ast.Node, args []runtime.Value) error {
+	for _, a := range args {
+		if err := in.checkArrowArg(n, a); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkArrowArg applies the arrow-gating rule (B13) to one argument value. It
+// is the per-value form checkArrowArgs loops over, and the filter fast call
+// runs it directly on the piped value -- the only value that exists there --
+// so both dispatch routes enforce the rule through the same code.
+func (in *interp) checkArrowArg(n *ast.Node, a runtime.Value) error {
 	if !in.sandboxOn {
 		return nil
 	}
-	for _, a := range args {
-		if a.Kind != runtime.KObject {
-			continue
-		}
-		if !runtime.IsCallable(a) {
-			continue
-		}
-		if _, ok := a.Obj.(*arrowClosure); !ok {
-			return posErr(n, errors.SecurityFunction("(non-template callable)"))
-		}
+	if a.Kind != runtime.KObject || !runtime.IsCallable(a) {
+		return nil
+	}
+	if _, ok := a.Obj.(*arrowClosure); !ok {
+		return posErr(n, errors.SecurityFunction("(non-template callable)"))
 	}
 	return nil
 }
