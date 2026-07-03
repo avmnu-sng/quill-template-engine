@@ -64,6 +64,16 @@ type compiler struct {
 	// its loop dynamically there, so it is outside the compilable subset.
 	inArrow int
 
+	// tabFree marks a module with no @tab region anywhere: the qWriter indent
+	// layer is statically dead, so every write goes straight to the underlying
+	// io.Writer and a capture body writes into its strings.Builder directly.
+	tabFree bool
+
+	// usesStrconv records that a lowering emitted a static-Int direct write,
+	// so assemble adds the strconv import exactly when the generated code
+	// consumes it.
+	usesStrconv bool
+
 	lenient  bool
 	tabWidth int
 }
@@ -113,6 +123,11 @@ type callableRef struct {
 	val    string
 	ok     string
 	fast   string // Filter refs only: the hoisted Fn1-dispatch flag variable
+	// inject is the hoisted injection-decision flag variable (Filter and
+	// Function refs): true exactly when the resolved callable sets any Needs*
+	// flag, so per-call sites guard the whole engine-value injection path on
+	// one bool instead of re-testing three flags per invocation.
+	inject string
 }
 
 func newCompiler(src *source.Source, opts Options) *compiler {
@@ -225,6 +240,9 @@ func (c *compiler) callable(method, name string) (string, string) {
 	if method == "Filter" {
 		cr.fast = fmt.Sprintf("%sfast%d", prefix, len(c.callables))
 	}
+	if method == "Filter" || method == "Function" {
+		cr.inject = fmt.Sprintf("%sinj%d", prefix, len(c.callables))
+	}
 	c.callables = append(c.callables, cr)
 	c.callableKey[key] = cr
 	return cr.val, cr.ok
@@ -237,6 +255,40 @@ func (c *compiler) callable(method, name string) (string, string) {
 func (c *compiler) callableFilterFast(name string) string {
 	c.callable("Filter", name)
 	return c.callableKey["Filter\x00"+name].fast
+}
+
+// callableInject returns the hoisted injection flag variable of the named
+// callable's pre-resolved ref: true exactly when the resolved callable sets
+// any Needs* flag, the whole injection decision evaluated once per render.
+func (c *compiler) callableInject(method, name string) string {
+	c.callable(method, name)
+	return c.callableKey[method+"\x00"+name].inject
+}
+
+// emitFn names the value-emission helper prints route through: the
+// qWriter-layer qemit, or the direct-io qemitw when the module is tab-free
+// and the indent layer is statically dead.
+func (c *compiler) emitFn() string {
+	if c.tabFree {
+		return "qemitw"
+	}
+	return "qemit"
+}
+
+// emitWrite lowers one guarded write of the Go string expression sexpr to the
+// current writer, with wrap building the returned error expression from the
+// error variable. A tab-free module writes through io.WriteString directly;
+// any other module goes through the qWriter indent layer, which forwards the
+// same bytes and the same error when its indent is inactive.
+func (c *compiler) emitWrite(sexpr string, wrap func(errVar string) string) {
+	e := c.tmp("qe")
+	if c.tabFree {
+		c.openf("if _, %s := io.WriteString(%s, %s); %s != nil {", e, c.writer(), sexpr, e)
+	} else {
+		c.openf("if %s := %s.WriteString(%s); %s != nil {", e, c.writer(), sexpr, e)
+	}
+	c.linef(c.ret(wrap(e)))
+	c.closeb()
 }
 
 // ---- compile-time scope model ------------------------------------------------

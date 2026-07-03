@@ -439,6 +439,11 @@ func TestGeneratedVet(t *testing.T) {
 		// elided binding local, a spilled literal-map receiver, a chained read,
 		// the discarded @do position, and the closure (arrow) return path.
 		{name: "vet-e", template: "@set u = {name: \"a\"}\n@set w = {inner: {v: 1}}\n{{ u.name }}{{ w.inner.v }}{{ {a: 1}.a }}\n@do u.name\n{{ [u] | map(r => r.name) | join(\",\") }}\n"},
+		// The tab-free emission shapes: direct io.WriteString text and
+		// static-Int writes, the Str/Safe print guard, a capture writing into
+		// its builder, and the hoisted-injection arms for a needs-context
+		// function and an argful filter beside a bare fast-flag pipe.
+		{name: "vet-f", template: "@set b = capture {\n{{ 1 }}|{{ s ?? \"x\" }}\n@}\n{{ b }}{{ dump() }}{{ 2.5 }}\n@for i in (1..3) {\n{{ loop.index }}:{{ loop.revindex0 }} {{ b | upper }} {{ [i] | join(\"-\") }}\n@}\n"},
 	}
 	dir := t.TempDir()
 	root := repoRoot(t)

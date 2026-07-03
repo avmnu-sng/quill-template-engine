@@ -773,6 +773,35 @@ func (c *compiler) loopByFrame(f *frame) *loopInfo {
 	return nil
 }
 
+// inlineLoopInt renders the int64 Go expression of one approved Int-valued
+// loop field read over the loop's counter and length, reporting false for the
+// non-Int fields (first/last/prev/next). The expressions are exactly what
+// runtime's loopInfo.GetField computes, so a print site may format one with
+// strconv.FormatInt -- the ToText Int spelling -- without materializing the
+// Value.
+func (c *compiler) inlineLoopInt(ir inlineLoopRead) (string, bool) {
+	li := c.loopForNode(ir.target)
+	i := li.iVar
+	length := fmt.Sprintf("len(%s)", li.pairsVar)
+	if li.live {
+		length = li.nVar
+	}
+	switch ir.field {
+	case "index":
+		return fmt.Sprintf("int64(%s + 1)", i), true
+	case "index0":
+		return fmt.Sprintf("int64(%s)", i), true
+	case "revindex":
+		return fmt.Sprintf("int64(%s - %s)", length, i), true
+	case "revindex0":
+		return fmt.Sprintf("int64(%s - 1 - %s)", length, i), true
+	case "length":
+		return fmt.Sprintf("int64(%s)", length), true
+	default:
+		return "", false
+	}
+}
+
 // emitInlineLoopField lowers one approved loop field read to the exact value
 // runtime's loopInfo.GetField computes for (i, pairs), with prev/next
 // reproducing the boundary Null fallbacks. A live loop reads its length from
@@ -781,6 +810,9 @@ func (c *compiler) loopByFrame(f *frame) *loopInfo {
 // value-identical to the pair-slice reads: the body is mutation-free by the
 // live rule, so the array still holds the entry-time entries.
 func (c *compiler) emitInlineLoopField(ir inlineLoopRead) string {
+	if inner, ok := c.inlineLoopInt(ir); ok {
+		return "runtime.Int(" + inner + ")"
+	}
 	li := c.loopForNode(ir.target)
 	i, p := li.iVar, li.pairsVar
 	length := fmt.Sprintf("len(%s)", p)
@@ -788,20 +820,10 @@ func (c *compiler) emitInlineLoopField(ir inlineLoopRead) string {
 		length = li.nVar
 	}
 	switch ir.field {
-	case "index":
-		return fmt.Sprintf("runtime.Int(int64(%s + 1))", i)
-	case "index0":
-		return fmt.Sprintf("runtime.Int(int64(%s))", i)
-	case "revindex":
-		return fmt.Sprintf("runtime.Int(int64(%s - %s))", length, i)
-	case "revindex0":
-		return fmt.Sprintf("runtime.Int(int64(%s - 1 - %s))", length, i)
 	case "first":
 		return fmt.Sprintf("runtime.Bool(%s == 0)", i)
 	case "last":
 		return fmt.Sprintf("runtime.Bool(%s == %s-1)", i, length)
-	case "length":
-		return fmt.Sprintf("runtime.Int(int64(%s))", length)
 	case "prev":
 		return c.emitLoopNeighbour(li, fmt.Sprintf("%s > 0", i), fmt.Sprintf("%s-1", i))
 	case "next":

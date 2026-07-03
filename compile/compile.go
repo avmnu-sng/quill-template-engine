@@ -310,6 +310,9 @@ func (c *compiler) assemble() []byte {
 	b.WriteString("\t\"io\"\n")
 	b.WriteString("\t\"math\"\n")
 	b.WriteString("\t\"regexp\"\n")
+	if c.usesStrconv {
+		b.WriteString("\t\"strconv\"\n")
+	}
 	b.WriteString("\t\"strings\"\n\n")
 	b.WriteString("\tqerrors \"github.com/avmnu-sng/quill-template-engine/errors\"\n")
 	b.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/ext\"\n")
@@ -330,24 +333,34 @@ func (c *compiler) assemble() []byte {
 	b.WriteString("// reading top-level variables from vars. Output and error behavior are\n")
 	b.WriteString("// byte-identical to the interpreter's for the compiled construct set.\n")
 	fmt.Fprintf(&b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value) error {\n", c.opts.FuncName)
-	b.WriteString("\tqw := &qWriter{w: w, atLineStart: true}\n")
-	b.WriteString("\t_ = qw\n")
+	if !c.tabFree {
+		b.WriteString("\tqw := &qWriter{w: w, atLineStart: true}\n")
+		b.WriteString("\t_ = qw\n")
+	}
 	b.WriteString("\tqNames := make([]string, 0, len(vars))\n")
 	b.WriteString("\tfor qn := range vars {\n\t\tqNames = append(qNames, qn)\n\t}\n")
 	b.WriteString("\t_ = qNames\n")
 	for _, cr := range c.callables {
 		fmt.Fprintf(&b, "\t%s, %s := exts.%s(%s)\n", cr.val, cr.ok, cr.method, strconv.QuoteToASCII(cr.name))
 		fmt.Fprintf(&b, "\t_, _ = %s, %s\n", cr.val, cr.ok)
-		if cr.fast == "" {
-			continue
+		if cr.fast != "" {
+			// The arity-known dispatch decision, hoisted with the lookup: the
+			// filter's Fn1 runs only when it exists and no Needs* flag asks for
+			// engine-value injection, so a host re-registration without Fn1 or
+			// with injection flags turns every site back to the general path.
+			fmt.Fprintf(&b, "\t%s := %s && %s.Fn1 != nil && !%s.NeedsEnvironment && !%s.NeedsContext && !%s.NeedsCharset\n",
+				cr.fast, cr.ok, cr.val, cr.val, cr.val, cr.val)
+			fmt.Fprintf(&b, "\t_ = %s\n", cr.fast)
 		}
-		// The arity-known dispatch decision, hoisted with the lookup: the
-		// filter's Fn1 runs only when it exists and no Needs* flag asks for
-		// engine-value injection, so a host re-registration without Fn1 or
-		// with injection flags turns every site back to the general path.
-		fmt.Fprintf(&b, "\t%s := %s && %s.Fn1 != nil && !%s.NeedsEnvironment && !%s.NeedsContext && !%s.NeedsCharset\n",
-			cr.fast, cr.ok, cr.val, cr.val, cr.val, cr.val)
-		fmt.Fprintf(&b, "\t_ = %s\n", cr.fast)
+		if cr.inject != "" {
+			// The injection decision, hoisted with the lookup: any Needs* flag
+			// on the resolved callable routes its call sites through the
+			// engine-value injection path, so an injection-free callable skips
+			// the whole test-and-inject residue on one bool per invocation.
+			fmt.Fprintf(&b, "\t%s := %s && (%s.NeedsEnvironment || %s.NeedsContext || %s.NeedsCharset)\n",
+				cr.inject, cr.ok, cr.val, cr.val, cr.val)
+			fmt.Fprintf(&b, "\t_ = %s\n", cr.inject)
+		}
 	}
 	b.Write(c.rootDecls.Bytes())
 	b.Write(c.body.Bytes())

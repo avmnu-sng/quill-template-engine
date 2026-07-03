@@ -86,11 +86,16 @@ func staticArgCount(n *ast.Node) (int, bool) {
 
 // emitInject applies the Needs* engine-value injection to the args local for
 // the resolved callable in cv, mirroring the interpreter's inject: the values
-// prepend in the fixed order environment, context, charset. A needs-environment
-// callable receives the compiled render's qEnv handle, which carries the
-// Options' engine configuration (tab width, random seed) through the
-// ext.EngineConfig surface the width- and seed-aware callables consume.
-func (c *compiler) emitInject(cv, args string) {
+// prepend in the fixed order environment, context, charset. The whole path
+// sits behind the ref's hoisted injection flag in inj -- true exactly when
+// any Needs* flag is set -- so an injection-free callable leaves args
+// untouched on one bool, exactly what qinject would have returned. A
+// needs-environment callable receives the compiled render's qEnv handle,
+// which carries the Options' engine configuration (tab width, random seed)
+// through the ext.EngineConfig surface the width- and seed-aware callables
+// consume.
+func (c *compiler) emitInject(cv, inj, args string) {
+	c.openf("if %s {", inj)
 	ctx := c.tmp("qca")
 	c.linef("var %s *runtime.Array", ctx)
 	c.openf("if %s.NeedsContext {", cv)
@@ -98,6 +103,7 @@ func (c *compiler) emitInject(cv, args string) {
 	c.linef("%s = %s", ctx, arr)
 	c.closeb()
 	c.linef("%s = qinject(qEnvVal, %s.NeedsEnvironment, %s.NeedsContext, %s.NeedsCharset, %s, %s)", args, cv, cv, cv, ctx, args)
+	c.closeb()
 }
 
 // exprFilter lowers "x | name(args)" like evalFilter: the piped value is the
@@ -135,7 +141,7 @@ func (c *compiler) exprFilter(n *ast.Node) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		c.emitInject(fv, args)
+		c.emitInject(fv, c.callableInject("Filter", n.Str), args)
 		c.linef("%s, %s = %s.Fn(%s)", v, e, fv, args)
 		c.closeb()
 		c.checkErr(e, n.Line)
@@ -145,7 +151,7 @@ func (c *compiler) exprFilter(n *ast.Node) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	c.emitInject(fv, args)
+	c.emitInject(fv, c.callableInject("Filter", n.Str), args)
 	c.linef("%s, %s := %s.Fn(%s)", v, e, fv, args)
 	c.checkErr(e, n.Line)
 	return v, nil
@@ -204,7 +210,7 @@ func (c *compiler) exprNameCall(n *ast.Node, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	c.emitInject(fv, args)
+	c.emitInject(fv, c.callableInject("Function", name), args)
 	v := c.tmp("qt")
 	e := c.tmp("qe")
 	c.linef("%s, %s := %s.Fn(%s)", v, e, fv, args)

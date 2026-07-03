@@ -137,6 +137,24 @@ func forBinds(n *ast.Node, add func(string)) {
 	}
 }
 
+// hasTabBlock reports whether the subtree at n contains a @tab region. A
+// module without one never activates the qWriter indent layer, so its writes
+// lower straight to the underlying io.Writer.
+func hasTabBlock(n *ast.Node) bool {
+	if n == nil {
+		return false
+	}
+	if n.Kind == ast.KindTabBlock {
+		return true
+	}
+	for _, ch := range n.Children {
+		if hasTabBlock(ch) {
+			return true
+		}
+	}
+	return false
+}
+
 // multiSetPattern reports whether a @set statement places a destructuring
 // pattern among MULTIPLE targets (e.g. "@set [a], b = [1], 2"). The
 // interpreter currently misbinds this form (a recorded engine bug), so the

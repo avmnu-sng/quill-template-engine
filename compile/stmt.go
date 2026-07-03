@@ -3,14 +3,21 @@ package compile
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 
 	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
 // compileModule lowers the module body after prescanning the root frame and
-// running the loop escape analysis the @for lowerings consult.
+// running the loop escape analysis the @for lowerings consult. A module with
+// no @tab region anywhere never activates the qWriter indent layer, so its
+// writes lower straight to the render function's io.Writer.
 func (c *compiler) compileModule(mod *ast.Node) error {
 	c.an = analyzeLoops(mod)
+	c.tabFree = !hasTabBlock(mod)
+	if c.tabFree {
+		c.writers[0] = "w"
+	}
 	binds := bindNames(mod.Children)
 	if err := c.checkBindNames(binds, mod); err != nil {
 		return err
@@ -110,24 +117,78 @@ func (c *compiler) stmtItem(n *ast.Node) error {
 // stmtText writes a literal text span verbatim; template text is never
 // escaped, and write errors surface unpositioned like emitString's.
 func (c *compiler) stmtText(s string) {
-	e := c.tmp("qe")
-	c.openf("if %s := %s.WriteString(%s); %s != nil {", e, c.writer(), q(s), e)
-	c.linef(c.ret(e))
-	c.closeb()
+	c.emitWrite(q(s), func(e string) string { return e })
 }
 
 // stmtPrint lowers an interpolation: evaluate, then emit through the active
-// escape strategy, with emit errors positioned at the print node.
+// escape strategy, with emit errors positioned at the print node. With no
+// active strategy the site specializes by kind instead of calling the emit
+// helper unconditionally.
 func (c *compiler) stmtPrint(n *ast.Node) error {
+	if c.escapeStrategy() == "" {
+		return c.stmtPrintPlain(n)
+	}
 	v, err := c.expr(n.Child(0), false)
 	if err != nil {
 		return err
 	}
 	e := c.tmp("qe")
-	c.openf("if %s := qemit(%s, %s, %s); %s != nil {", e, c.writer(), q(c.escapeStrategy()), v, e)
+	c.openf("if %s := %s(%s, %s, %s); %s != nil {", e, c.emitFn(), c.writer(), q(c.escapeStrategy()), v, e)
 	c.linef(c.ret(fmt.Sprintf("qpos(%s, %d)", e, n.Line)))
 	c.closeb()
 	return nil
+}
+
+// stmtPrintPlain lowers a print with no active escape strategy, where the
+// emit helper reduces to ToText plus a write. A static-Int expression writes
+// its strconv.FormatInt rendering directly -- exactly ToText's Int spelling.
+// Every other expression takes an inline Str/Safe kind guard writing v.S
+// verbatim (ToText returns those kinds' bytes unchanged and no escaping
+// applies), falling back to the emit helper for the remaining kinds'
+// spellings and their authoritative errors. The guarded value skips the
+// general spill through spillAdjacent: its uses sit only in the adjacent
+// guard statements emitted here, with no expression lowering between them.
+func (c *compiler) stmtPrintPlain(n *ast.Node) error {
+	wrap := func(e string) string { return fmt.Sprintf("qpos(%s, %d)", e, n.Line) }
+	if inner, ok := c.staticIntPrint(n.Child(0)); ok {
+		c.usesStrconv = true
+		c.emitWrite(fmt.Sprintf("strconv.FormatInt(%s, 10)", inner), wrap)
+		return nil
+	}
+	v, err := c.expr(n.Child(0), false)
+	if err != nil {
+		return err
+	}
+	v = c.spillAdjacent(v)
+	c.openf("if %s.Kind == runtime.KStr || %s.Kind == runtime.KSafe {", v, v)
+	c.emitWrite(v+".S", wrap)
+	c.ind--
+	e := c.tmp("qe")
+	c.linef("} else if %s := %s(%s, %s, %s); %s != nil {", e, c.emitFn(), c.writer(), q(""), v, e)
+	c.ind++
+	c.linef(c.ret(wrap(e)))
+	c.closeb()
+	return nil
+}
+
+// staticIntPrint reports whether the print operand at n is a static-Int
+// expression -- an Int literal or an approved inline loop field read of an
+// Int-valued field -- returning the int64 Go expression that computes it.
+// Such a value's ToText is exactly strconv.FormatInt over that int64, so the
+// print site formats the digits without materializing the Value.
+func (c *compiler) staticIntPrint(n *ast.Node) (string, bool) {
+	if n == nil {
+		return "", false
+	}
+	switch n.Kind {
+	case ast.KindInt:
+		return strconv.FormatInt(n.Int, 10), true
+	case ast.KindAttr, ast.KindIndex:
+		if ir, ok := c.an.inlineReads[n]; ok {
+			return c.inlineLoopInt(ir)
+		}
+	}
+	return "", false
 }
 
 // stmtIf lowers @if/@elseif/@else as nested condition checks; an if
@@ -247,18 +308,24 @@ func normalizeEscapeStrategy(word string) (string, bool) {
 
 // stmtCapture lowers "@set name = capture { body }": the body renders into a
 // fresh writer with indentation suspended, exactly like captureItems, and the
-// result binds as Safe under an active strategy, else Str.
+// result binds as Safe under an active strategy, else Str. A tab-free module
+// writes into the strings.Builder directly; any other module wraps it in the
+// fresh qWriter whose indent starts suspended.
 func (c *compiler) stmtCapture(n *ast.Node) error {
 	body := n.Children
 	if len(body) > 0 && body[0] != nil && body[0].Kind == ast.KindType {
 		body = body[1:]
 	}
 	sb := c.tmp("qs")
-	cw := c.tmp("qcw")
 	c.linef("var %s strings.Builder", sb)
-	c.linef("%s := &qWriter{w: &%s, atLineStart: true}", cw, sb)
-	c.linef("_ = %s", cw)
-	c.writers = append(c.writers, cw)
+	if c.tabFree {
+		c.writers = append(c.writers, "&"+sb)
+	} else {
+		cw := c.tmp("qcw")
+		c.linef("%s := &qWriter{w: &%s, atLineStart: true}", cw, sb)
+		c.linef("_ = %s", cw)
+		c.writers = append(c.writers, cw)
+	}
 	err := c.stmtList(body)
 	c.writers = c.writers[:len(c.writers)-1]
 	if err != nil {

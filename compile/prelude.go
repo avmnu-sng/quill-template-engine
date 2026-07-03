@@ -75,6 +75,25 @@ func qemit(q *qWriter, strategy string, v runtime.Value) error {
 	return q.WriteString(text)
 }
 
+// qemitw renders one interpolated value straight to the underlying writer:
+// the tab-free specialization of qemit, taken when the module has no @tab
+// region so the qWriter indent layer is statically dead and forwards bytes
+// unchanged.
+func qemitw(w io.Writer, strategy string, v runtime.Value) error {
+	text, err := runtime.ToText(v)
+	if err != nil {
+		return err
+	}
+	if strategy != "" && v.Kind != runtime.KSafe {
+		text, err = ext.Escape(strategy, text)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = io.WriteString(w, text)
+	return err
+}
+
 // qpos attaches this template's source and the given line to an error that
 // lacks a position, reproducing the interpreter's posErr.
 func qpos(err error, line int) error {
