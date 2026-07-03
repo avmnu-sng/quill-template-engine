@@ -13,17 +13,14 @@ import (
 // template extends a parent, the merged block table is built bottom-up (most-
 // derived definitions win) and the TOPMOST parent's body is rendered, with each
 // @block site delegating to the resolved definition (spec 01 Section 5.2).
-// Otherwise the template's own body is rendered top to bottom.
+// Otherwise the template's own body is rendered top to bottom. The coverage
+// seeding and the Phase-1 sandbox check run per render, over the composed
+// chain, whether composeTemplate built it fresh or served it from the memo.
 func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Scope) error {
-	chain, err := in.buildChain(tmpl, ctx)
+	chain, err := in.composeTemplate(tmpl, ctx)
 	if err != nil {
 		return err
 	}
-	in.parentChain = chain
-	if err := in.buildBlockTable(chain); err != nil {
-		return err
-	}
-	in.loadMacros(tmpl, ctx)
 
 	// Coverage seeding: register every coverable region of each template in the
 	// inheritance chain as a zero-count region before any output, so unreached
@@ -52,6 +49,52 @@ func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Scope) error {
 	// pull from the merged table.
 	top := chain[len(chain)-1]
 	return in.execItems(top.Module.Children, ctx)
+}
+
+// composeTemplate installs the render-ready composition of tmpl on this interp
+// -- the inheritance chain, the merged block table, the macro namespace, the
+// literal-regexp lookup, and the @import namespace scope binds -- and returns
+// the chain. A Template whose chain proved fully static serves all of that
+// from its one-time memo: the shared tables are read-only after build (no
+// renderer code writes a block or macro entry past this point, and @embed
+// layers its overrides onto a fresh table in a fresh sub-interp), so only the
+// @import scope binds -- composition's single per-render side effect -- are
+// replayed into ctx. The first render of a static chain builds fresh, then
+// publishes the tables it just built; the walk's 64-deep cycle check thus runs
+// during the memo build, and a memoized chain needs no re-check. A chain with
+// any dynamic member (compStatic false) rebuilds per render, bit-for-bit
+// today's path, so render-time expressions keep deciding what @extends and
+// @import resolve to.
+func (in *interp) composeTemplate(tmpl *Template, ctx *runtime.Scope) ([]*Template, error) {
+	if c := tmpl.comp.Load(); c != nil {
+		in.parentChain = c.chain
+		in.blocks = c.blocks
+		in.macros = c.macros
+		in.regexps = c.regexps
+		for _, b := range c.nsBinds {
+			ctx.Set(b.name, runtime.Obj(&importNS{tmpl: b.tmpl}))
+		}
+		return c.chain, nil
+	}
+	chain, err := in.buildChain(tmpl, ctx)
+	if err != nil {
+		return nil, err
+	}
+	in.parentChain = chain
+	if err := in.buildBlockTable(chain); err != nil {
+		return nil, err
+	}
+	binds := in.loadMacros(tmpl, ctx)
+	if compositionStatic(chain) {
+		tmpl.comp.Store(&composition{
+			chain:   chain,
+			blocks:  in.blocks,
+			macros:  in.macros,
+			nsBinds: binds,
+			regexps: in.regexps,
+		})
+	}
+	return chain, nil
 }
 
 // buildChain resolves the inheritance chain from tmpl up to its topmost ancestor
@@ -236,8 +279,12 @@ func (in *interp) useAliases(use *ast.Node) (map[string]string, error) {
 // macro's lexical home (for its own visible namespace and globals) is recorded
 // (spec 01 Section 5.3). The namespace map materializes only when a macro
 // actually binds -- here for declared macros, sized for them, or inside
-// loadImport for a selective @from -- so a macro-free render keeps it nil.
-func (in *interp) loadMacros(tmpl *Template, ctx *runtime.Scope) {
+// loadImport for a selective @from -- so a macro-free render keeps it nil. It
+// returns the @import namespace binds it applied, in source order, so a static
+// composition build can replay exactly those scope writes per render; @from
+// contributes no scope bind (it folds into the macro namespace map, which the
+// memo captures whole).
+func (in *interp) loadMacros(tmpl *Template, ctx *runtime.Scope) []nsBind {
 	if len(tmpl.macroOrder) > 0 {
 		in.macros = make(map[string]*macroEntry, len(tmpl.macroOrder))
 		for _, name := range tmpl.macroOrder {
@@ -245,9 +292,13 @@ func (in *interp) loadMacros(tmpl *Template, ctx *runtime.Scope) {
 			in.macros[name] = &macroEntry{home: tmpl, node: node}
 		}
 	}
+	var binds []nsBind
 	for _, imp := range tmpl.imports {
-		in.loadImport(imp, ctx)
+		if b, ok := in.loadImport(imp, ctx); ok {
+			binds = append(binds, b)
+		}
 	}
+	return binds
 }
 
 // execItems renders a run of body items in order.

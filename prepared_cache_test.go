@@ -283,12 +283,20 @@ func TestTemplateFieldsClassifiedImmutablePostPrepare(t *testing.T) {
 		"usesSlots":     immutable,
 		"staticRefs":    immutable,
 		"hasDynamicRef": immutable,
-		// lastOut is the one sanctioned mutable Template field: an atomic
+		"compStatic":    immutable,
+		// lastOut is a sanctioned mutable Template field: an atomic
 		// output-length hint renderBuffered reads to pre-size its builder and
 		// stores after each successful render. It can only influence buffer
 		// capacity, never rendered bytes, so cross-render races reduce to
 		// benign last-write-wins on a sizing heuristic.
 		"lastOut": "exempt-atomic-output-size-hint",
+		// comp is the other sanctioned mutable field: the static composition
+		// memo, an atomic pointer written only by first renders racing to
+		// publish equivalent compositions built from the same immutable
+		// inputs. Readers observe nil (build fresh) or one complete read-only
+		// composition, so cross-render races reduce to benign last-write-wins
+		// on interchangeable table sets.
+		"comp": "exempt-atomic-composition-memo",
 	}
 	// Template contains an atomic (a noCopy type), so the reflection subject
 	// must be reached through a pointer rather than a by-value literal.

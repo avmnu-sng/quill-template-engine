@@ -78,16 +78,81 @@ type Template struct {
 	// successful buffered render (the pre-slot-resolution builder length,
 	// since that is exactly the stream the next buffered render writes), so
 	// renderBuffered can size its output Builder with one Grow instead of
-	// paying the append doubling ladder on every render. It is the ONE
-	// sanctioned mutable Template field: every other field is immutable once
-	// PrepareChecked returns, and this one is an atomic whose value can only
-	// influence buffer capacity, never rendered bytes, so racing renders on a
-	// shared Template stay correct under last-write-wins. Storing the latest
-	// length rather than a running maximum lets the hint decay when a
-	// template's outputs shrink, and renderBuffered caps the Grow it takes
-	// from the hint so one huge historical output cannot pin large buffers
-	// forever.
+	// paying the append doubling ladder on every render. It is one of the two
+	// sanctioned mutable Template fields (comp is the other): every other
+	// field is immutable once PrepareChecked returns, and this one is an
+	// atomic whose value can only influence buffer capacity, never rendered
+	// bytes, so racing renders on a shared Template stay correct under
+	// last-write-wins. Storing the latest length rather than a running
+	// maximum lets the hint decay when a template's outputs shrink, and
+	// renderBuffered caps the Grow it takes from the hint so one huge
+	// historical output cannot pin large buffers forever.
 	lastOut atomic.Int64
+
+	// compStatic reports whether this template's own composition inputs are
+	// fully static: the @extends operand (when present) is a single string
+	// literal, and every @import/@from source is a string literal. Only a
+	// resolved inheritance chain whose members are all compStatic is eligible
+	// for the comp memo; a chain with any other input (a computed source, a
+	// candidate list, a _self import) rebuilds its composition per render, so
+	// render-time expression evaluation keeps deciding what those constructs
+	// resolve to.
+	compStatic bool
+
+	// comp memoizes the render-ready composition of this template: the
+	// resolved inheritance chain and the merged dispatch tables that
+	// renderTemplate otherwise rebuilds on every render. It is built at most
+	// once, by the first render that proves the whole chain static (see
+	// compStatic and composeTemplate), and shared read-only by every later
+	// render of this Template. It is the second sanctioned mutable Template
+	// field (with lastOut): a build-once memo behind an atomic pointer, so a
+	// reader observes either nil (build fresh) or one complete composition,
+	// and racing first renders publish equivalent values built from the same
+	// immutable inputs. The memo pins the chain's *Template pointers under
+	// the same loader-stability assumption renderClosureUsesSlots documents:
+	// a loader that mutates between renders serves the pinned chain until the
+	// environment's prepared memo replaces this Template itself.
+	comp atomic.Pointer[composition]
+}
+
+// composition is the memoized render-ready form of one static inheritance
+// chain: everything renderTemplate builds before executing the topmost body.
+// The chain, block table, and macro namespace are shared across renders and
+// are read-only once built -- the renderer never writes a table entry after
+// the build phase, and the sole table mutator, @embed override layering,
+// builds its own fresh table inside a fresh sub-interp (see execEmbed).
+// nsBinds carries composition's one per-render side effect, the @import
+// namespace scope binds, replayed into each render's root scope in source
+// order. regexps is the merged literal-`matches` lookup of every template the
+// build absorbed (chain members, traits, and import homes), so a memoized
+// render resolves exactly the compiled patterns the building render did.
+type composition struct {
+	chain   []*Template
+	blocks  map[string]*blockEntry
+	macros  map[string]*macroEntry
+	nsBinds []nsBind
+	regexps map[*ast.Node]*regexp.Regexp
+}
+
+// nsBind records one @import namespace binding (@import "x.ql" as ns) so a
+// memoized composition can rebind the namespace into every render's scope. A
+// fresh importNS value is bound per render, exactly what loadImport binds, so
+// scope contents never alias across renders.
+type nsBind struct {
+	name string
+	tmpl *Template
+}
+
+// compositionStatic reports whether every member of a resolved inheritance
+// chain declares only static composition inputs, so the tables built from the
+// chain are render-invariant and safe to memoize on the root Template.
+func compositionStatic(chain []*Template) bool {
+	for _, t := range chain {
+		if !t.compStatic {
+			return false
+		}
+	}
+	return true
 }
 
 // usedCallables is the statically collected set of tags/filters/functions a
@@ -133,9 +198,32 @@ func Prepare(name string, mod *ast.Node) *Template {
 		used:    newUsedCallables(),
 	}
 	t.index(mod)
+	t.compStatic = t.staticCompositionInputs()
 	t.collectUsed(mod, t.used)
 	t.collectStreamInfo(mod)
 	return t
+}
+
+// staticCompositionInputs classifies this template's composition heads for the
+// comp memo gate: the @extends operand (when present) must be a single string
+// literal and every @import/@from source must be a string literal, so the
+// templates the composition build loads are the same on every render. A @use
+// target needs no check here because a non-literal target is a build error
+// (useTargetName), and a failed build is never memoized.
+func (t *Template) staticCompositionInputs() bool {
+	if t.extendsNode != nil {
+		op := t.extendsNode.Child(0)
+		if op == nil || op.Kind != ast.KindString {
+			return false
+		}
+	}
+	for _, imp := range t.imports {
+		src := imp.Child(0)
+		if src == nil || src.Kind != ast.KindString {
+			return false
+		}
+	}
+	return true
 }
 
 // collectStreamInfo walks the module once at Prepare, recording whether the

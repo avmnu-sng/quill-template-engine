@@ -146,11 +146,14 @@ func (in *interp) callBlock(n *ast.Node, ctx *runtime.Scope) (runtime.Value, err
 // loadImport binds a file-scope @import (namespace) or @from (selective) into
 // the macro namespace (spec 01 Section 5.4). The imported template's macros
 // become callable; @import also binds a namespace name in the context for the
-// ns.macro() dotted form.
-func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Scope) {
+// ns.macro() dotted form. It reports the scope bind a successful @import
+// applied, so the static composition memo can replay that one per-render side
+// effect; a @from, an unresolvable source, and a failed load all bind nothing
+// into the scope and report ok false.
+func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Scope) (nsBind, bool) {
 	name, ok := in.importSourceName(imp, ctx)
 	if !ok {
-		return
+		return nsBind{}, false
 	}
 	var src *Template
 	if name == "_self" {
@@ -158,7 +161,7 @@ func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Scope) {
 	} else {
 		t, err := in.eng.LoadTemplate(name)
 		if err != nil {
-			return
+			return nsBind{}, false
 		}
 		src = t
 	}
@@ -170,6 +173,7 @@ func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Scope) {
 		// @import src as alias: bind a namespace object and expose nothing by bare
 		// name (the dotted form ns.macro() is the access path).
 		ctx.Set(imp.Str, runtime.Obj(&importNS{tmpl: src}))
+		return nsBind{name: imp.Str, tmpl: src}, true
 	case ast.KindFrom:
 		// @from src import a, b as c: bind each selected macro under its (aliased)
 		// name in the macro namespace.
@@ -193,6 +197,7 @@ func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Scope) {
 			in.macros[local] = &macroEntry{home: src, node: node}
 		}
 	}
+	return nsBind{}, false
 }
 
 // importSourceName extracts the import/from source: a _self special name or a
@@ -613,7 +618,12 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Scope) error {
 	// top-level resolveSlots (design/composition, named accumulating slots).
 	sub.shareSlotsFrom(in)
 	// Build the embedded template's chain and block table, then layer the embed's
-	// inline overrides on top (most-derived).
+	// inline overrides on top (most-derived). This build is always fresh -- it
+	// calls the raw builders and never consults tmpl's static composition memo --
+	// because the override layering below MUTATES the table it builds (a chain
+	// prepend and a node overwrite per override), while the memoized tables are
+	// shared read-only across every render of tmpl. Routing an embed through the
+	// memo would let one embed's overrides leak into unrelated renders.
 	chain, err := sub.buildChain(tmpl, childCtx)
 	if err != nil {
 		return err
