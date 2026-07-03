@@ -74,6 +74,13 @@ type compiler struct {
 	// consumes it.
 	usesStrconv bool
 
+	// usesLog records that the module contains an @log statement, so the
+	// emitted manifest can tell the Environment's compiled dispatch to fall
+	// back whenever a non-discarding logger is configured: the generated code
+	// evaluates @log for effect and error parity but has no logger sink, and
+	// falling back preserves the host-visible log side effects.
+	usesLog bool
+
 	lenient  bool
 	tabWidth int
 }

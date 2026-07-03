@@ -22,6 +22,18 @@ type compiledCase struct {
 	template string // template body (the main template)
 	varsJSON string // data as a JSON object; "" means no vars
 	opts     compile.Options
+	// envCheck additionally renders the case by name through a quill
+	// Environment with the generated manifest installed (frame "<name>@env"),
+	// probes the dispatch gate with a tracer manifest (frame "<name>@tracer",
+	// payload "served" or "fell-back"), and drives the fingerprint matrix
+	// (frame "<name>@matrix", payload "ok"): one mixed serve/fallback
+	// Environment per autoescape/strict combination plus a tab-width flip and
+	// a random-seed flip, each byte- and error-compared against a
+	// manifest-free Environment under the same options, with a tracer proving
+	// the gate serves exactly the matching combination. Every probe
+	// Environment is configured from the generated manifest's fingerprint, so
+	// a case may carry any output-shaping compile option.
+	envCheck bool
 }
 
 // caseResult is one rendered case's outcome from the scratch process.
@@ -99,6 +111,7 @@ func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile
 	mainB.WriteString("package main\n\nimport (\n")
 	mainB.WriteString("\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"io\"\n\t\"os\"\n\t\"strconv\"\n\t\"strings\"\n\n")
 	mainB.WriteString("\tquill \"github.com/avmnu-sng/quill-template-engine\"\n")
+	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/compiled\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/ext\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/runtime\"\n")
 	var pkgs []string
@@ -130,6 +143,12 @@ func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile
 		}
 		fmt.Fprintf(&mainB, "\trunCase(%q, exts, %q, %s.%s)\n",
 			cs.name, cs.varsJSON, pkgName(cs.name), res.FuncName)
+		if cs.envCheck {
+			fmt.Fprintf(&mainB, "\trunEnvCase(%q, %s.%sManifest, %q)\n",
+				cs.name, pkgName(cs.name), res.FuncName, cs.varsJSON)
+			fmt.Fprintf(&mainB, "\trunEnvMatrix(%q, %s.%sManifest, %q)\n",
+				cs.name, pkgName(cs.name), res.FuncName, cs.varsJSON)
+		}
 	}
 	mainB.WriteString("}\n")
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), mainB.Bytes(), 0o644); err != nil {
@@ -205,6 +224,159 @@ func emit(name string, failed bool, payload string) {
 		flag = "1"
 	}
 	fmt.Fprintf(os.Stdout, "\x01%s\x1f%s\x1f%d\x1f%s", name, flag, len(payload), payload)
+}
+
+func runEnvCase(base string, m *compiled.Manifest, varsJSON string) {
+	vars, err := decodeVars(varsJSON)
+	if err != nil {
+		emit(base+"@env", true, "vars decode: "+err.Error())
+		return
+	}
+	tmpls := manifestTemplates(m)
+	env := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
+	out, err := env.Render(m.Entry, vars)
+	if err != nil {
+		emit(base+"@env", true, err.Error())
+	} else {
+		emit(base+"@env", false, out)
+	}
+
+	// The tracer shares the manifest's metadata but renders a marker, so a
+	// marker result proves the dispatch gate passes for this configuration;
+	// without it the env render above could silently compare the interpreter
+	// against itself.
+	tenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(tracerManifest(m)))...)
+	tvars, err := decodeVars(varsJSON)
+	if err != nil {
+		emit(base+"@tracer", true, err.Error())
+		return
+	}
+	tout, terr := tenv.Render(m.Entry, tvars)
+	switch {
+	case terr != nil:
+		emit(base+"@tracer", true, terr.Error())
+	case tout == "\x02TRACER\x02":
+		emit(base+"@tracer", false, "served")
+	default:
+		emit(base+"@tracer", false, "fell-back")
+	}
+}
+
+func manifestTemplates(m *compiled.Manifest) map[string]string {
+	tmpls := map[string]string{}
+	for n, s := range m.Sources {
+		tmpls[n] = s
+	}
+	return tmpls
+}
+
+// envOpts builds the Environment options a fingerprint describes, so every
+// probe Environment is configured from the manifest itself rather than from a
+// re-derived subset of the compile options.
+func envOpts(fp compiled.Fingerprint) []quill.Option {
+	opts := []quill.Option{
+		quill.WithAutoescapeHTML(fp.AutoescapeHTML),
+		quill.WithStrictVariables(!fp.LenientVariables),
+		quill.WithTabWidth(fp.TabWidth),
+	}
+	if fp.RandomSeedSet {
+		opts = append(opts, quill.WithRandomSeed(fp.RandomSeed))
+	}
+	return opts
+}
+
+// tracerManifest clones a manifest's dispatch metadata around a marker render:
+// a marker result proves the gate served the unit, anything else proves it
+// fell back.
+func tracerManifest(m *compiled.Manifest) *compiled.Manifest {
+	return &compiled.Manifest{
+		Entry: m.Entry, Sources: m.Sources, Fingerprint: m.Fingerprint, UsesLog: m.UsesLog,
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value) error {
+			_, err := io.WriteString(w, "\x02TRACER\x02")
+			return err
+		},
+	}
+}
+
+func sameErrText(a, b error) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	return a == nil || a.Error() == b.Error()
+}
+
+func errText(err error) string {
+	if err == nil {
+		return "<nil>"
+	}
+	return err.Error()
+}
+
+// runEnvMatrix drives one case through the fingerprint matrix: the four
+// autoescape/strict combinations plus a tab-width flip and a random-seed
+// flip. Under every combination the Environment with the manifest installed
+// must render byte- and error-identical to a manifest-free Environment with
+// the same options (mixed serve/fallback traffic never changes bytes), and a
+// tracer manifest must be served exactly when the combination equals the
+// unit's fingerprint.
+func runEnvMatrix(base string, m *compiled.Manifest, varsJSON string) {
+	tmpls := manifestTemplates(m)
+	fp := m.Fingerprint
+	var fps []compiled.Fingerprint
+	for _, auto := range []bool{false, true} {
+		for _, lenient := range []bool{false, true} {
+			cfp := fp
+			cfp.AutoescapeHTML = auto
+			cfp.LenientVariables = lenient
+			fps = append(fps, cfp)
+		}
+	}
+	tabFlip := fp
+	tabFlip.TabWidth = fp.TabWidth + 2
+	seedFlip := fp
+	seedFlip.RandomSeed = fp.RandomSeed + 1
+	seedFlip.RandomSeedSet = true
+	fps = append(fps, tabFlip, seedFlip)
+
+	for _, cfp := range fps {
+		label := fmt.Sprintf("auto=%v lenient=%v tab=%d seeded=%v",
+			cfp.AutoescapeHTML, cfp.LenientVariables, cfp.TabWidth, cfp.RandomSeedSet)
+
+		refVars, err := decodeVars(varsJSON)
+		if err != nil {
+			emit(base+"@matrix", true, label+": vars decode: "+err.Error())
+			return
+		}
+		ref := quill.NewWithArray(tmpls, envOpts(cfp)...)
+		refOut, refErr := ref.Render(m.Entry, refVars)
+
+		mixVars, err := decodeVars(varsJSON)
+		if err != nil {
+			emit(base+"@matrix", true, label+": vars decode: "+err.Error())
+			return
+		}
+		mixed := quill.NewWithArray(tmpls, append(envOpts(cfp), quill.WithCompiled(m))...)
+		mixOut, mixErr := mixed.Render(m.Entry, mixVars)
+		if mixOut != refOut || !sameErrText(mixErr, refErr) {
+			emit(base+"@matrix", true, fmt.Sprintf("%s: mixed render diverged: got %q / %s, want %q / %s",
+				label, mixOut, errText(mixErr), refOut, errText(refErr)))
+			return
+		}
+
+		trcVars, err := decodeVars(varsJSON)
+		if err != nil {
+			emit(base+"@matrix", true, label+": vars decode: "+err.Error())
+			return
+		}
+		tenv := quill.NewWithArray(tmpls, append(envOpts(cfp), quill.WithCompiled(tracerManifest(m)))...)
+		tout, terr := tenv.Render(m.Entry, trcVars)
+		served := terr == nil && tout == "\x02TRACER\x02"
+		if served != (cfp == fp) {
+			emit(base+"@matrix", true, fmt.Sprintf("%s: gate served=%v, want %v", label, served, cfp == fp))
+			return
+		}
+	}
+	emit(base+"@matrix", false, "ok")
 }
 ` + jsonDecoderSupport
 

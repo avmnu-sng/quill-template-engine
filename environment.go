@@ -3,11 +3,14 @@ package quill
 import (
 	"io"
 	"log"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/cache"
 	"github.com/avmnu-sng/quill-template-engine/check"
+	"github.com/avmnu-sng/quill-template-engine/compiled"
 	"github.com/avmnu-sng/quill-template-engine/cover"
 	"github.com/avmnu-sng/quill-template-engine/ext"
 	"github.com/avmnu-sng/quill-template-engine/interp"
@@ -98,6 +101,38 @@ type Environment struct {
 	// host configures none it is a logger over io.Discard, so @log always has a
 	// valid destination and produces no rendered output.
 	logger *log.Logger
+
+	// compiledUnits maps a template name to its installed compiled unit
+	// (WithCompiled). The map is populated while the construction options run
+	// and read-only afterwards, so by-name dispatch reads it without locking;
+	// each unit carries its own mutex-guarded source-coherence memo. A nil map
+	// (no WithCompiled option) keeps every render on the interpreter path.
+	compiledUnits map[string]*compiledUnit
+
+	// compiledVerify is the shadow-verification callback (WithCompiledVerify),
+	// or nil for direct compiled dispatch. When set, a by-name render that the
+	// dispatch gate would serve compiled instead runs BOTH engines, serves the
+	// interpreter's result, and reports any output or error-text divergence.
+	compiledVerify func(compiled.Divergence)
+}
+
+// compiledUnit is one installed manifest plus this Environment's memo of its
+// source-coherence verdict. The memo follows the prepared-cache pattern:
+// witness pins the parsed module each member's byte-verification ran against,
+// and a dispatch trusts the stored verdict only while every member's current
+// module is pointer-identical to its witness. A re-parsed module (a parse
+// cache eviction, a loader now serving different text) therefore forces a
+// fresh byte-comparison, so the compiled path can never serve a render whose
+// interpreter counterpart would walk different source.
+type compiledUnit struct {
+	manifest *compiled.Manifest
+	// members lists the manifest's source names in sorted order, giving the
+	// witness slice a stable member-to-index mapping.
+	members []string
+
+	mu      sync.Mutex
+	witness []*ast.Node
+	ok      bool
 }
 
 // preparedEntry is one memoized prepared template: the Template plus the parsed
@@ -234,6 +269,67 @@ func WithLogger(l *log.Logger) Option {
 	}
 }
 
+// WithCompiled installs generated compiled units (the compile backend's
+// exported manifests) for by-name dispatch. Render, RenderTo, and the
+// entry points delegating to them serve a template whose name matches an
+// installed manifest through the generated render function instead of the
+// interpreter, but only when the dispatch gate proves the bytes cannot
+// differ: the manifest's compile-options fingerprint must equal this
+// Environment's configuration, no sandbox policy or activation, coverage
+// collector, or host type registry may be configured, a unit containing @log
+// must not lose lines a non-discarding logger would receive, and every member
+// source must byte-equal the text the loader currently serves (verified once
+// and re-verified whenever the parse cache serves a re-parsed module). Any
+// unprovable condition falls back to the interpreter, so installing a
+// manifest changes render cost, never rendered bytes or errors. A host
+// callable flagged NeedsEnvironment sees the serving path's own engine
+// handle: the interpreter's and the generated code's handles are distinct
+// concrete types exposing identical configuration through ext.EngineConfig,
+// the injected handle's documented surface. A manifest missing its render
+// function, entry name, or entry source is ignored; a later manifest for the
+// same entry name replaces an earlier one. Templates
+// whose output depends on UNSEEDED randomness are the documented exception:
+// compiled and interpreted draws come from independent time-seeded sources,
+// so their output compares distributionally, never byte-wise.
+func WithCompiled(manifests ...*compiled.Manifest) Option {
+	return func(e *Environment) {
+		for _, m := range manifests {
+			if m == nil || m.Render == nil || m.Entry == "" {
+				continue
+			}
+			if _, ok := m.Sources[m.Entry]; !ok {
+				continue
+			}
+			if e.compiledUnits == nil {
+				e.compiledUnits = map[string]*compiledUnit{}
+			}
+			members := make([]string, 0, len(m.Sources))
+			for name := range m.Sources {
+				members = append(members, name)
+			}
+			sort.Strings(members)
+			e.compiledUnits[m.Entry] = &compiledUnit{manifest: m, members: members}
+		}
+	}
+}
+
+// WithCompiledVerify switches the installed compiled units (WithCompiled) from
+// direct dispatch to shadow verification: a by-name render the dispatch gate
+// would serve compiled instead runs both engines, byte-compares the outputs
+// and error text, reports any divergence to the report callback, and always
+// serves the interpreter's result. It is the trust-building mode for a new
+// unit: production traffic renders exactly as before while every would-be
+// compiled render is checked against the authoritative interpreter. Under
+// verification a dispatched RenderTo buffers the render instead of streaming,
+// since both outputs must exist to compare; the interpreter's bytes --
+// including the partial output of an errored render -- are then written to w,
+// so the writer receives exactly what the streaming paths would have written.
+// WithCompiledVerify(nil) is the same as not passing it: direct dispatch
+// stays on.
+func WithCompiledVerify(report func(compiled.Divergence)) Option {
+	return func(e *Environment) { e.compiledVerify = report }
+}
+
 // New builds an Environment over a Loader with the given options. The registry
 // is layered bottom-up: the core stdlib is the floor, then the engine-bound
 // include/block-family callables, then each host extension set or bundle
@@ -315,8 +411,22 @@ func (e *Environment) Logger() *log.Logger { return e.logger }
 // template; a Template is immutable after prepare and safe to share across
 // concurrent renders. CompileString and the RenderString family stay uncached.
 func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
+	mod, err := e.loadModule(name)
+	if err != nil {
+		return nil, err
+	}
+	return e.prepare(name, mod)
+}
+
+// loadModule returns the named template's parsed module through the parse
+// cache: a cold load reads the loader, parses, runs the load-time type check,
+// and caches; a warm load is one cache hit. It is the shared first half of
+// LoadTemplate and the compiled dispatch's coherence anchor: whatever module
+// this returns is the module a render of name walks, so byte-checking its
+// source text checks exactly what the interpreter would render.
+func (e *Environment) loadModule(name string) (*ast.Node, error) {
 	if mod, ok := e.cache.Get(name); ok {
-		return e.prepare(name, mod)
+		return mod, nil
 	}
 	src, err := e.loader.Get(name)
 	if err != nil {
@@ -334,7 +444,7 @@ func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
 		return nil, err
 	}
 	e.cache.Put(name, mod)
-	return e.prepare(name, mod)
+	return mod, nil
 }
 
 // prepare returns the memoized prepared Template for name when the memo entry
@@ -393,11 +503,147 @@ func (e *Environment) CompileString(name, body string) (*interp.Template, error)
 	return interp.PrepareChecked(name, mod)
 }
 
-// Render loads the named template and renders it with vars, returning the output.
+// compiledFor returns the installed manifest to serve name's by-name render,
+// or nil when the render must take the interpreter path. The gate proves, per
+// render, that the compiled unit's bytes are the interpreter's bytes: the
+// compile-options fingerprint must equal this Environment's configuration
+// (each of those knobs is burned into the generated code), no render-shaping
+// feature the generated code cannot honor may be configured (a sandbox policy
+// or activation, a coverage collector, a host type registry), a unit
+// containing @log must not swallow lines a real logger would receive, and
+// every member source must byte-equal the module the render would walk.
+// Anything unprovable falls back: dispatch is an optimization, never a
+// semantics change. It runs after LoadTemplate, so the entry module is warm.
+func (e *Environment) compiledFor(name string) *compiled.Manifest {
+	u, ok := e.compiledUnits[name]
+	if !ok {
+		return nil
+	}
+	m := u.manifest
+	fp := m.Fingerprint
+	if fp.AutoescapeHTML != e.autoescapeHTML ||
+		fp.LenientVariables != !e.strictVariables ||
+		fp.TabWidth != e.tabWidth ||
+		fp.RandomSeed != e.randomSeed ||
+		fp.RandomSeedSet != e.randomSeedSet {
+		return nil
+	}
+	if e.policy != nil || e.sandboxActive || e.coverage != nil || e.typeRegistry != nil {
+		return nil
+	}
+	if m.UsesLog && e.logger.Writer() != io.Discard {
+		return nil
+	}
+	if !e.unitCoherent(u) {
+		return nil
+	}
+	return m
+}
+
+// unitCoherent reports whether every member source in the unit's manifest
+// byte-equals the source text of the module the parse cache currently serves
+// for that member, loading and caching any member not yet parsed. The verdict
+// is memoized against the member modules' pointers: a warm dispatch pays one
+// cache hit and one pointer compare per member, and any member whose module
+// pointer changed (a re-parse after eviction) forces the byte-comparison to
+// run again, so a source change can never be served through a stale verdict.
+// A member that fails to load yields false without memoizing, letting the
+// interpreter path surface the load error exactly as an uninstalled unit
+// would.
+func (e *Environment) unitCoherent(u *compiledUnit) bool {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	recheck := false
+	if u.witness == nil {
+		u.witness = make([]*ast.Node, len(u.members))
+		recheck = true
+	}
+	for i, name := range u.members {
+		mod, err := e.loadModule(name)
+		if err != nil {
+			u.witness = nil
+			return false
+		}
+		if u.witness[i] != mod {
+			u.witness[i] = mod
+			recheck = true
+		}
+	}
+	if !recheck {
+		return u.ok
+	}
+	u.ok = true
+	for i, name := range u.members {
+		if u.witness[i].Src.Code() != u.manifest.Sources[name] {
+			u.ok = false
+			break
+		}
+	}
+	return u.ok
+}
+
+// renderShadowed runs one by-name render in shadow-verification mode: the
+// interpreter render is authoritative and always served, the compiled render
+// runs against the same variables into a private buffer, and any difference
+// in output bytes or error text is reported to the WithCompiledVerify
+// callback. Running both engines over one vars map is safe under the value
+// contract: binding marks argument arrays shared and every template mutation
+// privatizes first (copy-on-write), so the first render cannot change what
+// the second reads.
+func (e *Environment) renderShadowed(m *compiled.Manifest, tmpl *interp.Template, vars map[string]runtime.Value) (string, error) {
+	interpOut, interpErr := interp.Render(e, tmpl, vars)
+	var b strings.Builder
+	compErr := m.Render(&b, e.extensions, vars)
+	if b.String() != interpOut || !sameErrorText(compErr, interpErr) {
+		e.compiledVerify(compiled.Divergence{
+			Template:       m.Entry,
+			CompiledOutput: b.String(),
+			InterpOutput:   interpOut,
+			CompiledErr:    compErr,
+			InterpErr:      interpErr,
+		})
+	}
+	return interpOut, interpErr
+}
+
+// sameErrorText reports whether two render errors agree for shadow
+// verification: both nil, or both non-nil with identical text. Error text is
+// the compiled backend's parity contract (typed identity does not survive the
+// generated-code boundary), so text equality is the right notion of "same".
+func sameErrorText(a, b error) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	return a == nil || a.Error() == b.Error()
+}
+
+// Render loads the named template and renders it with vars, returning the
+// output. When an installed compiled unit (WithCompiled) passes the dispatch
+// gate the render runs through the generated function with identical output
+// and error bytes, including the partial output an errored render returns.
 func (e *Environment) Render(name string, vars map[string]runtime.Value) (string, error) {
 	tmpl, err := e.LoadTemplate(name)
 	if err != nil {
 		return "", err
+	}
+	if m := e.compiledFor(name); m != nil {
+		if e.compiledVerify != nil {
+			return e.renderShadowed(m, tmpl, vars)
+		}
+		// The compiled path shares the interpreter's warm-render Builder
+		// sizing: pre-grow from the Template's remembered output length and
+		// store the length back on success, so alternating compiled and
+		// interpreted renders keep one coherent hint. Capacity never affects
+		// rendered bytes.
+		var b strings.Builder
+		if hint := tmpl.OutGrowHint(); hint > 0 {
+			b.Grow(hint)
+		}
+		err := m.Render(&b, e.extensions, vars)
+		if err == nil {
+			tmpl.RecordOutSize(b.Len())
+		}
+		return b.String(), err
 	}
 	return interp.Render(e, tmpl, vars)
 }
@@ -428,11 +674,34 @@ func (e *Environment) RenderString(name, body string, vars map[string]runtime.Va
 // bytes written equal Render's returned string in both cases. RenderTo neither
 // wraps nor flushes w; pass a bufio.Writer for buffered throughput and flush
 // it after RenderTo returns (a @flush statement flushes such a writer
-// mid-render).
+// mid-render). An installed compiled unit (WithCompiled) that passes the
+// dispatch gate streams through the generated function; the compilable subset
+// excludes every slot construct, so its streaming behavior matches the
+// interpreter's slot-free path. Under WithCompiledVerify the dispatched
+// render buffers both engines' outputs to compare them, then writes the
+// interpreter's bytes -- including an errored render's partial output -- so w
+// ends up with what the slot-free streaming path would have written.
 func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime.Value) error {
 	tmpl, err := e.LoadTemplate(name)
 	if err != nil {
 		return err
+	}
+	if m := e.compiledFor(name); m != nil {
+		if e.compiledVerify != nil {
+			// The interpreter result reaches w even when the render errors: a
+			// gate-passing unit is slot-free, so both the interpreter path and
+			// direct dispatch stream partial output before a mid-render error,
+			// and verification must leave those same bytes on w. The render
+			// error outranks a write error because it is the authoritative
+			// result the comparison above already served.
+			out, rerr := e.renderShadowed(m, tmpl, vars)
+			_, werr := io.WriteString(w, out)
+			if rerr != nil {
+				return rerr
+			}
+			return werr
+		}
+		return m.Render(w, e.extensions, vars)
 	}
 	return interp.RenderTo(e, tmpl, vars, w)
 }

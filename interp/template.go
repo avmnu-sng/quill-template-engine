@@ -496,6 +496,20 @@ func (t *Template) index(n *ast.Node) {
 	}
 }
 
+// OutGrowHint returns the output-Builder pre-size a buffered render of this
+// template should take: the remembered length of the most recent successful
+// buffered render, bounded by the cap renderBuffered applies. It lets the
+// facade's compiled dispatch (quill.WithCompiled) share the warm-render sizing
+// the interpreter path uses; capacity can never influence rendered bytes, so
+// the hint is a pure cost knob.
+func (t *Template) OutGrowHint() int { return outGrowHint(t.lastOut.Load()) }
+
+// RecordOutSize stores the byte length of a successful buffered render,
+// updating the hint OutGrowHint serves. Like renderBuffered's own store it is
+// last-write-wins on the sanctioned atomic, so concurrent renders of a shared
+// Template each record a size that was recently true.
+func (t *Template) RecordOutSize(n int) { t.lastOut.Store(int64(n)) }
+
 // Block returns the node defining the named block in this template, if any.
 func (t *Template) Block(name string) (*ast.Node, bool) {
 	n, ok := t.blocks[name]

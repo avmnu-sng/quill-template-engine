@@ -42,7 +42,17 @@ type oracleBucket struct {
 // compile backend: every fixture either compiles and renders byte-identical
 // to the interpreter, or is reported not compilable with a named construct,
 // or is excluded for a config the compiled path cannot honor. Every fixture
-// lands in exactly one bucket; none is silently skipped.
+// lands in exactly one bucket; none is silently skipped. Each compiled
+// fixture additionally renders by name through an Environment with its
+// generated manifest installed (quill.WithCompiled) under the fixture's own
+// autoescape/strict combination, with a tracer manifest proving the dispatch
+// gate served the compiled unit rather than silently falling back, and then
+// through the whole fingerprint matrix (every autoescape/strict combination
+// plus a tab-width flip and a random-seed flip): under each combination the
+// manifest-installed Environment must render byte- and error-identical to a
+// manifest-free one, with the tracer served exactly at the matching
+// combination -- the CI leg that runs the corpus as mixed serve/fallback
+// traffic once per fingerprint combination.
 func TestConformanceOracle(t *testing.T) {
 	root := filepath.Join(repoRoot(t), "testdata", "conformance")
 	entries, err := os.ReadDir(root)
@@ -109,7 +119,10 @@ func TestConformanceOracle(t *testing.T) {
 
 		results[fixture] = res
 		interpOut[fixture] = want
-		cases = append(cases, compiledCase{name: fixture, template: body, varsJSON: varsJSON})
+		cases = append(cases, compiledCase{
+			name: fixture, template: body, varsJSON: varsJSON,
+			opts: opts, envCheck: true,
+		})
 	}
 
 	got := runCompiled(t, cases, results)
@@ -128,6 +141,37 @@ func TestConformanceOracle(t *testing.T) {
 			continue
 		}
 		buckets = append(buckets, oracleBucket{cs.name, "compiled-equal", ""})
+
+		// The WithCompiled leg: the by-name Environment render must match the
+		// interpreter byte for byte, and the tracer must confirm the dispatch
+		// gate served the compiled unit for this fixture's configuration.
+		envR, ok := got[cs.name+"@env"]
+		switch {
+		case !ok:
+			t.Errorf("%s: no env-dispatch result from scratch run", cs.name)
+		case envR.failed:
+			t.Errorf("%s: env-dispatch render errored: %s", cs.name, envR.errText)
+		case envR.out != interpOut[cs.name]:
+			t.Errorf("%s: env-dispatch output differs from interpreter\n got  %q\n want %q", cs.name, envR.out, interpOut[cs.name])
+		}
+		tr, ok := got[cs.name+"@tracer"]
+		switch {
+		case !ok:
+			t.Errorf("%s: no tracer result from scratch run", cs.name)
+		case tr.failed:
+			t.Errorf("%s: tracer render errored: %s", cs.name, tr.errText)
+		case tr.out != "served":
+			t.Errorf("%s: dispatch gate fell back for a fixture it should serve", cs.name)
+		}
+		mx, ok := got[cs.name+"@matrix"]
+		switch {
+		case !ok:
+			t.Errorf("%s: no fingerprint-matrix result from scratch run", cs.name)
+		case mx.failed:
+			t.Errorf("%s: fingerprint-matrix leg failed: %s", cs.name, mx.errText)
+		case mx.out != "ok":
+			t.Errorf("%s: fingerprint-matrix leg reported %q", cs.name, mx.out)
+		}
 	}
 
 	// Report the classification: every fixture in exactly one bucket.

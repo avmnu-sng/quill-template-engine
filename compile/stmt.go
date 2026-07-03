@@ -236,8 +236,11 @@ func (c *compiler) stmtIfClauses(clauses []*ast.Node) error {
 
 // stmtLog lowers @log: evaluate the expression and its text coercion for
 // effect and error parity; a compiled render has no host logger sink, so the
-// text is discarded and no rendered output is produced.
+// text is discarded and no rendered output is produced. The unit's manifest
+// records the statement (UsesLog) so the Environment's compiled dispatch can
+// fall back when a host logger would have received the line.
 func (c *compiler) stmtLog(n *ast.Node) error {
+	c.usesLog = true
 	v, err := c.expr(n.Child(0), false)
 	if err != nil {
 		return err

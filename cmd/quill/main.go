@@ -1,5 +1,5 @@
-// Command quill renders a Quill template from disk with JSON data, and measures
-// template coverage.
+// Command quill renders a Quill template from disk with JSON data, measures
+// template coverage, and compiles a template to a Go render function.
 //
 // Usage:
 //
@@ -8,6 +8,7 @@
 //	cat data.json | quill -root templates -data - index.ql
 //	quill cover -root templates -data data.json page.ql
 //	quill cover -root templates -cases cases.json -format html -o cover.html
+//	quill compile -root templates -pkg qtpl -o index_gen.go index.ql
 //
 // The named template is resolved by a filesystem loader rooted at -root, so an
 // @extends parent, an @include target, and an @import/@from source all resolve
@@ -20,6 +21,11 @@
 // The "cover" subcommand renders one template (or a JSON list of template+data
 // cases) with a coverage Collector attached and writes a text, LCOV, or HTML
 // report; -fail-under makes it a CI gate (see docs/coverage.md Section 5).
+//
+// The "compile" subcommand lowers one template through the compile backend and
+// writes the generated Go source: a render function plus the exported manifest
+// quill.WithCompiled installs for by-name dispatch. A construct outside the
+// compilable subset is reported as a not-compilable error naming the construct.
 package main
 
 import (
@@ -44,12 +50,15 @@ func main() {
 	}
 }
 
-// dispatch routes to a subcommand. The only subcommand is "cover"; anything else
-// is the default render path, so the plain "quill <template>" invocation and all
-// its flags keep working unchanged.
+// dispatch routes to a subcommand ("cover" or "compile"); anything else is the
+// default render path, so the plain "quill <template>" invocation and all its
+// flags keep working unchanged.
 func dispatch(args []string, out, errOut io.Writer, stdin io.Reader) error {
 	if len(args) > 0 && args[0] == "cover" {
 		return runCover(args[1:], out, errOut, stdin)
+	}
+	if len(args) > 0 && args[0] == "compile" {
+		return runCompile(args[1:], out)
 	}
 	return run(args, out, stdin)
 }
