@@ -96,7 +96,7 @@ func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pai
 		}
 	}
 	loopCtx := outer.Child()
-	parentLoop, _ := outer.Get("loop")
+	parentPtr := probeLoopParent(outer)
 	for i, p := range pairs {
 		if frame.twoTgt {
 			loopCtx.Set(frame.target1, p.Key)
@@ -104,7 +104,7 @@ func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pai
 		} else {
 			loopCtx.Set(frame.target1, p.Val)
 		}
-		loopCtx.Set("loop", runtime.NewRecursiveLoopValue(i, pairs, depth0, parentLoop))
+		loopCtx.Set("loop", runtime.NewRecursiveLoopValue(i, pairs, depth0, parentPtr))
 		if err := in.execItems(frame.body, loopCtx); err != nil {
 			return err
 		}

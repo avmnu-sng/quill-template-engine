@@ -91,11 +91,13 @@ type loopInfo struct {
 	// inline marks a loop proven non-escaping: no per-iteration loop value is
 	// bound, and scope-enumerating consumers materialize one on demand.
 	inline bool
-	// parentVar names the local holding the parent loop value probed once at
-	// loop entry (the interpreter's pre.Get("loop") timing). Every on-demand
-	// materialization of an inline loop's value consumes this local instead of
-	// re-probing, so a scope entry named loop that changes mid-loop cannot
-	// skew the parent away from what the interpreter bound.
+	// parentVar names the local carrying the parent loop probe resolved once
+	// at loop entry (the interpreter's pre.Get("loop") timing): the probe's
+	// value local for an inline loop, boxed on demand at each materialization
+	// site, and the already-boxed *runtime.Value for a materialized loop's
+	// per-iteration bind. Consumers use this local instead of re-probing, so a
+	// scope entry named loop that changes mid-loop cannot skew the parent away
+	// from what the interpreter bound.
 	parentVar string
 	// live marks a loop proven mutation-free (loopAnalysis.liveFor): a KArray
 	// iterand iterates zero-copy off arrVar with nVar the entry-time length

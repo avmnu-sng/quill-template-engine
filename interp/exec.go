@@ -385,6 +385,29 @@ func (in *interp) execIf(n *ast.Node, ctx *runtime.Scope) error {
 	return nil
 }
 
+// nullLoopParent is the shared parent pointee of every loop with no enclosing
+// loop value: its loop.parent reads Null, so all such loops point at this one
+// read-only package-level Value instead of heap-boxing a fresh Null per loop.
+var nullLoopParent = runtime.Null()
+
+// probeLoopParent resolves the enclosing loop's value once at loop entry and
+// returns the pointer every iteration's metadata object stores as its parent
+// (the pointer keeps runtime's loopInfo in the 64-byte size class). A hit is
+// boxed into a dedicated heap Value that stays unwritten for the loop's
+// lifetime -- a rebind would leak into already-captured snapshots -- and a
+// miss shares nullLoopParent. The box is built by explicit new-and-copy on the
+// hit path only: taking the probe local's address would make escape analysis
+// heap-allocate it on every call, charging top-level loops too.
+func probeLoopParent(pre *runtime.Scope) *runtime.Value {
+	v, ok := pre.Get("loop")
+	if !ok {
+		return &nullLoopParent
+	}
+	parent := new(runtime.Value)
+	*parent = v
+	return parent
+}
+
 // execFor renders a for loop with full loop.* metadata (spec 01 Section 4.2).
 // The iterand is drained to pairs; a non-iterable is a runtime error (NOT a
 // silent empty loop) unless lenient mode is on. The body runs in a child scope;
@@ -464,7 +487,7 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 	// spec 01 Section 4.2).
 	pre := ctx
 	loopCtx := pre.Child()
-	parentLoop, _ := pre.Get("loop")
+	parentPtr := probeLoopParent(pre)
 
 	for i, p := range pairs {
 		loopCtx.Set(target1.Str, p.Val)
@@ -475,7 +498,7 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 			loopCtx.Set(target1.Str, p.Key)
 			loopCtx.Set(target2.Str, p.Val)
 		}
-		loopCtx.Set("loop", runtime.NewLoopValue(i, pairs, parentLoop))
+		loopCtx.Set("loop", runtime.NewLoopValue(i, pairs, parentPtr))
 		if err := in.execItems(body.Children, loopCtx); err != nil {
 			return err
 		}

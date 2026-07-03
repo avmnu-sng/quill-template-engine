@@ -866,7 +866,11 @@ func (c *compiler) emitLoopNeighbour(li *loopInfo, cond, at string) string {
 // parent is NOT resolved here: it is the loop's hoisted entry-time probe
 // local, because the interpreter probes pre.Get("loop") once before iterating
 // and a consumption-time re-probe could observe a scope entry named loop that
-// changed mid-loop. It returns the value expression.
+// changed mid-loop. The probe local is boxed into the pointer the constructor
+// stores by new-and-copy INSIDE the consumer's guard: taking the local's
+// address directly would make escape analysis heap-allocate it at loop entry,
+// charging every render whether or not the guard ever runs. It returns the
+// value expression.
 func (c *compiler) emitLoopValue(li *loopInfo) string {
 	pairs := li.pairsVar
 	if li.live {
@@ -877,7 +881,23 @@ func (c *compiler) emitLoopValue(li *loopInfo) string {
 		c.closeb()
 		pairs = ps
 	}
-	return fmt.Sprintf("runtime.NewLoopValue(%s, %s, %s)", li.iVar, pairs, li.parentVar)
+	pp := c.tmp("qp")
+	c.linef("%s := new(runtime.Value)", pp)
+	c.linef("*%s = %s", pp, li.parentVar)
+	return fmt.Sprintf("runtime.NewLoopValue(%s, %s, %s)", li.iVar, pairs, pp)
+}
+
+// emitLoopParentBox boxes a materialized loop's entry-time parent probe into
+// the one heap Value every iteration's metadata object points at, by
+// new-and-copy so the probe's own locals stay on the stack. One box per loop
+// entry replaces the 64-byte parent copy the metadata object used to carry
+// per iteration; the pointee is never reassigned, so a captured snapshot keeps
+// reading the entry-time bits. It returns the *runtime.Value local's name.
+func (c *compiler) emitLoopParentBox(val string) string {
+	pp := c.tmp("qp")
+	c.linef("%s := new(runtime.Value)", pp)
+	c.linef("*%s = %s", pp, val)
+	return pp
 }
 
 // emitLoopParent lowers the entry-time parent probe of one inline loop: the

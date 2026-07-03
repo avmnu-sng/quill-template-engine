@@ -881,14 +881,18 @@ func (c *compiler) stmtForBody(n *ast.Node, target1, target2, body *ast.Node, it
 	// must not skew an on-demand materialization away from the parent the
 	// interpreter bound at entry. An inline loop cannot go through probeName
 	// (an enclosing inline loop's value local is never assigned), so it takes
-	// the loop-aware probe, which materializes an enclosing inline loop's
-	// value from that loop's own entry-time locals.
+	// the loop-aware probe, whose value local is boxed on demand at each
+	// materialization site (emitLoopValue). A materialized loop boxes the
+	// probe once here into the *runtime.Value its per-iteration bind stores
+	// (loopInfo carries parent as a pointer at the per-loop probe); the boxed
+	// pointee stays unwritten for the loop's lifetime, so every captured
+	// snapshot keeps reading the entry-time bits.
 	var parentLoop string
 	if inline {
 		parentLoop = c.emitLoopParent(len(c.frames))
 	} else {
 		parentVal, _ := c.probeName("loop")
-		parentLoop = c.spill(parentVal)
+		parentLoop = c.emitLoopParentBox(parentVal)
 	}
 
 	c.openf("{")
