@@ -487,6 +487,17 @@ func TestGeneratedVet(t *testing.T) {
 			"page.ql":  "@set outer = 1\n@embed \"shell.ql\" with { x: 2 } only {\n@}\n",
 			"shell.ql": "x={{ x }}\n@for n in [1,2] {\n@provide s {\n{{ n }}\n@}\n@}\n@yield s\n",
 		}},
+		// A with-map whose target reads no name through the with-frame: the
+		// spilled map temp is otherwise declared-and-unused, so these lower
+		// vet-clean only with the discard guard in stmtInclude/stmtEmbed.
+		{name: "vet-inc-litmap-no-read", entry: "page.ql", templates: map[string]string{
+			"page.ql":  "@include \"shell.ql\" with { a: 1 }\n",
+			"shell.ql": "static text\n",
+		}},
+		{name: "vet-embed-litmap-no-read", entry: "page.ql", templates: map[string]string{
+			"page.ql":  "@embed \"shell.ql\" with { a: 1 } {\n@block b {\noverride\n@}\n@}\n",
+			"shell.ql": "@block b {\ndefault\n@}\nstatic\n",
+		}},
 	}
 	dir := t.TempDir()
 	root := repoRoot(t)

@@ -89,6 +89,11 @@ func (c *compiler) stmtInclude(n *ast.Node) error {
 			return err
 		}
 		mapVar = c.spill(mv)
+		// The spilled with-map temp is referenced only when a name resolves
+		// through the with-frame, so a target that reads none would leave it
+		// declared-and-unused. Discard it, mirroring the render header's qw/qNames
+		// guards, so every with-map include lowers to compiling Go.
+		c.linef("_ = %s", mapVar)
 	}
 
 	body := mod.Children
