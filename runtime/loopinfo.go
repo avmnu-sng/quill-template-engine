@@ -57,6 +57,43 @@ func NewRecursiveLoopValue(i int, pairs []Pair, depth0 int, parent *Value) Value
 	return Obj(&loopInfo{i: i, n: len(pairs), pairs: pairs, parent: parent, recursive: true, depth0: depth0})
 }
 
+// LoopCursor owns one reusable loop metadata object for a single loop whose
+// per-iteration value provably never outlives its iteration. Such a loop binds
+// the same object every step, advancing only the index, so the whole loop
+// materializes one small object instead of a fresh one per element. The reuse is
+// sound ONLY under that escape proof: mutating the shared object in place would
+// corrupt an earlier iteration's captured snapshot, so a loop whose value can be
+// captured, passed to a callable, or otherwise read after the step must keep the
+// fresh-per-iteration NewLoopValue path (whose frozen-snapshot contract is
+// untouched by this type). The Value is boxed once at construction and returned
+// by every At call, so binding it also allocates nothing after the first step.
+type LoopCursor struct {
+	li  loopInfo
+	val Value
+}
+
+// NewLoopCursor prepares a reusable loop value over pairs, with parent carrying
+// the same entry-time-probe pointer contract as NewLoopValue (Null at the top
+// level). n is fixed to the pair count for the loop's lifetime; At advances only
+// the current index. It is for the pool-safe path only -- a caller that cannot
+// prove the loop value stays within its iteration must use NewLoopValue instead.
+func NewLoopCursor(pairs []Pair, parent *Value) *LoopCursor {
+	c := &LoopCursor{li: loopInfo{n: len(pairs), pairs: pairs, parent: parent}}
+	c.val = Obj(&c.li)
+	return c
+}
+
+// At points the reused loop object at iteration i and returns the loop value to
+// bind for that step. The returned Value is the same object every call: every
+// derived field (index, first, last, revindex, prev, next) recomputes from the
+// freshly set index, so the bound value reads exactly as a fresh NewLoopValue(i)
+// would for this step. Reusing it is safe only because the loop's escape proof
+// guarantees no earlier step's value is still reachable to observe the mutation.
+func (c *LoopCursor) At(i int) Value {
+	c.li.i = i
+	return c.val
+}
+
 // GetField resolves a loop.* field on access. Every field is always defined for
 // the loop's kind: a plain loop resolves the ten common fields, a recursive loop
 // additionally resolves depth/depth0. An unknown name -- including "changed",

@@ -468,6 +468,15 @@ func probeLoopParent(pre *runtime.Scope) *runtime.Value {
 // one), which the single-threaded byte-diff tests observe.
 var poolLoopSnapshots = true
 
+// reuseLoopInfo is the master switch for gate-scoped per-iteration loop-value
+// reuse. It is true in every build; the differential battery flips it off to
+// render the same templates through the fresh-per-iteration NewLoopValue path
+// and assert byte-identical output, proving reuse is a pure allocation elision
+// under the escape gate. Like poolLoopSnapshots it is read once per loop and
+// only ever toggled between renders. It is a separate knob so the battery can
+// isolate loop-value reuse from pair-buffer pooling.
+var reuseLoopInfo = true
+
 // pairBufPool recycles []Pair loop snapshot buffers across renders. It is a
 // sync.Pool, so it is goroutine-safe (each P holds its own shard, so concurrent
 // renders never contend) and it survives render boundaries -- which is where the
@@ -613,6 +622,21 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 	loopCtx := pre.Child()
 	parentPtr := probeLoopParent(pre)
 
+	// A loop whose Prepare-time escape bit cleared binds ONE reused loop object,
+	// advancing only its index each iteration, instead of allocating a fresh
+	// metadata object per element (the dominant remaining per-iteration byte term
+	// once pair pooling removed the snapshot). This is sound precisely because the
+	// escape proof guarantees no earlier step's loop value is still reachable to
+	// observe the in-place index advance; a loop the analysis could not clear --
+	// one that may capture loop, pass it to a callable, or read it after the step
+	// -- keeps the fresh NewLoopValue path and its frozen-snapshot contract. The
+	// fused guard is redundant with forSafe (analyzeLoopEscapes never marks a fused
+	// loop safe) but kept explicit as the pair path keeps it.
+	var cursor *runtime.LoopCursor
+	if reuseLoopInfo && filter == nil && in.forSafe[n] {
+		cursor = runtime.NewLoopCursor(pairs, parentPtr)
+	}
+
 	for i, p := range pairs {
 		loopCtx.Set(target1.Str, p.Val)
 		if target2 != nil {
@@ -622,7 +646,11 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 			loopCtx.Set(target1.Str, p.Key)
 			loopCtx.Set(target2.Str, p.Val)
 		}
-		loopCtx.Set("loop", runtime.NewLoopValue(i, pairs, parentPtr))
+		if cursor != nil {
+			loopCtx.Set("loop", cursor.At(i))
+		} else {
+			loopCtx.Set("loop", runtime.NewLoopValue(i, pairs, parentPtr))
+		}
 		if err := in.execItems(body.Children, loopCtx); err != nil {
 			return err
 		}
