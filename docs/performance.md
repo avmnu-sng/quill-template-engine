@@ -32,30 +32,38 @@ doing the same work.
 ## Results
 
 Measured with `go test -bench` on Apple M2 Max, Go 1.26 (`darwin/arm64`), render
-phase only (templates parsed once, outside the timed loop):
+phase only (templates parsed once, outside the timed loop), medians of six runs:
 
 | Workload | Quill interpreter | Quill compiled | Go `text/template` |
 |----------|-------------------|----------------|--------------------|
-| Tiny (render) | ~0.29 us | -- | ~0.39 us |
-| Loop, 100 rows (render) | ~40.5 us | ~14.0 us | ~85.3 us |
-| Compose (render) | ~10.9 us | -- | -- |
+| Tiny (render) | ~0.31 us | -- | ~0.41 us |
+| Loop, 100 rows (render) | ~41.5 us | ~10.2 us | ~88.4 us |
+| Compose (render) | ~11.3 us | -- | -- |
 
 Reading the table:
 
-- **The interpreter beats `text/template` on the tiny template** (~0.29 us vs
-  ~0.39 us) and on the 100-row loop (~40.5 us vs ~85.3 us), while carrying a
+- **The interpreter beats `text/template` on the tiny template** (~0.31 us vs
+  ~0.41 us) and on the 100-row loop (~41.5 us vs ~88.4 us), while carrying a
   larger feature set (gradual types, whitespace control, composition).
-- **The compiled loop is roughly 2.9x faster than the interpreter** on the same
-  workload (~14.0 us vs ~40.5 us), because the generated Go emits body literals as
+- **The compiled loop is roughly 4.1x faster than the interpreter** on the same
+  workload (~10.2 us vs ~41.5 us), because the generated Go emits body literals as
   constants, inlines `loop.index`, and skips the per-node dispatch, `Context`, and
   copy-on-write the interpreter pays.
 
-The compiled figure is measured against a hand-written stand-in that renders the
-loop workload the way the compile backend lowers it (a proof-of-ceiling in
-`bench/compiled_poc_test.go`, asserted byte-identical to the interpreter). The
-shipped backend (package `compile`, installed with `WithCompiled`) targets that
-ceiling; see [Architecture](architecture.md) for how the compiled path
-dispatches.
+The compiled figure is the **real shipped `compile` backend**: the render
+function `compile.Module` emits, the same unit `WithCompiled` installs,
+benchmarked by `BenchmarkCompiledReal_Loop_Render` over the committed generated
+source in `bench/compiled_loop_gen.go`. A staleness test regenerates that source
+in-memory and fails if it drifts from the backend's current output, and a parity
+test pins its bytes to the interpreter's, so the number tracks the actual codegen
+rather than a description of it.
+
+The harness also keeps a hand-written proof-of-ceiling
+(`BenchmarkCompiled_Loop_Render` in `bench/compiled_poc_test.go`, ~14.4 us),
+which renders the loop the way the backend lowers it as an independent bound on
+what the compiled path can reach; the shipped backend meets and beats it here
+because it buffers its writes. See [Architecture](architecture.md) for how the
+compiled path dispatches.
 
 ## The compile-to-Go backend
 
@@ -98,10 +106,17 @@ From the repository root:
 
 ```
 cd bench
-go test -run '^$' -bench 'Render' -benchmem -count=3
+go test -run '^$' -bench 'Render' -benchmem -count=6
 ```
 
-That runs the offline Quill-vs-stdlib benchmarks with zero external dependencies.
+That runs the offline Quill-vs-stdlib benchmarks with zero external dependencies,
+including `BenchmarkCompiledReal_Loop_Render` (the shipped `compile` backend) and
+`BenchmarkCompiled_Loop_Render` (the proof-of-ceiling). The generated render
+function `bench/compiled_loop_gen.go` is committed, so the real-backend benchmark
+builds with no manual pre-step; regenerate it after a compiler change with `go
+generate ./...` (or `go run genloop.go`) from the `bench` directory. A plain `go
+test ./...` in `bench` runs the parity and staleness guards that keep that
+generated source honest.
 To include the Twig/Jinja-family peers (pongo2, stick) in the comparison, fetch
 them into the bench module and pass the build tag:
 
