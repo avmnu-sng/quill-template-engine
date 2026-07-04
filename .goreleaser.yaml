@@ -1,0 +1,90 @@
+# GoReleaser configuration for Quill (schema v2).
+#
+# Cross-compiles the cmd/quill CLI for the common desktop and server targets,
+# packages each build into an archive, writes a checksums file, and derives the
+# release changelog from git history. It publishes nothing beyond the GitHub
+# Release that goreleaser-action creates: there is no registry, tap, or image
+# push. Validate locally with:
+#
+#     goreleaser check
+#     goreleaser build --snapshot --clean
+version: 2
+
+project_name: quill
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: quill
+    main: ./cmd/quill
+    binary: quill
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # -trimpath yields reproducible paths; -s -w drops the symbol table and DWARF
+    # to shrink the binaries. The CLI carries its own version constant, so no
+    # variable is injected here.
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - id: quill
+    ids:
+      - quill
+    # tar.gz everywhere except Windows, which gets a zip.
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - LICENSE
+      - NOTICE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  # Build the release changelog from git commit subjects, grouped and filtered
+  # so noise (docs, tests, chores, merges) stays out of the release notes.
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - '^Merge '
+  groups:
+    - title: Features
+      regexp: '^feat'
+      order: 0
+    - title: Bug fixes
+      regexp: '^fix'
+      order: 1
+    - title: Other changes
+      order: 999
+
+release:
+  # Create the GitHub Release (the only publish step). Mark it a pre-release when
+  # the tag carries an rc/beta/alpha suffix.
+  prerelease: auto
+  draft: false
+  name_template: 'Quill {{ .Tag }}'

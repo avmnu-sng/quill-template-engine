@@ -1,0 +1,58 @@
+name: release
+
+# Fire on final release tags and on the pre-release shapes. GitHub Actions tag
+# filters are globs, not regexes: a loose "v*.*.*" would wrongly match a
+# pre-release such as v1.2.3-rc.1 as if it were final, so the pre-release shapes
+# are listed explicitly and kept distinct from the final pattern.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-alpha.[0-9]+'
+
+# GoReleaser needs write access to create the GitHub Release and upload the
+# archives + checksums. Nothing else is required: there is no registry push.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # GoReleaser derives the changelog and release notes from git history,
+          # so the full history and tags must be present.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          # The default token is sufficient to cut the Release in this repo. No
+          # additional secret is defined, and no registry credentials are used.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Poke the module proxy so pkg.go.dev fetches and indexes the new tag
+      # immediately instead of waiting for the next organic request. Best-effort:
+      # a proxy hiccup must not fail an otherwise successful release.
+      - name: Trigger pkg.go.dev indexing
+        run: |
+          module="github.com/avmnu-sng/quill-template-engine"
+          tag="${GITHUB_REF_NAME}"
+          echo "Requesting proxy.golang.org to index ${module}@${tag}"
+          curl -fsSL "https://proxy.golang.org/${module}/@v/${tag}.info" || \
+            echo "Proxy request failed; pkg.go.dev will index on the next organic fetch."

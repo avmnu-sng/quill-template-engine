@@ -1,0 +1,16 @@
+# CodeQL configuration for Quill.
+#
+# The default query suite plus the security-and-quality pack gives broad
+# coverage for a standard-library-only Go library without third-party noise.
+name: Quill CodeQL config
+
+queries:
+  - uses: security-and-quality
+
+# Generated Go emitted by the compile-to-Go backend and the benchmark harness
+# module are excluded: the generated sources are exercised through the library
+# API and the bench module pulls third-party peer engines that are not Quill's
+# code to scan.
+paths-ignore:
+  - bench
+  - '**/*_gen.go'

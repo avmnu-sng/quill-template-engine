@@ -6,6 +6,12 @@
 # but the conformance golden outputs are tracked fixtures, not build artifacts
 !testdata/conformance/**/expected.out
 
+# Build output
+# GoReleaser writes cross-compiled binaries and archives here.
+/dist/
+# MkDocs renders the documentation site here.
+/site/
+
 # Go workspace and vendoring
 /vendor/
 go.work
