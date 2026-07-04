@@ -1,20 +1,29 @@
-// Package quill is a Go-native, gradually-typed template engine.
+// Package quill is a general-purpose, gradually-typed, fast template engine for
+// Go.
 //
 // Quill compiles and renders templates written in the Quill language: a
 // brace-delimited, keyword-led surface with pipe filters, arrow functions, and a
-// Pratt-parsed expression language, built to emit exact text -- especially
-// program source code. See the specification under docs/ for the language
-// reference, grammar, standard library, runtime semantics, and the extension API.
+// Pratt-parsed expression language. It pairs Twig-class composition -- template
+// inheritance, blocks, macros, includes, embeds, and traits -- with a gradual
+// type system, a compile-to-Go backend for the hot path, native branch-aware
+// coverage, a policy sandbox, streaming output, and byte-exact whitespace
+// control. It renders HTML pages, configuration files, emails, program source,
+// or any other text with the same engine; no single use case is privileged. The
+// runtime depends on nothing outside the Go standard library.
 //
-// This package is under active development; its API is not yet stable.
+// See the guide at https://avmnu-sng.github.io/quill-template-engine/ for the
+// language reference, grammar, standard library, runtime semantics, and the
+// extension API. This package is under active development; its API is not yet
+// stable.
 //
 // # The facade
 //
 // Environment is the engine facade. Build one over a Loader with New (or over an
 // in-memory template map with NewWithArray), then Render by name. Output escaping
-// is off by default (the source-emission default) and undefined variables are
-// strict by default; both, along with the sandbox, the type registry, coverage,
-// and host extensions, are configured through Option values.
+// is off by default, like Go text/template, and undefined variables are strict by
+// default; both, along with the sandbox, the type registry, coverage, streaming,
+// the compiled backend, and host extensions, are configured through Option
+// values.
 //
 // # The pipeline
 //
@@ -51,12 +60,20 @@
 // quantifiers, the `matches` regex operator, and the whitespace-control trim
 // modifiers.
 //
+// # Performance
+//
+// Templates run on a tree-walking interpreter by default, and a compiled loop or
+// module can be generated with the compile-to-Go backend (package compile) and
+// installed with WithCompiled for the hot path. Rendering can either return a
+// string (Render) or stream to an io.Writer (RenderTo) without buffering the
+// whole output.
+//
 // # Extensions
 //
 // A host adds its own filters, functions, and tests through the ext package and
 // layers them over the core library with WithExtensions (callable sets) or
 // WithExtension (Extension bundles). A later host layer shadows an earlier one and
-// every host layer shadows core. See docs/extensions.md.
+// every host layer shadows core.
 //
 // # Escaping and the sandbox
 //

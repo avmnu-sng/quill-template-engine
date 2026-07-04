@@ -1,0 +1,36 @@
+# Dependabot keeps the tooling dependencies current. The engine module itself is
+# standard-library-only, so its go.mod has nothing to bump; the benchmark harness
+# under /bench is a separate module with third-party peer engines, and the
+# workflows pin action versions worth tracking.
+version: 2
+updates:
+  # GitHub Actions used by the CI, release, docs, and CodeQL workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+
+  # Root Go module (standard-library-only; present so any future dependency or
+  # a Go directive bump is surfaced).
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+    labels:
+      - "dependencies"
+
+  # Benchmark harness module: the third-party peer engines live here.
+  - package-ecosystem: "gomod"
+    directory: "/bench"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+    labels:
+      - "dependencies"
