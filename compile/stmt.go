@@ -15,9 +15,8 @@ import (
 func (c *compiler) compileModule(mod *ast.Node) error {
 	c.an = analyzeLoops(mod)
 	c.tabFree = !hasTabBlock(mod)
-	if c.tabFree {
-		c.writers[0] = "w"
-	}
+	c.usesSlots = hasSlots(mod)
+	c.setTopWriter()
 	binds := bindNames(mod.Children)
 	if err := c.checkBindNames(binds, mod); err != nil {
 		return err
@@ -119,9 +118,9 @@ func (c *compiler) stmtItem(n *ast.Node) error {
 	case ast.KindEmbed:
 		return c.notCompilable("@embed", n)
 	case ast.KindProvide:
-		return c.notCompilable("@provide", n)
+		return c.stmtProvide(n)
 	case ast.KindYield:
-		return c.notCompilable("@yield", n)
+		return c.stmtYield(n)
 	case ast.KindCallBlock:
 		return c.notCompilable("@call", n)
 	case ast.KindCache:
@@ -399,7 +398,9 @@ func (c *compiler) captureBody(body []*ast.Node) (string, error) {
 		c.linef("_ = %s", cw)
 		c.writers = append(c.writers, cw)
 	}
+	c.captureDepth++
 	err := c.stmtList(body)
+	c.captureDepth--
 	c.writers = c.writers[:len(c.writers)-1]
 	if err != nil {
 		return "", err

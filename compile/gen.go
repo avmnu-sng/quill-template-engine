@@ -95,6 +95,25 @@ type compiler struct {
 	// io.Writer and a capture body writes into its strings.Builder directly.
 	tabFree bool
 
+	// usesSlots marks a unit that statically contains a deferred-slot construct
+	// (@yield, @provide, or a slot() call). Its render function buffers output
+	// into an internal builder and resolves the yield placeholders over the
+	// finished buffer before writing to w, mirroring interp renderBuffered plus
+	// resolveSlots, so a placeholder written before its slot is fully provided
+	// backfills correctly. A slot-free unit keeps streaming straight to w.
+	usesSlots bool
+
+	// captureDepth counts the enclosing statement-capture contexts a @yield may
+	// be lowered inside: the @capture / @apply / @provide body captures routed
+	// through captureBody, and the parent() / block() captures routed through
+	// unitCaptureBlock. A top-level @yield mints a placeholder from a per-render
+	// token the single post-render resolve pass backfills; a @yield nested in a
+	// capture would embed a token the compile package cannot share with the
+	// interpreter's process-global counter, so stmtYield rejects any @yield
+	// lowered at captureDepth > 0. An arrow body is not counted because a @yield
+	// cannot parse inside an arrow expression, so no @yield ever reaches one.
+	captureDepth int
+
 	// usesStrconv records that a lowering emitted a static-Int direct write,
 	// so assemble adds the strconv import exactly when the generated code
 	// consumes it.
@@ -288,6 +307,25 @@ func (c *compiler) checkErr(errVar string, line int) {
 
 // writer names the qWriter variable the current region writes to.
 func (c *compiler) writer() string { return c.writers[len(c.writers)-1] }
+
+// setTopWriter fixes the render function's outermost writer once tabFree and
+// usesSlots are known. A slots unit renders into an internal builder (qout) so
+// the finished output can be slot-resolved before it reaches w: a tab-free
+// slots unit writes straight into that builder, any other slots unit through
+// the qWriter indent layer over it. A slot-free unit keeps the streaming
+// wiring -- straight to w when tab-free, else through the qWriter over w.
+func (c *compiler) setTopWriter() {
+	switch {
+	case c.usesSlots && c.tabFree:
+		c.writers[0] = "&qout"
+	case c.usesSlots:
+		c.writers[0] = "qw"
+	case c.tabFree:
+		c.writers[0] = "w"
+	default:
+		c.writers[0] = "qw"
+	}
+}
 
 // escapeStrategy names the active escape strategy at this point of lowering.
 func (c *compiler) escapeStrategy() string { return c.strategy[len(c.strategy)-1] }

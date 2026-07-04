@@ -94,6 +94,13 @@ func stmtBinds(n *ast.Node, add func(string)) {
 		for _, it := range n.Children[filterCount:] {
 			stmtBinds(it, add)
 		}
+	case ast.KindProvide:
+		// A @provide body captures with the enclosing scope like captureItems,
+		// so a @set inside it copies back into this frame and its names must be
+		// scanned here, exactly as for @apply and @set...capture.
+		for _, it := range n.Children {
+			stmtBinds(it, add)
+		}
 	case ast.KindPrint, ast.KindDo, ast.KindLog:
 		exprBinds(n.Child(0), add)
 	default:

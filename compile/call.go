@@ -23,7 +23,6 @@ var compositionBuiltins = map[string]string{
 	"parent": `function "parent"`,
 	"block":  `function "block"`,
 	"caller": `function "caller"`,
-	"slot":   `function "slot"`,
 }
 
 // collectArgs lowers a call/filter node's KindArg children into a positional
@@ -171,13 +170,16 @@ func (c *compiler) exprCall(n *ast.Node) (string, error) {
 		name := callee.Str
 		if c.unit != nil {
 			// A Unit resolves parent() and block() through the statically
-			// linked block table; caller() and slot() stay outside the subset.
+			// linked block table; caller() stays outside the subset.
 			switch name {
 			case "parent":
 				return c.unitParentCall(n)
 			case "block":
 				return c.unitBlockCall(n)
 			}
+		}
+		if name == "slot" {
+			return c.exprSlot(n)
 		}
 		if construct, ok := compositionBuiltins[name]; ok {
 			return "", c.notCompilable(construct, n)

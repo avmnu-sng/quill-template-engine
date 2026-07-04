@@ -346,10 +346,14 @@ func (c *compiler) assemble() []byte {
 	b.WriteString("\t\"io\"\n")
 	b.WriteString("\t\"math\"\n")
 	b.WriteString("\t\"regexp\"\n")
-	if c.usesStrconv {
+	if c.usesStrconv || c.usesSlots {
 		b.WriteString("\t\"strconv\"\n")
 	}
-	b.WriteString("\t\"strings\"\n\n")
+	b.WriteString("\t\"strings\"\n")
+	if c.usesSlots {
+		b.WriteString("\t\"sync/atomic\"\n")
+	}
+	b.WriteString("\n")
 	b.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/compiled\"\n")
 	b.WriteString("\tqerrors \"github.com/avmnu-sng/quill-template-engine/errors\"\n")
 	b.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/ext\"\n")
@@ -380,10 +384,14 @@ func (c *compiler) assemble() []byte {
 		c.opts.FuncName, strconv.QuoteToASCII(c.src.Name()))
 	b.WriteString("// reading top-level variables from vars. Output and error behavior are\n")
 	b.WriteString("// byte-identical to the interpreter's for the compiled construct set.\n")
-	fmt.Fprintf(&b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value) error {\n", c.opts.FuncName)
-	if !c.tabFree {
-		b.WriteString("\tqw := &qWriter{w: w, atLineStart: true}\n")
-		b.WriteString("\t_ = qw\n")
+	if c.usesSlots {
+		c.assembleSlotHeader(&b)
+	} else {
+		fmt.Fprintf(&b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value) error {\n", c.opts.FuncName)
+		if !c.tabFree {
+			b.WriteString("\tqw := &qWriter{w: w, atLineStart: true}\n")
+			b.WriteString("\t_ = qw\n")
+		}
 	}
 	b.WriteString("\tqNames := make([]string, 0, len(vars))\n")
 	b.WriteString("\tfor qn := range vars {\n\t\tqNames = append(qNames, qn)\n\t}\n")
@@ -414,6 +422,9 @@ func (c *compiler) assemble() []byte {
 	b.Write(c.body.Bytes())
 	b.WriteString("\treturn nil\n")
 	b.WriteString("}\n\n")
+	if c.usesSlots {
+		b.WriteString(slotTokenSupport)
+	}
 	fmt.Fprintf(&b, "// %sManifest describes this compiled unit to the Environment's dispatch\n", c.opts.FuncName)
 	b.WriteString("// (quill.WithCompiled): the entry template, its embedded source text, the\n")
 	b.WriteString("// fingerprint of the compile options its bytes depend on, and the render\n")
@@ -433,8 +444,49 @@ func (c *compiler) assemble() []byte {
 	fmt.Fprintf(&b, "\tFingerprint: compiled.Fingerprint{AutoescapeHTML: %v, LenientVariables: %v, TabWidth: %d, RandomSeed: %d, RandomSeedSet: %v},\n",
 		c.opts.AutoescapeHTML, c.opts.LenientVariables, c.opts.TabWidth, c.opts.RandomSeed, c.opts.RandomSeedSet)
 	fmt.Fprintf(&b, "\tUsesLog: %v,\n", c.usesLog)
+	fmt.Fprintf(&b, "\tUsesSlots: %v,\n", c.usesSlots)
 	fmt.Fprintf(&b, "\tRender:  %s,\n", c.opts.FuncName)
 	b.WriteString("}\n\n")
 	b.WriteString(prelude)
 	return b.Bytes()
+}
+
+// assembleSlotHeader writes the render function signature and prologue for a
+// unit that uses deferred slots. Output is buffered into an internal builder
+// (qout) rather than streamed to w so the yield placeholders can be resolved
+// over the finished buffer, mirroring interp renderBuffered plus resolveSlots.
+// The per-render slot state -- the accumulating buffers, the render-order label
+// list, and the unique placeholder token -- lives as function locals so
+// concurrent renders of one compiled unit never share it. A deferred resolve
+// pass runs on the success return; on an error return it writes the partial,
+// unresolved buffer, matching renderBuffered's error shape (the partial buffer
+// the interpreter returns alongside the error).
+func (c *compiler) assembleSlotHeader(b *bytes.Buffer) {
+	fmt.Fprintf(b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value) (qErr error) {\n", c.opts.FuncName)
+	b.WriteString("\tvar qout strings.Builder\n")
+	if !c.tabFree {
+		b.WriteString("\tqw := &qWriter{w: &qout, atLineStart: true}\n")
+		b.WriteString("\t_ = qw\n")
+	}
+	b.WriteString("\tvar qslots map[string]*strings.Builder\n")
+	b.WriteString("\tvar qyielded []string\n")
+	b.WriteString("\tqtok := qnewYieldToken()\n")
+	b.WriteString("\tdefer func() {\n")
+	b.WriteString("\t\tif qErr != nil {\n")
+	b.WriteString("\t\t\t_, _ = io.WriteString(w, qout.String())\n")
+	b.WriteString("\t\t\treturn\n")
+	b.WriteString("\t\t}\n")
+	b.WriteString("\t\tqres := qout.String()\n")
+	b.WriteString("\t\tfor _, qlabel := range qyielded {\n")
+	b.WriteString("\t\t\tqph := qtok + qlabel + qtok\n")
+	b.WriteString("\t\t\tvar qc string\n")
+	b.WriteString("\t\t\tif qb, qok := qslots[qlabel]; qok {\n")
+	b.WriteString("\t\t\t\tqc = qb.String()\n")
+	b.WriteString("\t\t\t}\n")
+	b.WriteString("\t\t\tqres = strings.ReplaceAll(qres, qph, qc)\n")
+	b.WriteString("\t\t}\n")
+	b.WriteString("\t\tif _, werr := io.WriteString(w, qres); werr != nil {\n")
+	b.WriteString("\t\t\tqErr = werr\n")
+	b.WriteString("\t\t}\n")
+	b.WriteString("\t}()\n")
 }

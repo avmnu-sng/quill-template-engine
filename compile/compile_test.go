@@ -467,6 +467,14 @@ func TestGeneratedVet(t *testing.T) {
 			"trait.ql": "not a trait\n",
 			"page.ql":  "@use \"trait.ql\"\nbody\n",
 		}},
+		// The deferred-slot shapes: the buffered render header with its slot map,
+		// yielded-label list, per-render token, and deferred resolve pass; a
+		// top-level @yield placeholder write; a @provide body capture appended to
+		// a slot buffer; a slot() read wrapped Safe under an active escape
+		// strategy; and a provide inside a loop so the accumulation and the
+		// unused-import guards all lower vet-clean.
+		{name: "vet-slots", opts: compile.Options{AutoescapeHTML: true},
+			template: "@yield h\n@provide h {\n{{ raw }}\n@}\ngot={{ slot(\"h\") }}\n@for n in [1,2] {\n@provide h {\nrow {{ n }}\n@}\n@}\n"},
 	}
 	dir := t.TempDir()
 	root := repoRoot(t)
@@ -516,8 +524,13 @@ func TestNotCompilable(t *testing.T) {
 		{"use", "@use \"trait.ql\"\n", "@use"},
 		{"include", "@include \"part.ql\"\n", "@include"},
 		{"embed", "@embed \"part.ql\" {\n@}\n", "@embed"},
-		{"provide", "@provide slot {\nx\n@}\n", "@provide"},
-		{"yield", "@yield slot\n", "@yield"},
+		// A @yield nested in a capture context embeds a placeholder token the
+		// compile package cannot share with the interpreter's process-global
+		// counter, so only top-level yields compile; the nested forms are
+		// rejected by the mandatory static gate.
+		{"yield-in-provide", "@provide s {\n@yield t\n@}\n", "@yield inside a capture/provide body"},
+		{"yield-in-capture", "@set x = capture {\n@yield t\n@}\n", "@yield inside a capture/provide body"},
+		{"yield-in-apply", "@apply | upper {\n@yield t\n@}\n", "@yield inside a capture/provide body"},
 		{"cache", "@cache key=\"k\" {\nx\n@}\n", "@cache"},
 		{"sandbox", "@sandbox {\nx\n@}\n", "@sandbox"},
 		{"guard", "@guard filter(\"upper\") {\nx\n@}\n", "@guard"},
@@ -526,7 +539,6 @@ func TestNotCompilable(t *testing.T) {
 		{"self", "{{ _self.m() }}\n", `special name "_self"`},
 		{"parent-fn", "{{ parent() }}\n", `function "parent"`},
 		{"block-fn", "{{ block(\"x\") }}\n", `function "block"`},
-		{"slot-fn", "{{ slot(\"x\") }}\n", `function "slot"`},
 		{"caller-fn", "{{ caller() }}\n", `function "caller"`},
 		{"include-fn", "{{ include(\"p.ql\") }}\n", `engine-bound function "include"`},
 		{"source-fn", "{{ source(\"p.ql\") }}\n", `engine-bound function "source"`},

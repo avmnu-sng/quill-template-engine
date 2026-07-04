@@ -608,3 +608,20 @@ func qquantify(op string, coll, pred runtime.Value, universal, lenient bool) (ru
 	return runtime.Bool(universal), nil
 }
 `
+
+// slotTokenSupport is the deferred-slot token minter, emitted only into a unit
+// that uses slots. It mirrors interp newYieldToken: each render mints one
+// render-unique, low-collision placeholder wrapper from a NUL-delimited process
+// counter, so the post-render string replacement never collides with authored
+// slot text. The compiler rejects a @yield nested in a capture, so the numeric
+// counter never reaches output and its value is byte-invisible.
+const slotTokenSupport = `// qnewYieldToken returns this render's unique deferred-slot placeholder
+// wrapper, minted from a process counter exactly like interp newYieldToken.
+func qnewYieldToken() string {
+	n := atomic.AddUint64(&qYieldCounter, 1)
+	return "\x00\x01QUILL_SLOT_" + strconv.FormatUint(n, 10) + "\x00\x01"
+}
+
+// qYieldCounter makes each render's placeholder token unique.
+var qYieldCounter uint64
+`

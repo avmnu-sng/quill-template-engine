@@ -420,9 +420,10 @@ func TestUnitNotCompilable(t *testing.T) {
 			"c.ql": "@extends \"b.ql\"\n@block b {\n@include \"x.ql\"\n@}\n",
 			"x.ql": "x\n"}, "@include"},
 		{"embed", "p.ql", map[string]string{"p.ql": "@embed \"x.ql\" {\n@block b {\no\n@}\n@}\n", "x.ql": "@block b {\ni\n@}\n"}, "@embed"},
-		{"provide", "p.ql", map[string]string{"p.ql": "@provide s {\nx\n@}\n"}, "@provide"},
-		{"yield", "p.ql", map[string]string{"p.ql": "@yield s\n"}, "@yield"},
-		{"slot-fn", "p.ql", map[string]string{"p.ql": "{{ slot(\"s\") }}\n"}, `function "slot"`},
+		// A @yield nested in a capture context is outside the compilable subset:
+		// its placeholder token cannot match the interpreter's process-global
+		// counter, so only top-level yields compile.
+		{"yield-in-provide", "p.ql", map[string]string{"p.ql": "@provide s {\n@yield t\n@}\n"}, "@yield inside a capture/provide body"},
 		{"caller-fn", "p.ql", map[string]string{"p.ql": "{{ caller() }}\n"}, `function "caller"`},
 		{"entry-macro", "p.ql", map[string]string{"p.ql": "@macro m() {\nx\n@}\nbody\n"}, "@macro"},
 		{"entry-import", "p.ql", map[string]string{"p.ql": "@import \"l.ql\" as l\nbody\n", "l.ql": "@macro m() {\nx\n@}\n"}, "@import"},

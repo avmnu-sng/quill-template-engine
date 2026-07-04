@@ -675,12 +675,16 @@ func (e *Environment) RenderString(name, body string, vars map[string]runtime.Va
 // wraps nor flushes w; pass a bufio.Writer for buffered throughput and flush
 // it after RenderTo returns (a @flush statement flushes such a writer
 // mid-render). An installed compiled unit (WithCompiled) that passes the
-// dispatch gate streams through the generated function; the compilable subset
-// excludes every slot construct, so its streaming behavior matches the
-// interpreter's slot-free path. Under WithCompiledVerify the dispatched
+// dispatch gate renders through the generated function: a slot-free unit
+// streams to w exactly as the interpreter's slot-free path does, while a slots
+// unit (Manifest.UsesSlots) buffers into a scratch builder that reaches w only
+// on success, matching the interpreter's buffered-slots path which writes
+// nothing on error -- so a mid-render error never leaks an unresolved
+// placeholder to the caller's writer. Under WithCompiledVerify the dispatched
 // render buffers both engines' outputs to compare them, then writes the
-// interpreter's bytes -- including an errored render's partial output -- so w
-// ends up with what the slot-free streaming path would have written.
+// interpreter's bytes: for a slot-free unit that includes an errored render's
+// partial output (matching the streaming path), and for a slots unit it writes
+// nothing on error (matching the buffered path).
 func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime.Value) error {
 	tmpl, err := e.LoadTemplate(name)
 	if err != nil {
@@ -688,17 +692,34 @@ func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime
 	}
 	if m := e.compiledFor(name); m != nil {
 		if e.compiledVerify != nil {
-			// The interpreter result reaches w even when the render errors: a
-			// gate-passing unit is slot-free, so both the interpreter path and
-			// direct dispatch stream partial output before a mid-render error,
-			// and verification must leave those same bytes on w. The render
-			// error outranks a write error because it is the authoritative
-			// result the comparison above already served.
+			// A slot-free unit's interpreter result reaches w even when the
+			// render errors: both the interpreter path and direct dispatch stream
+			// partial output before a mid-render error, and verification must
+			// leave those same bytes on w. A slots unit instead buffers and
+			// writes nothing on error, so its placeholder-bearing partial is
+			// withheld. The render error outranks a write error because it is the
+			// authoritative result the comparison above already served.
 			out, rerr := e.renderShadowed(m, tmpl, vars)
+			if rerr != nil && m.UsesSlots {
+				return rerr
+			}
 			_, werr := io.WriteString(w, out)
 			if rerr != nil {
 				return rerr
 			}
+			return werr
+		}
+		if m.UsesSlots {
+			// A slots unit's generated render writes its partial, unresolved
+			// buffer to the writer on error; buffering into a scratch builder and
+			// writing it only on success keeps that placeholder-bearing partial
+			// off the caller's writer, mirroring the interpreter's buffered-slots
+			// branch which writes nothing when the render fails.
+			var b strings.Builder
+			if rerr := m.Render(&b, e.extensions, vars); rerr != nil {
+				return rerr
+			}
+			_, werr := io.WriteString(w, b.String())
 			return werr
 		}
 		return m.Render(w, e.extensions, vars)

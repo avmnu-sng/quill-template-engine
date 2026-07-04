@@ -142,6 +142,7 @@ type unitInfo struct {
 	blocks  map[string]*unitBlockEntry
 
 	tabFree   bool
+	usesSlots bool
 	compBinds []string
 	stub      *unitStub
 }
@@ -339,6 +340,15 @@ func linkUnit(entry string, templates map[string]*ast.Node, opts Options) (*unit
 	for _, m := range u.members {
 		if hasTabBlock(m.mod) {
 			u.tabFree = false
+			break
+		}
+	}
+	// A slot construct in any member forces the buffered path: the render
+	// inlines member block bodies, so a placeholder can enter the stream from
+	// any of them, and buffering a slot-free member is byte-invisible.
+	for _, m := range u.members {
+		if hasSlots(m.mod) {
+			u.usesSlots = true
 			break
 		}
 	}
@@ -636,9 +646,8 @@ func (c *compiler) compileUnit() error {
 	if u.stub != nil {
 		c.tabFree = true
 	}
-	if c.tabFree {
-		c.writers[0] = "w"
-	}
+	c.usesSlots = u.usesSlots
+	c.setTopWriter()
 	if u.stub != nil {
 		c.emitStub(u.stub)
 		return nil
@@ -732,7 +741,9 @@ func (c *compiler) unitCaptureBlock(lower func() error) (string, error) {
 		c.linef("_ = %s", cw)
 		c.writers = append(c.writers, cw)
 	}
+	c.captureDepth++
 	err := lower()
+	c.captureDepth--
 	c.writers = c.writers[:len(c.writers)-1]
 	if err != nil {
 		return "", err

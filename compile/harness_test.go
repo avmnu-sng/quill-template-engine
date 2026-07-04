@@ -40,6 +40,12 @@ type compiledCase struct {
 	// Environment is configured from the generated manifest's fingerprint, so
 	// a case may carry any output-shaping compile option.
 	envCheck bool
+	// errPath marks a case whose render errors mid-stream: it drives the case
+	// through Environment.RenderTo under WithCompiled (frame "<name>@renderto",
+	// payload "ok") and asserts the compiled streaming path writes byte-exactly
+	// what the interpreter's RenderTo writes on the same error -- for a slots
+	// unit, nothing, with no raw yield placeholder reaching the writer.
+	errPath bool
 }
 
 // caseResult is one rendered case's outcome from the scratch process.
@@ -167,6 +173,10 @@ func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile
 			fmt.Fprintf(&mainB, "\trunEnvMatrix(%q, %s.%sManifest, %q)\n",
 				cs.name, pkgName(cs.name), res.FuncName, cs.varsJSON)
 		}
+		if cs.errPath {
+			fmt.Fprintf(&mainB, "\trunRenderToCase(%q, %s.%sManifest, %q)\n",
+				cs.name, pkgName(cs.name), res.FuncName, cs.varsJSON)
+		}
 	}
 	mainB.WriteString("}\n")
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), mainB.Bytes(), 0o644); err != nil {
@@ -257,6 +267,29 @@ func runEnvCase(base string, m *compiled.Manifest, varsJSON string) {
 		emit(base+"@env", true, err.Error())
 	} else {
 		emit(base+"@env", false, out)
+	}
+
+	// The streaming dispatch must write byte-exactly what Render returns on the
+	// success path, including a slots unit routed through RenderTo's scratch
+	// buffer: the resolved output reaches w in one write with no placeholder
+	// left behind.
+	rtvars, err := decodeVars(varsJSON)
+	if err != nil {
+		emit(base+"@renderto-ok", true, "vars decode: "+err.Error())
+	} else {
+		rtenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
+		var rw strings.Builder
+		rterr := rtenv.RenderTo(&rw, m.Entry, rtvars)
+		switch {
+		case rterr != nil:
+			emit(base+"@renderto-ok", true, "RenderTo errored: "+rterr.Error())
+		case rw.String() != out:
+			emit(base+"@renderto-ok", true, fmt.Sprintf("RenderTo bytes drift: got %q, want %q", rw.String(), out))
+		case strings.Contains(rw.String(), "\x00\x01QUILL_SLOT_"):
+			emit(base+"@renderto-ok", true, fmt.Sprintf("RenderTo leaked a placeholder: %q", rw.String()))
+		default:
+			emit(base+"@renderto-ok", false, "ok")
+		}
 	}
 
 	// The tracer shares the manifest's metadata but renders a marker, so a
@@ -395,6 +428,51 @@ func runEnvMatrix(base string, m *compiled.Manifest, varsJSON string) {
 		}
 	}
 	emit(base+"@matrix", false, "ok")
+}
+
+// runRenderToCase drives a mid-render error case through Environment.RenderTo
+// on both engines and asserts the compiled streaming path writes byte-exactly
+// what the interpreter's RenderTo writes on the same error. For a slots unit
+// the interpreter buffers and writes nothing on error; the compiled unit must
+// too, so no raw yield placeholder can reach the caller's writer. This is the
+// error-path leak the success-path battery cannot observe.
+func runRenderToCase(base string, m *compiled.Manifest, varsJSON string) {
+	tmpls := manifestTemplates(m)
+
+	ivars, err := decodeVars(varsJSON)
+	if err != nil {
+		emit(base+"@renderto", true, "vars decode: "+err.Error())
+		return
+	}
+	ienv := quill.NewWithArray(tmpls, envOpts(m.Fingerprint)...)
+	var iw strings.Builder
+	ierr := ienv.RenderTo(&iw, m.Entry, ivars)
+	if ierr == nil {
+		emit(base+"@renderto", true, "interp RenderTo did not error")
+		return
+	}
+
+	cvars, err := decodeVars(varsJSON)
+	if err != nil {
+		emit(base+"@renderto", true, "vars decode: "+err.Error())
+		return
+	}
+	cenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
+	var cw strings.Builder
+	cerr := cenv.RenderTo(&cw, m.Entry, cvars)
+	if !sameErrText(cerr, ierr) {
+		emit(base+"@renderto", true, fmt.Sprintf("error text drift: compiled %s, interp %s", errText(cerr), errText(ierr)))
+		return
+	}
+	if cw.String() != iw.String() {
+		emit(base+"@renderto", true, fmt.Sprintf("bytes drift: compiled %q, interp %q", cw.String(), iw.String()))
+		return
+	}
+	if strings.Contains(cw.String(), "\x00\x01QUILL_SLOT_") {
+		emit(base+"@renderto", true, fmt.Sprintf("raw placeholder leaked: %q", cw.String()))
+		return
+	}
+	emit(base+"@renderto", false, "ok")
 }
 ` + jsonDecoderSupport
 

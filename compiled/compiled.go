@@ -74,6 +74,15 @@ type Manifest struct {
 	// Environment carries a non-discarding logger, preserving the host-visible
 	// log side effects.
 	UsesLog bool
+	// UsesSlots marks a unit whose render buffers its output internally and
+	// resolves deferred-slot placeholders (@yield/@provide/slot()) before
+	// returning, so a mid-render error leaves an unresolved placeholder in the
+	// partial buffer the generated function writes to w. Streaming dispatch
+	// (Environment.RenderTo) must therefore route such a unit through a scratch
+	// buffer it discards on error, matching the interpreter's buffered-slots
+	// path, which writes nothing to w when the render fails; a raw placeholder
+	// must never reach the caller's writer.
+	UsesSlots bool
 	// Render is the generated render entry point.
 	Render RenderFunc
 }

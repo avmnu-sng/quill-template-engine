@@ -397,6 +397,109 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 	}
 }
 
+// slotsErrorSrc is a template that uses a top-level @yield (so it compiles as a
+// slots unit) and then errors mid-render on an undefined print. On this error
+// the interpreter's buffered-slots path (RenderTo) writes nothing to w, while
+// its string path (Render) returns the partial, still-unresolved buffer that
+// carries a raw placeholder. A faithful slots unit reproduces both.
+const slotsErrorSrc = "@yield s\nvisible output here\n@provide s {\nprovided\n@}\n{{ missing }}\n"
+
+// faithfulSlotsManifest builds a UsesSlots manifest whose render mirrors the
+// generated slots unit's error path: it writes the interpreter's partial,
+// unresolved buffer (the exact bytes the generated function's deferred writer
+// emits to w on error, raw placeholder and all) and then returns the render
+// error. The partial is captured from the interpreter's string render so the
+// manifest stays faithful regardless of the placeholder token's number.
+func faithfulSlotsManifest(t *testing.T, tmpls map[string]string) (*compiled.Manifest, string, error) {
+	t.Helper()
+	interpEnv := NewWithArray(tmpls)
+	partial, rerr := interpEnv.Render("t.ql", nil)
+	if rerr == nil {
+		t.Fatal("slots template did not error under strict variables")
+	}
+	if !strings.Contains(partial, "\x00\x01QUILL_SLOT_") {
+		t.Fatalf("interp string render did not leave an unresolved placeholder: %q", partial)
+	}
+	m := &compiled.Manifest{
+		Entry:       "t.ql",
+		Sources:     map[string]string{"t.ql": slotsErrorSrc},
+		Fingerprint: defaultFingerprint(),
+		UsesSlots:   true,
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value) error {
+			if _, werr := io.WriteString(w, partial); werr != nil {
+				return werr
+			}
+			return errors.New(rerr.Error())
+		},
+	}
+	return m, partial, rerr
+}
+
+// TestWithCompiledRenderToSlotsDiscardsErrorPartial pins the streaming-dispatch
+// contract for a compiled slots unit on the error path: RenderTo must write
+// nothing to the caller's writer when the render fails, matching the
+// interpreter's buffered-slots branch, and no raw placeholder may reach w. The
+// generated slots render writes its partial, unresolved buffer to the writer it
+// is handed on error (correct only for the internal buffer Render hands it), so
+// RenderTo must route the unit through a scratch buffer it discards on error.
+// Before Manifest.UsesSlots existed, dispatch handed the caller's writer
+// straight to the generated function and leaked the placeholder-bearing partial.
+func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
+	tmpls := map[string]string{"t.ql": slotsErrorSrc}
+
+	// The interpreter's streaming path is the ground truth: nothing on error.
+	interpEnv := NewWithArray(tmpls)
+	var iw strings.Builder
+	iErr := interpEnv.RenderTo(&iw, "t.ql", nil)
+	if iErr == nil {
+		t.Fatal("interp RenderTo did not error")
+	}
+	if iw.String() != "" {
+		t.Fatalf("interp RenderTo wrote %q, want nothing on error", iw.String())
+	}
+
+	m, partial, rerr := faithfulSlotsManifest(t, tmpls)
+
+	// Direct dispatch: RenderTo must discard the partial on error, matching the
+	// interpreter, while the string path (Render) still returns that partial to
+	// preserve Render's own contract.
+	direct := NewWithArray(tmpls, WithCompiled(m))
+	var dw strings.Builder
+	dErr := direct.RenderTo(&dw, "t.ql", nil)
+	if dErr == nil || dErr.Error() != rerr.Error() {
+		t.Fatalf("compiled RenderTo error: got %v, want %v", dErr, rerr)
+	}
+	if dw.String() != iw.String() {
+		t.Fatalf("compiled RenderTo wrote %q, want %q (interp parity)", dw.String(), iw.String())
+	}
+	if strings.Contains(dw.String(), "\x00\x01QUILL_SLOT_") {
+		t.Fatalf("compiled RenderTo leaked a raw placeholder: %q", dw.String())
+	}
+	if out, err := direct.Render("t.ql", nil); err == nil || out != partial {
+		t.Fatalf("compiled Render must keep its partial-buffer contract: got %q, %v", out, err)
+	}
+
+	// Verify mode: the same withholding applies -- a slots unit writes nothing
+	// on error, so w must end empty even though the shadow comparison buffered
+	// both engines' partials to compare them.
+	var divs int
+	shadow := NewWithArray(tmpls,
+		WithCompiled(m),
+		WithCompiledVerify(func(compiled.Divergence) { divs++ }))
+	var sw strings.Builder
+	sErr := shadow.RenderTo(&sw, "t.ql", nil)
+	if sErr == nil || sErr.Error() != rerr.Error() {
+		t.Fatalf("verify RenderTo error: got %v, want %v", sErr, rerr)
+	}
+	if sw.String() != "" {
+		t.Fatalf("verify RenderTo wrote %q, want nothing on a slots error", sw.String())
+	}
+	if strings.Contains(sw.String(), "\x00\x01QUILL_SLOT_") {
+		t.Fatalf("verify RenderTo leaked a raw placeholder: %q", sw.String())
+	}
+	_ = divs
+}
+
 // TestWithCompiledVerifyNilIsDirectDispatch pins that a nil callback leaves
 // direct dispatch on, mirroring WithCoverage(nil).
 func TestWithCompiledVerifyNilIsDirectDispatch(t *testing.T) {
