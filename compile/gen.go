@@ -106,6 +106,17 @@ type compiler struct {
 	// the loop optimizer's inline reads and on-demand materialization.
 	loops []*loopInfo
 
+	// changedFloor is the count of enclosing @for lowerings that sit on the
+	// caller side of the innermost active @include. The interpreter renders an
+	// included partial through a fresh sub-interpreter whose loop.changed memory
+	// stack starts empty, so a loop.changed call in an inlined partial resolves
+	// only against a loop the SAME partial opens, never a caller loop reached
+	// across the include boundary. exprLoopChanged consults this floor so a
+	// partial that reads no own @for reproduces the interpreter's "only available
+	// inside a for loop" error; stmtInclude raises the floor to len(loops) while
+	// it inlines a body and restores it after.
+	changedFloor int
+
 	// an is the module's loop escape analysis, computed before lowering; it
 	// decides which loops skip the per-iteration loop-value materialization
 	// and which member reads lower to inline loop arithmetic.
@@ -978,6 +989,20 @@ func isConstBody(s string) bool {
 // currentLoop returns the innermost lexically enclosing loop lowering, or nil.
 func (c *compiler) currentLoop() *loopInfo {
 	if len(c.loops) == 0 {
+		return nil
+	}
+	return c.loops[len(c.loops)-1]
+}
+
+// currentChangedLoop returns the innermost enclosing loop whose loop.changed
+// memory a call site may join, or nil when none is reachable. It stops at the
+// innermost active @include boundary: a loop below changedFloor is on the caller
+// side of the include, and the interpreter's fresh sub-interpreter never carries
+// its loop.changed memory across, so such a call must reproduce the "only
+// available inside a for loop" error rather than silently tracking the caller
+// loop's changes.
+func (c *compiler) currentChangedLoop() *loopInfo {
+	if len(c.loops) <= c.changedFloor {
 		return nil
 	}
 	return c.loops[len(c.loops)-1]

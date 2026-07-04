@@ -443,3 +443,43 @@ func TestInlineLoopParentProbeHoisted(t *testing.T) {
 		t.Error("parent probe emitted after the iteration statement, want at loop entry")
 	}
 }
+
+// TestIncludeLoopChangedFloorCutsCallerLoop is the white-box guard on the
+// loop.changed scope cut: a partial that calls loop.changed but opens no @for of
+// its own, inlined into a caller @for, must lower to the "only available inside a
+// for loop" error path anchored to the PARTIAL's source (qSrc2), never to the
+// caller loop's changed-tracking. changedFloor rises to the caller loop depth
+// while stmtInclude inlines the body, so currentChangedLoop returns nil at the
+// call site; without the floor the generated code would silently track the caller
+// loop and render clean bytes where the interpreter errors.
+func TestIncludeLoopChangedFloorCutsCallerLoop(t *testing.T) {
+	tmpls := map[string]string{
+		"main.ql": "@for r in rows {\n@include \"p.ql\"\n@}\n",
+		"p.ql":    "@if loop.changed(r) {\nnew:{{ r }}\n@}\n",
+	}
+	mods := map[string]*ast.Node{}
+	for name, body := range tmpls {
+		mod, err := parse.Parse(source.New(name, body))
+		if err != nil {
+			t.Fatalf("parse %s: %v", name, err)
+		}
+		mods[name] = mod
+	}
+	res, err := Unit("main.ql", mods, Options{})
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	gen := string(res.Source)
+	// The error must fire, anchored to the partial (qSrc2 is p.ql), never the
+	// entry source qSrc.
+	wantErr := `qerrors.New(qerrors.KindRuntime, "loop.changed is only available inside a for loop"), qSrc2, 1`
+	if !strings.Contains(gen, wantErr) {
+		t.Errorf("generated code does not emit the loop.changed error at the partial source; want a substring %q", wantErr)
+	}
+	// No changed-tracking memory locals may be minted for this call site: the
+	// interpreter never reaches the tracking branch, so the compiler must not
+	// either. runtime.Equal is the tell of the changed-tracking lowering.
+	if strings.Contains(gen, "runtime.Equal") {
+		t.Error("generated code tracks loop.changed across the include boundary; the caller loop's changed memory must be cut")
+	}
+}

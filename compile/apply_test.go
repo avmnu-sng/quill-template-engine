@@ -118,24 +118,39 @@ func TestApplyParityBattery(t *testing.T) {
 // applySpreadCases pin the one behavioral seam between @apply's filter path and
 // the inline filter path: execApply appends a spread argument as a single array
 // value while evalFilter/collectArgs expand it into its elements. The replace
-// pair renders the SAME spread through @apply (non-expanding) and inline
-// (expanding), so a compiled @apply that mistakenly reused collectArgs would
-// either diverge from interp on the @apply row or make the two rows collapse to
-// one behavior. The default row is @apply-only because inline default over a
-// spread produces a list|string print position the compiler rejects at type
-// time; its non-error byte-parity is asserted against interp directly. The
+// pair renders the SAME spread through @apply (non-expanding, one array as the
+// from argument, which no-ops the captured text) and inline (expanding to
+// replace(from, to), which rewrites it), so a compiled @apply that mistakenly
+// reused collectArgs would either diverge from interp on the @apply row or make
+// the two rows collapse to one behavior. The default row is @apply-only because
+// inline default over a spread produces a list|string print position the compiler
+// rejects at type time; its non-error byte-parity is asserted against interp
+// directly. The trim row is the interp-errors half of the seam: @apply hands trim
+// one array as its strip set, and trim returns that array unchanged, so the print
+// site cannot render it -- both engines raise the array-as-text error at the same
+// position, and a compiled @apply that expanded the spread would instead pass a
+// string strip set and render clean bytes. The lenient rows re-run the two
+// non-error shapes under strict-off, an axis the strict rows do not cover. The
 // compiled path is compared to interp.Render for every row through the same
 // scratch harness the main battery uses.
 var applySpreadCases = []compiledCase{
 	// A spread of two strings into replace: @apply hands replace one array
-	// argument (an array is not renderable as text, so both engines error);
-	// inline expands it to replace(from, to) and rewrites the captured text.
+	// argument; inline expands it to replace(from, to) and rewrites the text.
 	{name: "apply-spread-replace", template: "@apply | replace(...[\"a\", \"X\"]) {\nbanana\n@}\n"},
 	{name: "inline-spread-replace", template: "{{ \"banana\" | replace(...[\"a\", \"X\"]) }}\n"},
 	// A spread into default: @apply hands default one array as its fallback,
 	// ignored because the piped value is present, so both engines render the
 	// captured text -- the non-error spread half of the seam.
 	{name: "apply-spread-default", template: "@apply | default(...[\"fb one\", \"fb two\"]) {\nvalue here\n@}\n"},
+	// A spread into trim: @apply hands trim one array as its strip set, which
+	// trim returns unchanged, so the array reaches the print site and both
+	// engines raise "cannot render an array as text" at the filter's line -- the
+	// interp-errors half of the seam, error text and position compared to interp.
+	{name: "apply-spread-trim-error", template: "@apply | trim(...[\"x\"]) {\nxhix\n@}\n"},
+	// The two non-error shapes re-run under lenient variables: the non-expansion
+	// seam holds identically whether strict or lenient shapes the print positions.
+	{name: "apply-spread-replace-lenient", template: "@apply | replace(...[\"a\", \"X\"]) {\nbanana\n@}\n", opts: compile.Options{LenientVariables: true}},
+	{name: "apply-spread-default-lenient", template: "@apply | default(...[\"fb one\", \"fb two\"]) {\nvalue here\n@}\n", opts: compile.Options{LenientVariables: true}},
 }
 
 // TestApplySpreadNonExpansionParity compiles the spread-argument seam cases and

@@ -305,7 +305,7 @@ func (c *compiler) exprLoopChanged(n *ast.Node) (string, error) {
 		c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"loop.changed expects exactly one argument, got %%d\", len(%s))", args), n.Line)))
 		c.closeb()
 	}
-	li := c.currentLoop()
+	li := c.currentChangedLoop()
 	if li == nil {
 		res := c.tmp("qt")
 		c.linef("%s := runtime.Null()", res)

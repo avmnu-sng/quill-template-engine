@@ -113,12 +113,22 @@ func (c *compiler) stmtInclude(n *ast.Node) error {
 	c.pushInclude(name)
 	savedCond := c.condDepth
 	c.condDepth = 0
+	// The interpreter renders the partial through a fresh sub-interpreter whose
+	// loop.changed memory stack starts empty, so a loop.changed inside the partial
+	// cannot reach a caller @for across this boundary. Raising the floor to the
+	// current loop depth makes currentChangedLoop hide every enclosing caller loop
+	// from the inlined body, so a partial that opens no @for of its own reproduces
+	// the interpreter's "only available inside a for loop" error; the partial's own
+	// @for still pushes above the floor and tracks changes normally.
+	savedFloor := c.changedFloor
+	c.changedFloor = len(c.loops)
 	// The partial's captured output is spliced RAW into this render's stream, so
 	// a @provide inside it appends to the same render-level slot buffers and a
 	// top-level @yield reaches the finished output like a top-level @yield here:
 	// the capture is transparent to the @yield guard, which only rejects a @yield
 	// whose placeholder would be folded into a consumed value.
 	sb, err := c.captureInto(body, false)
+	c.changedFloor = savedFloor
 	c.condDepth = savedCond
 	c.popInclude()
 	c.popSrc()
