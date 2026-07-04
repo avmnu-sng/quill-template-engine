@@ -14,9 +14,9 @@ no per-node cost on the render hot path. The instrumentation records reachabilit
 never changes rendered output. A template renders byte-identically with or without coverage
 enabled -- this is the binding invariant the conformance suite enforces.
 
-The companion documents are the language reference (`01-language-reference.md`), the value
-and semantics rules (`04-types-and-semantics.md`), and the architecture document
-(`06-architecture-and-roadmap.md`).
+The companion documents are the [Language Reference](reference/language.md), the value
+and semantics rules in [Types](types.md), and the [Architecture](architecture.md)
+document.
 
 --------------------------------------------------------------------------------
 
@@ -87,7 +87,7 @@ both arms. A `@for ... @else` makes the empty arm's body a unit as well.
 
 **Postfix `if` / `unless` (`ternary-then` / `ternary-else`).**
 The parser desugars `{{ x if c }}` and `{{ x unless c }}` into a `KindTernary` at parse time
-(see `01-language-reference.md`), so postfix conditionals are measured exactly like an inline
+(see the [Language Reference](reference/language.md)), so postfix conditionals are measured exactly like an inline
 ternary: two arms, `then` (condition truthy) and `else` (condition falsy). No separate model
 is needed -- the desugaring means one implementation covers both surface forms.
 
@@ -101,7 +101,7 @@ are **left-kept** (left was non-null) and **right-used** (left was null, fallbac
 `and` / `or` short-circuit (see `evalLogical`). The two arms are **short-circuited** (the
 right operand was never evaluated) and **evaluated-both** (the right operand ran). `xor`
 always evaluates both and is not a branch. This is recorded when logical-branch coverage is
-enabled; it is off by default because short-circuit arms are noisy for source-emission
+enabled; it is off by default because short-circuit arms are noisy for many
 templates.
 
 **`@guard kind("name")` present vs absent (`guard-present` / `guard-absent`).**

@@ -1,0 +1,10 @@
+# Documentation build dependencies for the Quill guide site.
+#
+# The site is built with Material for MkDocs. Pins are exact so a CI build is
+# reproducible; bump them deliberately. Install with:
+#
+#     pip install -r requirements-docs.txt
+#
+# then build the site with `mkdocs build --strict` (output in ./site) or preview
+# it with `mkdocs serve`.
+mkdocs-material==9.5.49

@@ -37,10 +37,10 @@ source, or any other text -- no use case is privileged.
   checker catches undefined names, bad calls, and type mismatches at load time,
   before a byte is rendered, and untyped values still just work. Removing every
   annotation renders identical bytes -- types only move an error earlier in time.
-- **Compile-to-Go backend.** Templates compile to Go for the hot path -- a
-  compiled loop renders roughly 3.9x faster than the interpreter (about 11.5 us
-  for a 1 KB loop body), while a tiny interpreted template already beats
-  `text/template` (about 300 ns). See the Performance guide for methodology.
+- **Compile-to-Go backend.** Templates compile to Go for the hot path, installed
+  with `WithCompiled` -- a compiled loop renders several times faster than the
+  interpreter, while a tiny interpreted template already beats `text/template`.
+  See the Performance guide for methodology and numbers.
 - **Native branch-aware coverage.** `quill cover` reports unit and branch
   coverage of your templates with text, LCOV, and HTML output and a `FailUnder`
   gate -- the analogue of `go tool cover`, for templates.

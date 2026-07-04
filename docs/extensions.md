@@ -211,7 +211,7 @@ without mutating it.
 
 Constants back the `constant()` function and the `is constant` test; enumerations
 (ordered case lists) back `enum()` and `enum_cases()` (see
-[`03-stdlib.md`](03-stdlib.md) Section 3.2).
+[Standard Library](stdlib.md)).
 
 --------------------------------------------------------------------------------
 
@@ -343,7 +343,7 @@ A custom filter whose name is in `Policy.Filters` passes; one that is not raises
 host-catchable `*errors.Security` naming the offending filter. Any host object a
 custom callable exposes is gated by the same per-type method/property rules and
 the type-graph as every other host value (see
-[`04-types-and-semantics.md`](04-types-and-semantics.md) Section 8.3).
+[Escaping & Safety](safety.md)).
 
 --------------------------------------------------------------------------------
 
@@ -376,8 +376,8 @@ registry.
 
 ## 9. A complete example
 
-The runnable [`examples/extension`](../examples/extension) registers a custom
-filter and function with the typed helpers, layers them over core with
+The runnable [`examples/extension`](https://github.com/avmnu-sng/quill-template-engine/tree/main/examples/extension)
+registers a custom filter and function with the typed helpers, layers them over core with
 `WithExtensions`, and renders a template that uses both:
 
 ```go
