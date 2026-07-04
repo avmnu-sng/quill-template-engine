@@ -129,7 +129,7 @@ func (c *compiler) stmtItem(n *ast.Node) error {
 	case ast.KindSandbox:
 		return c.notCompilable("@sandbox", n)
 	case ast.KindApply:
-		return c.notCompilable("@apply", n)
+		return c.stmtApply(n)
 	case ast.KindGuard:
 		return c.notCompilable("@guard", n)
 	case ast.KindFlush:
@@ -163,11 +163,38 @@ func (c *compiler) stmtEmitValue(val, pos *ast.Node) error {
 	if err != nil {
 		return err
 	}
+	c.emitValueLocal(v, pos.Line)
+	return nil
+}
+
+// emitValueLocal emits an already-lowered value local through the active escape
+// strategy, positioning the emit error at line. It is the value-consuming tail
+// stmtEmitValue and stmtApply share: both hold a runtime.Value and both finish
+// with the interpreter's in.emit under a live strategy. The caller guarantees
+// the strategy is active.
+func (c *compiler) emitValueLocal(v string, line int) {
 	e := c.tmp("qe")
 	c.openf("if %s := %s(%s, %s, %s); %s != nil {", e, c.emitFn(), c.writer(), q(c.escapeStrategy()), v, e)
-	c.linef(c.ret(c.qposE(e, pos.Line)))
+	c.linef(c.ret(c.qposE(e, line)))
 	c.closeb()
-	return nil
+}
+
+// emitPlainValueLocal emits an already-lowered value local with no active
+// strategy, positioning the emit error at line. It is the plain tail
+// stmtPrintPlain and stmtApply share: a Str/Safe value writes its bytes
+// verbatim, every other kind spells through the emit helper. The caller
+// guarantees the strategy is off.
+func (c *compiler) emitPlainValueLocal(v string, line int) {
+	wrap := func(e string) string { return c.qposE(e, line) }
+	v = c.spillAdjacent(v)
+	c.openf("if %s.Kind == runtime.KStr || %s.Kind == runtime.KSafe {", v, v)
+	c.emitWrite(v+".S", wrap)
+	c.ind--
+	e := c.tmp("qe")
+	c.linef("} else if %s := %s(%s, %s, %s); %s != nil {", e, c.emitFn(), c.writer(), q(""), v, e)
+	c.ind++
+	c.linef(c.ret(wrap(e)))
+	c.closeb()
 }
 
 // stmtPrintPlain lowers a print with no active escape strategy, where the
@@ -190,15 +217,7 @@ func (c *compiler) stmtPrintPlain(val, pos *ast.Node) error {
 	if err != nil {
 		return err
 	}
-	v = c.spillAdjacent(v)
-	c.openf("if %s.Kind == runtime.KStr || %s.Kind == runtime.KSafe {", v, v)
-	c.emitWrite(v+".S", wrap)
-	c.ind--
-	e := c.tmp("qe")
-	c.linef("} else if %s := %s(%s, %s, %s); %s != nil {", e, c.emitFn(), c.writer(), q(""), v, e)
-	c.ind++
-	c.linef(c.ret(wrap(e)))
-	c.closeb()
+	c.emitPlainValueLocal(v, pos.Line)
 	return nil
 }
 
@@ -350,6 +369,26 @@ func (c *compiler) stmtCapture(n *ast.Node) error {
 	if len(body) > 0 && body[0] != nil && body[0].Kind == ast.KindType {
 		body = body[1:]
 	}
+	sb, err := c.captureBody(body)
+	if err != nil {
+		return err
+	}
+	if c.escapeStrategy() != "" {
+		c.bindName(n.Str, fmt.Sprintf("runtime.Safe(%s.String())", sb), false)
+	} else {
+		c.bindName(n.Str, fmt.Sprintf("runtime.Str(%s.String())", sb), false)
+	}
+	return nil
+}
+
+// captureBody renders body into a fresh strings.Builder with indentation
+// suspended -- the shared shape captureItems takes for @set...capture and
+// @apply. A tab-free module writes into the builder directly; any other module
+// wraps it in a fresh qWriter starting at line-start with an empty indent, so
+// the captured text is unindented regardless of the enclosing @tab region. It
+// returns the builder local's name; the caller decides how to seed a value
+// from its String().
+func (c *compiler) captureBody(body []*ast.Node) (string, error) {
 	sb := c.tmp("qs")
 	c.linef("var %s strings.Builder", sb)
 	if c.tabFree {
@@ -363,14 +402,131 @@ func (c *compiler) stmtCapture(n *ast.Node) error {
 	err := c.stmtList(body)
 	c.writers = c.writers[:len(c.writers)-1]
 	if err != nil {
+		return "", err
+	}
+	return sb, nil
+}
+
+// stmtApply lowers "@apply | f | g { body }" like execApply: capture the body
+// with indentation suspended, seed the piped value as runtime.Str, run the
+// filter chain, then emit. The captured text has already flowed through the
+// active escape strategy (every interpolation inside the body was emitted, so
+// escaped), so under a live strategy a filtered result whose kind is not KSafe
+// is wrapped runtime.Safe to keep the final emit from escaping already-escaped
+// bytes a second time -- byte-exact to execApply's double-escape guard. The
+// sandbox arrow/stringify gates execApply runs are !sandboxOn no-ops on the
+// compiled path (the dispatch gate refuses any sandboxed unit), so they lower
+// to nothing.
+func (c *compiler) stmtApply(n *ast.Node) error {
+	filterCount := int(n.Int)
+	filters := n.Children[:filterCount]
+	body := n.Children[filterCount:]
+	sb, err := c.captureBody(body)
+	if err != nil {
 		return err
 	}
-	if c.escapeStrategy() != "" {
-		c.bindName(n.Str, fmt.Sprintf("runtime.Safe(%s.String())", sb), false)
-	} else {
-		c.bindName(n.Str, fmt.Sprintf("runtime.Str(%s.String())", sb), false)
+	v := c.tmp("qv")
+	c.linef("%s := runtime.Str(%s.String())", v, sb)
+	for _, f := range filters {
+		if err := c.applyFilter(f, v); err != nil {
+			return err
+		}
 	}
+	if c.escapeStrategy() != "" {
+		text := c.tmp("qt")
+		e := c.tmp("qe")
+		c.openf("if %s.Kind != runtime.KSafe {", v)
+		c.linef("%s, %s := runtime.ToText(%s)", text, e, v)
+		c.checkErr(e, n.Line)
+		c.linef("%s = runtime.Safe(%s)", v, text)
+		c.closeb()
+		c.emitValueLocal(v, n.Line)
+		return nil
+	}
+	c.emitPlainValueLocal(v, n.Line)
 	return nil
+}
+
+// applyFilter lowers one filter in an @apply chain, rebinding the running value
+// local v in place. It mirrors exprFilter's dispatch -- registry lookup, the
+// zero-explicit-arg Fn1 fast path, Needs* injection -- but the piped value is
+// the running local rather than a lowered child expression, the argument slice
+// comes from execApply's own non-expanding loop through applyArgs (a spread
+// argument stays one array value, unlike the inline filter path), and the
+// unknown-filter error text is execApply's "unknown filter %q in apply" variant
+// (not exprFilter's "unknown filter %q"), whose timing is observable in
+// streamed output so it stays at the call site.
+func (c *compiler) applyFilter(f *ast.Node, v string) error {
+	fv, fok := c.callable("Filter", f.Str)
+	c.openf("if !%s {", fok)
+	c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"unknown filter %%q in apply\", %s)", q(f.Str)), f.Line)))
+	c.closeb()
+	res := c.tmp("qt")
+	e := c.tmp("qe")
+	// The zero-explicit-argument fast path keys off the same syntactic test the
+	// interpreter's fast call uses: any KindArg child, spread included, takes
+	// the general slice path (staticArgCount returns not-static for a spread and
+	// a positive count for any positional, so static && count == 0 holds exactly
+	// when no argument child exists). Because the interpreter's fast call and
+	// execApply's always-Fn call are byte-equivalent for the audited Fn1 set
+	// (ext keeps Fn's zero-extra-arg behavior identical to Fn1), the fast branch
+	// reproduces execApply's Fn dispatch exactly.
+	if count, static := staticArgCount(f); static && count == 0 {
+		ffast := c.callableFilterFast(f.Str)
+		c.linef("var %s runtime.Value", res)
+		c.linef("var %s error", e)
+		c.openf("if %s {", ffast)
+		c.linef("%s, %s = %s.Fn1(%s)", res, e, fv, v)
+		c.ind--
+		c.linef("} else {")
+		c.ind++
+		args, err := c.applyArgs(f, v)
+		if err != nil {
+			return err
+		}
+		c.emitInject(fv, c.callableInject("Filter", f.Str), args)
+		c.linef("%s, %s = %s.Fn(%s)", res, e, fv, args)
+		c.closeb()
+		c.checkErr(e, f.Line)
+		c.linef("%s = %s", v, res)
+		return nil
+	}
+	args, err := c.applyArgs(f, v)
+	if err != nil {
+		return err
+	}
+	c.emitInject(fv, c.callableInject("Filter", f.Str), args)
+	c.linef("%s, %s := %s.Fn(%s)", res, e, fv, args)
+	c.checkErr(e, f.Line)
+	c.linef("%s = %s", v, res)
+	return nil
+}
+
+// applyArgs lowers an @apply filter's KindArg children into a positional
+// []runtime.Value local seeded with the piped value, replicating execApply's
+// own inline loop rather than the inline filter path's collectArgs. The one
+// behavioral difference that matters: execApply appends a spread argument as a
+// single array value, NOT its expanded elements, so `@apply | f(...xs)` hands
+// the filter one array where the inline `| f(...xs)` form hands it xs's members.
+// Reusing collectArgs here would expand the spread and diverge from the
+// interpreter in both output bytes and error position; this loop keeps the two
+// paths byte-identical. A not-compilable argument expression propagates so the
+// whole @apply statement returns ErrNotCompilable and the dispatch gate falls
+// back to the interpreter.
+func (c *compiler) applyArgs(f *ast.Node, piped string) (string, error) {
+	args := c.tmp("qa")
+	c.linef("%s := []runtime.Value{%s}", args, piped)
+	for _, ch := range f.Children {
+		if ch.Kind != ast.KindArg {
+			continue
+		}
+		v, err := c.expr(ch.Child(0), false)
+		if err != nil {
+			return "", err
+		}
+		c.linef("%s = append(%s, %s)", args, args, v)
+	}
+	return args, nil
 }
 
 // stmtWith lowers "@with map [only] { body }": the body runs in a fresh

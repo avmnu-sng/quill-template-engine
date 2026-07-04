@@ -81,6 +81,19 @@ func stmtBinds(n *ast.Node, add func(string)) {
 		for _, it := range n.Children {
 			stmtBinds(it, add)
 		}
+	case ast.KindApply:
+		// The apply body captures with the enclosing scope, exactly like
+		// captureItems, so a @set inside it copies back into this frame and its
+		// names must be scanned here. The leading filter nodes bind no names of
+		// their own; only their argument expressions can carry an inline
+		// assignment, which exprBinds finds by recursion.
+		filterCount := int(n.Int)
+		for _, f := range n.Children[:filterCount] {
+			exprBinds(f, add)
+		}
+		for _, it := range n.Children[filterCount:] {
+			stmtBinds(it, add)
+		}
 	case ast.KindPrint, ast.KindDo, ast.KindLog:
 		exprBinds(n.Child(0), add)
 	default:

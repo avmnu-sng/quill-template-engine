@@ -520,7 +520,6 @@ func TestNotCompilable(t *testing.T) {
 		{"yield", "@yield slot\n", "@yield"},
 		{"cache", "@cache key=\"k\" {\nx\n@}\n", "@cache"},
 		{"sandbox", "@sandbox {\nx\n@}\n", "@sandbox"},
-		{"apply", "@apply | upper {\nx\n@}\n", "@apply"},
 		{"guard", "@guard filter(\"upper\") {\nx\n@}\n", "@guard"},
 		{"flush", "@flush\n", "@flush"},
 		{"recursive-for", "@for n in tree recursive {\n{{ n }}\n@}\n", "recursive @for"},
