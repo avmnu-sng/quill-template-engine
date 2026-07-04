@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"go/format"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -75,6 +76,15 @@ type Options struct {
 	// like a facade built without WithTypes: Object types are opaque and host
 	// callables dynamic, while in-template annotations are still enforced.
 	Types *check.Registry
+	// Templates carries the sibling modules a static @include may inline, keyed
+	// by template name (the same map Unit consumes as its whole template set).
+	// A Module compilation reaches an included partial's statements only through
+	// this map; a name absent from it makes a plain @include of that literal a
+	// typed subset rejection, and an ignore-missing @include of it a
+	// gate-guarded render-nothing. The entry itself may appear here and is
+	// ignored. Unit fills this from its own templates argument, so a Unit needs
+	// nothing set here.
+	Templates map[string]*ast.Node
 }
 
 // LineMapEntry maps one generated source line to the template line whose
@@ -332,6 +342,21 @@ func (c *compiler) notCompilable(construct string, n *ast.Node) error {
 	return e
 }
 
+// sortedAbsentIncludes returns the ignore-missing include targets recorded as
+// compile-time-absent, sorted so the generated manifest stays byte-identical
+// across recompilations of the same template set.
+func (c *compiler) sortedAbsentIncludes() []string {
+	if len(c.absentIncludes) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(c.absentIncludes))
+	for name := range c.absentIncludes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // assemble stitches the fixed prologue, the collected callable resolutions,
 // the root declarations, the lowered statements, the dispatch manifest, and
 // the helper prelude into one unformatted Go file.
@@ -445,6 +470,13 @@ func (c *compiler) assemble() []byte {
 		c.opts.AutoescapeHTML, c.opts.LenientVariables, c.opts.TabWidth, c.opts.RandomSeed, c.opts.RandomSeedSet)
 	fmt.Fprintf(&b, "\tUsesLog: %v,\n", c.usesLog)
 	fmt.Fprintf(&b, "\tUsesSlots: %v,\n", c.usesSlots)
+	if names := c.sortedAbsentIncludes(); len(names) > 0 {
+		b.WriteString("\tAbsentIncludes: []string{\n")
+		for _, name := range names {
+			fmt.Fprintf(&b, "\t\t%s,\n", strconv.QuoteToASCII(name))
+		}
+		b.WriteString("\t},\n")
+	}
 	fmt.Fprintf(&b, "\tRender:  %s,\n", c.opts.FuncName)
 	b.WriteString("}\n\n")
 	b.WriteString(prelude)

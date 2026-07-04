@@ -13,7 +13,7 @@ import (
 // no @tab region anywhere never activates the qWriter indent layer, so its
 // writes lower straight to the render function's io.Writer.
 func (c *compiler) compileModule(mod *ast.Node) error {
-	c.an = analyzeLoops(mod)
+	c.an = analyzeLoops(mod, c.includeTemplates)
 	c.tabFree = !hasTabBlock(mod)
 	c.usesSlots = hasSlots(mod)
 	c.setTopWriter()
@@ -114,7 +114,7 @@ func (c *compiler) stmtItem(n *ast.Node) error {
 		}
 		return c.notCompilable("@use", n)
 	case ast.KindInclude:
-		return c.notCompilable("@include", n)
+		return c.stmtInclude(n)
 	case ast.KindEmbed:
 		return c.notCompilable("@embed", n)
 	case ast.KindProvide:

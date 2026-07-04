@@ -537,6 +537,16 @@ func (e *Environment) compiledFor(name string) *compiled.Manifest {
 	if !e.unitCoherent(u) {
 		return nil
 	}
+	// An ignore-missing @include the unit inlined as rendering nothing is
+	// byte-exact only while its target still fails to resolve: the moment the
+	// loader serves it, the interpreter would inline the partial, so dispatch
+	// must fall back. This is the runtime template-exists check the compiled
+	// render function cannot make from its stateless signature.
+	for _, name := range m.AbsentIncludes {
+		if e.TemplateExists(name) {
+			return nil
+		}
+	}
 	return m
 }
 

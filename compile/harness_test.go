@@ -23,11 +23,17 @@ type compiledCase struct {
 	template string // template body (the main template)
 	varsJSON string // data as a JSON object; "" means no vars
 	opts     compile.Options
-	// templates, when non-nil, makes this a multi-template Unit case: it maps
-	// member names to bodies, entry names the unit's entry template, and
-	// template above is ignored.
+	// templates, when non-nil, makes this a multi-template case: it maps member
+	// names to bodies, entry names the entry template, and template above is
+	// ignored. It compiles through Unit by default, or through Module with the
+	// non-entry members handed as Options.Templates when viaModule is set, so
+	// the same include fixtures exercise both single-template and unit lowerings.
 	templates map[string]string
 	entry     string
+	// viaModule compiles a multi-template case through compile.Module (with the
+	// siblings as Options.Templates) instead of compile.Unit, so a static
+	// @include is exercised on the single-template Module path too.
+	viaModule bool
 	// envCheck additionally renders the case by name through a quill
 	// Environment with the generated manifest installed (frame "<name>@env"),
 	// probes the dispatch gate with a tracer manifest (frame "<name>@tracer",
@@ -85,6 +91,16 @@ func compileCase(t *testing.T, cs compiledCase) (*compile.Result, error) {
 				t.Fatalf("%s: parse %s: %v", cs.name, name, err)
 			}
 			mods[name] = mod
+		}
+		if cs.viaModule {
+			siblings := map[string]*ast.Node{}
+			for name, mod := range mods {
+				if name != cs.entry {
+					siblings[name] = mod
+				}
+			}
+			opts.Templates = siblings
+			return compile.Module(cs.entry, mods[cs.entry], opts)
 		}
 		return compile.Unit(cs.entry, mods, opts)
 	}

@@ -155,19 +155,32 @@ type loopAnalyzer struct {
 	unit   *unitInfo
 	uctx   []unitBlockCtx
 	udepth int
+
+	// includes is the static-@include resolution universe: the same partial
+	// modules stmtInclude inlines, so the walk descends into an included body
+	// exactly where the lowering splices it and a caller-scope loop the body
+	// reads materializes. includeStack cycle-guards the descent the same way
+	// the lowering's include stack bounds recursive inlining.
+	includes     map[string]*ast.Node
+	includeStack []string
 }
 
 // analyzeLoops runs the escape analysis over a parsed module and returns the
-// per-loop materialization decisions and the approved inline reads.
-func analyzeLoops(mod *ast.Node) *loopAnalysis {
-	return analyzeUnitLoops(mod, nil)
+// per-loop materialization decisions and the approved inline reads. The
+// includes map is the static-@include resolution universe the walk descends
+// into, so a loop the caller passes across an include boundary materializes.
+func analyzeLoops(mod *ast.Node, includes map[string]*ast.Node) *loopAnalysis {
+	return analyzeUnitLoops(mod, nil, includes)
 }
 
 // analyzeUnitLoops runs the escape analysis over the statement tree the
 // lowering actually walks: for a Unit, the topmost module with every block
 // site, parent() call, and static block() call descended into its resolved
 // body, so a loop inside an inlined body is analyzed in its inline context.
-func analyzeUnitLoops(mod *ast.Node, unit *unitInfo) *loopAnalysis {
+// The includes map lets the walk follow a static @include into the partial
+// body stmtInclude inlines, so a caller-scope loop the body reads is marked
+// escaping exactly as an inline @block body's read marks it.
+func analyzeUnitLoops(mod *ast.Node, unit *unitInfo, includes map[string]*ast.Node) *loopAnalysis {
 	a := &loopAnalyzer{
 		res: &loopAnalysis{
 			analyzed:     map[*ast.Node]bool{},
@@ -180,6 +193,7 @@ func analyzeUnitLoops(mod *ast.Node, unit *unitInfo) *loopAnalysis {
 		noInline: map[*ast.Node]bool{},
 		stack:    []aframe{{kind: afRoot}},
 		unit:     unit,
+		includes: includes,
 	}
 	a.walkItems(mod.Children)
 	a.fixpoint()
@@ -416,10 +430,66 @@ func (a *loopAnalyzer) walkStmt(n *ast.Node) {
 		if a.unit != nil {
 			a.uwalkBlockSite(n)
 		}
+	case ast.KindInclude:
+		a.walkInclude(n)
 	default:
 		// Text, checker-only declarations, and not-compilable statements hold
 		// no analyzable loop references.
 	}
+}
+
+// walkInclude walks a static @include the way stmtInclude lowers it: the
+// with-map is evaluated in the enclosing scope, then the partial's own
+// statements are inlined under a with (or only-with) frame that models the
+// include child scope. Descending into the partial body is what makes a
+// caller-scope loop the body reads escape -- resolveChain resolves the bare
+// name loop cross-frame and emits ShareValue at render time, so the enclosing
+// loop must have materialized a live value to share, exactly as an @with body
+// or an inline @block body forces it. The descent gates on the same structural
+// conditions stmtInclude inlines under (a resolvable string-literal source, a
+// composition-free slot-free partial, no include cycle); a partial the lowering
+// instead defers makes the whole unit not-compilable, so an over-descent there
+// only ever marks more loops, which is always semantics-preserving.
+func (a *loopAnalyzer) walkInclude(n *ast.Node) {
+	flags := n.Int
+	if flags&ast.IncWith != 0 {
+		// The with-map expressions are evaluated in the CALLER scope, so a
+		// loop read at the include site (loop.index passed through with) is an
+		// ordinary caller-scope reference and escapes its enclosing loop.
+		a.walkExpr(n.Child(1), true)
+	}
+	src := n.Child(0)
+	if src == nil || src.Kind != ast.KindString {
+		return
+	}
+	mod, ok := a.includes[src.Str]
+	if !ok || mod == nil || mod.Kind != ast.KindModule {
+		return
+	}
+	if hasSlots(mod) || partialHasComposition(mod) || a.includeInlining(src.Str) {
+		return
+	}
+	kind := afWith
+	if flags&ast.IncOnly != 0 {
+		kind = afWithOnly
+	}
+	a.includeStack = append(a.includeStack, src.Str)
+	a.push(aframe{kind: kind})
+	a.walkItems(mod.Children)
+	a.pop()
+	a.includeStack = a.includeStack[:len(a.includeStack)-1]
+}
+
+// includeInlining reports whether name is already being descended into at an
+// enclosing include site, cycle-guarding the walk the same way stmtInclude's
+// include stack bounds recursive inlining.
+func (a *loopAnalyzer) includeInlining(name string) bool {
+	for _, n := range a.includeStack {
+		if n == name {
+			return true
+		}
+	}
+	return false
 }
 
 // uwalkBlockSite walks the body a block site resolves to, mirroring the

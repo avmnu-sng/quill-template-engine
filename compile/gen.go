@@ -43,6 +43,31 @@ type compiler struct {
 	// typed subset rejection instead of unbounded compile-time expansion.
 	blockInline int
 
+	// includeTemplates resolves a static @include literal to the partial module
+	// whose statements get inlined at the include site, keyed by template name.
+	// A Module fills it from Options.Templates; a Unit fills it from its own
+	// template set. A name absent from it cannot be inlined.
+	includeTemplates map[string]*ast.Node
+
+	// includeStack lists the template names currently being inlined at active
+	// @include sites, so a partial that includes itself (directly or through a
+	// cycle) is rejected as a typed subset error instead of expanding code
+	// without bound, exactly as maxUnitInline bounds recursive block inlining.
+	includeStack []string
+
+	// includeSrcs indexes the source anchors of inlined partials by name, so a
+	// name inlined at several sites within one render shares one qSrc variable
+	// and one manifest source entry.
+	includeSrcs map[string]*source.Source
+
+	// absentIncludes lists the ignore-missing @include literals whose targets
+	// were absent from includeTemplates at compile time. The emitted manifest
+	// carries them so the dispatch gate can prove each still resolves to nothing
+	// before serving the compiled unit; a target that later appears forces the
+	// render back onto the interpreter, whose include would inline the now
+	// present partial.
+	absentIncludes map[string]struct{}
+
 	// rootDecls receives the root frame's hoisted binding declarations; body
 	// receives every lowered statement. Non-root frame declarations are
 	// emitted inline at their block's start.
@@ -200,8 +225,12 @@ func newCompiler(src *source.Source, opts Options) *compiler {
 		lenient:     opts.LenientVariables,
 		tabWidth:    opts.TabWidth,
 		srcVars:     map[*source.Source]string{},
+		includeSrcs: map[string]*source.Source{},
 	}
 	c.srcStack = []string{c.registerSrc(src)}
+	if len(opts.Templates) > 0 {
+		c.includeTemplates = opts.Templates
+	}
 	return c
 }
 

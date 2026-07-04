@@ -193,6 +193,12 @@ func Unit(entry string, templates map[string]*ast.Node, opts Options) (*Result, 
 	}
 	c := newCompiler(u.entry.src, opts)
 	c.unit = u
+	// A Unit's own template set is the include-resolution universe: a static
+	// @include in any member inlines a partial from here exactly as a Module
+	// inlines from Options.Templates.
+	if c.includeTemplates == nil {
+		c.includeTemplates = templates
+	}
 	for _, m := range u.members {
 		c.registerSrc(m.src)
 	}
@@ -653,7 +659,7 @@ func (c *compiler) compileUnit() error {
 		return nil
 	}
 	mod := u.topmost.mod
-	c.an = analyzeUnitLoops(mod, u)
+	c.an = analyzeUnitLoops(mod, u, c.includeTemplates)
 	c.pushSrc(u.topmost.src)
 	defer c.popSrc()
 	binds := c.scanBinds(mod.Children)

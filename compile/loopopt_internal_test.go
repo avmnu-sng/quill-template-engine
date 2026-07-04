@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/parse"
 	"github.com/avmnu-sng/quill-template-engine/source"
 )
@@ -160,7 +161,7 @@ func TestLoopEscapeAnalysis(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			an := analyzeLoops(mod)
+			an := analyzeLoops(mod, nil)
 			if len(an.fors) != len(tc.want) {
 				t.Fatalf("analyzed %d loops, want %d", len(an.fors), len(tc.want))
 			}
@@ -168,6 +169,132 @@ func TestLoopEscapeAnalysis(t *testing.T) {
 				got := an.inlineFor(n)
 				if got != tc.want[i] {
 					t.Errorf("loop %d (line %d): inline = %v, want %v", i, n.Line, got, tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestLoopEscapeAnalysisAcrossInclude pins the escape decision for a @for whose
+// body inlines a static @include: because stmtInclude splices the partial's
+// statements into the caller's render, a partial that reads the caller's loop
+// (directly by name, through a with-map expression at the include site, or
+// through loop.parent from the partial's own nested loop) makes that loop
+// escape, so the analyzer must descend the include boundary and materialize the
+// enclosing loop. A partial that reads no caller loop leaves the loop inline,
+// and a partial the lowering would not inline (a slot-using or composing partial,
+// or a self-include cycle) is walked conservatively, never under-materialized.
+// The want slice lists the CALLER loops in walk order (the partial's own loops
+// are analyzed as their own nodes, so only the entry template's loops are
+// pinned here via len(mod.Children) walk order).
+func TestLoopEscapeAnalysisAcrossInclude(t *testing.T) {
+	cases := []struct {
+		name     string
+		entry    string
+		partials map[string]string
+		// wantCallerInline is the inline decision of the FIRST @for the walk
+		// records (the caller loop in the entry template).
+		wantCallerInline bool
+		// wantInlineReadOfF, when non-empty, asserts the entry template records
+		// exactly one approved inline loop-field read of that field, proving a
+		// with-map loop read at the include site lowers to inline arithmetic
+		// rather than a value read of the elided loop binding.
+		wantInlineReadOfF string
+	}{
+		{
+			name:  "partial_reads_caller_loop_index",
+			entry: "@for r in rows {\n@include \"p.ql\"\n@}",
+			partials: map[string]string{
+				"p.ql": "i={{ loop.index }}\n",
+			},
+			wantCallerInline: false,
+		},
+		{
+			name:  "partial_reads_caller_loop_field",
+			entry: "@for r in rows {\n@include \"p.ql\"\n@}",
+			partials: map[string]string{
+				"p.ql": "f={{ loop.first }}\n",
+			},
+			wantCallerInline: false,
+		},
+		{
+			// The with-map loop.index is read in the CALLER scope at the include
+			// site, where the inline loop counter is live, so it lowers to inline
+			// arithmetic and the loop stays inline. The RED here was not a missing
+			// materialization but a missing analysis visit: before the fix the
+			// analyzer never walked the with-map, so the read was not recorded as
+			// approved-inline and the lowering fell back to a value read of the
+			// elided (null) loop. Descending records it, keeping the loop inline.
+			name:  "only_with_map_reads_caller_loop",
+			entry: "@for r in rows {\n@include \"p.ql\" with { pos: loop.index } only\n@}",
+			partials: map[string]string{
+				"p.ql": "pos={{ pos }}\n",
+			},
+			wantCallerInline:  true,
+			wantInlineReadOfF: "index",
+		},
+		{
+			name:  "partial_nested_loop_reads_caller_parent",
+			entry: "@for r in rows {\n@include \"p.ql\"\n@}",
+			partials: map[string]string{
+				"p.ql": "@for c in cols {\n{{ loop.parent.index }}\n@}\n",
+			},
+			wantCallerInline: false,
+		},
+		{
+			name:  "partial_reads_nothing_leaves_caller_inline",
+			entry: "@for r in rows {\n@include \"p.ql\"\n@}",
+			partials: map[string]string{
+				"p.ql": "just text {{ r }}\n",
+			},
+			wantCallerInline: true,
+		},
+		{
+			name:  "partial_reads_own_loop_only_leaves_caller_inline",
+			entry: "@for r in rows {\n{{ loop.index }}\n@include \"p.ql\"\n@}",
+			partials: map[string]string{
+				"p.ql": "@for c in cols {\n{{ loop.index }}\n@}\n",
+			},
+			wantCallerInline: true,
+		},
+		{
+			name:  "slot_using_partial_walked_without_underescape",
+			entry: "@for r in rows {\n@include \"p.ql\"\n@}",
+			partials: map[string]string{
+				"p.ql": "@yield s\n@provide s {\nx\n@}\n",
+			},
+			wantCallerInline: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mod, err := parse.Parse(source.New("main.ql", tc.entry+"\n"))
+			if err != nil {
+				t.Fatalf("parse entry: %v", err)
+			}
+			includes := map[string]*ast.Node{}
+			for name, body := range tc.partials {
+				pmod, perr := parse.Parse(source.New(name, body))
+				if perr != nil {
+					t.Fatalf("parse %s: %v", name, perr)
+				}
+				includes[name] = pmod
+			}
+			an := analyzeLoops(mod, includes)
+			if len(an.fors) == 0 {
+				t.Fatal("no @for analyzed in the entry template")
+			}
+			caller := an.fors[0]
+			if got := an.inlineFor(caller); got != tc.wantCallerInline {
+				t.Errorf("caller loop inline = %v, want %v", got, tc.wantCallerInline)
+			}
+			if tc.wantInlineReadOfF != "" {
+				var fields []string
+				for _, ir := range an.inlineReads {
+					fields = append(fields, ir.field)
+				}
+				if len(fields) != 1 || fields[0] != tc.wantInlineReadOfF {
+					t.Errorf("inline reads = %v, want exactly [%q]", fields, tc.wantInlineReadOfF)
 				}
 			}
 		})
@@ -276,7 +403,7 @@ func TestLoopMutationSafetyAnalysis(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			an := analyzeLoops(mod)
+			an := analyzeLoops(mod, nil)
 			if len(an.fors) != len(tc.want) {
 				t.Fatalf("analyzed %d loops, want %d", len(an.fors), len(tc.want))
 			}

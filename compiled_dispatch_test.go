@@ -188,6 +188,46 @@ func TestWithCompiledSourceByteEditFallsBack(t *testing.T) {
 	}
 }
 
+// TestWithCompiledAbsentIncludeGate drives the ignore-missing @include
+// present/absent transition: a unit that inlined an ignore-missing include as
+// rendering nothing carries the absent target in AbsentIncludes, so the gate
+// serves the compiled render only while the target still fails to resolve and
+// falls back to the interpreter the moment the loader begins serving it.
+func TestWithCompiledAbsentIncludeGate(t *testing.T) {
+	// The entry inlined `@include "gone.ql" ignore missing` as nothing; the
+	// compiled render (the marker) is byte-exact only while gone.ql is absent.
+	m := markerManifest("t.ql", "head\n", defaultFingerprint(), false)
+	m.AbsentIncludes = []string{"gone.ql"}
+
+	ldr := loader.NewArrayLoader(map[string]string{"t.ql": "head\n"})
+	env := New(ldr, WithCompiled(m))
+	out, err := env.Render("t.ql", nil)
+	if err != nil || out != dispatchMarker {
+		t.Fatalf("absent-include unit not served while target missing: got %q, %v", out, err)
+	}
+
+	// The moment the loader serves gone.ql, the interpreter's include would
+	// inline its body, so the compiled render-nothing is no longer byte-exact
+	// and the gate must fall back.
+	ldr.Set("gone.ql", "partial")
+	out, err = env.Render("t.ql", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "head\n" {
+		t.Fatalf("absent-include unit served after target appeared: got %q", out)
+	}
+
+	// A fresh Environment whose loader never had the target serves compiled
+	// again: the check runs per render against live loader state, not once at
+	// install, so a target present in one Environment never poisons another.
+	env2 := NewWithArray(map[string]string{"t.ql": "head\n"}, WithCompiled(m))
+	out, err = env2.Render("t.ql", nil)
+	if err != nil || out != dispatchMarker {
+		t.Fatalf("absent-include unit not served in a fresh loader: got %q, %v", out, err)
+	}
+}
+
 // TestWithCompiledStaleParseNeverServed drives the loader/parse-change
 // contract end to end: while the parse cache pins the compiled-from module the
 // unit keeps serving (the interpreter would walk the same pinned parse), and

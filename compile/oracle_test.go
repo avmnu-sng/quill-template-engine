@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
+	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/compile"
 	"github.com/avmnu-sng/quill-template-engine/internal/jsonval"
 	"github.com/avmnu-sng/quill-template-engine/loader"
@@ -93,10 +94,25 @@ func TestConformanceOracle(t *testing.T) {
 			buckets = append(buckets, oracleBucket{fixture, "not-compilable-config", "parse error: " + err.Error()})
 			continue
 		}
+		// Parse the fixture's sibling templates too, so a static @include in the
+		// main module can inline a partial the same way a Module compiled by a
+		// host that hands compile the sibling set would.
+		siblings := map[string]*ast.Node{}
+		for tname, tbody := range tmpls {
+			if tname == main {
+				continue
+			}
+			smod, serr := parse.Parse(source.New(tname, tbody))
+			if serr != nil {
+				continue
+			}
+			siblings[tname] = smod
+		}
 		opts := compile.Options{
 			PackageName:      pkgName(fixture),
 			AutoescapeHTML:   cfg.Autoescape == "html",
 			LenientVariables: cfg.Strict != nil && !*cfg.Strict,
+			Templates:        siblings,
 		}
 		res, cerr := compile.Module(main, mod, opts)
 		if cerr != nil {

@@ -83,6 +83,15 @@ type Manifest struct {
 	// path, which writes nothing to w when the render fails; a raw placeholder
 	// must never reach the caller's writer.
 	UsesSlots bool
+	// AbsentIncludes lists the templates an ignore-missing @include in this unit
+	// inlined as rendering nothing because they were absent when the unit was
+	// compiled. The generated code splices no output for them, which is
+	// byte-exact only while each stays unresolvable; dispatch therefore serves
+	// the unit only when every listed name still fails to load, and falls back
+	// to the interpreter (which would inline a now present partial) the moment
+	// one appears. It parallels Sources, which proves the listed members
+	// present, by proving these names absent.
+	AbsentIncludes []string
 	// Render is the generated render entry point.
 	Render RenderFunc
 }

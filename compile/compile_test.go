@@ -522,7 +522,8 @@ func TestNotCompilable(t *testing.T) {
 		{"import", "@import \"lib.ql\" as lib\n", "@import"},
 		{"from", "@from \"lib.ql\" import m\n", "@from"},
 		{"use", "@use \"trait.ql\"\n", "@use"},
-		{"include", "@include \"part.ql\"\n", "@include"},
+		{"include-outside-set", "@include \"part.ql\"\n", "@include of a template outside the compile set"},
+		{"include-dynamic", "@include name\n", "@include with a dynamic source"},
 		{"embed", "@embed \"part.ql\" {\n@}\n", "@embed"},
 		// A @yield nested in a capture context embeds a placeholder token the
 		// compile package cannot share with the interpreter's process-global

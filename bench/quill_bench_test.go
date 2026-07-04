@@ -122,6 +122,39 @@ func BenchmarkQuill_Loop_Render(b *testing.B) {
 	}
 }
 
+// ==== Workload B2: @for whose body @includes a partial reading the caller loop ====
+
+// quillLoopInclude is the G3 static-@include workload: a @for that inlines a
+// partial reading the caller's loop, the shape the compiled path must
+// materialize the enclosing loop for (an inline loop would splice a null loop
+// into the partial). It fixes the loop optimizer's escape analysis for the
+// include boundary and records the interpreter cost the compiled path targets.
+const quillLoopInclude = `@for u in users {
+@include "row.ql"
+@}`
+
+const quillLoopIncludeRow = `{{ loop.index }}. {{ u.name | upper }} <{{ u.email }}>
+`
+
+func BenchmarkQuill_LoopInclude_Render(b *testing.B) {
+	env := quill.NewWithArray(map[string]string{
+		"loopinc.ql": quillLoopInclude,
+		"row.ql":     quillLoopIncludeRow,
+	})
+	tmpl, err := env.LoadTemplate("loopinc.ql")
+	if err != nil {
+		b.Fatal(err)
+	}
+	vars := map[string]runtime.Value{"users": quillUsers()}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := interp.Render(env, tmpl, vars); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // ==== Workload C: composition / inheritance (@extends + @block + parent) ====
 
 func BenchmarkQuill_Compose_Load(b *testing.B) {

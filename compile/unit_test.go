@@ -414,11 +414,6 @@ func TestUnitNotCompilable(t *testing.T) {
 		templates map[string]string
 		construct string
 	}{
-		{"include", "p.ql", map[string]string{"p.ql": "@include \"x.ql\" with {a: 1} only\n", "x.ql": "x\n"}, "@include"},
-		{"include-in-block", "c.ql", map[string]string{
-			"b.ql": "@block b {\n@}\n",
-			"c.ql": "@extends \"b.ql\"\n@block b {\n@include \"x.ql\"\n@}\n",
-			"x.ql": "x\n"}, "@include"},
 		{"embed", "p.ql", map[string]string{"p.ql": "@embed \"x.ql\" {\n@block b {\no\n@}\n@}\n", "x.ql": "@block b {\ni\n@}\n"}, "@embed"},
 		// A @yield nested in a capture context is outside the compilable subset:
 		// its placeholder token cannot match the interpreter's process-global
