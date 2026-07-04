@@ -432,6 +432,8 @@ func (a *loopAnalyzer) walkStmt(n *ast.Node) {
 		}
 	case ast.KindInclude:
 		a.walkInclude(n)
+	case ast.KindEmbed:
+		a.walkEmbed(n)
 	default:
 		// Text, checker-only declarations, and not-compilable statements hold
 		// no analyzable loop references.
@@ -480,6 +482,73 @@ func (a *loopAnalyzer) walkInclude(n *ast.Node) {
 	a.walkItems(mod.Children)
 	a.pop()
 	a.includeStack = a.includeStack[:len(a.includeStack)-1]
+}
+
+// walkEmbed walks a static @embed the way stmtEmbed flattens it: the with-map
+// is evaluated in the enclosing scope, then the embedded body -- the target's
+// topmost module, the definition bodies of every block it and its composition
+// reach, and the inline override bodies -- is walked under a with (or only-with)
+// frame that models the child scope. Descending the bodies is what makes a
+// caller-scope loop read passed through the with-map escape its enclosing loop,
+// exactly as an @with body or an inline @block body forces it. Block sites
+// inside the embed resolve through an embed-local table the analyzer does not
+// rebuild; walking the definition bodies directly still visits every loop
+// reference, and any over-materialization it causes is semantics-preserving.
+func (a *loopAnalyzer) walkEmbed(n *ast.Node) {
+	flags := n.Int
+	if flags&ast.IncWith != 0 {
+		// The with-map expressions are evaluated in the CALLER scope, so a loop
+		// read at the embed site (loop.index passed through with) is an ordinary
+		// caller-scope reference and escapes its enclosing loop.
+		a.walkExpr(n.Child(1), true)
+	}
+	src := n.Child(0)
+	if src == nil || src.Kind != ast.KindString {
+		return
+	}
+	if a.includeInlining(src.Str) {
+		return
+	}
+	modules := embedReachableModules(a.includes[src.Str], a.includes)
+	if len(modules) == 0 {
+		return
+	}
+	kind := afWith
+	if flags&ast.IncOnly != 0 {
+		kind = afWithOnly
+	}
+	a.includeStack = append(a.includeStack, src.Str)
+	a.push(aframe{kind: kind})
+	for _, mod := range modules {
+		a.walkEmbedBody(mod.Children)
+	}
+	for i, ch := range n.Children {
+		if i == 0 || ch.Kind != ast.KindBlock {
+			continue
+		}
+		a.walkEmbedBody(unitBlockBody(ch))
+	}
+	a.pop()
+	a.includeStack = a.includeStack[:len(a.includeStack)-1]
+}
+
+// walkEmbedBody walks the statement list of an embedded module or block body,
+// descending into any nested @block definition body too so a loop reference
+// buried inside a block is seen regardless of where the block resolves. It is
+// deliberately structural rather than site-resolved: the embed splices these
+// bodies once into the render, and analyzing every one they could reach only
+// ever marks more loops, which preserves output bytes.
+func (a *loopAnalyzer) walkEmbedBody(items []*ast.Node) {
+	for _, it := range items {
+		if it == nil {
+			continue
+		}
+		if it.Kind == ast.KindBlock {
+			a.walkEmbedBody(unitBlockBody(it))
+			continue
+		}
+		a.walkStmt(it)
+	}
 }
 
 // includeInlining reports whether name is already being descended into at an

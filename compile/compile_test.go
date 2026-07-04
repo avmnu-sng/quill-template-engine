@@ -475,6 +475,18 @@ func TestGeneratedVet(t *testing.T) {
 		// unused-import guards all lower vet-clean.
 		{name: "vet-slots", opts: compile.Options{AutoescapeHTML: true},
 			template: "@yield h\n@provide h {\n{{ raw }}\n@}\ngot={{ slot(\"h\") }}\n@for n in [1,2] {\n@provide h {\nrow {{ n }}\n@}\n@}\n"},
+		// The @embed shapes: the block-override chain prepend with a parent()
+		// down it, the with-map/only child frame, the flattened target's own
+		// @yield/@provide feeding the single render-level slot map, and the
+		// @tab indent save/restore around the raw embed splice.
+		{name: "vet-embed", entry: "page.ql", templates: map[string]string{
+			"page.ql":  "@tab(1) {\n@embed \"shell.ql\" with { section: label } {\n@block title {\n{{ parent() }}!{{ section }}\n@}\n@}\n@}\n",
+			"shell.ql": "@block title {\nDefault\n@}\ntags:\n@yield tags\n@provide tags {\nt-{{ section }}\n@}\n",
+		}},
+		{name: "vet-embed-only", entry: "page.ql", templates: map[string]string{
+			"page.ql":  "@set outer = 1\n@embed \"shell.ql\" with { x: 2 } only {\n@}\n",
+			"shell.ql": "x={{ x }}\n@for n in [1,2] {\n@provide s {\n{{ n }}\n@}\n@}\n@yield s\n",
+		}},
 	}
 	dir := t.TempDir()
 	root := repoRoot(t)
@@ -524,7 +536,8 @@ func TestNotCompilable(t *testing.T) {
 		{"use", "@use \"trait.ql\"\n", "@use"},
 		{"include-outside-set", "@include \"part.ql\"\n", "@include of a template outside the compile set"},
 		{"include-dynamic", "@include name\n", "@include with a dynamic source"},
-		{"embed", "@embed \"part.ql\" {\n@}\n", "@embed"},
+		{"embed-outside-set", "@embed \"part.ql\" {\n@}\n", "@embed of a template outside the flattenable subset"},
+		{"embed-dynamic", "@embed name {\n@}\n", "@embed with a dynamic source"},
 		// A @yield nested in a capture context embeds a placeholder token the
 		// compile package cannot share with the interpreter's process-global
 		// counter, so only top-level yields compile; the nested forms are

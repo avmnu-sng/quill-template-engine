@@ -119,7 +119,7 @@ func (c *compiler) stmtItem(n *ast.Node) error {
 	case ast.KindInclude:
 		return c.stmtInclude(n)
 	case ast.KindEmbed:
-		return c.notCompilable("@embed", n)
+		return c.stmtEmbed(n)
 	case ast.KindProvide:
 		return c.stmtProvide(n)
 	case ast.KindYield:

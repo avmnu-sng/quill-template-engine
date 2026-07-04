@@ -67,6 +67,14 @@ type compiler struct {
 	// without bound, exactly as maxUnitInline bounds recursive block inlining.
 	includeStack []string
 
+	// embedStack lists the template names currently being flattened at active
+	// @embed sites, so a template that embeds itself (directly or through a
+	// cycle) is a typed subset rejection instead of unbounded compile-time
+	// expansion. @embed follows a distinct composition edge from @include, so it
+	// carries its own cycle stack; the interpreter renders such a self-embed
+	// through ever-deeper sub-interps, which the compiled path must not unroll.
+	embedStack []string
+
 	// includeSrcs indexes the source anchors of inlined partials by name, so a
 	// name inlined at several sites within one render shares one qSrc variable
 	// and one manifest source entry.

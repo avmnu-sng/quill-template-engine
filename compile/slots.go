@@ -42,6 +42,19 @@ func reachesSlotsWalk(n *ast.Node, includes map[string]*ast.Node, stack []string
 				return true
 			}
 		}
+	case ast.KindEmbed:
+		// A flattened embed splices its target's body into this render, so the
+		// target's own @yield/@provide/slot -- and those of its @extends parents
+		// and @use traits -- reach the render-level slot state exactly as the
+		// inline @block overrides below do. Descending the whole reachable target
+		// set forces the buffered shape whenever any of them defers a slot.
+		if mod, ok := flattenableEmbed(n, includes, stack); ok {
+			for _, m := range embedReachableModules(mod, includes) {
+				if reachesSlotsWalk(m, includes, append(stack, n.Child(0).Str)) {
+					return true
+				}
+			}
+		}
 	}
 	for _, ch := range n.Children {
 		if reachesSlotsWalk(ch, includes, stack) {
@@ -75,6 +88,87 @@ func inlinablePartial(n *ast.Node, includes map[string]*ast.Node, stack []string
 		}
 	}
 	return mod, true
+}
+
+// flattenableEmbed resolves a static @embed node to the target module
+// stmtEmbed flattens at that site, reporting whether the site is one it
+// flattens rather than defers. It mirrors stmtEmbed's structural gate -- a
+// string-literal source naming a target present in the compile set that does
+// not close a self-embed cycle -- so the slot-reachability walk visits exactly
+// the targets whose statements enter this render.
+func flattenableEmbed(n *ast.Node, includes map[string]*ast.Node, stack []string) (*ast.Node, bool) {
+	src := n.Child(0)
+	if src == nil || src.Kind != ast.KindString {
+		return nil, false
+	}
+	mod, ok := includes[src.Str]
+	if !ok || mod == nil || mod.Kind != ast.KindModule {
+		return nil, false
+	}
+	for _, name := range stack {
+		if name == src.Str {
+			return nil, false
+		}
+	}
+	return mod, true
+}
+
+// embedReachableModules returns the target module plus every module its static
+// composition splices into the flattened body: its @extends parents and @use
+// traits, followed transitively, resolved through the compile set. A slot in
+// any of them surfaces in the embed's output, so the slot-reachability walk
+// must cover the whole set. A dynamic or absent head simply contributes no
+// extra module, which only ever under-descends into a target the lowering would
+// itself defer, so no reachable slot is missed for a flattenable embed.
+func embedReachableModules(target *ast.Node, includes map[string]*ast.Node) []*ast.Node {
+	var out []*ast.Node
+	seen := map[*ast.Node]bool{}
+	var visit func(mod *ast.Node)
+	visit = func(mod *ast.Node) {
+		if mod == nil || seen[mod] {
+			return
+		}
+		seen[mod] = true
+		out = append(out, mod)
+		for _, name := range compositionHeadTargets(mod) {
+			if m, ok := includes[name]; ok && m != nil && m.Kind == ast.KindModule {
+				visit(m)
+			}
+		}
+	}
+	visit(target)
+	return out
+}
+
+// compositionHeadTargets returns the string-literal template names an @extends
+// or @use head at the top level of a module names, so the reachable-module walk
+// follows the same static composition the interpreter's buildChain and
+// mergeTraits would. A candidate-list @extends contributes its first literal
+// candidate, matching staticExtendsTarget's choice.
+func compositionHeadTargets(mod *ast.Node) []string {
+	var out []string
+	for _, c := range mod.Children {
+		switch c.Kind {
+		case ast.KindExtends:
+			op := c.Child(0)
+			if op == nil {
+				continue
+			}
+			switch op.Kind {
+			case ast.KindString:
+				out = append(out, op.Str)
+			case ast.KindList:
+				if len(op.Children) > 0 && op.Children[0] != nil && op.Children[0].Kind == ast.KindString {
+					out = append(out, op.Children[0].Str)
+				}
+			}
+		case ast.KindUse:
+			if src := c.Child(0); src != nil && src.Kind == ast.KindString {
+				out = append(out, src.Str)
+			}
+		}
+	}
+	return out
 }
 
 // stmtProvide lowers "@provide label { body }" like execProvide: the body

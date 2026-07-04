@@ -414,7 +414,8 @@ func TestUnitNotCompilable(t *testing.T) {
 		templates map[string]string
 		construct string
 	}{
-		{"embed", "p.ql", map[string]string{"p.ql": "@embed \"x.ql\" {\n@block b {\no\n@}\n@}\n", "x.ql": "@block b {\ni\n@}\n"}, "@embed"},
+		{"embed-dynamic", "p.ql", map[string]string{"p.ql": "@embed name {\n@block b {\no\n@}\n@}\n"}, "@embed with a dynamic source"},
+		{"embed-outside-set", "p.ql", map[string]string{"p.ql": "@embed \"gone.ql\" {\n@block b {\no\n@}\n@}\n"}, "@embed of a template outside the flattenable subset"},
 		// A @yield nested in a capture context is outside the compilable subset:
 		// its placeholder token cannot match the interpreter's process-global
 		// counter, so only top-level yields compile.
