@@ -76,6 +76,7 @@ var escInlineFields = map[string]bool{
 type loopEscapeAnalyzer struct {
 	escapes    map[*ast.Node]bool
 	analyzed   map[*ast.Node]bool
+	fused      map[*ast.Node]bool
 	fors       []*ast.Node
 	parents    map[*ast.Node]*ast.Node
 	stack      []escFrame
@@ -86,10 +87,24 @@ type loopEscapeAnalyzer struct {
 // whose per-iteration loop value provably never escapes the loop -- the pool-
 // safe loops. A node absent from the returned map (including any @for the walk
 // never reached) is treated as escaping, the conservative default.
+//
+// A fused @for..if is never in the returned set. Pooling recycles the entry-time
+// pair snapshot execFor materializes into a shared buffer, but a fused loop
+// replaces that snapshot with a freshly allocated survivors slice (filterLoopPairs)
+// before iterating, so its loop values never read the pooled buffer -- execFor
+// gates pooling on filter == nil for exactly that reason. The escape walk cannot
+// even answer the pool-safety question correctly for a fused loop: the filter
+// condition is walked in its own frame BEFORE the loop's escLoop frame is pushed
+// (walkFor), so an inline `loop = x` bind in the filter escapes no loop
+// (escapeInnermost finds none) and leaves the fused loop wrongly safe. Dropping
+// every fused loop here keeps forSafe's contract honest and makes it a second,
+// independent guard: a future edit that pools on forSafe alone still cannot pool a
+// fused loop, so it can never recycle a buffer a survivors-aliasing snapshot reads.
 func analyzeLoopEscapes(mod *ast.Node) map[*ast.Node]bool {
 	a := &loopEscapeAnalyzer{
 		escapes:  map[*ast.Node]bool{},
 		analyzed: map[*ast.Node]bool{},
+		fused:    map[*ast.Node]bool{},
 		parents:  map[*ast.Node]*ast.Node{},
 		stack:    []escFrame{{kind: escRoot}},
 	}
@@ -97,7 +112,7 @@ func analyzeLoopEscapes(mod *ast.Node) map[*ast.Node]bool {
 	a.propagate()
 	safe := make(map[*ast.Node]bool, len(a.fors))
 	for _, n := range a.fors {
-		if !a.escapes[n] {
+		if !a.escapes[n] && !a.fused[n] {
 			safe[n] = true
 		}
 	}
@@ -353,6 +368,11 @@ func (a *loopEscapeAnalyzer) walkFor(n *ast.Node) {
 	}
 
 	if filter != nil {
+		// A fused loop iterates a freshly allocated survivors slice, never the
+		// pooled snapshot buffer, so it is never pool-safe (analyzeLoopEscapes drops
+		// it from the returned set). Recorded here rather than via mark(n) so the
+		// exclusion does not propagate outward and cost an enclosing loop its pooling.
+		a.fused[n] = true
 		binds := targetsLoop
 		exprBindsLoop(filter.Child(0), &binds)
 		a.push(escFrame{kind: escFilter, bindsLoop: binds})

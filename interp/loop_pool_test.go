@@ -227,6 +227,82 @@ func TestPoolFusedLoopStaysUnpooled(t *testing.T) {
 	assertPoolParity(t, eng, body, nil, &want)
 }
 
+// TestPoolFusedLoopNeverPoolSafe pins the pooling invariant that no fused
+// @for..if is ever classified pool-safe. Pooling recycles the entry-time
+// snapshot of a plain loop; a fused loop iterates a freshly allocated survivors
+// slice, so execFor gates it out with filter == nil. Prepare must ALSO keep
+// every fused loop out of forSafe, giving execFor a second, independent guard:
+// were forSafe the only gate, a fused loop whose filter binds loop inline
+// (walked before the loop's escLoop frame exists, so escapeInnermost marks
+// nothing) would read as pool-safe. Each fused shape below must classify unsafe;
+// the trailing plain loop proves the check is not vacuously failing every loop.
+func TestPoolFusedLoopNeverPoolSafe(t *testing.T) {
+	fusedUnsafe := []struct {
+		name string
+		body string
+	}{
+		{"plain_filter", "@for x in [1, 2, 3] if x > 1 {\n{{ x }}\n@}\n"},
+		{"filter_binds_loop", "@for x in [1, 2, 3] if loop = x {\n{{ x }}\n@}\n"},
+		{"inline_loop_fields", "@for x in [1, 2, 3, 4] if x % 2 == 0 {\n{{ loop.index }}/{{ loop.length }}\n@}\n"},
+		{"body_captures_loop", "@for x in [1, 2, 3] if x > 1 {\n@set snap = loop\n@}\n"},
+	}
+	for _, c := range fusedUnsafe {
+		mod, err := parse.ParseString("test", c.body)
+		if err != nil {
+			t.Fatalf("%s: parse error: %v", c.name, err)
+		}
+		tmpl := Prepare("test", mod)
+		fors := collectFors(mod)
+		if len(fors) != 1 {
+			t.Fatalf("%s: expected 1 @for, got %d", c.name, len(fors))
+		}
+		if tmpl.forSafe[fors[0]] {
+			t.Errorf("%s: a fused @for..if must never be pool-safe (forSafe)", c.name)
+		}
+	}
+
+	// Contrast: the same iterand without the filter, capture-free, IS pool-safe,
+	// so the assertion above discriminates the fused clause, not every loop.
+	mod, err := parse.ParseString("test", "@for x in [1, 2, 3] {\n{{ x }}:{{ loop.index }}\n@}\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := Prepare("test", mod)
+	if !tmpl.forSafe[collectFors(mod)[0]] {
+		t.Error("a plain capture-free KArray loop should be pool-safe")
+	}
+}
+
+// TestPoolFusedBodyCapturesLoopParity renders a fused @for..if whose body
+// captures the loop value into a cell that outlives the loop, reads the frozen
+// snapshot AFTER a later pool-safe sibling loop runs, and asserts the output is
+// byte-identical with pooling forced on and off. The fused loop is unpooled
+// (its survivors slice is a fresh allocation and it is excluded from forSafe), so
+// the sibling loop's recycled buffer cannot reach the captured snapshot; a
+// regression that pooled the fused loop onto its survivors would surface the
+// sibling's neighbours here and diverge the two renders.
+func TestPoolFusedBodyCapturesLoopParity(t *testing.T) {
+	eng := newStub(nil)
+	body := "@set c = cell(null)\n" +
+		"@for x in [10, 20, 30, 40] if x > 15 {\n" +
+		"@if loop.index == 2 {\n@set c.value = loop\n@}\n" +
+		"@}\n" +
+		"@for y in [1, 2, 3, 4, 5, 6, 7] {\n@}\n" +
+		"snap: {{ c.value.prev }}/{{ c.value.next }}/{{ c.value.index }}/{{ c.value.length }}\n"
+	want := "snap: 20/40/2/3\n"
+	assertPoolParity(t, eng, body, nil, &want)
+
+	mod, _ := parse.ParseString("test", body)
+	tmpl := Prepare("test", mod)
+	fors := collectFors(mod)
+	if tmpl.forSafe[fors[0]] {
+		t.Error("fused loop whose body captures loop must not be pool-safe")
+	}
+	if !tmpl.forSafe[fors[1]] {
+		t.Error("the trailing capture-free sibling loop should be pool-safe")
+	}
+}
+
 // TestPoolLoopElementMutationValueSemantics pools a loop that mutates each
 // element array in place; the write privatizes (COW) and must not reach the
 // source array, exactly as the fresh path. A recycled buffer holds copies of the
