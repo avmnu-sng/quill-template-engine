@@ -348,9 +348,9 @@ func includeCaseFor(caseName string) includeCase {
 // refuses, deferring each to the interpreter through the typed subset error: a
 // dynamic (non-literal) source, a candidate-list source whose winner is a
 // render-time loader decision, a partial that itself composes other templates,
-// a partial that uses deferred slots (until cross-template slot sharing lands),
 // a self-including partial, and a plain include of a template outside the
-// compile set.
+// compile set. A partial that merely uses deferred slots is NOT here: it inlines
+// through the cross-template slot-sharing path (TestSlotsIncludeBattery).
 func TestIncludeNotCompilable(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -364,8 +364,6 @@ func TestIncludeNotCompilable(t *testing.T) {
 			"main.ql": "@include [\"a.ql\", \"row.ql\"]\n", "a.ql": "A\n", "row.ql": "R\n"}, "@include with a dynamic source"},
 		{"partial-composes", "main.ql", map[string]string{
 			"main.ql": "@include \"row.ql\"\n", "row.ql": "@extends \"base.ql\"\n@block b {\nx\n@}\n", "base.ql": "@block b {\nd\n@}\n"}, "@include of a partial that composes other templates"},
-		{"partial-uses-slots", "main.ql", map[string]string{
-			"main.ql": "@include \"row.ql\"\n", "row.ql": "@yield s\n@provide s {\nx\n@}\n"}, "@include of a partial that uses deferred slots"},
 		{"self-include", "main.ql", map[string]string{
 			"main.ql": "@include \"main.ql\"\n"}, "recursive @include (cycle?)"},
 		{"plain-outside-set", "main.ql", map[string]string{

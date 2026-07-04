@@ -15,7 +15,10 @@ import (
 func (c *compiler) compileModule(mod *ast.Node) error {
 	c.an = analyzeLoops(mod, c.includeTemplates)
 	c.tabFree = !hasTabBlock(mod)
-	c.usesSlots = hasSlots(mod)
+	// A slot reached through an inlined @include feeds the same render-level slot
+	// state as a slot written in this module, so the entry buffers and resolves
+	// whenever any inlinable partial defers a slot, not only when the entry does.
+	c.usesSlots = reachesSlots(mod, c.includeTemplates)
 	c.setTopWriter()
 	binds := bindNames(mod.Children)
 	if err := c.checkBindNames(binds, mod); err != nil {
@@ -386,8 +389,21 @@ func (c *compiler) stmtCapture(n *ast.Node) error {
 // wraps it in a fresh qWriter starting at line-start with an empty indent, so
 // the captured text is unindented regardless of the enclosing @tab region. It
 // returns the builder local's name; the caller decides how to seed a value
-// from its String().
+// from its String(). The capture counts toward the @yield guard depth, so a
+// @yield reached inside a body whose text becomes a consumed value is rejected.
 func (c *compiler) captureBody(body []*ast.Node) (string, error) {
+	return c.captureInto(body, true)
+}
+
+// captureInto is captureBody with explicit control over the @yield guard. An
+// @include splices its captured partial output RAW into the render stream, so a
+// @yield inside it reaches the finished buffer exactly like a top-level @yield
+// and the single resolve pass backfills it; that capture passes guarded=false
+// so the partial's own top-level @yield stays compilable. A value-consuming
+// capture (@capture, @apply, @provide) passes guarded=true, because a @yield
+// whose placeholder is folded into a consumed value would leak a token the
+// resolve pass cannot reach.
+func (c *compiler) captureInto(body []*ast.Node, guarded bool) (string, error) {
 	sb := c.tmp("qs")
 	c.linef("var %s strings.Builder", sb)
 	if c.tabFree {
@@ -398,9 +414,13 @@ func (c *compiler) captureBody(body []*ast.Node) (string, error) {
 		c.linef("_ = %s", cw)
 		c.writers = append(c.writers, cw)
 	}
-	c.captureDepth++
+	if guarded {
+		c.captureDepth++
+	}
 	err := c.stmtList(body)
-	c.captureDepth--
+	if guarded {
+		c.captureDepth--
+	}
 	c.writers = c.writers[:len(c.writers)-1]
 	if err != nil {
 		return "", err

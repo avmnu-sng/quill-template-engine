@@ -447,9 +447,11 @@ func (a *loopAnalyzer) walkStmt(n *ast.Node) {
 // loop must have materialized a live value to share, exactly as an @with body
 // or an inline @block body forces it. The descent gates on the same structural
 // conditions stmtInclude inlines under (a resolvable string-literal source, a
-// composition-free slot-free partial, no include cycle); a partial the lowering
-// instead defers makes the whole unit not-compilable, so an over-descent there
-// only ever marks more loops, which is always semantics-preserving.
+// composition-free partial, no include cycle); a slot-using partial inlines too,
+// so its body is descended for the same loop-escape reason. A partial the
+// lowering instead defers makes the whole unit not-compilable, so an
+// over-descent there only ever marks more loops, which is always
+// semantics-preserving.
 func (a *loopAnalyzer) walkInclude(n *ast.Node) {
 	flags := n.Int
 	if flags&ast.IncWith != 0 {
@@ -466,7 +468,7 @@ func (a *loopAnalyzer) walkInclude(n *ast.Node) {
 	if !ok || mod == nil || mod.Kind != ast.KindModule {
 		return
 	}
-	if hasSlots(mod) || partialHasComposition(mod) || a.includeInlining(src.Str) {
+	if partialHasComposition(mod) || a.includeInlining(src.Str) {
 		return
 	}
 	kind := afWith

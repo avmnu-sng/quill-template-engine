@@ -6,11 +6,26 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/ast"
 )
 
-// hasSlots reports whether the subtree at n contains a deferred-slot construct:
-// an @yield, an @provide, or a slot() call. The render function of a unit that
-// contains one buffers its output and resolves the yield placeholders over the
-// finished buffer, mirroring interp collectStreamInfo's usesSlots decision.
-func hasSlots(n *ast.Node) bool {
+// reachesSlots reports whether rendering the subtree at n emits a deferred-slot
+// placeholder into this render's output, either directly (a slot construct in n
+// itself) or through a statically inlined @include whose partial defers a slot.
+// A slot-using partial that stmtInclude inlines appends to the SAME render-level
+// slot state, so the entry's render must buffer and run the resolve pass even
+// when the entry template itself has no slot construct; missing that would let a
+// partial's yield placeholder stream out unresolved. The walk descends only the
+// includes stmtInclude actually inlines (a static string source that resolves to
+// a composition-free partial and does not close an include cycle), so an include
+// that instead defers to the interpreter -- where its slots resolve on the interp
+// path -- never forces the buffered shape here. Over-marking is byte-invisible
+// because buffering a slot-free render only defers a straight copy to w.
+func reachesSlots(n *ast.Node, includes map[string]*ast.Node) bool {
+	return reachesSlotsWalk(n, includes, nil)
+}
+
+// reachesSlotsWalk is reachesSlots with the active include-inlining stack that
+// bounds the descent at a self-referential include exactly as stmtInclude's
+// include stack bounds inlining.
+func reachesSlotsWalk(n *ast.Node, includes map[string]*ast.Node, stack []string) bool {
 	if n == nil {
 		return false
 	}
@@ -21,13 +36,45 @@ func hasSlots(n *ast.Node) bool {
 		if callee := n.Child(0); callee != nil && callee.Kind == ast.KindName && callee.Str == "slot" {
 			return true
 		}
+	case ast.KindInclude:
+		if mod, ok := inlinablePartial(n, includes, stack); ok {
+			if reachesSlotsWalk(mod, includes, append(stack, n.Child(0).Str)) {
+				return true
+			}
+		}
 	}
 	for _, ch := range n.Children {
-		if hasSlots(ch) {
+		if reachesSlotsWalk(ch, includes, stack) {
 			return true
 		}
 	}
 	return false
+}
+
+// inlinablePartial resolves a static @include node to the partial module
+// stmtInclude would inline at that site, reporting whether the site is one it
+// inlines rather than defers. It mirrors stmtInclude's structural gates -- a
+// string-literal source naming a composition-free partial in the include set
+// that does not close an include cycle -- so a name-reachability walk over the
+// includes visits exactly the partials whose statements enter this render.
+func inlinablePartial(n *ast.Node, includes map[string]*ast.Node, stack []string) (*ast.Node, bool) {
+	src := n.Child(0)
+	if src == nil || src.Kind != ast.KindString {
+		return nil, false
+	}
+	mod, ok := includes[src.Str]
+	if !ok || mod == nil || mod.Kind != ast.KindModule {
+		return nil, false
+	}
+	if partialHasComposition(mod) {
+		return nil, false
+	}
+	for _, name := range stack {
+		if name == src.Str {
+			return nil, false
+		}
+	}
+	return mod, true
 }
 
 // stmtProvide lowers "@provide label { body }" like execProvide: the body

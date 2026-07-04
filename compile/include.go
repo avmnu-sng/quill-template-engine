@@ -22,8 +22,15 @@ import (
 // winner from the loader at render time, so which partial to inline is not
 // statically decidable; a dynamic source is likewise unprovable. Both stay
 // ErrNotCompilable, and the dispatch gate falls back to the interpreter, which
-// resolves them correctly. A partial that uses deferred slots also stays
-// ErrNotCompilable until the cross-template slot-sharing lowering lands.
+// resolves them correctly.
+//
+// A partial that defers a slot inlines like any other: because its statements
+// enter this same render, its @provide appends to the render-level slot buffers
+// and its @yield reaches the single post-render resolve pass -- the compiled
+// analog of interp shareSlotsFrom, where there is one slot map because there is
+// one Render. reachesSlots therefore forces this render's buffered shape whenever
+// an inlinable partial defers a slot, and the include capture stays transparent
+// to the @yield guard.
 func (c *compiler) stmtInclude(n *ast.Node) error {
 	src := n.Child(0)
 	if src == nil || src.Kind != ast.KindString {
@@ -46,9 +53,6 @@ func (c *compiler) stmtInclude(n *ast.Node) error {
 			return nil
 		}
 		return c.notCompilable("@include of a template outside the compile set", n)
-	}
-	if hasSlots(mod) {
-		return c.notCompilable("@include of a partial that uses deferred slots", n)
 	}
 	// The interpreter renders the partial through the full renderTemplate, which
 	// composes its own inheritance chain, block table, macro namespace, and
@@ -109,7 +113,12 @@ func (c *compiler) stmtInclude(n *ast.Node) error {
 	c.pushInclude(name)
 	savedCond := c.condDepth
 	c.condDepth = 0
-	sb, err := c.captureBody(body)
+	// The partial's captured output is spliced RAW into this render's stream, so
+	// a @provide inside it appends to the same render-level slot buffers and a
+	// top-level @yield reaches the finished output like a top-level @yield here:
+	// the capture is transparent to the @yield guard, which only rejects a @yield
+	// whose placeholder would be folded into a consumed value.
+	sb, err := c.captureInto(body, false)
 	c.condDepth = savedCond
 	c.popInclude()
 	c.popSrc()
