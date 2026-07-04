@@ -128,12 +128,12 @@ func mustCompileSrc(t *testing.T, name, body string) []byte {
 	return res.Source
 }
 
-// TestTabFreeCodegenSplit pins the whole-module writer decision: a module
+// TestTabFreeEmitSplit pins the whole-module writer decision: a module
 // with no @tab region writes through io.WriteString with no qWriter
 // constructed in the render function, while one @tab region anywhere keeps
 // every write on the qWriter layer; the strconv import appears exactly when a
 // static-Int direct write was emitted.
-func TestTabFreeCodegenSplit(t *testing.T) {
+func TestTabFreeEmitSplit(t *testing.T) {
 	free := renderPortion(t, mustCompileSrc(t, "free.ql",
 		"@for x in [1] {\n{{ loop.index }}\n@}\n@set b = capture {\n{{ s }}\n@}\n{{ b }}\n"))
 	if strings.Contains(free, "&qWriter{") {
