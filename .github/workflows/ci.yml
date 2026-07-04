@@ -24,6 +24,11 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
         go: [ stable, oldstable ]
+    # Force bash on every OS so the test command's arguments parse identically;
+    # the Windows default shell (PowerShell) mangles the go test flag list.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
