@@ -141,7 +141,7 @@ func (e *NotCompilableError) Is(target error) bool {
 // Module compiles a parsed template module to one Go source file containing a
 // render function with the signature
 //
-//	func <FuncName>(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value) error
+//	func <FuncName>(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc compiled.RenderCache) error
 //
 // alongside an exported <FuncName>Manifest value (package compiled) describing
 // the unit to the Environment's by-name dispatch: quill.WithCompiled installs
@@ -412,11 +412,16 @@ func (c *compiler) assemble() []byte {
 	if c.usesSlots {
 		c.assembleSlotHeader(&b)
 	} else {
-		fmt.Fprintf(&b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value) error {\n", c.opts.FuncName)
+		fmt.Fprintf(&b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc compiled.RenderCache) error {\n", c.opts.FuncName)
 		if !c.tabFree {
 			b.WriteString("\tqw := &qWriter{w: w, atLineStart: true}\n")
 			b.WriteString("\t_ = qw\n")
 		}
+	}
+	if !c.usesCache {
+		// A unit with no @cache region never reads the store handle, so silence
+		// the unused parameter once here rather than at every render shape.
+		b.WriteString("\t_ = rc\n")
 	}
 	b.WriteString("\tqNames := make([]string, 0, len(vars))\n")
 	b.WriteString("\tfor qn := range vars {\n\t\tqNames = append(qNames, qn)\n\t}\n")
@@ -449,6 +454,9 @@ func (c *compiler) assemble() []byte {
 	b.WriteString("}\n\n")
 	if c.usesSlots {
 		b.WriteString(slotTokenSupport)
+	}
+	if c.usesCache {
+		b.WriteString(cacheSupport)
 	}
 	fmt.Fprintf(&b, "// %sManifest describes this compiled unit to the Environment's dispatch\n", c.opts.FuncName)
 	b.WriteString("// (quill.WithCompiled): the entry template, its embedded source text, the\n")
@@ -494,7 +502,7 @@ func (c *compiler) assemble() []byte {
 // unresolved buffer, matching renderBuffered's error shape (the partial buffer
 // the interpreter returns alongside the error).
 func (c *compiler) assembleSlotHeader(b *bytes.Buffer) {
-	fmt.Fprintf(b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value) (qErr error) {\n", c.opts.FuncName)
+	fmt.Fprintf(b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc compiled.RenderCache) (qErr error) {\n", c.opts.FuncName)
 	b.WriteString("\tvar qout strings.Builder\n")
 	if !c.tabFree {
 		b.WriteString("\tqw := &qWriter{w: &qout, atLineStart: true}\n")

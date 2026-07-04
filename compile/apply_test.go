@@ -340,7 +340,7 @@ func main() {
 
 	want, werr := env.Render(%q, map[string]runtime.Value{})
 	var b strings.Builder
-	cerr := gen.%s(&b, env.Extensions(), map[string]runtime.Value{})
+	cerr := gen.%s(&b, env.Extensions(), map[string]runtime.Value{}, env.RenderCache())
 
 	switch {
 	case (cerr != nil) != (werr != nil):

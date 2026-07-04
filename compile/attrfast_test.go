@@ -157,7 +157,7 @@ import (
 func main() {
 	exts := quill.NewWithArray(map[string]string{}).Extensions()
 	var b strings.Builder
-	cerr := gen.%s(&b, exts, map[string]runtime.Value{"x": runtime.Arr(nil)})
+	cerr := gen.%s(&b, exts, map[string]runtime.Value{"x": runtime.Arr(nil)}, nil)
 
 	env := quill.NewWithArray(map[string]string{%q: %q})
 	want, werr := env.Render(%q, map[string]runtime.Value{"x": runtime.Arr(nil)})

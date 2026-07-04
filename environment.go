@@ -603,7 +603,7 @@ func (e *Environment) unitCoherent(u *compiledUnit) bool {
 func (e *Environment) renderShadowed(m *compiled.Manifest, tmpl *interp.Template, vars map[string]runtime.Value) (string, error) {
 	interpOut, interpErr := interp.Render(e, tmpl, vars)
 	var b strings.Builder
-	compErr := m.Render(&b, e.extensions, vars)
+	compErr := m.Render(&b, e.extensions, vars, e.renderCache)
 	if b.String() != interpOut || !sameErrorText(compErr, interpErr) {
 		e.compiledVerify(compiled.Divergence{
 			Template:       m.Entry,
@@ -649,7 +649,7 @@ func (e *Environment) Render(name string, vars map[string]runtime.Value) (string
 		if hint := tmpl.OutGrowHint(); hint > 0 {
 			b.Grow(hint)
 		}
-		err := m.Render(&b, e.extensions, vars)
+		err := m.Render(&b, e.extensions, vars, e.renderCache)
 		if err == nil {
 			tmpl.RecordOutSize(b.Len())
 		}
@@ -726,13 +726,13 @@ func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime
 			// off the caller's writer, mirroring the interpreter's buffered-slots
 			// branch which writes nothing when the render fails.
 			var b strings.Builder
-			if rerr := m.Render(&b, e.extensions, vars); rerr != nil {
+			if rerr := m.Render(&b, e.extensions, vars, e.renderCache); rerr != nil {
 				return rerr
 			}
 			_, werr := io.WriteString(w, b.String())
 			return werr
 		}
-		return m.Render(w, e.extensions, vars)
+		return m.Render(w, e.extensions, vars, e.renderCache)
 	}
 	return interp.RenderTo(e, tmpl, vars, w)
 }

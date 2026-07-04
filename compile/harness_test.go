@@ -52,6 +52,34 @@ type compiledCase struct {
 	// what the interpreter's RenderTo writes on the same error -- for a slots
 	// unit, nothing, with no raw yield placeholder reaching the writer.
 	errPath bool
+	// cacheCheck marks an @cache case whose store persistence across renders is
+	// the contract under test: it renders the case TWICE on one long-lived
+	// Environment with WithCompiled installed (varsJSON then varsJSON2) and
+	// compares each render byte- and error-exactly against an interpreter-only
+	// Environment rendered the same two times (frame "<name>@cache", payload
+	// "ok"). A single render cannot observe a cross-render hit; a warm store
+	// makes the second render replay the first render's body, so a divergent
+	// store decision -- a handle-less always-miss or a per-render cache instead
+	// of the Environment's shared one -- changes the second render's bytes and
+	// fails here.
+	cacheCheck bool
+	// varsJSON2 is the second render's data for a cacheCheck case, distinct from
+	// varsJSON so a warm hit that replays the first body is observable.
+	varsJSON2 string
+	// sharedRootPeer names a second case whose manifest is installed on the SAME
+	// Environment as this one, so a cross-unit @cache key collision is observable:
+	// the runner (frame "<name>@sharedroot", payload "ok") renders this case's
+	// entry (with varsJSON) and the peer's entry (with sharedPeerVars) on one
+	// Environment sharing one RenderCache, byte-comparing each against a
+	// two-manifest interpreter Environment. Two units that reach one @cache under
+	// one user key through different render roots (two @extends children of one
+	// base) must key under their own roots, so the second unit renders fresh
+	// rather than replaying the first unit's stored body. An error-position-keyed
+	// namespace would collide them under the shared definer and serve wrong bytes.
+	sharedRootPeer string
+	// sharedPeerVars is the data the sharedRootPeer entry renders with, distinct
+	// from varsJSON so a collision that replays this case's body is observable.
+	sharedPeerVars string
 }
 
 // caseResult is one rendered case's outcome from the scratch process.
@@ -151,6 +179,7 @@ func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile
 	mainB.WriteString("package main\n\nimport (\n")
 	mainB.WriteString("\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"io\"\n\t\"os\"\n\t\"strconv\"\n\t\"strings\"\n\n")
 	mainB.WriteString("\tquill \"github.com/avmnu-sng/quill-template-engine\"\n")
+	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/cache\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/compiled\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/ext\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/runtime\"\n")
@@ -192,6 +221,19 @@ func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile
 		if cs.errPath {
 			fmt.Fprintf(&mainB, "\trunRenderToCase(%q, %s.%sManifest, %q)\n",
 				cs.name, pkgName(cs.name), res.FuncName, cs.varsJSON)
+		}
+		if cs.cacheCheck {
+			fmt.Fprintf(&mainB, "\trunCacheCase(%q, %s.%sManifest, %q, %q)\n",
+				cs.name, pkgName(cs.name), res.FuncName, cs.varsJSON, cs.varsJSON2)
+		}
+		if cs.sharedRootPeer != "" {
+			peer, ok := results[cs.sharedRootPeer]
+			if !ok || peer == nil {
+				t.Fatalf("%s: sharedRootPeer %q has no compiled result", cs.name, cs.sharedRootPeer)
+			}
+			fmt.Fprintf(&mainB, "\trunCacheSharedRootCase(%q, %s.%sManifest, %q, %s.%sManifest, %q)\n",
+				cs.name, pkgName(cs.name), res.FuncName, cs.varsJSON,
+				pkgName(cs.sharedRootPeer), peer.FuncName, cs.sharedPeerVars)
 		}
 	}
 	mainB.WriteString("}\n")
@@ -248,14 +290,14 @@ func parseFramed(t *testing.T, out string) map[string]caseResult {
 // mainSupport is the scratch main's shared code: the order-preserving JSON
 // decoder mirroring internal/jsonval (which a module outside the engine
 // cannot import) and the framed case runner.
-const mainSupport = `func runCase(name string, exts *ext.ExtensionSet, varsJSON string, fn func(io.Writer, *ext.ExtensionSet, map[string]runtime.Value) error) {
+const mainSupport = `func runCase(name string, exts *ext.ExtensionSet, varsJSON string, fn func(io.Writer, *ext.ExtensionSet, map[string]runtime.Value, compiled.RenderCache) error) {
 	vars, err := decodeVars(varsJSON)
 	if err != nil {
 		emit(name, true, "vars decode: "+err.Error())
 		return
 	}
 	var b strings.Builder
-	if err := fn(&b, exts, vars); err != nil {
+	if err := fn(&b, exts, vars, cache.NewRenderCache()); err != nil {
 		emit(name, true, err.Error())
 		return
 	}
@@ -358,7 +400,7 @@ func envOpts(fp compiled.Fingerprint) []quill.Option {
 func tracerManifest(m *compiled.Manifest) *compiled.Manifest {
 	return &compiled.Manifest{
 		Entry: m.Entry, Sources: m.Sources, Fingerprint: m.Fingerprint, UsesLog: m.UsesLog,
-		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value) error {
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, "\x02TRACER\x02")
 			return err
 		},
@@ -489,6 +531,88 @@ func runRenderToCase(base string, m *compiled.Manifest, varsJSON string) {
 		return
 	}
 	emit(base+"@renderto", false, "ok")
+}
+
+// runCacheCase drives an @cache case through two renders on ONE long-lived
+// Environment with the manifest installed, and compares each render byte- and
+// error-exactly against an interpreter-only Environment rendered the same two
+// times. The second render exercises the cross-render hit: a warm store makes
+// it replay the first render's body regardless of the second render's data, so
+// a compiled path that does not share the Environment's store -- an always-miss
+// with no handle, or a per-render cache -- diverges from the interpreter on the
+// second render and fails here. Both engines render the same two data sets in
+// the same order, so the store warms identically on both sides.
+func runCacheCase(base string, m *compiled.Manifest, varsJSON, varsJSON2 string) {
+	render := func(env *quill.Environment, data string) (string, error) {
+		vars, err := decodeVars(data)
+		if err != nil {
+			return "", err
+		}
+		return env.Render(m.Entry, vars)
+	}
+	tmpls := manifestTemplates(m)
+	ienv := quill.NewWithArray(tmpls, envOpts(m.Fingerprint)...)
+	cenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
+
+	i1, ierr1 := render(ienv, varsJSON)
+	c1, cerr1 := render(cenv, varsJSON)
+	if c1 != i1 || !sameErrText(cerr1, ierr1) {
+		emit(base+"@cache", true, fmt.Sprintf("first render diverged: compiled %q / %s, interp %q / %s",
+			c1, errText(cerr1), i1, errText(ierr1)))
+		return
+	}
+
+	i2, ierr2 := render(ienv, varsJSON2)
+	c2, cerr2 := render(cenv, varsJSON2)
+	if c2 != i2 || !sameErrText(cerr2, ierr2) {
+		emit(base+"@cache", true, fmt.Sprintf("second render diverged (cross-render hit): compiled %q / %s, interp %q / %s",
+			c2, errText(cerr2), i2, errText(ierr2)))
+		return
+	}
+	emit(base+"@cache", false, "ok")
+}
+
+// runCacheSharedRootCase installs TWO compiled units on ONE Environment so they
+// share one RenderCache, then renders each unit's entry and byte-compares against
+// a two-manifest interpreter Environment rendered in the same order. When both
+// units reach one @cache under one user key through DIFFERENT render roots (two
+// @extends children of a shared base), a correct render namespaces each unit's
+// store entry under its own root, so the second unit renders its own data fresh.
+// A key namespaced by the error-position source collides both units under the
+// shared definer, so the second unit replays the first's stored body -- wrong
+// bytes the interpreter never produces. Both Environments carry both manifests'
+// sources so the interpreter renders the same two entries.
+func runCacheSharedRootCase(base string, m *compiled.Manifest, varsJSON string, peer *compiled.Manifest, peerVars string) {
+	render := func(env *quill.Environment, entry, data string) (string, error) {
+		vars, err := decodeVars(data)
+		if err != nil {
+			return "", err
+		}
+		return env.Render(entry, vars)
+	}
+	tmpls := manifestTemplates(m)
+	for n, s := range manifestTemplates(peer) {
+		tmpls[n] = s
+	}
+	ienv := quill.NewWithArray(tmpls, envOpts(m.Fingerprint)...)
+	cenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m, peer))...)
+
+	i1, ierr1 := render(ienv, m.Entry, varsJSON)
+	c1, cerr1 := render(cenv, m.Entry, varsJSON)
+	if c1 != i1 || !sameErrText(cerr1, ierr1) {
+		emit(base+"@sharedroot", true, fmt.Sprintf("first unit diverged: compiled %q / %s, interp %q / %s",
+			c1, errText(cerr1), i1, errText(ierr1)))
+		return
+	}
+
+	i2, ierr2 := render(ienv, peer.Entry, peerVars)
+	c2, cerr2 := render(cenv, peer.Entry, peerVars)
+	if c2 != i2 || !sameErrText(cerr2, ierr2) {
+		emit(base+"@sharedroot", true, fmt.Sprintf("second unit diverged (cross-unit key collision): compiled %q / %s, interp %q / %s",
+			c2, errText(cerr2), i2, errText(ierr2)))
+		return
+	}
+	emit(base+"@sharedroot", false, "ok")
 }
 ` + jsonDecoderSupport
 

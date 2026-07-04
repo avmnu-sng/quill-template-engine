@@ -255,7 +255,7 @@ func main() {
 
 	want, werr := env.Render(%q, map[string]runtime.Value{})
 	var b strings.Builder
-	cerr := gen.%s(&b, env.Extensions(), map[string]runtime.Value{})
+	cerr := gen.%s(&b, env.Extensions(), map[string]runtime.Value{}, env.RenderCache())
 
 	switch {
 	case (cerr != nil) != (werr != nil):
@@ -366,7 +366,7 @@ func main() {
 	}
 	for cap := 0; cap <= len(full)+1; cap++ {
 		cw := &capWriter{cap: cap}
-		cerr := gen.%s(cw, env.Extensions(), map[string]runtime.Value{"s": runtime.Str("mid")})
+		cerr := gen.%s(cw, env.Extensions(), map[string]runtime.Value{"s": runtime.Str("mid")}, env.RenderCache())
 		iw := &capWriter{cap: cap}
 		werr := env.RenderTo(iw, %q, map[string]runtime.Value{"s": runtime.Str("mid")})
 		if (cerr != nil) != (werr != nil) {

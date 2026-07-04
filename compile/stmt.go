@@ -127,7 +127,7 @@ func (c *compiler) stmtItem(n *ast.Node) error {
 	case ast.KindCallBlock:
 		return c.notCompilable("@call", n)
 	case ast.KindCache:
-		return c.notCompilable("@cache", n)
+		return c.stmtCache(n)
 	case ast.KindSandbox:
 		return c.notCompilable("@sandbox", n)
 	case ast.KindApply:
@@ -548,6 +548,195 @@ func (c *compiler) applyArgs(f *ast.Node, piped string) (string, error) {
 		c.linef("%s = append(%s, %s)", args, args, v)
 	}
 	return args, nil
+}
+
+// stmtCache lowers "@cache key=... [ttl=...] [tags=...] { body }" like
+// execCache: the body's already-rendered output is memoized in the render's
+// RenderCache under a template-namespaced key, replayed verbatim on a hit and
+// re-rendered on a miss. The mechanism reproduces execCache primitive for
+// primitive so the compiled and interpreted paths agree on which render is
+// served from the store and on the bytes.
+//
+//   - The head arguments validate exactly as execCache reads them: an unknown
+//     argument name raises the interpreter's runtime error at that argument's
+//     position, and a missing key raises "@cache requires a key" at the region.
+//     Both are decidable from the static head, so they lower as unconditional
+//     raises like an unknown @escape strategy. The ttl expression is never
+//     evaluated -- a documented no-op for the non-expiring in-memory cache.
+//   - The key evaluates in the CALLER scope, coerces to text, and is namespaced
+//     by the RENDER-ROOT template name (root.Name + NUL + user key), matching
+//     execCache's in.root.Name: the entry template for a @cache reached through
+//     an inlined @block or @use trait, and the partial only for one reached
+//     through an inlined @include, exactly as the interpreter's sub-interp keys
+//     under its own root there.
+//   - A hit (rc non-nil and the key present) splices the stored body raw through
+//     the active writer -- the analog of execCache's emitString on a hit -- and
+//     skips the body, so a body-local @set never runs and its side effect never
+//     surfaces, matching the interpreter's hit path.
+//   - A miss renders the body in a child scope (a frameWith over a null map, the
+//     analog of ctx.Child()), so a body-local @set does not leak to the caller.
+//     The body captures raw like an @include (guarded=false), so a @yield inside
+//     it reaches the finished buffer and the single resolve pass backfills it.
+//   - The store is gated by the slot-touching rule (commit 4fd0da3): a body that
+//     grew a slot buffer or wrote a yield placeholder is never memoized, because
+//     a replay would emit a stale render's placeholder or silently drop a
+//     render-scoped @provide. The gate reproduces execCache's slotStamp
+//     difference plus the render-unique-token scan; a slot-free unit has no slot
+//     state, so its gate is statically false and the body is always stored.
+//   - Tags evaluate in the CALLER scope on the store path only, matching
+//     execCache, and pass through to Put with the exact list-coercion rule.
+func (c *compiler) stmtCache(n *ast.Node) error {
+	c.usesCache = true
+	count := int(n.Int)
+	args := n.Children[:count]
+	body := n.Children[count:]
+
+	var keyExpr, tagsExpr *ast.Node
+	for _, a := range args {
+		switch a.Str {
+		case "key":
+			keyExpr = a.Child(0)
+		case "ttl":
+			// The ttl is accepted for API symmetry but never evaluated, exactly
+			// as execCache leaves ttlExpr unused for the non-expiring cache.
+		case "tags":
+			tagsExpr = a.Child(0)
+		default:
+			c.openf("if true {")
+			c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindRuntime, \"unknown cache argument %%q (want key, ttl, or tags)\", %s)", q(a.Str)), a.Line)))
+			c.closeb()
+			return nil
+		}
+	}
+	if keyExpr == nil {
+		c.openf("if true {")
+		c.linef(c.ret(c.qposE("qerrors.New(qerrors.KindRuntime, \"@cache requires a key\")", n.Line)))
+		c.closeb()
+		return nil
+	}
+
+	c.openf("{")
+	// The key evaluates in the caller scope and coerces to text, positioned at
+	// the region like execCache's ToText error.
+	kv, err := c.expr(keyExpr, false)
+	if err != nil {
+		c.closeb()
+		return err
+	}
+	keyText := c.tmp("qck")
+	ke := c.tmp("qe")
+	c.linef("%s, %s := runtime.ToText(%s)", keyText, ke, kv)
+	c.checkErr(ke, n.Line)
+	// Namespace the user key by the RENDER ROOT so two templates that both cache
+	// under one key do not collide, matching execCache's in.root.Name. The render
+	// root is the entry template even for a @cache inlined from a parent @block or
+	// an @use trait (the interpreter leaves in.root untouched there), and switches
+	// to the partial only for a @cache inlined from an @include, where the
+	// interpreter renders under a fresh sub-interp rooted at the partial. srcRef()
+	// (the error-position source) would instead switch at every block/trait
+	// boundary, colliding two @extends children of one base under the base name.
+	fullKey := c.tmp("qcf")
+	c.linef("%s := %s.Name() + \"\\x00\" + %s", fullKey, c.rootRef(), keyText)
+
+	hit := c.tmp("qch")
+	c.linef("%s := false", hit)
+	c.openf("if rc != nil {")
+	cached := c.tmp("qcc")
+	cok := c.tmp("qco")
+	c.openf("if %s, %s := rc.Get(%s); %s {", cached, cok, fullKey, cok)
+	c.emitWrite(cached, func(e string) string { return c.qposE(e, n.Line) })
+	c.linef("%s = true", hit)
+	c.closeb()
+	c.closeb()
+
+	c.openf("if !%s {", hit)
+	if err := c.cacheMiss(n, body, fullKey, tagsExpr); err != nil {
+		c.closeb()
+		c.closeb()
+		return err
+	}
+	c.closeb()
+	c.closeb()
+	return nil
+}
+
+// cacheMiss lowers the @cache miss path: render the body in a child scope,
+// gate the store on the slot-touching rule, store the fresh body under fullKey
+// when the gate allows, and splice it raw through the active writer. It runs
+// inside the "if !hit" block stmtCache opened.
+func (c *compiler) cacheMiss(n *ast.Node, body []*ast.Node, fullKey string, tagsExpr *ast.Node) error {
+	// The slot stamp before the body: label count and total buffered bytes. Only
+	// a slots unit carries slot state, so a slot-free unit skips the stamp and
+	// its store gate is statically false.
+	preLabels, preBytes := "", ""
+	if c.usesSlots {
+		preLabels, preBytes = c.tmp("qcpl"), c.tmp("qcpb")
+		c.linef("%s, %s := qcacheStamp(qslots)", preLabels, preBytes)
+	}
+
+	// Render the body in a fresh child frame over a null map, the analog of
+	// ctx.Child(): reads fall through to the caller frames and a body-local @set
+	// binds only in this frame. The capture is transparent to the @yield guard
+	// (guarded=false), so a @yield inside the body reaches the finished buffer
+	// like an included partial's @yield, and the resolve pass backfills it.
+	binds := c.scanBinds(body)
+	if err := c.checkBindNames(binds, n); err != nil {
+		return err
+	}
+	f := c.pushFrame(frameWith, binds)
+	f.withVar = "runtime.Null()"
+	savedCond := c.condDepth
+	c.condDepth = 0
+	sb, err := c.captureInto(body, false)
+	c.condDepth = savedCond
+	c.popFrame()
+	if err != nil {
+		return err
+	}
+
+	// The store gate: a body that grew a slot buffer or wrote a yield placeholder
+	// must never be memoized. A slot-free unit has no slot state, so the gate is
+	// the constant false and the store always runs.
+	used := "false"
+	if c.usesSlots {
+		used = c.tmp("qcu")
+		postLabels, postBytes := c.tmp("qcql"), c.tmp("qcqb")
+		c.linef("%s, %s := qcacheStamp(qslots)", postLabels, postBytes)
+		// The token scan mirrors execCache: qtok is this render's unique
+		// placeholder, so a body containing it wrote a @yield. The token is
+		// render-unique, so a stored body can never collide with authored text.
+		c.linef("%s := %s != %s || %s != %s || strings.Contains(%s.String(), qtok)",
+			used, postLabels, preLabels, postBytes, preBytes, sb)
+	}
+
+	c.openf("if rc != nil && !%s {", used)
+	tags := "nil"
+	if tagsExpr != nil {
+		// Tags evaluate in the caller scope on the store path only, matching
+		// execCache, and coerce through the same list rule.
+		tv, err := c.expr(tagsExpr, false)
+		if err != nil {
+			c.closeb()
+			return err
+		}
+		te := c.tmp("qct")
+		tags = c.tmp("qcg")
+		c.linef("%s, %s := qcacheTags(%s)", tags, te, tv)
+		// A tag whose element is unrenderable fails here. execCache returns
+		// evalCacheTags's error verbatim, without positioning it at the region, so
+		// this returns it raw too: a qpos wrap would add a source location the
+		// interpreter's error text does not carry.
+		c.openf("if %s != nil {", te)
+		c.linef(c.ret(te))
+		c.closeb()
+	}
+	c.linef("rc.Put(%s, %s.String(), %s)", fullKey, sb, tags)
+	c.closeb()
+
+	// Splice the fresh body raw through the active writer, positioned at the
+	// region like execCache's emitString on a miss.
+	c.emitWrite(sb+".String()", func(e string) string { return c.qposE(e, n.Line) })
+	return nil
 }
 
 // stmtWith lowers "@with map [only] { body }": the body runs in a fresh

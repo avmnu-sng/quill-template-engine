@@ -39,7 +39,7 @@ func markerManifest(entry, src string, fp compiled.Fingerprint, usesLog bool) *c
 		Sources:     map[string]string{entry: src},
 		Fingerprint: fp,
 		UsesLog:     usesLog,
-		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value) error {
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, dispatchMarker)
 			return err
 		},
@@ -334,7 +334,7 @@ func TestWithCompiledVerifyCleanUnitReportsNothing(t *testing.T) {
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": "hi"},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value) error {
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, "hi")
 			return err
 		},
@@ -357,7 +357,7 @@ func TestWithCompiledVerifyReportsErrorDivergence(t *testing.T) {
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": "hi"},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value) error {
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			if _, err := io.WriteString(w, "hi"); err != nil {
 				return err
 			}
@@ -403,7 +403,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": src},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value) error {
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			if _, err := io.WriteString(w, "hi"); err != nil {
 				return err
 			}
@@ -465,7 +465,7 @@ func faithfulSlotsManifest(t *testing.T, tmpls map[string]string) (*compiled.Man
 		Sources:     map[string]string{"t.ql": slotsErrorSrc},
 		Fingerprint: defaultFingerprint(),
 		UsesSlots:   true,
-		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value) error {
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			if _, werr := io.WriteString(w, partial); werr != nil {
 				return werr
 			}
@@ -614,7 +614,7 @@ func TestWithCompiledConcurrentRenders(t *testing.T) {
 		Entry:       "static.ql",
 		Sources:     map[string]string{"static.ql": "Hello\n"},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value) error {
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, "Hello\n")
 			return err
 		},
@@ -673,7 +673,7 @@ func TestEnvironmentFieldsClassifiedForCompiledDispatch(t *testing.T) {
 	classified := map[string]string{
 		"loader":          "source-coherence",
 		"cache":           "source-coherence",
-		"renderCache":     "not-compilable",
+		"renderCache":     "registry-passthrough",
 		"extensions":      "registry-passthrough",
 		"preparedMu":      "load-machinery",
 		"prepared":        "load-machinery",

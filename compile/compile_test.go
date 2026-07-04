@@ -532,7 +532,6 @@ func TestNotCompilable(t *testing.T) {
 		{"yield-in-provide", "@provide s {\n@yield t\n@}\n", "@yield inside a capture/provide body"},
 		{"yield-in-capture", "@set x = capture {\n@yield t\n@}\n", "@yield inside a capture/provide body"},
 		{"yield-in-apply", "@apply | upper {\n@yield t\n@}\n", "@yield inside a capture/provide body"},
-		{"cache", "@cache key=\"k\" {\nx\n@}\n", "@cache"},
 		{"sandbox", "@sandbox {\nx\n@}\n", "@sandbox"},
 		{"guard", "@guard filter(\"upper\") {\nx\n@}\n", "@guard"},
 		{"flush", "@flush\n", "@flush"},

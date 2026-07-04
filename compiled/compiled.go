@@ -21,10 +21,33 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
+// RenderCache is the render-time memoization handle a generated render reads to
+// back an @cache region: the Environment's rendered-body store, narrowed to the
+// two operations a compiled region performs. A hit replays a stored body verbatim
+// and skips re-rendering; a miss stores the freshly rendered body under its key.
+// The handle is passed per render rather than baked into the unit because the
+// store is Environment state a host warms across renders, and the interpreter
+// path shares the very same store, so a region compiled once stays coherent with
+// interpreted renders of neighboring templates. A nil handle means no store is
+// configured, in which case every region is a miss and nothing is memoized,
+// matching the interpreter when its engine exposes no cache. The engine-default
+// *cache.RenderCache satisfies this interface directly; a host may supply any
+// implementation with the same two methods, and the narrow surface keeps
+// eviction and tag-invalidation controls off the generated-code boundary.
+type RenderCache interface {
+	// Get returns the stored body for key and whether one is present, so a
+	// compiled @cache region replays a hit and re-renders a miss.
+	Get(key string) (body string, ok bool)
+	// Put stores a rendered body under key, recording its tags for a later
+	// host-driven tag invalidation, exactly as the interpreter's @cache does.
+	Put(key string, body string, tags []string)
+}
+
 // RenderFunc is the signature of a generated render function: it writes the
-// template's output to w, resolves callables through exts, and reads top-level
-// variables from vars, returning the first render error.
-type RenderFunc func(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value) error
+// template's output to w, resolves callables through exts, reads top-level
+// variables from vars, and memoizes @cache regions through rc (nil when the
+// engine exposes no store), returning the first render error.
+type RenderFunc func(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc RenderCache) error
 
 // Fingerprint captures the compile options that shape a generated unit's
 // rendered bytes. The Environment dispatches to a compiled unit only when the

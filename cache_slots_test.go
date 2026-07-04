@@ -1,10 +1,15 @@
 package quill
 
 import (
+	"io"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/avmnu-sng/quill-template-engine/compiled"
+	"github.com/avmnu-sng/quill-template-engine/ext"
 	"github.com/avmnu-sng/quill-template-engine/loader"
+	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
 // TestCacheRegionWithYieldRendersFreshEveryTime pins the @cache/slots
@@ -143,6 +148,93 @@ func TestCacheRegionSlotFreeAmidSlotActivity(t *testing.T) {
 		if !strings.Contains(second, "SYM") {
 			t.Fatalf("%s: second render lost the provided slot content: %q", name, second)
 		}
+	}
+}
+
+// TestCompiledCacheSharesWarmCacheUnderConcurrency drives many concurrent
+// by-name renders through a compiled unit that memoizes an @cache region,
+// installed with WithCompiled on one Environment so every goroutine shares one
+// RenderCache. The compiled Render threads the Environment's store exactly as
+// the dispatch passes it, so a hit replays the stored body and a miss stores it;
+// under the race detector this proves the shared-cache threading holds no data
+// race and every render is byte-identical to the interpreter's, whichever
+// goroutine warms the store first. The manifest's Render reproduces the
+// generated @cache shape (Get, then a miss render followed by Put) over the
+// passed handle, so it dispatches (byte-matching the interpreter) and exercises
+// the real environment.go cache-passing path.
+func TestCompiledCacheSharesWarmCacheUnderConcurrency(t *testing.T) {
+	const src = "@cache key=\"hdr\" {\nbody\n@}\n"
+	const want = "body\n"
+	tmpls := map[string]string{"t.ql": src}
+
+	manifest := &compiled.Manifest{
+		Entry:       "t.ql",
+		Sources:     map[string]string{"t.ql": src},
+		Fingerprint: defaultFingerprint(),
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, rc compiled.RenderCache) error {
+			// The generated @cache shape over the shared handle: namespace the key
+			// by the entry template, replay a hit, or render the body once and
+			// store it on a miss. A nil handle would always miss; the dispatch
+			// always supplies the Environment's store.
+			key := "t.ql\x00hdr"
+			if rc != nil {
+				if cached, ok := rc.Get(key); ok {
+					_, err := io.WriteString(w, cached)
+					return err
+				}
+			}
+			body := "body\n"
+			if rc != nil {
+				rc.Put(key, body, nil)
+			}
+			_, err := io.WriteString(w, body)
+			return err
+		},
+	}
+
+	env := NewWithArray(tmpls, WithCompiled(manifest))
+
+	// A tracer proves the gate serves the compiled unit rather than falling back,
+	// so the concurrent loop measures the compiled shared-cache path.
+	tracer := markerManifest("t.ql", src, defaultFingerprint(), false)
+	tenv := NewWithArray(tmpls, WithCompiled(tracer))
+	if out, err := tenv.Render("t.ql", nil); err != nil || out != dispatchMarker {
+		t.Fatalf("dispatch gate did not serve the compiled unit: out=%q err=%v", out, err)
+	}
+
+	interp := NewWithArray(tmpls)
+	if out, err := interp.Render("t.ql", nil); err != nil || out != want {
+		t.Fatalf("interpreter render drifted from the pinned contract: out=%q err=%v", out, err)
+	}
+
+	const workers = 32
+	const rounds = 50
+	var wg sync.WaitGroup
+	errs := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for r := 0; r < rounds; r++ {
+				out, err := env.Render("t.ql", nil)
+				if err != nil {
+					errs <- err
+					return
+				}
+				if out != want {
+					errs <- io.ErrUnexpectedEOF
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("concurrent compiled cache render diverged: %v", err)
+	}
+	if cached, ok := env.RenderCache().Get("t.ql\x00hdr"); !ok || cached != want {
+		t.Fatalf("shared cache did not warm under concurrency: got %q ok=%v", cached, ok)
 	}
 }
 

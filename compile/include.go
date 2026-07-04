@@ -109,7 +109,13 @@ func (c *compiler) stmtInclude(n *ast.Node) error {
 	f := c.pushFrame(kind, binds)
 	f.withVar = mapVar
 
-	c.pushSrc(c.includeSource(name, mod))
+	partialSrc := c.includeSource(name, mod)
+	c.pushSrc(partialSrc)
+	// The interpreter renders the partial through a fresh sub-interp whose in.root
+	// is the partial, so a render-root-keyed lowering inside it (a @cache) keys
+	// under the partial's name. Push the partial as the render root for the same
+	// reason the loop-change floor rises: this inline is a sub-render boundary.
+	c.pushRoot(partialSrc)
 	c.pushInclude(name)
 	savedCond := c.condDepth
 	c.condDepth = 0
@@ -131,6 +137,7 @@ func (c *compiler) stmtInclude(n *ast.Node) error {
 	c.changedFloor = savedFloor
 	c.condDepth = savedCond
 	c.popInclude()
+	c.popRoot()
 	c.popSrc()
 	c.popFrame()
 	if err != nil {

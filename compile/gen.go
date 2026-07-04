@@ -32,6 +32,18 @@ type compiler struct {
 	srcVars  map[*source.Source]string
 	srcStack []string
 
+	// rootStack tracks the render-ROOT source at each point, the compile analog
+	// of the interpreter's in.root: it names the template that STARTED the render
+	// reaching this statement, which the interpreter reassigns only at an
+	// @include/@embed sub-interp boundary and leaves untouched while inlining a
+	// parent's @block body or an @use trait. srcStack (the error-position stack)
+	// switches at those inline boundaries too, so it is the wrong handle for any
+	// lowering that must key under the render root -- notably @cache, whose store
+	// key the interpreter namespaces by in.root.Name. rootStack pushes only where
+	// the interpreter mints a fresh sub-interp (the @include inline), so it stays
+	// pinned to the entry through block and trait inlining.
+	rootStack []string
+
 	// blockCtx is the compile-time equivalent of the interpreter's
 	// curBlock/curBlockDepth pair: the chain entry and depth of the block
 	// definition currently being inlined, so parent() resolves the next
@@ -162,6 +174,12 @@ type compiler struct {
 	// falling back preserves the host-visible log side effects.
 	usesLog bool
 
+	// usesCache records that a lowering emitted an @cache region, so the render
+	// function reads its RenderCache handle instead of discarding it. A unit with
+	// no @cache never touches the store, and marking it lets assemble silence the
+	// unused parameter exactly when the generated code ignores it.
+	usesCache bool
+
 	lenient  bool
 	tabWidth int
 }
@@ -238,7 +256,9 @@ func newCompiler(src *source.Source, opts Options) *compiler {
 		srcVars:     map[*source.Source]string{},
 		includeSrcs: map[string]*source.Source{},
 	}
-	c.srcStack = []string{c.registerSrc(src)}
+	entry := c.registerSrc(src)
+	c.srcStack = []string{entry}
+	c.rootStack = []string{entry}
 	if len(opts.Templates) > 0 {
 		c.includeTemplates = opts.Templates
 	}
@@ -272,6 +292,21 @@ func (c *compiler) pushSrc(s *source.Source) {
 
 // popSrc restores the enclosing body's error-position source.
 func (c *compiler) popSrc() { c.srcStack = c.srcStack[:len(c.srcStack)-1] }
+
+// rootRef names the qSrc variable of the render root at this point -- the
+// template that started the render reaching the current statement, the compile
+// analog of the interpreter's in.root. It is the handle a lowering keys under
+// when it must match render-root identity rather than the error-position source.
+func (c *compiler) rootRef() string { return c.rootStack[len(c.rootStack)-1] }
+
+// pushRoot makes s the render root for an inlined sub-render, mirroring the
+// interpreter's in.root reassignment at an @include/@embed sub-interp boundary.
+func (c *compiler) pushRoot(s *source.Source) {
+	c.rootStack = append(c.rootStack, c.registerSrc(s))
+}
+
+// popRoot restores the enclosing render root.
+func (c *compiler) popRoot() { c.rootStack = c.rootStack[:len(c.rootStack)-1] }
 
 // qposE builds the qpos call expression positioning errExpr at line within the
 // template currently being lowered.

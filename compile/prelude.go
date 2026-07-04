@@ -624,4 +624,37 @@ func qnewYieldToken() string {
 
 // qYieldCounter makes each render's placeholder token unique.
 var qYieldCounter uint64
+
+// qcacheStamp summarizes the deferred-slot state as (label count, total
+// buffered bytes), mirroring interp slotStamp. Slot buffers only grow, so an
+// unchanged stamp across an @cache body proves no @provide ran inside it, which
+// gates whether the body may be memoized.
+func qcacheStamp(slots map[string]*strings.Builder) (labels, bytes int) {
+	for _, b := range slots {
+		bytes += b.Len()
+	}
+	return len(slots), bytes
+}
+`
+
+// cacheSupport is the @cache tag-coercion helper, emitted only into a unit that
+// caches. It mirrors interp evalCacheTags: a KArray value becomes its members'
+// text renderings in order, and every other value contributes no tags.
+const cacheSupport = `// qcacheTags coerces an @cache tags value to a list of tag strings exactly
+// like interp evalCacheTags: an array yields its members' text in order, and a
+// non-array value yields no tags.
+func qcacheTags(v runtime.Value) ([]string, error) {
+	if v.Kind != runtime.KArray || v.Arr == nil {
+		return nil, nil
+	}
+	var tags []string
+	for _, p := range v.Arr.Pairs() {
+		t, err := runtime.ToText(p.Val)
+		if err != nil {
+			return nil, err
+		}
+		tags = append(tags, t)
+	}
+	return tags, nil
+}
 `
