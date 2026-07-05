@@ -7,7 +7,7 @@
 // benchmarks render (const quillLoop in quill_bench_test.go), lowers it with
 // compile.Module exactly as quill.WithCompiled would, and writes the formatted
 // Go source into package quillbench so the benchmark links the actual shipped
-// codegen output rather than a hand-written stand-in.
+// generated render function rather than a hand-written stand-in.
 //
 // Regenerate after any change to the compile backend or the loop template with:
 //
@@ -41,7 +41,7 @@ const genLoopOutputPath = "compiled_loop_gen.go"
 
 // generatedHeader is prepended to the compile backend's output. It marks the
 // file as generated and records how to regenerate it, so a reader never
-// hand-edits committed codegen.
+// hand-edits the committed generated file.
 const generatedHeader = "// Code emitted by the Quill compile backend and committed for the benchmark harness.\n" +
 	"//\n" +
 	"// DO NOT EDIT: regenerate with `cd bench && go generate ./...` (or `go run\n" +

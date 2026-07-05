@@ -1,0 +1,6 @@
+# Normalize every text file to LF on all platforms. The conformance suite
+# compares rendered output against testdata/**/expected.out byte for byte, so a
+# CRLF checkout on Windows would fail those comparisons; forcing LF keeps the
+# fixtures, gofmt'd sources, and generated Go identical on Windows, macOS, and
+# Linux. text=auto still leaves any binary file untouched.
+* text=auto eol=lf

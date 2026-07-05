@@ -8,7 +8,7 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
-// ---- Quill templates (the @-sigil source-emission form) ----
+// ---- Quill templates (the @-sigil statement form) ----
 
 const quillTiny = `Hello {{ name | upper }}!`
 
