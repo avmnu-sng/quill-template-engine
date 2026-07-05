@@ -31,6 +31,50 @@ jobs:
         with:
           go-version: stable
           check-latest: true
+      - name: Validate release tag
+        run: |
+          set -eu
+          tag="${GITHUB_REF_NAME}"
+          echo "Validating pushed tag: ${tag}"
+
+          # Extract the module's declared version from version.go.
+          want="v$(sed -n 's/.*Version = "\(.*\)".*/\1/p' version.go)"
+          if [ "${want}" = "v" ]; then
+            echo "ERROR: could not read Version from version.go"
+            exit 1
+          fi
+
+          # (a) Tagged-version check: the tag must equal "v" + the Version const.
+          if [ "${tag}" != "${want}" ]; then
+            echo "ERROR: tag ${tag} does not match version.go (${want})."
+            echo "Bump const Version in version.go, or push the matching tag."
+            exit 1
+          fi
+
+          # (b) Stable-version check: the tag must be a well-formed semver
+          # vMAJOR.MINOR.PATCH, optionally followed by a -prerelease suffix.
+          semver='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          if ! printf '%s\n' "${tag}" | grep -Eq "${semver}"; then
+            echo "ERROR: tag ${tag} is not a well-formed semver vMAJOR.MINOR.PATCH[-prerelease]."
+            exit 1
+          fi
+
+          # A FINAL tag (no -prerelease suffix) requires Version to also be final.
+          case "${tag}" in
+            *-*)
+              echo "Pre-release tag ${tag} accepted." ;;
+            *)
+              case "${want}" in
+                *-*)
+                  echo "ERROR: final tag ${tag} but version.go carries a prerelease suffix (${want})."
+                  exit 1 ;;
+                *)
+                  echo "Final tag ${tag} accepted." ;;
+              esac ;;
+          esac
+
+          echo "Tag ${tag} is consistent with version.go."
+
       - name: Build
         run: go build ./...
       - name: Vet

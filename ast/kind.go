@@ -286,8 +286,6 @@ const (
 	// IncWith.
 	KindInclude
 
-	// --- Statements: code generation ---
-
 	// --- Statements: accumulating slots and call-blocks ---
 
 	// KindProvide is "@provide label { body }". Str is the slot label; the children

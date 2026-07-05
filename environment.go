@@ -26,8 +26,8 @@ import (
 // implements interp.Engine so the tree-walking renderer can load parents,
 // includes, and imports through it.
 //
-// The defaults match the spec: autoescape is OFF (the source-emission default,
-// spec 04 Section 8.1) and strict_variables is ON (the strict-by-default
+// The defaults match the spec: autoescape is OFF by default (spec 04
+// Section 8.1) and strict_variables is ON (the strict-by-default
 // undefined policy, spec 04 Section 6). Both are configurable via Option.
 type Environment struct {
 	loader      loader.Loader

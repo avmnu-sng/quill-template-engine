@@ -192,7 +192,7 @@ type compiler struct {
 	tabWidth int
 }
 
-// loopInfo carries the codegen state of one @for being lowered: the memory
+// loopInfo carries the lowering state of one @for being lowered: the memory
 // locals its loop.changed call sites need (declared at the loop frame's
 // block), the AST node the escape analysis keyed its decision on, and the
 // counter and pair-slice locals the optimizer's inline arithmetic reads.

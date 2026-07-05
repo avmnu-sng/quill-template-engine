@@ -310,7 +310,7 @@ func TestCoreStdlibInTemplates(t *testing.T) {
 	}
 }
 
-// TestEscapingOffByDefault verifies the source-emission default: an
+// TestEscapingOffByDefault verifies autoescape is off by default: an
 // interpolation renders verbatim, even HTML metacharacters (spec 04 Section 8.1).
 func TestEscapingOffByDefault(t *testing.T) {
 	got := render(t, "{{ code }}", map[string]runtime.Value{"code": runtime.Str("List<Map<String,Integer>>")})
