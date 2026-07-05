@@ -55,8 +55,8 @@ function `compile.Module` emits, the same unit `WithCompiled` installs,
 benchmarked by `BenchmarkCompiledReal_Loop_Render` over the committed generated
 source in `bench/compiled_loop_gen.go`. A staleness test regenerates that source
 in-memory and fails if it drifts from the backend's current output, and a parity
-test pins its bytes to the interpreter's, so the number tracks the actual codegen
-rather than a description of it.
+test pins its bytes to the interpreter's, so the number tracks the actual
+generated code rather than a description of it.
 
 The harness also keeps a hand-written proof-of-ceiling
 (`BenchmarkCompiled_Loop_Render` in `bench/compiled_poc_test.go`, ~14.4 us),

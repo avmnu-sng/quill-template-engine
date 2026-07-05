@@ -95,7 +95,7 @@ func filterTitle1(v runtime.Value) (runtime.Value, error) {
 }
 
 // filterUcfirst upper-cases the FIRST BYTE only, leaving the rest unchanged
-// (spec 03 Section 5.2); a source-emission workhorse distinct from capitalize.
+// (spec 03 Section 5.2); distinct from capitalize.
 func filterUcfirst(args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
@@ -1137,7 +1137,7 @@ func filterInvoke(args []runtime.Value) (runtime.Value, error) {
 	return runtime.Call(fn, rest)
 }
 
-// --- source-emission filters ------------------------------------------------
+// --- indentation filters -----------------------------------------------------
 
 func registerSourceFilters(s *ExtensionSet) {
 	s.AddFilter(&Filter{Name: "tab", Fn: filterTab})

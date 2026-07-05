@@ -41,8 +41,6 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 
-const version = "0.1.0"
-
 func main() {
 	if err := dispatch(os.Args[1:], os.Stdout, os.Stderr, os.Stdin); err != nil {
 		fmt.Fprintf(os.Stderr, "quill: %v\n", err)
@@ -82,7 +80,7 @@ func run(args []string, out io.Writer, stdin io.Reader) error {
 		return err
 	}
 	if *showVersion {
-		fmt.Fprintf(out, "quill %s\n", version)
+		fmt.Fprintf(out, "quill %s\n", quill.Version)
 		return nil
 	}
 
