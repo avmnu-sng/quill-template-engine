@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"math"
 	"strings"
 	"sync"
 
@@ -1324,6 +1325,11 @@ func tabLevels(v runtime.Value) (int, error) {
 	case runtime.KInt:
 		if v.I < 0 {
 			return 0, nil
+		}
+		// int is 32-bit on some targets; clamp so a level past the platform int
+		// range cannot wrap negative (which would later panic strings.Repeat).
+		if v.I > math.MaxInt {
+			return math.MaxInt, nil
 		}
 		return int(v.I), nil
 	case runtime.KFloat:
