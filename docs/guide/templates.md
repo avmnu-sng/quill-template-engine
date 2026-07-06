@@ -47,7 +47,7 @@ statement head. A brace block opened by an `@`-led statement closes only at
 trim modifier.
 
 ```
-@extends "base.ql"
+@extends "base.quill"
 
 @block body {
   @for u in users {
@@ -80,7 +80,7 @@ templates where literal braces are rare:
 ```
 pragma bare
 
-extends "base.ql"
+extends "base.quill"
 
 block body {
   for u in users {

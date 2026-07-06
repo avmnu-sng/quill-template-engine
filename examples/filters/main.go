@@ -38,7 +38,7 @@ func user(name, email string, admin bool, hasEmail bool) runtime.Value {
 }
 
 func render() error {
-	env := quill.NewWithArray(map[string]string{"roster.ql": tmpl})
+	env := quill.NewWithArray(map[string]string{"roster.quill": tmpl})
 	users := runtime.Arr(runtime.NewList(
 		user("ada", "ada@example.com", true, true),
 		user("bob", "", false, false),
@@ -47,7 +47,7 @@ func render() error {
 	names := runtime.Arr(runtime.NewList(
 		runtime.Str("cleo"), runtime.Str("ada"), runtime.Str("bob"),
 	))
-	out, err := env.Render("roster.ql", map[string]runtime.Value{
+	out, err := env.Render("roster.quill", map[string]runtime.Value{
 		"users": users,
 		"names": names,
 	})

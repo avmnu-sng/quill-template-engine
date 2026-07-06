@@ -101,7 +101,7 @@ optionally carrying a `-`/`~`/`+` trim modifier. Consequently:
   by `@`.
 
 ```
-@extends "base.ql"
+@extends "base.quill"
 
 @block body {
   @for u in users {
@@ -615,7 +615,7 @@ keywords (forming a Quill-shaped head) is a statement.
 ### 5.2 Inheritance
 
 ```
-@extends "base.ql"           // single parent; content outside blocks in a child is rejected
+@extends "base.quill"        // single parent; content outside blocks in a child is rejected
 
 @block body {                // define + render-in-place; long form
   ...
@@ -627,9 +627,9 @@ keywords (forming a Quill-shaped head) is a statement.
 ```
 
 `@extends "<expr>"` takes a string-coerced expression, so a candidate list
-`@extends ["a.ql", "b.ql"]` selects the first that exists. Inside an overriding
+`@extends ["a.quill", "b.quill"]` selects the first that exists. Inside an overriding
 block, `parent()` renders the parent's version. `block("name")` and `block("name",
-"other.ql")` render a named block of this or another template; `block("name") is
+"other.quill")` render a named block of this or another template; `block("name") is
 defined` tests existence.
 
 ### 5.3 Macros
@@ -688,10 +688,10 @@ binds positionally in the block scope. `caller()` is visible only in the macro t
 ### 5.4 Imports and traits
 
 ```
-@import "forms.ql" as forms                  // namespace; call forms.input(...)
-@from "forms.ql" import input, label as lbl   // selective; call input(...), lbl(...)
-@use "buttons.ql"                             // import all blocks of a traitable template
-@use "buttons.ql" with { submit: ok }         // block aliasing/rename
+@import "forms.quill" as forms                  // namespace; call forms.input(...)
+@from "forms.quill" import input, label as lbl  // selective; call input(...), lbl(...)
+@use "buttons.quill"                            // import all blocks of a traitable template
+@use "buttons.quill" with { submit: ok }        // block aliasing/rename
 ```
 
 Top-level import is global; in-block import is block-local. A trait has no parent,
@@ -701,7 +701,7 @@ template's own block definitions win over imported ones.
 ### 5.5 Embed
 
 ```
-@embed "card.ql" with { title: t } {
+@embed "card.quill" with { title: t } {
   @block body { {{ content }} @}
 @}
 ```
@@ -714,11 +714,11 @@ one construct. Supports `with`, `only`, and `ignore missing`.
 Statement form:
 
 ```
-@include "header.ql"
-@include "row.ql" with { user: u }
-@include "row.ql" with { user: u } only
-@include "maybe.ql" ignore missing
-@include ["a.ql", "b.ql"]            // first that exists
+@include "header.quill"
+@include "row.quill" with { user: u }
+@include "row.quill" with { user: u } only
+@include "maybe.quill" ignore missing
+@include ["a.quill", "b.quill"]      // first that exists
 ```
 
 `with map` adds vars to the current context; `only` renders with just those vars;
@@ -728,7 +728,7 @@ list, first existing wins.
 Function form, returning rendered output as an expression value:
 
 ```
-{{ include("snippet.ql", { x: 1 }, with_context: false, ignore_missing: true, sandboxed: true) }}
+{{ include("snippet.quill", { x: 1 }, with_context: false, ignore_missing: true, sandboxed: true) }}
 ```
 
 ### 5.7 Accumulating content slots

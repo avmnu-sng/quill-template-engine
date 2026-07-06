@@ -59,13 +59,13 @@ func callables() *ext.ExtensionSet {
 
 func render() error {
 	env := quill.NewWithArray(
-		map[string]string{"demo.ql": tmpl},
+		map[string]string{"demo.quill": tmpl},
 		quill.WithExtensions(callables()),
 	)
 	counts := runtime.Arr(runtime.NewList(
 		runtime.Int(5), runtime.Int(-3), runtime.Int(42),
 	))
-	out, err := env.Render("demo.ql", map[string]runtime.Value{"counts": counts})
+	out, err := env.Render("demo.quill", map[string]runtime.Value{"counts": counts})
 	if err != nil {
 		return err
 	}
