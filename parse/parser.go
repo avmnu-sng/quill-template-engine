@@ -47,11 +47,12 @@ func ParseString(name, body string) (*ast.Node, error) {
 // pathologically nested template is rejected before it can exhaust the goroutine
 // stack (see enter/leave and maxDepth).
 type parser struct {
-	src   *source.Source
-	toks  []lex.Token
-	pos   int
-	match []int
-	depth int
+	src       *source.Source
+	toks      []lex.Token
+	pos       int
+	match     []int
+	depth     int
+	openStack []lex.Token
 }
 
 // maxDepth caps how deeply the recursive-descent parser may nest, at both the
@@ -208,11 +209,11 @@ func (p *parser) fail(format string, args ...any) {
 }
 
 // failAt raises a syntax error at a specific token's position, attaching the
-// template source and 1-based line so the message locates the fault (spec 01
-// Section 1.8). It never returns; it panics with the *errors.Error, caught in
-// parse.
+// template source and the token's 1-based line and column so the message locates
+// the fault exactly (spec 01 Section 1.8). It never returns; it panics with the
+// *errors.Error, caught in parse.
 func (p *parser) failAt(t lex.Token, format string, args ...any) {
-	panic(errors.New(errors.KindSyntax, format, args...).At(p.src, t.Line))
+	panic(errors.New(errors.KindSyntax, format, args...).AtPos(p.src, t.Line, t.Col))
 }
 
 // node builds an AST node at the given token's position, in this parser's
@@ -224,13 +225,14 @@ func (p *parser) node(k ast.Kind, t lex.Token, children ...*ast.Node) *ast.Node 
 	return n
 }
 
-// tokAt synthesizes a token carrying a node's line so failAt can position an
-// error against an already-built AST node (e.g. an invalid assignment target).
+// tokAt synthesizes a token carrying a node's line and column so failAt can
+// position an error against an already-built AST node (e.g. an invalid assignment
+// target) with the same line:col precision as a real token.
 func tokAt(n *ast.Node) lex.Token {
 	if n == nil {
 		return lex.Token{}
 	}
-	return lex.Token{Line: n.Line}
+	return lex.Token{Line: n.Line, Col: n.Col}
 }
 
 // describe renders a token for an error message in a stable, human form.
@@ -254,6 +256,36 @@ func describe(t lex.Token) string {
 		return "'}}'"
 	case lex.OPEN_INTERP:
 		return "'{{'"
+	case lex.LPAREN:
+		return "'('"
+	case lex.RPAREN:
+		return "')'"
+	case lex.LBRACKET:
+		return "'['"
+	case lex.RBRACKET:
+		return "']'"
+	case lex.LBRACE:
+		return "'{'"
+	case lex.RBRACE:
+		return "'}'"
+	case lex.ARROW:
+		return "'=>'"
+	case lex.COMMA:
+		return "','"
+	case lex.COLON:
+		return "':'"
+	case lex.DOT:
+		return "'.'"
+	case lex.PIPE:
+		return "'|'"
+	case lex.ASSIGN:
+		return "'='"
+	case lex.SPREAD:
+		return "'...'"
+	case lex.RANGE:
+		return "'..'"
+	case lex.QUESTION:
+		return "'?'"
 	}
 	return t.Kind.String()
 }

@@ -82,14 +82,17 @@ func (k Kind) String() string {
 	}
 }
 
-// Error is Quill's structured error. Src and Line may be unset (nil / 0) when a
-// failure is raised below the layer that knows the source position; a higher
-// layer can fill them in with At before re-returning.
+// Error is Quill's structured error. Src, Line, and Col may be unset (nil / 0)
+// when a failure is raised below the layer that knows the source position; a
+// higher layer can fill them in with At or AtPos before re-returning. Col is the
+// 1-based column of the fault; it is 0 when unknown, and the rendered message
+// omits it in that case for backward compatibility.
 type Error struct {
 	Kind Kind
 	Msg  string
 	Src  *source.Source
 	Line int
+	Col  int
 	// Cause is an optional wrapped error, exposed via Unwrap.
 	Cause error
 }
@@ -99,9 +102,12 @@ type Error struct {
 func (e *Error) Error() string {
 	loc := ""
 	if e.Src != nil {
-		if e.Line > 0 {
+		switch {
+		case e.Line > 0 && e.Col > 0:
+			loc = fmt.Sprintf(" (%s:%d:%d)", e.Src.Name(), e.Line, e.Col)
+		case e.Line > 0:
 			loc = fmt.Sprintf(" (%s:%d)", e.Src.Name(), e.Line)
-		} else {
+		default:
 			loc = fmt.Sprintf(" (%s)", e.Src.Name())
 		}
 	} else if e.Line > 0 {
@@ -113,16 +119,27 @@ func (e *Error) Error() string {
 // Unwrap exposes the wrapped cause for errors.Is / errors.As chains.
 func (e *Error) Unwrap() error { return e.Cause }
 
-// At returns a copy of the error annotated with a source and line, leaving the
-// receiver unchanged. It is the canonical way an upper layer attaches position
-// to an error raised without one. A nil receiver yields nil.
+// At returns a copy of the error annotated with a source and line (no column),
+// leaving the receiver unchanged. It is the canonical way an upper layer attaches
+// position to an error raised without one. A nil receiver yields nil. It is
+// preserved as public API; it delegates to AtPos with a zero column so the
+// rendered message keeps the plain "name:line" form.
 func (e *Error) At(src *source.Source, line int) *Error {
+	return e.AtPos(src, line, 0)
+}
+
+// AtPos returns a copy of the error annotated with a source, 1-based line, and
+// 1-based column, leaving the receiver unchanged. A zero col is treated as
+// unknown and omitted from the rendered message (see Error). A nil receiver
+// yields nil.
+func (e *Error) AtPos(src *source.Source, line, col int) *Error {
 	if e == nil {
 		return nil
 	}
 	cp := *e
 	cp.Src = src
 	cp.Line = line
+	cp.Col = col
 	return &cp
 }
 

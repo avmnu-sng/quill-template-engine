@@ -123,8 +123,11 @@ func skipStringByte(s string, i int) int {
 // scanCode tokenizes CODE bytes, emitting tokens until the stop predicate fires at
 // bracket depth zero. It tracks (), [], {} nesting so a "}}" or block-open '{'
 // inside a nested literal does not end the region prematurely (spec 02 R3). It
-// returns true if a fatal ERROR was emitted.
-func (l *lexer) scanCode(stop closer) (stop2 bool) {
+// returns true if a fatal ERROR was emitted. openLine/openCol are the position of
+// the region's opener ("{{" for an interpolation); an unterminated interpolation
+// is reported there rather than at the EOF cursor, mirroring how scanString
+// reports an unterminated string at its opening quote.
+func (l *lexer) scanCode(stop closer, openLine, openCol int) (stop2 bool) {
 	depth := 0
 	for l.pos < len(l.in) {
 		if depth == 0 && stop(l) {
@@ -290,9 +293,10 @@ func (l *lexer) scanCode(stop closer) (stop2 bool) {
 	// Reached EOF inside CODE without satisfying the stop predicate. For a line
 	// statement head that is fine (EOF ends the line); scanStmtHeadEnd returns
 	// true at EOF so we never get here for heads. An interpolation that hits EOF
-	// is unterminated.
+	// is unterminated; report it at the "{{" opener (openLine/openCol) so the
+	// message points at where the interpolation began, not the far EOF cursor.
 	if !stop(l) {
-		l.errorf(l.line, l.col, "unterminated interpolation: reached end of input before %q", "}}")
+		l.errorf(openLine, openCol, "unterminated interpolation: opened here, reached end of input before %q", "}}")
 		return true
 	}
 	return false
