@@ -720,7 +720,7 @@ func (a *loopAnalyzer) walkFor(n *ast.Node) {
 // member assignment) escapes the innermost loop; target index keys and the
 // value expressions are ordinary expression positions.
 func (a *loopAnalyzer) walkSet(n *ast.Node) {
-	count := int(n.Int)
+	count := n.IntCount()
 	for i, tg := range n.Children {
 		if tg == nil {
 			continue
@@ -996,7 +996,7 @@ func nodeMutates(n *ast.Node) bool {
 	case ast.KindDo:
 		return true
 	case ast.KindSet:
-		count := int(n.Int)
+		count := n.IntCount()
 		for i := 0; i < count && i < len(n.Children); i++ {
 			if setTargetMutates(n.Children[i]) {
 				return true

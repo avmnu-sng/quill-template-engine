@@ -186,7 +186,7 @@ func (c *checker) checkPrint(n *ast.Node, sc *scope) error {
 // target binds its slots dynamically here (the runtime enforces arity); a typed
 // slot is checked against the inferred element type where known.
 func (c *checker) checkSet(n *ast.Node, sc *scope) error {
-	count := int(n.Int)
+	count := n.IntCount()
 	targets := n.Children[:count]
 	values := n.Children[count:]
 	// The multi-target form pairs targets to values positionally; the single

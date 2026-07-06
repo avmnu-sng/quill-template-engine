@@ -707,7 +707,7 @@ func (in *interp) filterLoopPairs(filter *ast.Node, pairs []runtime.Pair, target
 // Multi-target and destructuring forms are bound positionally; a type annotation
 // is ignored at render time (the checker consumes it).
 func (in *interp) execSet(n *ast.Node, ctx *runtime.Scope) error {
-	count := int(n.Int)
+	count := n.IntCount()
 	targets := n.Children[:count]
 	values := n.Children[count:]
 
@@ -1053,7 +1053,7 @@ func (in *interp) execCapture(n *ast.Node, ctx *runtime.Scope) error {
 // active escape strategy it was produced through the same escaper as a capture
 // and must not be escaped a second time.
 func (in *interp) execCache(n *ast.Node, ctx *runtime.Scope) error {
-	count := int(n.Int)
+	count := n.IntCount()
 	args := n.Children[:count]
 	body := n.Children[count:]
 
@@ -1206,7 +1206,7 @@ func (in *interp) execWith(n *ast.Node, ctx *runtime.Scope) error {
 // execApply captures the body, then pipes it through the filter chain (spec 01
 // Section 4.5).
 func (in *interp) execApply(n *ast.Node, ctx *runtime.Scope) error {
-	filterCount := int(n.Int)
+	filterCount := n.IntCount()
 	filters := n.Children[:filterCount]
 	body := n.Children[filterCount:]
 	captured, err := in.captureItems(body, ctx)

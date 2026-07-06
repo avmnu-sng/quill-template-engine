@@ -39,7 +39,7 @@ func stmtBinds(n *ast.Node, add func(string)) {
 			// statements bindings the abort never creates.
 			return
 		}
-		count := int(n.Int)
+		count := n.IntCount()
 		for i, tg := range n.Children {
 			if i < count {
 				targetBinds(tg, add)
@@ -87,7 +87,7 @@ func stmtBinds(n *ast.Node, add func(string)) {
 		// names must be scanned here. The leading filter nodes bind no names of
 		// their own; only their argument expressions can carry an inline
 		// assignment, which exprBinds finds by recursion.
-		filterCount := int(n.Int)
+		filterCount := n.IntCount()
 		for _, f := range n.Children[:filterCount] {
 			exprBinds(f, add)
 		}
@@ -181,7 +181,7 @@ func hasTabBlock(n *ast.Node) bool {
 // backend rejects it as outside the compilable subset; both the prescan and
 // the lowering consult this so neither path reaches a nameless binding.
 func multiSetPattern(n *ast.Node) bool {
-	count := int(n.Int)
+	count := n.IntCount()
 	if count <= 1 {
 		return false
 	}

@@ -19,22 +19,24 @@ paths-ignore:
 # language (the analyzer reports on everything it builds), so the false positives
 # below are excluded by query id, which does apply to Go.
 #
-# go/incorrect-integer-conversion: every report is an int(n.Int) read of an AST
-# child count the parser writes as int64(len(...)) (setNode.Int and the
-# apply/cache counts in parse/control.go) -- a lossless round-trip that CodeQL
-# mis-attributes to the strconv.ParseInt writing the same Node.Int field for
-# integer literals on other node kinds. The one genuine narrowing this query
-# surfaced -- tabLevels coercing a user-supplied @tab level -- was fixed in code
-# with a math.MaxInt clamp, not filtered.
+# go/incorrect-integer-conversion is INTENTIONALLY NOT excluded: it is a useful
+# check for real int64->int narrowings, so it stays armed. Its former reports
+# were int(n.Int) reads of an AST child count that the parser writes as
+# int64(len(...)); those now go through ast.Node.IntCount, whose explicit bounds
+# guard both documents the len()-fits-int invariant and satisfies the query. The
+# one genuine narrowing it surfaced (tabLevels, a user @tab level) was fixed with
+# a math.MaxInt clamp.
 #
-# go/incomplete-hostname-regexp and go/regex/missing-regexp-anchor: the only
-# matches are the sample nginx server_name literal in examples/braces/main.go, a
-# plain runtime.Str template binding that is never compiled as a regex. Quill's
-# own regexp use is the user-supplied `matches` operator and HTML spaceless
-# cleanup -- neither is a hostname or URL pattern these queries guard.
+# go/incomplete-hostname-regexp and go/regex/missing-regexp-anchor: Quill's engine
+# compiles arbitrary runtime strings as regexes for the user-facing `matches`
+# operator (see the regexp.Compile in interp/operators.go and compile/prelude.go),
+# so CodeQL's whole-program dataflow treats every hostname-shaped string literal
+# that could reach a binding as a potential regex pattern. The only current
+# matches are illustrative literals (the sample nginx server_name in
+# examples/braces/main.go); Quill ships no hostname or URL validation regex for
+# these queries to guard. They are excluded rather than left as recurring false
+# positives on demo/test data.
 query-filters:
-  - exclude:
-      id: go/incorrect-integer-conversion
   - exclude:
       id: go/incomplete-hostname-regexp
   - exclude:

@@ -439,7 +439,7 @@ func (c *compiler) captureInto(body []*ast.Node, guarded bool) (string, error) {
 // compiled path (the dispatch gate refuses any sandboxed unit), so they lower
 // to nothing.
 func (c *compiler) stmtApply(n *ast.Node) error {
-	filterCount := int(n.Int)
+	filterCount := n.IntCount()
 	filters := n.Children[:filterCount]
 	body := n.Children[filterCount:]
 	sb, err := c.captureBody(body)
@@ -587,7 +587,7 @@ func (c *compiler) applyArgs(f *ast.Node, piped string) (string, error) {
 //     execCache, and pass through to Put with the exact list-coercion rule.
 func (c *compiler) stmtCache(n *ast.Node) error {
 	c.usesCache = true
-	count := int(n.Int)
+	count := n.IntCount()
 	args := n.Children[:count]
 	body := n.Children[count:]
 
@@ -777,7 +777,7 @@ func (c *compiler) stmtSet(n *ast.Node) error {
 		// emitting silently different bindings.
 		return c.notCompilable("destructuring pattern in a multi-target set", n)
 	}
-	count := int(n.Int)
+	count := n.IntCount()
 	targets := n.Children[:count]
 	values := n.Children[count:]
 

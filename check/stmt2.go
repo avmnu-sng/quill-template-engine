@@ -26,7 +26,7 @@ func (c *checker) checkWith(n *ast.Node, sc *scope) error {
 // typed, and the body is checked. The applied filters transform the captured
 // body text, so no binding is introduced.
 func (c *checker) checkApply(n *ast.Node, sc *scope) error {
-	count := int(n.Int)
+	count := n.IntCount()
 	for i := 0; i < count; i++ {
 		f := n.Child(i)
 		if f == nil {
