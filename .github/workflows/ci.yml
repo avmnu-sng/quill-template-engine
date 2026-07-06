@@ -41,8 +41,11 @@ jobs:
         run: go vet ./...
       # -race surfaces data races; -shuffle=on randomizes test order to catch
       # inter-test coupling; -covermode=atomic is required alongside -race.
+      # -coverpkg=./... credits cross-package exercise, so the integration and
+      # conformance suites count toward the packages they drive (a per-package
+      # profile would report them as uncovered).
       - name: Test
-        run: go test -race -shuffle=on -covermode=atomic -coverprofile=coverage.out ./...
+        run: go test -race -shuffle=on -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
       - name: Upload coverage artifact
         if: matrix.os == 'ubuntu-latest' && matrix.go == 'stable'
         uses: actions/upload-artifact@v7
