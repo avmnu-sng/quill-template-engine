@@ -394,7 +394,7 @@ func (a *loopEscapeAnalyzer) walkFor(n *ast.Node) {
 // assignment) escapes the innermost loop; index keys along a member path and
 // the value expressions are ordinary expression positions.
 func (a *loopEscapeAnalyzer) walkSet(n *ast.Node) {
-	count := int(n.Int)
+	count := n.IntCount()
 	for i, tg := range n.Children {
 		if tg == nil {
 			continue

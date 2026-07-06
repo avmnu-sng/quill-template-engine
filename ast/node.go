@@ -12,7 +12,11 @@
 // in kind.go.
 package ast
 
-import "github.com/avmnu-sng/quill-template-engine/source"
+import (
+	"math"
+
+	"github.com/avmnu-sng/quill-template-engine/source"
+)
 
 // Node is the single AST node type. Every Quill construct -- a module, a text
 // span, an interpolation, an expression operator, a statement, a clause -- is a
@@ -81,4 +85,16 @@ func (n *Node) NumChildren() int {
 		return 0
 	}
 	return len(n.Children)
+}
+
+// IntCount reads the Int payload as a non-negative int count. Kinds that carry a
+// child count (a @set's targets, an @apply's filters, a @cache's tag args, and
+// so on) store it as int64(len(...)), so it always fits int; the bounds guard
+// makes that invariant explicit -- it is dead on a 64-bit platform and only
+// clamps the physically unrepresentable case where int is 32-bit.
+func (n *Node) IntCount() int {
+	if n.Int < 0 || n.Int > math.MaxInt {
+		return 0
+	}
+	return int(n.Int)
 }
