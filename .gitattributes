@@ -4,3 +4,8 @@
 # fixtures, gofmt'd sources, and generated Go identical on Windows, macOS, and
 # Linux. text=auto still leaves any binary file untouched.
 * text=auto eol=lf
+
+# Quill templates: highlight as Twig (closest bundled Linguist grammar) instead
+# of CodeQL, whose .ql extension Linguist claims by default.
+*.quill linguist-language=Twig
+*.ql    linguist-language=Twig
