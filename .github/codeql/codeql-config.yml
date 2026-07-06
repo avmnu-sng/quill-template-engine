@@ -10,25 +10,32 @@ queries:
 # Generated Go emitted by the compile-to-Go backend and the benchmark harness
 # module are excluded: the generated sources are exercised through the library
 # API and the bench module pulls third-party peer engines that are not Quill's
-# code to scan. The examples are standalone demonstration programs, not part of
-# the importable library surface, so their illustrative literals (a sample host
-# name, loopback upstreams) are not shipped-code findings worth tracking.
+# code to scan.
 paths-ignore:
   - bench
-  - examples
   - '**/*_gen.go'
 
-# Result filters.
+# Result filters. paths-ignore does not reliably drop alerts for a compiled
+# language (the analyzer reports on everything it builds), so the false positives
+# below are excluded by query id, which does apply to Go.
 #
-# go/incorrect-integer-conversion is excluded because every report it raises here
-# is an int(n.Int) read of an AST child count. The parser writes that field as
-# int64(len(...)) (setNode.Int and the apply/cache counts in parse/control.go),
-# so the value provably fits int -- the int64 hop is a lossless round-trip on the
-# 64-bit build targets. CodeQL flags them only because the same Node.Int field is
-# ALSO written from strconv.ParseInt for integer literals on other node kinds,
-# and its taint tracking is not field-instance sensitive. The one genuine
-# narrowing this query surfaced -- tabLevels coercing a user-supplied @tab level
-# -- was fixed in code with a math.MaxInt clamp, not suppressed here.
+# go/incorrect-integer-conversion: every report is an int(n.Int) read of an AST
+# child count the parser writes as int64(len(...)) (setNode.Int and the
+# apply/cache counts in parse/control.go) -- a lossless round-trip that CodeQL
+# mis-attributes to the strconv.ParseInt writing the same Node.Int field for
+# integer literals on other node kinds. The one genuine narrowing this query
+# surfaced -- tabLevels coercing a user-supplied @tab level -- was fixed in code
+# with a math.MaxInt clamp, not filtered.
+#
+# go/incomplete-hostname-regexp and go/regex/missing-regexp-anchor: the only
+# matches are the sample nginx server_name literal in examples/braces/main.go, a
+# plain runtime.Str template binding that is never compiled as a regex. Quill's
+# own regexp use is the user-supplied `matches` operator and HTML spaceless
+# cleanup -- neither is a hostname or URL pattern these queries guard.
 query-filters:
   - exclude:
       id: go/incorrect-integer-conversion
+  - exclude:
+      id: go/incomplete-hostname-regexp
+  - exclude:
+      id: go/regex/missing-regexp-anchor
