@@ -1,6 +1,6 @@
 # Quill -- Template Coverage
 
-Quill measures which parts of a `.ql` template your tests actually exercised: which
+Quill measures which parts of a `.quill` template your tests actually exercised: which
 statements and interpolations ran, and which arms of each branch were taken. This is
 branch-aware coverage for templates, the analogue of `go tool cover` for Go, aggregated
 across many renders and exported as a text summary, LCOV, or a highlighted HTML report.
@@ -209,8 +209,8 @@ by `TestCoverageUnreachedIncludeIsAbsent` and `TestCoverageMacroHomeTopLevelNotS
 
 A single `Collector` is shared across every `Render` call made through the Environment it is
 attached to. Each render unions its hits into the Collector's per-template tables, keyed by
-region id. Rendering template `page.ql` a hundred times with different data accumulates into
-one region table for `page.ql`; the report is the union. Includes, parents, traits, and macro
+region id. Rendering template `page.quill` a hundred times with different data accumulates into
+one region table for `page.quill`; the report is the union. Includes, parents, traits, and macro
 homes are seeded and recorded under their own template names, so a shared partial's coverage
 aggregates across every template that includes it. The Collector is safe for sequential
 renders; concurrent renders should each use their own Collector and be merged with
@@ -231,8 +231,8 @@ Coverage is a construction option, mirroring the existing `WithAutoescapeHTML` /
         quill.WithCoverage(coll),
     )
 
-    _, _ = env.Render("page.ql", vars)      // records into coll
-    _, _ = env.Render("page.ql", other)     // unions more hits
+    _, _ = env.Render("page.quill", vars)      // records into coll
+    _, _ = env.Render("page.quill", other)     // unions more hits
 
     report := coll.Report()
 
@@ -317,15 +317,15 @@ and branches are shown separately:
 
     Template                 Units          Branches       Lines
     ------------------------ -------------- -------------- --------------
-    page.ql                  42/47   89.4%  11/16   68.8%  20/22   90.9%
-    partials/nav.ql          8/8    100.0%  2/2    100.0%  5/5    100.0%
+    page.quill               42/47   89.4%  11/16   68.8%  20/22   90.9%
+    partials/nav.quill       8/8    100.0%  2/2    100.0%  5/5    100.0%
     ------------------------ -------------- -------------- --------------
     TOTAL                    50/55   90.9%  13/18   72.2%  25/27   92.6%
 
 The verbose region breakdown lists every uncovered region with its `line:col`, kind, and (for
 branches) which arm is missing, so a developer can jump straight to the gap:
 
-    page.ql
+    page.quill
       block "body"
         14:3   if-else        else arm never taken
         22:9   for-empty      loop never ran empty
@@ -339,7 +339,7 @@ ingest directly. One `SF` section per template, `DA` line-hit records derived fr
 counts, and `BRDA` branch records for every arm:
 
     TN:
-    SF:page.ql
+    SF:page.quill
     DA:14,3
     DA:15,3
     DA:22,0
@@ -386,12 +386,12 @@ command-line front door to the same Collector/Report API.
 
 Single template, text report to stdout:
 
-    quill cover -root templates -data data.json page.ql
+    quill cover -root templates -data data.json page.quill
 
 Choose a format and an output file:
 
-    quill cover -root templates -data data.json -format lcov -o coverage.info page.ql
-    quill cover -root templates -data data.json -format html -o cover.html page.ql
+    quill cover -root templates -data data.json -format lcov -o coverage.info page.quill
+    quill cover -root templates -data data.json -format html -o cover.html page.quill
 
 Aggregate many cases from a JSON case file (each case is a template plus its variables), so a
 single report unions coverage across a whole fixture set:
@@ -401,9 +401,9 @@ single report unions coverage across a whole fixture set:
 The `cases.json` shape is a list of `{ "template": name, "data": object }`:
 
     [
-      { "template": "page.ql",        "data": { "user": { "admin": true } } },
-      { "template": "page.ql",        "data": { "user": { "admin": false } } },
-      { "template": "partials/nav.ql","data": { "items": [] } }
+      { "template": "page.quill",        "data": { "user": { "admin": true } } },
+      { "template": "page.quill",        "data": { "user": { "admin": false } } },
+      { "template": "partials/nav.quill","data": { "items": [] } }
     ]
 
 Rendering both admin states above covers both arms of an `@if user.admin`; the empty `items`

@@ -400,10 +400,10 @@ func callables() *ext.ExtensionSet {
 }
 
 env := quill.NewWithArray(
-	map[string]string{"demo.ql": `{{ "ab" | repeat(3) }} {{ clamp(42, 0, 10) }}`},
+	map[string]string{"demo.quill": `{{ "ab" | repeat(3) }} {{ clamp(42, 0, 10) }}`},
 	quill.WithExtensions(callables()),
 )
-out, _ := env.Render("demo.ql", nil) // ababab 10
+out, _ := env.Render("demo.quill", nil) // ababab 10
 ```
 
 Run it with `go run ./examples/extension`.

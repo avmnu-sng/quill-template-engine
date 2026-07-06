@@ -83,7 +83,7 @@ interpreter. So installing a compiled unit can change render speed but never
 rendered bytes. Generate a unit with the CLI:
 
 ```
-quill compile -root templates -pkg qtpl -o index_gen.go index.ql
+quill compile -root templates -pkg qtpl -o index_gen.go index.quill
 ```
 
 See the [CLI](cli.md) for the `compile` subcommand and [Architecture](architecture.md)

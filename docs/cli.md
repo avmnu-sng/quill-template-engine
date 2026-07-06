@@ -17,9 +17,9 @@ rooted at `-root`, so an `@extends` parent, an `@include` target, and an
 `@import`/`@from` source all resolve by name under the same root:
 
 ```
-quill -root templates -data data.json index.ql
-quill -root templates -autoescape html page.ql > page.html
-cat data.json | quill -root templates -data - index.ql
+quill -root templates -data data.json index.quill
+quill -root templates -autoescape html page.quill > page.html
+cat data.json | quill -root templates -data - index.quill
 ```
 
 Variables come from a JSON object read from the `-data` file (or stdin when
@@ -46,14 +46,14 @@ attached and writes a report. It is the command-line front door to the same
 Single template, text report to stdout:
 
 ```
-quill cover -root templates -data data.json page.ql
+quill cover -root templates -data data.json page.quill
 ```
 
 Choose a format and an output file:
 
 ```
-quill cover -root templates -data data.json -format lcov -o coverage.info page.ql
-quill cover -root templates -data data.json -format html -o cover.html page.ql
+quill cover -root templates -data data.json -format lcov -o coverage.info page.quill
+quill cover -root templates -data data.json -format html -o cover.html page.quill
 ```
 
 Aggregate many cases from a JSON case file, so a single report unions coverage
@@ -67,9 +67,9 @@ The `cases.json` shape is a list of `{ "template": name, "data": object }`:
 
 ```json
 [
-  { "template": "page.ql",         "data": { "user": { "admin": true } } },
-  { "template": "page.ql",         "data": { "user": { "admin": false } } },
-  { "template": "partials/nav.ql", "data": { "items": [] } }
+  { "template": "page.quill",         "data": { "user": { "admin": true } } },
+  { "template": "page.quill",         "data": { "user": { "admin": false } } },
+  { "template": "partials/nav.quill", "data": { "items": [] } }
 ]
 ```
 
@@ -103,7 +103,7 @@ generated Go source: a render function plus the exported manifest
 compilable subset is reported as a not-compilable error naming the construct.
 
 ```
-quill compile -root templates -pkg qtpl -o index_gen.go index.ql
+quill compile -root templates -pkg qtpl -o index_gen.go index.quill
 ```
 
 The option flags mirror the Environment knobs the generated unit's fingerprint

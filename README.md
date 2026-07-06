@@ -26,6 +26,7 @@ source, or any other text -- no use case is privileged.
 - [Escaping](#escaping)
 - [Use cases](#use-cases)
 - [Coming from Jinja, Twig, or Go text/template](#coming-from-jinja-twig-or-go-texttemplate)
+- [Editor support](#editor-support)
 - [Documentation](#documentation)
 - [Development](#development)
 - [License](#license)
@@ -88,9 +89,9 @@ import (
 
 func main() {
 	env := quill.NewWithArray(map[string]string{
-		"greet.ql": `Hello {{ name | upper }}{{ "!" if loud }}`,
+		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
-	out, err := env.Render("greet.ql", map[string]runtime.Value{
+	out, err := env.Render("greet.quill", map[string]runtime.Value{
 		"name": runtime.Str("ada"),
 		"loud": runtime.Bool(true),
 	})
@@ -127,7 +128,7 @@ type User struct {
 	Tags  []string `quill:"tags"`
 }
 
-out, _ := env.RenderValues("greet.ql", map[string]any{
+out, _ := env.RenderValues("greet.quill", map[string]any{
 	"user":  User{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
 	"count": 3,
 })
@@ -162,6 +163,15 @@ map across. The
 [Whitespace Control](https://avmnu-sng.github.io/quill-template-engine/whitespace/)
 guide includes a side-by-side mapping table so you can translate trim modifiers
 and block-cleanup behavior directly.
+
+## Editor support
+
+The engine does not enforce a file extension -- template names are arbitrary
+strings -- but the recommended convention for template files on disk is
+`.quill`. It avoids a clash with CodeQL, whose `.ql` extension GitHub Linguist
+claims by default. A VS Code extension with a TextMate grammar for Quill lives
+in [`editors/vscode/`](editors/vscode/); see its README for local install
+steps.
 
 ## Documentation
 

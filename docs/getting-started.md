@@ -40,9 +40,9 @@ import (
 
 func main() {
 	env := quill.NewWithArray(map[string]string{
-		"greet.ql": `Hello {{ name | upper }}{{ "!" if loud }}`,
+		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
-	out, err := env.Render("greet.ql", map[string]runtime.Value{
+	out, err := env.Render("greet.quill", map[string]runtime.Value{
 		"name": runtime.Str("ada"),
 		"loud": runtime.Bool(true),
 	})
@@ -101,7 +101,7 @@ type User struct {
 	Tags  []string `quill:"tags"`
 }
 
-out, _ := env.RenderValues("greet.ql", map[string]any{
+out, _ := env.RenderValues("greet.quill", map[string]any{
 	"user":  User{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
 	"count": 3,
 })
@@ -118,7 +118,7 @@ mix freely.
 buffering the whole output, use `RenderTo`:
 
 ```go
-err := env.RenderTo(os.Stdout, "greet.ql", vars)
+err := env.RenderTo(os.Stdout, "greet.quill", vars)
 ```
 
 `RenderStringTo` is the string-keyed variant. Streaming is covered alongside the
@@ -139,6 +139,14 @@ The `Environment` is configured with `Option` values passed to `New` /
 - `quill.WithExtensions(set)` / `quill.WithExtension(bundle)` -- register custom
   filters, functions, and tests; see [Extensions & Loaders](extensions.md).
 - `quill.WithTabWidth(n)` -- the spaces one indent level expands to (default 4).
+
+## Editor support
+
+The engine does not enforce a file extension -- a template name is any string --
+but the recommended convention for template files on disk is `.quill`. It sidesteps
+a clash with CodeQL, whose `.ql` extension GitHub Linguist claims by default. A VS
+Code extension with a Quill TextMate grammar lives under `editors/vscode/` in the
+repository; its README covers local installation.
 
 ## Where to go next
 

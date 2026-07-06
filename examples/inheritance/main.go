@@ -22,7 +22,7 @@ const base = `# {{ title }}
 @}
 `
 
-const page = `@extends "base.ql"
+const page = `@extends "base.quill"
 @block summary {
 {{ parent() }}
 A short report with {{ items | length }} items.
@@ -43,10 +43,10 @@ func main() {
 
 func render() error {
 	env := quill.NewWithArray(map[string]string{
-		"base.ql": base,
-		"page.ql": page,
+		"base.quill": base,
+		"page.quill": page,
 	})
-	out, err := env.Render("page.ql", map[string]runtime.Value{
+	out, err := env.Render("page.quill", map[string]runtime.Value{
 		"title": runtime.Str("Daily Report"),
 		"items": runtime.Arr(runtime.NewList(
 			runtime.Str("ship release"),

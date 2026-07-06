@@ -13,9 +13,9 @@ import (
 // off by default.
 func Example() {
 	env := quill.NewWithArray(map[string]string{
-		"greet.ql": `Hello {{ name | upper }}{{ "!" if loud }}`,
+		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
-	out, err := env.Render("greet.ql", map[string]runtime.Value{
+	out, err := env.Render("greet.quill", map[string]runtime.Value{
 		"name": runtime.Str("ada"),
 		"loud": runtime.Bool(true),
 	})
@@ -36,9 +36,9 @@ func ExampleEnvironment_RenderValues() {
 	}
 
 	env := quill.NewWithArray(map[string]string{
-		"user.ql": `{{ user.name }} (admin: {{ user.admin }}) tags: {{ user.tags | join(", ") }}`,
+		"user.quill": `{{ user.name }} (admin: {{ user.admin }}) tags: {{ user.tags | join(", ") }}`,
 	})
-	out, err := env.RenderValues("user.ql", map[string]any{
+	out, err := env.RenderValues("user.quill", map[string]any{
 		"user": User{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
 	})
 	if err != nil {
@@ -52,9 +52,9 @@ func ExampleEnvironment_RenderValues() {
 // result.
 func ExampleEnvironment_RenderTo() {
 	env := quill.NewWithArray(map[string]string{
-		"list.ql": "@for n in nums {\nitem {{ n }}\n@}",
+		"list.quill": "@for n in nums {\nitem {{ n }}\n@}",
 	})
-	err := env.RenderTo(os.Stdout, "list.ql", map[string]runtime.Value{
+	err := env.RenderTo(os.Stdout, "list.quill", map[string]runtime.Value{
 		"nums": runtime.Arr(runtime.NewList(
 			runtime.Int(1), runtime.Int(2), runtime.Int(3),
 		)),
@@ -71,10 +71,10 @@ func ExampleEnvironment_RenderTo() {
 // Turn on HTML escaping globally with WithAutoescapeHTML.
 func ExampleWithAutoescapeHTML() {
 	env := quill.NewWithArray(
-		map[string]string{"page.ql": `<p>{{ body }}</p>`},
+		map[string]string{"page.quill": `<p>{{ body }}</p>`},
 		quill.WithAutoescapeHTML(true),
 	)
-	out, err := env.Render("page.ql", map[string]runtime.Value{
+	out, err := env.Render("page.quill", map[string]runtime.Value{
 		"body": runtime.Str("<b>hi</b>"),
 	})
 	if err != nil {
@@ -100,10 +100,10 @@ func ExampleWithExtensions() {
 	}))
 
 	env := quill.NewWithArray(
-		map[string]string{"demo.ql": `{{ clamp(42, 0, 10) }}`},
+		map[string]string{"demo.quill": `{{ clamp(42, 0, 10) }}`},
 		quill.WithExtensions(set),
 	)
-	out, err := env.Render("demo.ql", map[string]runtime.Value(nil))
+	out, err := env.Render("demo.quill", map[string]runtime.Value(nil))
 	if err != nil {
 		panic(err)
 	}

@@ -41,7 +41,7 @@ func main() {
 func render(out *os.File) error {
 	coll := cover.NewCollector()
 	env := quill.NewWithArray(
-		map[string]string{"greet.ql": tmpl},
+		map[string]string{"greet.quill": tmpl},
 		quill.WithCoverage(coll),
 	)
 
@@ -50,7 +50,7 @@ func render(out *os.File) error {
 		{"admin": runtime.Bool(false), "name": runtime.Str("bob")},
 	}
 	for _, vars := range cases {
-		if _, err := env.Render("greet.ql", vars); err != nil {
+		if _, err := env.Render("greet.quill", vars); err != nil {
 			return err
 		}
 	}

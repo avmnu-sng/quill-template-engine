@@ -28,7 +28,7 @@ func TestRender(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(body)
-	for _, want := range []string{"greet.ql", "5/5 100.0%", "2/2 100.0%", "TOTAL"} {
+	for _, want := range []string{"greet.quill", "5/5 100.0%", "2/2 100.0%", "TOTAL"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("report missing %q:\n%s", want, s)
 		}

@@ -75,9 +75,9 @@ import (
 
 func main() {
 	env := quill.NewWithArray(map[string]string{
-		"greet.ql": `Hello {{ name | upper }}{{ "!" if loud }}`,
+		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
-	out, err := env.Render("greet.ql", map[string]runtime.Value{
+	out, err := env.Render("greet.quill", map[string]runtime.Value{
 		"name": runtime.Str("ada"),
 		"loud": runtime.Bool(true),
 	})

@@ -65,7 +65,7 @@ so the escapers split into two classes:
   **safeness inference** over ternary/conditional operands are active only when
   escaping is enabled.
 - **Default-strategy selection** -- a fixed value, off, or a host-supplied
-  resolver including by file extension (`body.html.ql` -> `html`). The default is
+  resolver including by file extension (`body.html.quill` -> `html`). The default is
   off; the host may register a resolver.
 - **Compile-time escape injection** -- escaping is decided and injected at compile
   time, so the off-path has zero render cost and the output is deterministic.
@@ -121,7 +121,7 @@ By default `Render` returns the whole result as a string. `RenderTo` streams
 output to any `io.Writer` without buffering the entire result:
 
 ```go
-err := env.RenderTo(os.Stdout, "page.ql", vars)
+err := env.RenderTo(os.Stdout, "page.quill", vars)
 ```
 
 `RenderStringTo` is the string-keyed variant. A template that uses deferred slots
