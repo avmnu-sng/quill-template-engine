@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-07-06
+
+### Security
+
+- **Parser denial-of-service fixed.** A chain of nested parentheses made the
+  arrow-vs-grouping lookahead (`parenIsArrow`) rescan all following tokens per
+  `(`, so parsing was O(n^2): a ~220 KB template drove peak memory to ~1 GB and
+  ~10 s of CPU, and extreme nesting could crash the process with a goroutine
+  stack overflow -- all reachable through the public `Render` API. The lookahead
+  is now O(1) via a one-pass bracket-match table, and a parser nesting-depth cap
+  turns pathological input into a positioned syntax error instead. The same
+  100k-paren input now parses in ~37 ms using tens of MB.
+
+### Changed
+
+- **BREAKING: the internal engine packages moved under `core/`.** `ast`, `cache`,
+  `lex`, `parse`, `source`, and `interp` are now imported as `core/ast`,
+  `core/cache`, `core/lex`, `core/parse`, `core/source`, and `core/interp`. Update
+  the import path if you referenced any of them directly, or if you use the
+  `compile`, `check`, or `cover` APIs whose signatures name `*ast.Node` (now
+  `*core/ast.Node`). The documented public packages -- `runtime`, `loader`, `ext`,
+  `cover`, `sandbox`, `check`, `compile`, `compiled`, `errors`, and `cmd/quill` --
+  keep their import paths unchanged, as does `go get`/`go install`.
+
+### Added
+
+- **Error columns.** `errors.Error` now carries a 1-based `Col`, set via the new
+  `AtPos(src, line, col)` method (`At` is preserved and fills a zero column).
+  Syntax errors render as `name:line:col` when a column is known.
+- **Editor support.** A VS Code extension with a TextMate grammar (`source.quill`)
+  lives in `editors/vscode/`, and a `.gitattributes` rule maps template files to
+  the Twig grammar on GitHub. The recommended template file extension is now
+  `.quill`, which avoids the CodeQL `.ql` extension that GitHub Linguist claims.
+
+### Fixed
+
+- **Syntax diagnostics locate and name the fault.** Errors now include a column;
+  an unterminated interpolation or block is reported at its opener rather than at
+  end-of-input; and a delimiter fault names the literal token (`)`) instead of the
+  internal label (`RPAREN`).
+- `@tab` level coercion clamps to the platform `int` range, avoiding a wrap on
+  32-bit targets.
+
 ## [v0.1.0] - 2026-07-04
 
 Initial public release of Quill, a general-purpose, gradually-typed, fast
@@ -67,5 +110,6 @@ template engine for Go.
   (`quill`) and reports coverage (`quill cover`) with text, LCOV, or HTML output
   and a `-fail-under` gate.
 
-[Unreleased]: https://github.com/avmnu-sng/quill-template-engine/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/avmnu-sng/quill-template-engine/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/avmnu-sng/quill-template-engine/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/avmnu-sng/quill-template-engine/releases/tag/v0.1.0
