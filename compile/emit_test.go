@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/compile"
-	"github.com/avmnu-sng/quill-template-engine/parse"
-	"github.com/avmnu-sng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/core/parse"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 )
 
 // emitCases is the differential battery for typed emission and the tab-free

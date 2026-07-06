@@ -14,7 +14,7 @@ package errors
 import (
 	"fmt"
 
-	"github.com/avmnu-sng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 )
 
 // Kind classifies a Quill error. The zero value KindRuntime is the generic

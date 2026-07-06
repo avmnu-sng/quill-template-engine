@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
 )
 
 // compileModule lowers the module body after prescanning the root frame and

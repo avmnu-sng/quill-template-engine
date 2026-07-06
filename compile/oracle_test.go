@@ -10,12 +10,12 @@ import (
 	"testing"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/compile"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/parse"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 	"github.com/avmnu-sng/quill-template-engine/internal/jsonval"
 	"github.com/avmnu-sng/quill-template-engine/loader"
-	"github.com/avmnu-sng/quill-template-engine/parse"
-	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // oracleConfig mirrors the conformance suite's per-fixture config.json knobs

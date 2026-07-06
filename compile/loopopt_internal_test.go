@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
-	"github.com/avmnu-sng/quill-template-engine/parse"
-	"github.com/avmnu-sng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/parse"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 )
 
 // TestLoopEscapeAnalysis pins the escape analysis itself, independent of the

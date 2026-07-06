@@ -1,6 +1,6 @@
 package compile
 
-import "github.com/avmnu-sng/quill-template-engine/ast"
+import "github.com/avmnu-sng/quill-template-engine/core/ast"
 
 // bindNames prescans a statement list for every name it binds in ITS OWN
 // frame, in first-appearance order. The set mirrors where the interpreter's

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/interp"
+	"github.com/avmnu-sng/quill-template-engine/core/interp"
 	"github.com/avmnu-sng/quill-template-engine/runtime"
 )
 

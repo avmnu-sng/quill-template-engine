@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
 )
 
 // RegionKind names the role a region plays at its line:col position. It is the

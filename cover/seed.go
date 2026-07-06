@@ -1,6 +1,6 @@
 package cover
 
-import "github.com/avmnu-sng/quill-template-engine/ast"
+import "github.com/avmnu-sng/quill-template-engine/core/ast"
 
 // seedWalk registers every coverable region of a module AST as a zero-count
 // entry, so a region that no render reaches still appears in the report (the

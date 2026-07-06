@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/compile"
-	"github.com/avmnu-sng/quill-template-engine/parse"
-	"github.com/avmnu-sng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/parse"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 )
 
 // parseUnit parses a name->body map into the module map compile.Unit consumes.

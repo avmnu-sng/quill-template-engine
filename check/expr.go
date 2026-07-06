@@ -1,7 +1,7 @@
 package check
 
 import (
-	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
 )
 
 // exprType runs the bottom-up inference pass over one expression node and
