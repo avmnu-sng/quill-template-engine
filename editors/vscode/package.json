@@ -1,0 +1,40 @@
+{
+  "name": "quill-template-engine",
+  "displayName": "Quill Template Engine",
+  "description": "Syntax highlighting for Quill templates (.quill).",
+  "version": "0.1.0",
+  "publisher": "quill-template-engine",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "quill",
+    "template",
+    "templating"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "quill",
+        "aliases": [
+          "Quill"
+        ],
+        "extensions": [
+          ".quill"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "quill",
+        "scopeName": "source.quill",
+        "path": "./syntaxes/quill.tmLanguage.json"
+      }
+    ]
+  }
+}

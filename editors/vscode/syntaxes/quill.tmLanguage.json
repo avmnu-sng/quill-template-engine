@@ -1,0 +1,211 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Quill",
+  "scopeName": "source.quill",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#verbatim" },
+    { "include": "#interpolation" },
+    { "include": "#statement" },
+    { "include": "#escaped-brace" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.block.quill",
+      "begin": "\\{#",
+      "end": "#\\}\\+?",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.comment.begin.quill" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.comment.end.quill" }
+      }
+    },
+    "escaped-brace": {
+      "name": "constant.character.escape.quill",
+      "match": "\\\\[{}\\\\]"
+    },
+    "verbatim": {
+      "name": "meta.statement.verbatim.quill",
+      "begin": "(?<=^|\\n)([ \\t]*)(@verbatim)\\b[^\\n]*?(\\{[-~+]?)[ \\t]*$",
+      "end": "(@\\})[-~+]?",
+      "beginCaptures": {
+        "2": { "name": "keyword.control.verbatim.quill" },
+        "3": { "name": "punctuation.definition.block.begin.quill" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.block.end.quill" }
+      },
+      "contentName": "string.unquoted.verbatim.quill"
+    },
+    "interpolation": {
+      "name": "meta.interpolation.quill",
+      "begin": "\\{\\{[-~]?",
+      "end": "[-~+]?\\}\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.interpolation.begin.quill" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.interpolation.end.quill" }
+      },
+      "patterns": [{ "include": "#expression" }]
+    },
+    "statement": {
+      "patterns": [
+        { "include": "#block-close" },
+        { "include": "#statement-head" }
+      ]
+    },
+    "block-close": {
+      "name": "meta.statement.close.quill",
+      "match": "(?<=^|\\n)([ \\t]*)(@\\})([-~+]?)",
+      "captures": {
+        "2": { "name": "punctuation.definition.block.end.quill" }
+      }
+    },
+    "statement-head": {
+      "name": "meta.statement.quill",
+      "begin": "(?<=^|\\n)([ \\t]*)(@)(extends|block|for|if|elseif|else|macro|set|include|import|from|use|embed|with|apply|do|flush|deprecated|guard|types|escape|sandbox|line|cache|capture|log|tab|provide|yield|call)\\b",
+      "end": "(\\{[-~+]?)[ \\t]*$|(?=\\n)|$",
+      "beginCaptures": {
+        "2": { "name": "punctuation.definition.keyword.quill" },
+        "3": { "name": "keyword.control.quill" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.block.begin.quill" }
+      },
+      "patterns": [{ "include": "#expression" }]
+    },
+    "expression": {
+      "patterns": [
+        { "include": "#comment-inline" },
+        { "include": "#string-double" },
+        { "include": "#string-single" },
+        { "include": "#string-raw" },
+        { "include": "#number" },
+        { "include": "#constant" },
+        { "include": "#word-operator" },
+        { "include": "#filter" },
+        { "include": "#function-call" },
+        { "include": "#operator" },
+        { "include": "#punctuation" },
+        { "include": "#variable" }
+      ]
+    },
+    "comment-inline": {
+      "name": "comment.line.number-sign.quill",
+      "begin": "#(?!\\{)",
+      "end": "$"
+    },
+    "string-double": {
+      "name": "string.quoted.double.quill",
+      "begin": "\"",
+      "end": "\"",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.quill" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.quill" }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.quill",
+          "match": "\\\\(x[0-9A-Fa-f]{2}|u\\{[0-9A-Fa-f]+\\}|u[0-9A-Fa-f]{4}|[nrtvfab0\\\\\"'#])"
+        },
+        {
+          "name": "meta.embedded.interpolation.quill",
+          "begin": "#\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.interpolation.begin.quill" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.interpolation.end.quill" }
+          },
+          "patterns": [{ "include": "#expression" }]
+        }
+      ]
+    },
+    "string-single": {
+      "name": "string.quoted.single.quill",
+      "begin": "'",
+      "end": "'",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.quill" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.quill" }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.quill",
+          "match": "\\\\(['\\\\]|.)"
+        }
+      ]
+    },
+    "string-raw": {
+      "name": "string.quoted.other.backtick.quill",
+      "begin": "`",
+      "end": "`",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.quill" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.quill" }
+      }
+    },
+    "number": {
+      "patterns": [
+        {
+          "name": "constant.numeric.integer.hex.quill",
+          "match": "\\b0[xX][0-9A-Fa-f_]+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.binary.quill",
+          "match": "\\b0[bB][01_]+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.octal.quill",
+          "match": "\\b0[oO][0-7_]+\\b"
+        },
+        {
+          "name": "constant.numeric.float.quill",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9][0-9_]*)?([eE][+-]?[0-9_]+)?\\b"
+        }
+      ]
+    },
+    "constant": {
+      "name": "constant.language.quill",
+      "match": "\\b(true|false|null|none)\\b"
+    },
+    "word-operator": {
+      "name": "keyword.operator.word.quill",
+      "match": "\\b(and|or|xor|not|in|is|matches|starts\\s+with|ends\\s+with|has\\s+some|has\\s+every|b_and|b_or|b_xor|if|else|unless)\\b"
+    },
+    "filter": {
+      "match": "(\\|\\|\\||\\|\\||\\|)\\s*([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.operator.pipe.quill" },
+        "2": { "name": "support.function.filter.quill" }
+      }
+    },
+    "function-call": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+      "captures": {
+        "1": { "name": "entity.name.function.quill" }
+      }
+    },
+    "operator": {
+      "name": "keyword.operator.quill",
+      "match": "=>|->|<=>|\\*\\*|//|\\?\\?|\\?:|\\?\\.|\\?\\[|\\.\\.\\.|\\.\\.|==|!=|<=|>=|&&|\\|\\||[-+*/%~<>=!?:&^]"
+    },
+    "punctuation": {
+      "name": "punctuation.quill",
+      "match": "[\\(\\)\\[\\]\\{\\},.]"
+    },
+    "variable": {
+      "name": "variable.other.quill",
+      "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+    }
+  }
+}
