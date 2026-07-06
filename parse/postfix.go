@@ -176,6 +176,10 @@ func (p *parser) parseArg() *ast.Node {
 // NAME followed by "=>" is a single-param arrow; a "(" ... ")" followed by "=>" is
 // a parenthesized param list.
 func (p *parser) parsePrimary() *ast.Node {
+	// parsePrimary is the choke point every nested expression passes through, so
+	// the expression-nesting depth guard sits here (see parser.enter/leave).
+	p.enter()
+	defer p.leave()
 	t := p.cur()
 	switch t.Kind {
 	case lex.INT:
@@ -256,24 +260,14 @@ func (p *parser) parseGroupOrArrow() *ast.Node {
 }
 
 // parenIsArrow reports whether the "(" at the cursor opens an arrow parameter list
-// (it is followed, at the matching ")", by "=>"). It scans forward over balanced
-// parens/brackets/braces without consuming anything.
+// (it is followed, at the matching ")", by "=>"). It reads the matching-closer
+// index from the precomputed match table (parser.buildMatch), so the decision is
+// O(1) per '(' rather than a forward rescan; the table shares one depth counter
+// across (), [], and {}, so the matching closer is whichever bracket first brings
+// depth back to zero, and this is an arrow only when "=>" immediately follows it.
 func (p *parser) parenIsArrow() bool {
-	depth := 0
-	for i := p.pos; i < len(p.toks); i++ {
-		switch p.toks[i].Kind {
-		case lex.LPAREN, lex.LBRACKET, lex.LBRACE:
-			depth++
-		case lex.RPAREN, lex.RBRACKET, lex.RBRACE:
-			depth--
-			if depth == 0 {
-				return i+1 < len(p.toks) && p.toks[i+1].Kind == lex.ARROW
-			}
-		case lex.EOF:
-			return false
-		}
-	}
-	return false
+	c := p.match[p.pos]
+	return c >= 0 && c+1 < len(p.toks) && p.toks[c+1].Kind == lex.ARROW
 }
 
 // parseArrowParenForm parses "(" [ParamList] ")" "=>" Expr after parenIsArrow has

@@ -38,11 +38,33 @@ func ParseString(name, body string) (*ast.Node, error) {
 // lexer produced the whole stream up front, so the parser only ever moves forward
 // with single-token lookahead (peek) and the occasional two-token lookahead for
 // disambiguation (e.g. an arrow param list vs a grouped expression).
+//
+// match is a precomputed bracket-match table (built once by parse): for every
+// opener token index it holds the index of the matching closer, or -1 when the
+// opener is unbalanced. It lets parenIsArrow decide grouping-vs-arrow in O(1)
+// instead of rescanning forward per '(', which would be O(n^2) on deeply nested
+// input. depth counts the current recursion depth of the descent parser so a
+// pathologically nested template is rejected before it can exhaust the goroutine
+// stack (see enter/leave and maxDepth).
 type parser struct {
-	src  *source.Source
-	toks []lex.Token
-	pos  int
+	src   *source.Source
+	toks  []lex.Token
+	pos   int
+	match []int
+	depth int
 }
+
+// maxDepth caps how deeply the recursive-descent parser may nest, at both the
+// expression-nesting point (parsePrimary) and the block-nesting point
+// (parseBodyItems). It is defense-in-depth against stack exhaustion from
+// adversarial input: without it, a template nesting on the order of 1.3e5 parens
+// drives the descent past Go's 1GB goroutine-stack limit and the process dies
+// with an unrecoverable "fatal error: stack overflow". The cap sits far below
+// that crash threshold yet far above any realistic template (the deepest
+// legitimate nesting in the test corpus is a handful of levels), so no valid
+// template reaches it while every adversarial one is turned into a clean,
+// positioned KindSyntax error.
+const maxDepth = 4000
 
 // parse builds the module and converts a thrown syntax fault into an error.
 func (p *parser) parse() (mod *ast.Node, err error) {
@@ -62,8 +84,38 @@ func (p *parser) parse() (mod *ast.Node, err error) {
 			p.failAt(t, "%s", t.Text)
 		}
 	}
+	p.buildMatch()
 	mod = p.parseModule()
 	return mod, nil
+}
+
+// buildMatch precomputes the bracket-match table in one O(n) pass so
+// parenIsArrow is O(1). It pushes each opener index on a stack and, at each
+// closer, pops and records match[opener]=closerIndex. Every entry starts at -1
+// (unbalanced) and stays so if its opener never matches. The three bracket kinds
+// share one stack and one depth counter, exactly reproducing parenIsArrow's
+// prior forward scan, which treated (), [], and {} as one interchangeable depth
+// counter and stopped at the first token that brought depth back to zero
+// regardless of bracket kind. A mixed sequence like "([)]" therefore matches the
+// '(' to the ']' just as the old scan would have.
+func (p *parser) buildMatch() {
+	p.match = make([]int, len(p.toks))
+	for i := range p.match {
+		p.match[i] = -1
+	}
+	var stack []int
+	for i, t := range p.toks {
+		switch t.Kind {
+		case lex.LPAREN, lex.LBRACKET, lex.LBRACE:
+			stack = append(stack, i)
+		case lex.RPAREN, lex.RBRACKET, lex.RBRACE:
+			if n := len(stack); n > 0 {
+				opener := stack[n-1]
+				stack = stack[:n-1]
+				p.match[opener] = i
+			}
+		}
+	}
 }
 
 // --- token cursor ---
@@ -129,6 +181,24 @@ func (p *parser) isNameWordAt(n int, word string) bool {
 	t := p.peekAt(n)
 	return t.Kind == lex.NAME && t.Text == word
 }
+
+// --- recursion-depth guard ---
+
+// enter records one level of recursion into the descent parser and fails with a
+// positioned KindSyntax error once the nesting passes maxDepth. It is paired with
+// leave via `defer p.leave()` at the two recursion choke points (parsePrimary for
+// expression nesting, parseBodyItems for block nesting) so adversarially nested
+// input is rejected before it can exhaust the goroutine stack.
+func (p *parser) enter() {
+	p.depth++
+	if p.depth > maxDepth {
+		p.fail("expression nested too deeply (limit %d)", maxDepth)
+	}
+}
+
+// leave undoes one enter. It is always deferred so it runs even when a nested
+// parse fails via panic/recover.
+func (p *parser) leave() { p.depth-- }
 
 // --- error helpers ---
 
