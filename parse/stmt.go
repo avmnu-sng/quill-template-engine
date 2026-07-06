@@ -177,6 +177,11 @@ func (p *parser) endLine() {
 // AFTER a BLOCK_CLOSE (the lexer emits one '@}' per branch, lex/doors.go
 // scanContinuation), so a body simply ends at its BLOCK_CLOSE.
 func (p *parser) parseBodyItems() []*ast.Node {
+	// parseBodyItems is the structural block-nesting recursion point (each nested
+	// block body re-enters through parseItem -> parseStatement), so the block-depth
+	// guard sits here alongside the expression guard in parsePrimary.
+	p.enter()
+	defer p.leave()
 	var items []*ast.Node
 	for !p.at(lex.BLOCK_CLOSE) && !p.at(lex.EOF) {
 		items = append(items, p.parseItem(false))
