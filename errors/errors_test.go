@@ -38,6 +38,34 @@ func TestAtIsCopy(t *testing.T) {
 	}
 }
 
+func TestAtPosRendersColumn(t *testing.T) {
+	src := source.New("tmpl.ql", "line one\nline two\n")
+	e := New(KindSyntax, "boom").AtPos(src, 2, 7)
+	if e.Line != 2 || e.Col != 7 {
+		t.Fatalf("AtPos did not set line/col: line=%d col=%d", e.Line, e.Col)
+	}
+	if !strings.Contains(e.Error(), "tmpl.ql:2:7") {
+		t.Fatalf("message %q lacks name:line:col", e.Error())
+	}
+}
+
+// At (the pre-existing API) must keep the plain name:line form with no column,
+// so callers and tests that assert the old string stay valid.
+func TestAtOmitsColumn(t *testing.T) {
+	src := source.New("tmpl.ql", "x\n")
+	e := New(KindSyntax, "boom").At(src, 3)
+	if e.Col != 0 {
+		t.Fatalf("At set a nonzero column: %d", e.Col)
+	}
+	msg := e.Error()
+	if !strings.Contains(msg, "tmpl.ql:3") {
+		t.Fatalf("message %q lacks name:line", msg)
+	}
+	if strings.Contains(msg, "tmpl.ql:3:") {
+		t.Fatalf("message %q rendered a spurious column", msg)
+	}
+}
+
 func TestKindOfThroughWrap(t *testing.T) {
 	inner := New(KindKey, "bad key")
 	wrapped := Wrap(KindKey, inner, "subscript failed")

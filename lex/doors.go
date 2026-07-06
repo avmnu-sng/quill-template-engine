@@ -83,7 +83,7 @@ func (l *lexer) scanInterp() {
 	tl := l.takeOpenTrim()
 	l.emit(Token{Kind: OPEN_INTERP, Line: openLine, Col: openCol, TrimL: tl})
 
-	if l.scanCode(scanInterpClose) {
+	if l.scanCode(scanInterpClose, openLine, openCol) {
 		return // ERROR already emitted
 	}
 	// On return, cursor is just before a depth-zero "}}" (possibly after a trim).
@@ -180,7 +180,10 @@ func (l *lexer) scanContinuation(kw string) {
 		l.advance()
 	}
 	l.emit(Token{Kind: STMT, Text: kw, Line: line, Col: col})
-	if l.scanCode(scanStmtHeadEnd) {
+	// A statement head ends at a newline/EOF (scanStmtHeadEnd stops at EOF), so it
+	// never reaches scanCode's unterminated-interpolation branch; the opener args
+	// here are the head keyword's position and are simply unused in that path.
+	if l.scanCode(scanStmtHeadEnd, line, col) {
 		return
 	}
 	if l.pos < len(l.in) && l.in[l.pos] == '{' {
@@ -213,7 +216,9 @@ func (l *lexer) scanStatement(kw string) {
 	}
 	l.emit(Token{Kind: STMT, Text: kw, Line: line, Col: col})
 
-	if l.scanCode(scanStmtHeadEnd) {
+	// As in scanContinuation, a head stops at newline/EOF and never hits the
+	// unterminated-interpolation branch, so these opener args go unused there.
+	if l.scanCode(scanStmtHeadEnd, line, col) {
 		return // ERROR
 	}
 	// Cursor is at the head terminator: a depth-zero '{', a newline, or EOF.

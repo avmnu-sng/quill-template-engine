@@ -161,9 +161,14 @@ func (p *parser) expectStmt(kw string) lex.Token {
 	return p.advance()
 }
 
-// openBody consumes the BLOCK_OPEN that begins a brace body.
+// openBody consumes the BLOCK_OPEN that begins a brace body and records its
+// token on the open-block stack so a later unclosed body can be reported at the
+// opener rather than at the far EOF token (see closeBlock). The push/pop pairs
+// with closeBlock across every block-bodied statement, so callers need not thread
+// the opener token themselves.
 func (p *parser) openBody() {
-	p.expect(lex.BLOCK_OPEN, "'{' to open a block body")
+	open := p.expect(lex.BLOCK_OPEN, "'{' to open a block body")
+	p.openStack = append(p.openStack, open)
 }
 
 // endLine consumes the STMT_END that terminates a line statement.
@@ -189,7 +194,24 @@ func (p *parser) parseBodyItems() []*ast.Node {
 	return items
 }
 
-// closeBlock consumes the BLOCK_CLOSE that ends a brace body.
+// closeBlock consumes the BLOCK_CLOSE that ends a brace body, popping the opener
+// that openBody pushed. When the body was never closed, the current token is EOF
+// (or some other non-'@}' token) rather than BLOCK_CLOSE; instead of failing at
+// that far position, report the fault at the block opener so the message points
+// at where the still-open block began.
 func (p *parser) closeBlock() {
-	p.expect(lex.BLOCK_CLOSE, "'@}' to close the block")
+	var open lex.Token
+	haveOpen := false
+	if n := len(p.openStack); n > 0 {
+		open = p.openStack[n-1]
+		p.openStack = p.openStack[:n-1]
+		haveOpen = true
+	}
+	if !p.at(lex.BLOCK_CLOSE) {
+		if haveOpen {
+			p.failAt(open, "unclosed block opened here: expected '@}' to close the block, found %s", describe(p.cur()))
+		}
+		p.fail("expected '@}' to close the block but found %s", describe(p.cur()))
+	}
+	p.advance()
 }
