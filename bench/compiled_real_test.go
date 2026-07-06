@@ -9,10 +9,10 @@ import (
 
 	quill "github.com/avmnu-sng/quill-template-engine"
 	"github.com/avmnu-sng/quill-template-engine/compile"
+	"github.com/avmnu-sng/quill-template-engine/core/parse"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 	"github.com/avmnu-sng/quill-template-engine/ext"
-	"github.com/avmnu-sng/quill-template-engine/parse"
 	"github.com/avmnu-sng/quill-template-engine/runtime"
-	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // realGeneratedHeader is the generated-file header genloop.go prepends to the

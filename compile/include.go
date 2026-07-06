@@ -1,9 +1,9 @@
 package compile
 
 import (
-	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/check"
-	"github.com/avmnu-sng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 )
 
 // stmtInclude lowers a static "@include expr [with map] [only] [ignore missing]"

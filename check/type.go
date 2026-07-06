@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
 )
 
 // Kind tags a static Type. The scalar kinds mirror the runtime kinds of

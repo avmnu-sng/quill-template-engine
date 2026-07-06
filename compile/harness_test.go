@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/compile"
-	"github.com/avmnu-sng/quill-template-engine/parse"
-	"github.com/avmnu-sng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/parse"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 )
 
 // compiledCase is one template to compile into the scratch module and render
@@ -179,8 +179,8 @@ func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile
 	mainB.WriteString("package main\n\nimport (\n")
 	mainB.WriteString("\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"io\"\n\t\"os\"\n\t\"strconv\"\n\t\"strings\"\n\n")
 	mainB.WriteString("\tquill \"github.com/avmnu-sng/quill-template-engine\"\n")
-	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/cache\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/compiled\"\n")
+	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/core/cache\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/ext\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/runtime\"\n")
 	var pkgs []string

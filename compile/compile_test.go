@@ -12,10 +12,10 @@ import (
 
 	quill "github.com/avmnu-sng/quill-template-engine"
 	"github.com/avmnu-sng/quill-template-engine/compile"
+	"github.com/avmnu-sng/quill-template-engine/core/parse"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 	"github.com/avmnu-sng/quill-template-engine/internal/jsonval"
-	"github.com/avmnu-sng/quill-template-engine/parse"
 	"github.com/avmnu-sng/quill-template-engine/runtime"
-	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // loweringCases is the construct-by-construct parity table: each case

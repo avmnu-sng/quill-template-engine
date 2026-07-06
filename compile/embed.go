@@ -1,7 +1,7 @@
 package compile
 
 import (
-	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
 )
 
 // stmtEmbed lowers a static "@embed src [with map] [only] [ignore missing] {

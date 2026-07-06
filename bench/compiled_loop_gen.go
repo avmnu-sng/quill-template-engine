@@ -22,10 +22,10 @@ import (
 	"strings"
 
 	"github.com/avmnu-sng/quill-template-engine/compiled"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 	qerrors "github.com/avmnu-sng/quill-template-engine/errors"
 	"github.com/avmnu-sng/quill-template-engine/ext"
 	"github.com/avmnu-sng/quill-template-engine/runtime"
-	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // qSrc anchors every runtime error this render function raises to the

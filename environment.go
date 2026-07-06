@@ -7,18 +7,18 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
-	"github.com/avmnu-sng/quill-template-engine/cache"
 	"github.com/avmnu-sng/quill-template-engine/check"
 	"github.com/avmnu-sng/quill-template-engine/compiled"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/cache"
+	"github.com/avmnu-sng/quill-template-engine/core/interp"
+	"github.com/avmnu-sng/quill-template-engine/core/parse"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 	"github.com/avmnu-sng/quill-template-engine/cover"
 	"github.com/avmnu-sng/quill-template-engine/ext"
-	"github.com/avmnu-sng/quill-template-engine/interp"
 	"github.com/avmnu-sng/quill-template-engine/loader"
-	"github.com/avmnu-sng/quill-template-engine/parse"
 	"github.com/avmnu-sng/quill-template-engine/runtime"
 	"github.com/avmnu-sng/quill-template-engine/sandbox"
-	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // Environment is the engine facade: it ties a Loader, a parse cache, and the

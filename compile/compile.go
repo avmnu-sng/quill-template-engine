@@ -28,10 +28,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/check"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 	"github.com/avmnu-sng/quill-template-engine/errors"
-	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // Options configures one Module compilation.
@@ -383,7 +383,7 @@ func (c *compiler) assemble() []byte {
 	b.WriteString("\tqerrors \"github.com/avmnu-sng/quill-template-engine/errors\"\n")
 	b.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/ext\"\n")
 	b.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/runtime\"\n")
-	b.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/source\"\n")
+	b.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/core/source\"\n")
 	b.WriteString(")\n\n")
 	b.WriteString("// qSrc anchors every runtime error this render function raises to the\n")
 	b.WriteString("// template it was compiled from, so error text matches the interpreter's.\n")

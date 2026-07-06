@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 	"github.com/avmnu-sng/quill-template-engine/errors"
-	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // Loader resolves a template name to a *source.Source. Exists is a cheap

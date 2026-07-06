@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
 	"github.com/avmnu-sng/quill-template-engine/check"
-	"github.com/avmnu-sng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 )
 
 // maxUnitInline bounds compile-time block-body inlining depth. A composition

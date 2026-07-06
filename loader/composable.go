@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 	"github.com/avmnu-sng/quill-template-engine/errors"
-	"github.com/avmnu-sng/quill-template-engine/source"
 )
 
 // ChainLoader consults a sequence of loaders in order and serves the first hit.

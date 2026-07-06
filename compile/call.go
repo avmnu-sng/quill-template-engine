@@ -3,7 +3,7 @@ package compile
 import (
 	"fmt"
 
-	"github.com/avmnu-sng/quill-template-engine/ast"
+	"github.com/avmnu-sng/quill-template-engine/core/ast"
 )
 
 // engineBoundFunctions names the registered functions whose behavior depends

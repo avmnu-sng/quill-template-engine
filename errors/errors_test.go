@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/source"
+	"github.com/avmnu-sng/quill-template-engine/core/source"
 )
 
 func TestErrorMessageWithPosition(t *testing.T) {
