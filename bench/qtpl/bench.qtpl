@@ -1,0 +1,47 @@
+{% import "strings" %}
+
+{% comment %}
+This template is the quicktemplate (qtc-compiled) peer for the Quill benchmark
+harness. quicktemplate is the fastest COMPILED Go template engine, so it is the
+right bar for Quill's compiled path. qtc generates bench.qtpl.go from this file;
+the generated file is committed and guarded behind the "thirdparty" build tag so
+the default offline build stays dependency-free. Regenerate with:
+
+    cd bench && go generate ./...   (or: go run github.com/valyala/quicktemplate/qtc -dir=qtpl)
+
+Row is the plain-Go record shape the loop renders, mirroring the fields the
+stdlib record and the Quill map records carry.
+{% endcomment %}
+{% code
+type Row struct {
+	Name  string
+	Email string
+}
+%}
+
+{% comment %}
+Tiny renders the single-interpolation workload, the upper-cased "Hello NAME!",
+matching Quill's Hello name upper filter. The s-with-equals output tag emits the
+value without HTML-escaping so the output is byte-identical to the plaintext
+engines (the ASCII input triggers no escaping anyway). The -%} / {%- trim markers
+strip the structural source newlines around the body so the emitted bytes are
+exactly "Hello NAME!" with no trailing newline, matching quillTiny.
+{% endcomment %}
+{% func Tiny(name string) -%}
+Hello {%s= strings.ToUpper(name) %}!{% endfunc %}
+
+{% comment %}
+Loop renders n rows, each "index. UPPER-NAME <email>" followed by exactly one
+newline, 1-based index, no leading blank line -- byte-identical to the Quill
+for-loop and the reframed text/template loop. The one newline per row is the
+physical source newline that terminates the body line; the {%- endfor keeps it
+(it trims only the leading whitespace of that line, i.e. nothing here) while the
+-%} on the for opener and the {%- endfunc strip the surrounding structural
+newlines. strings.ToUpper stands in for the upper filter; the s-with-equals tag
+avoids HTML-escaping the angle brackets so the bytes match the plaintext engines.
+{% endcomment %}
+{% func Loop(rows []Row) -%}
+{% for i := range rows -%}
+{%d i+1 %}. {%s= strings.ToUpper(rows[i].Name) %} <{%s= rows[i].Email %}>
+{% endfor -%}
+{%- endfunc %}

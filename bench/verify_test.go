@@ -106,15 +106,3 @@ func TestVerifyOutputs(t *testing.T) {
 		}
 	}
 }
-
-// firstDataLine returns the first non-empty line of s. It is retained for the
-// third-party verification which still spot-checks a single line for engines
-// whose whitespace framing differs.
-func firstDataLine(s string) string {
-	for _, ln := range strings.Split(s, "\n") {
-		if strings.TrimSpace(ln) != "" {
-			return strings.TrimSpace(ln)
-		}
-	}
-	return ""
-}
