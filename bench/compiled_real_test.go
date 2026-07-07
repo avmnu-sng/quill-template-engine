@@ -2,6 +2,7 @@ package quillbench
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -88,17 +89,25 @@ func TestCompiledRealMatchesInterp(t *testing.T) {
 
 // BenchmarkCompiledReal_Loop_Render times the real shipped compile backend: the
 // committed render function emitted by compile.Module (the same unit
-// quill.WithCompiled installs) over the same loopN-row data the interpreter and
-// text/template loop benchmarks render. The loop template does not use @cache,
-// so a nil RenderCache is passed.
+// quill.WithCompiled installs) across the same row counts the interpreter and
+// text/template loop benchmarks render, so Quill's compiled path scales alongside
+// them. The loop template does not use @cache, so a nil RenderCache is passed.
 func BenchmarkCompiledReal_Loop_Render(b *testing.B) {
-	vars := map[string]runtime.Value{"users": quillUsers()}
 	exts := ext.Core()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if err := RenderLoop(io.Discard, exts, vars, nil); err != nil {
-			b.Fatal(err)
-		}
+	for _, n := range loopSizes {
+		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
+			vars := map[string]runtime.Value{"users": quillUsersN(n)}
+			var buf bytes.Buffer
+			if err := RenderLoop(&buf, exts, vars, nil); err != nil {
+				b.Fatal(err)
+			}
+			b.SetBytes(int64(buf.Len()))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := RenderLoop(io.Discard, exts, vars, nil); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
