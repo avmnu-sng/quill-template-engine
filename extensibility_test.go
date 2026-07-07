@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/check"
-	"github.com/avmnu-sng/quill-template-engine/ext"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
-	"github.com/avmnu-sng/quill-template-engine/sandbox"
+	"github.com/avmnu-sng/quill-template-engine/pkg/check"
+	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/sandbox"
 )
 
 // mathExt is a sample Extension bundle: it embeds ext.BaseExtension and ships a

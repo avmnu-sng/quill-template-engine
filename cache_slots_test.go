@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/compiled"
-	"github.com/avmnu-sng/quill-template-engine/ext"
-	"github.com/avmnu-sng/quill-template-engine/loader"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/compiled"
+	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // TestCacheRegionWithYieldRendersFreshEveryTime pins the @cache/slots

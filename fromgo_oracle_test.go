@@ -18,8 +18,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/avmnu-sng/quill-template-engine/errors"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // oracleFromGo mirrors runtime.FromGo's entry switch.

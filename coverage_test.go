@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/cover"
-	"github.com/avmnu-sng/quill-template-engine/loader"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // findRegion returns the region of the given kind at the given 1-based line in a

@@ -3,7 +3,7 @@ package quill
 import (
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
 )
 
 // TestPrivatizedArrayIsolatesInChildScopes pins the copy-on-write escape class

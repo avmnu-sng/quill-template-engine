@@ -6,11 +6,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/core/interp"
-	"github.com/avmnu-sng/quill-template-engine/core/parse"
-	"github.com/avmnu-sng/quill-template-engine/core/source"
-	"github.com/avmnu-sng/quill-template-engine/loader"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )
 
 // preparedMemoFixtures is a template set exercising every composition family

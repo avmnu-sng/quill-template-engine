@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/ext"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // TestMacroKwargsTail exercises the trailing "**name" kwargs parameter: it

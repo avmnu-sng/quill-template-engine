@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/cover"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // renderQ is a small helper: render a single ad-hoc template with vars and fail

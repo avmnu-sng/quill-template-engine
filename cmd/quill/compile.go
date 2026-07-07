@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/avmnu-sng/quill-template-engine/compile"
-	"github.com/avmnu-sng/quill-template-engine/core/parse"
-	"github.com/avmnu-sng/quill-template-engine/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
 )
 
 // runCompile implements the "compile" subcommand: it loads one template by

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
 )
 
 // TestInnermostIncludeProvideFeedsShellYield pins the slot-owner routing
