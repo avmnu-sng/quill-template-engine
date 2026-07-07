@@ -1,0 +1,61 @@
+name: fuzz
+
+# Continuous fuzzing of the lexer (FuzzLex) and parser (FuzzParse). This is a
+# scheduled hardening sweep plus manual dispatch -- NOT part of the `ci-done`
+# aggregate gate and not a per-PR pass/fail signal. The seed corpora themselves
+# already run on every PR as ordinary subtests under `go test ./...`; this
+# workflow is the extended random-input search that a fixed corpus cannot cover.
+on:
+  schedule:
+    # Weekly, Monday 06:00 UTC. Bump to a nightly cron while hardening for v1.0.0
+    # if faster feedback is wanted.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: 'Duration to fuzz each target (Go -fuzztime, e.g. 5m, 600s)'
+        required: false
+        default: '5m'
+
+# One fuzz sweep per ref at a time; a later run supersedes an in-flight one.
+concurrency:
+  group: fuzz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: fuzz ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pkg: ./pkg/lex
+            target: FuzzLex
+          - pkg: ./pkg/parse
+            target: FuzzParse
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+      # On a schedule run github.event.inputs is null, so fall back to 5m.
+      - name: Fuzz ${{ matrix.target }}
+        run: |
+          go test -run='^$' -fuzz='^${{ matrix.target }}$' \
+            -fuzztime='${{ github.event.inputs.fuzztime || '5m' }}' '${{ matrix.pkg }}'
+      # A discovered failure is minimized and written under
+      # testdata/fuzz/<target>/; surface it so the reproducer can be committed as a
+      # permanent regression seed (it then runs in normal CI forever after).
+      - name: Upload crashers
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-crashers-${{ matrix.target }}
+          path: '**/testdata/fuzz/${{ matrix.target }}/**'
+          if-no-files-found: ignore
+          retention-days: 30
