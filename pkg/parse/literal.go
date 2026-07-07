@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/avmnu-sng/quill-template-engine/internal/lex"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
-	"github.com/avmnu-sng/quill-template-engine/internal/lex"
 )
 
 // parseIntLit decodes an INT token. The lexer already stripped '_' separators and

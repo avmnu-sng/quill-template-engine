@@ -15,9 +15,9 @@
 package parse
 
 import (
+	"github.com/avmnu-sng/quill-template-engine/internal/lex"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
-	"github.com/avmnu-sng/quill-template-engine/internal/lex"
 	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )
 

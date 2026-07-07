@@ -1,8 +1,8 @@
 package parse
 
 import (
-	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
 	"github.com/avmnu-sng/quill-template-engine/internal/lex"
+	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
 )
 
 // parseType parses a type annotation per spec 02 Section 5:

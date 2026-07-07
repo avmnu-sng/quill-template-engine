@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 	"github.com/avmnu-sng/quill-template-engine/internal/lex"
+	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 )
 
 // Deeply nested grouping that stays below maxDepth must parse without the former
