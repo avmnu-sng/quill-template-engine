@@ -21,6 +21,10 @@ vars:
   GOLANGCI_LINT_VERSION: v2.11.4
   GO_LICENSES_VERSION: v2.0.1
   GOVULNCHECK_VERSION: v1.1.4
+  BENCHSTAT_VERSION: v0.0.0-20250515181355-8f5f3abf7f9a
+  # The benchmark harness is a separate nested module under ./bench so the engine
+  # stays standard-library-only; every bench target runs in that directory.
+  BENCH_DIR: bench
 
 tasks:
   default:
@@ -60,13 +64,14 @@ tasks:
       - mkdir -p "$(go env GOPATH)/bin"
 
   install:tools:
-    desc: Install the Go-library dev tools (golangci-lint, govulncheck, actionlint, go-licenses)
+    desc: Install the Go-library dev tools (golangci-lint, govulncheck, actionlint, go-licenses, benchstat)
     deps: [go:version-check]
     status:
       - test -x {{.GOBIN}}/actionlint
       - test -x {{.GOBIN}}/golangci-lint
       - test -x {{.GOBIN}}/go-licenses
       - test -x {{.GOBIN}}/govulncheck
+      - test -x {{.GOBIN}}/benchstat
     cmds:
       - |
         OS=$(uname -s)
@@ -76,6 +81,7 @@ tasks:
       - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "{{.GOBIN}}" {{.GOLANGCI_LINT_VERSION}}
       - go install github.com/google/go-licenses/v2@{{.GO_LICENSES_VERSION}}
       - go install golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}}
+      - go install golang.org/x/perf/cmd/benchstat@{{.BENCHSTAT_VERSION}}
 
   build:
     desc: Build all packages and the cmd/quill binary
@@ -173,6 +179,69 @@ tasks:
     cmds:
       - task: security:govulncheck
       - task: security:licenses
+
+  # ---------------------------------------------------------------------------
+  # Benchmarks. The harness is a separate nested module ({{.BENCH_DIR}}); the
+  # default (offline) suite is standard-library-only, while the `thirdparty`
+  # build tag adds the four peer engines (pongo2, stick, jet, quicktemplate).
+  # benchstat prefers the installed binary from `task install:tools` and falls
+  # back to `go run` so the stat targets work on a bare checkout. See
+  # docs/performance.md for the methodology and how to read the output.
+  # ---------------------------------------------------------------------------
+  bench:
+    desc: Run the offline benchmark suite (Quill + stdlib, no external deps)
+    dir: '{{.BENCH_DIR}}'
+    cmds:
+      - go test -bench=. -benchmem -run='^$' ./...
+
+  bench:all:
+    desc: Run the full benchmark suite including the thirdparty peer engines
+    dir: '{{.BENCH_DIR}}'
+    cmds:
+      - go test -tags thirdparty -bench=. -benchmem -run='^$' ./...
+
+  bench:stat:
+    desc: "Run the full suite 10x and summarize with benchstat (mean +/- variation)"
+    dir: '{{.BENCH_DIR}}'
+    vars:
+      BENCHSTAT:
+        sh: test -x {{.GOBIN}}/benchstat && echo {{.GOBIN}}/benchstat || echo "go run golang.org/x/perf/cmd/benchstat@latest"
+    cmds:
+      - go test -tags thirdparty -bench=. -benchmem -count=10 -run='^$' ./... | tee /tmp/quill-bench-stat.txt
+      - '{{.BENCHSTAT}} /tmp/quill-bench-stat.txt'
+
+  bench:compare:
+    desc: "Compare the current suite against the committed baseline.txt with benchstat"
+    dir: '{{.BENCH_DIR}}'
+    preconditions:
+      - sh: test -f baseline.txt
+        msg: "bench/baseline.txt missing. Generate it with 'task bench:baseline' first."
+    vars:
+      BENCHSTAT:
+        sh: test -x {{.GOBIN}}/benchstat && echo {{.GOBIN}}/benchstat || echo "go run golang.org/x/perf/cmd/benchstat@latest"
+    cmds:
+      - go test -tags thirdparty -bench=. -benchmem -count=10 -run='^$' ./... | tee /tmp/quill-bench-current.txt
+      - '{{.BENCHSTAT}} baseline.txt /tmp/quill-bench-current.txt'
+
+  bench:baseline:
+    desc: "Regenerate the committed bench/baseline.txt (same run as bench:stat)"
+    dir: '{{.BENCH_DIR}}'
+    cmds:
+      # baseline.txt is committed and regenerated intentionally: it is the
+      # reference `task bench:compare` measures deltas against. Refresh it (and
+      # commit the change) after a deliberate performance shift, on a quiet
+      # machine, so the comparison stays meaningful.
+      - go test -tags thirdparty -bench=. -benchmem -count=10 -run='^$' ./... | tee baseline.txt
+
+  bench:profile:
+    desc: "Profile one hot benchmark (Quill loop render) to bench/prof/ for pprof"
+    dir: '{{.BENCH_DIR}}'
+    cmds:
+      - mkdir -p prof
+      # Target the root package (.) explicitly: go test rejects -cpuprofile with
+      # a multi-package pattern, and only this package carries benchmarks.
+      - go test -run='^$' -bench='^BenchmarkQuill_Loop_Render$/n=1000$' -benchmem -cpuprofile=prof/cpu.out -memprofile=prof/mem.out .
+      - 'echo "Inspect with: go tool pprof {{.BENCH_DIR}}/prof/cpu.out   (or prof/mem.out)"'
 
   ci:
     desc: "Full CI pipeline: lint, checks, tests, and security scans"
