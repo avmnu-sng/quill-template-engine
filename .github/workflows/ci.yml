@@ -102,11 +102,35 @@ jobs:
           files: coverage.out
           fail_ci_if_error: false
 
+  bench:
+    name: bench (offline)
+    runs-on: ubuntu-latest
+    # The benchmark harness is a separate nested module (./bench) that the engine
+    # module never imports, so its offline fairness/verification tests -- the ones
+    # asserting byte-identical output across engines -- otherwise never run in CI.
+    # Exercise them under the default build tag (Quill + stdlib only; the external
+    # peer engines stay gated behind the `thirdparty` tag) so a broken fairness
+    # check or a bench compile error is caught on the PR instead of post-merge.
+    # This runs -run only (no -bench): correctness, not timings. bench/go.mod pins
+    # a newer Go than the engine module's minimum, so it uses stable only.
+    defaults:
+      run:
+        shell: bash
+        working-directory: bench
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+      - name: Test (offline harness)
+        run: go test ./...
+
   ci-done:
     name: ci-done
     # The single required status check. It aggregates every other job so branch
     # protection needs to reference only this one.
-    needs: [ test, lint, coverage ]
+    needs: [ test, lint, coverage, bench ]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -7,14 +7,25 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
       - 'requirements-docs.txt'
+  # Build (but do not deploy) on PRs that touch docs so a `mkdocs build --strict`
+  # break surfaces on the PR instead of only after merge, when docs.yml would
+  # otherwise first run on push-to-main.
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'requirements-docs.txt'
   workflow_dispatch:
 
-# Serialize Pages deploys under one group. cancel-in-progress is false so an
-# in-flight deploy is allowed to finish rather than being clobbered by a later
-# push, which can leave the published site in a half-updated state.
+# On push/dispatch the deploy job runs, so serialize under one 'pages' group with
+# cancel-in-progress false: an in-flight deploy finishes rather than being
+# clobbered by a later push (which can leave the published site half-updated). A
+# pull request only builds --strict (no deploy), so it gets its own per-ref group
+# that cancels superseded runs and never contends with the deploy group.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('docs-pr-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -30,15 +41,21 @@ jobs:
           python-version: '3.x'
       - name: Install documentation dependencies
         run: pip install -r requirements-docs.txt
-      - name: Build site
+      - name: Build site (strict)
         run: mkdocs build --strict
+      # Publish the artifact only for a real deploy; a PR stops after the strict
+      # build, which is the pre-merge check.
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
   deploy:
     name: deploy
+    # A pull request only validates the build; deploying is reserved for
+    # push-to-main and manual dispatch.
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:
