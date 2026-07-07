@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/core/interp"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // ---- Quill templates (the @-sigil statement form) ----

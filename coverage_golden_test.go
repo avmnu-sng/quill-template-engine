@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/cover"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // updateGolden regenerates the committed coverage report golden files when set

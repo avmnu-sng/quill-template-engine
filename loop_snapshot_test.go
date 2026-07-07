@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // TestLoopValueIsFrozenSnapshot pins the load-bearing invariant behind the

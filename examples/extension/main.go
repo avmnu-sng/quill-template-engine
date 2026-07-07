@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/ext"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 const tmpl = `{{ "ab" | repeat(3) }}

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/loader"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // spillSets returns n @set statements binding prefix01..prefixNN, enough to

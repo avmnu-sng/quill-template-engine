@@ -3,7 +3,7 @@ package quill
 import (
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
 )
 
 // TestArrowCapturesLexicalScopeLive pins the arrow-closure capture contract:

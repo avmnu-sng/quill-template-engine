@@ -25,9 +25,9 @@ package main
 import (
 	"os"
 
-	"github.com/avmnu-sng/quill-template-engine/compile"
-	"github.com/avmnu-sng/quill-template-engine/core/parse"
-	"github.com/avmnu-sng/quill-template-engine/core/source"
+	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
+	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )
 
 // genLoopTemplate is the loop benchmark template. It is kept byte-identical to

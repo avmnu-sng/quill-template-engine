@@ -28,7 +28,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 // Decode parses JSON bytes into a single runtime.Value, preserving object key

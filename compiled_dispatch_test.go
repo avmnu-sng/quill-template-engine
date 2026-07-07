@@ -10,13 +10,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/check"
-	"github.com/avmnu-sng/quill-template-engine/compiled"
-	"github.com/avmnu-sng/quill-template-engine/cover"
-	"github.com/avmnu-sng/quill-template-engine/ext"
-	"github.com/avmnu-sng/quill-template-engine/loader"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
-	"github.com/avmnu-sng/quill-template-engine/sandbox"
+	"github.com/avmnu-sng/quill-template-engine/pkg/check"
+	"github.com/avmnu-sng/quill-template-engine/pkg/compiled"
+	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
+	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/sandbox"
 )
 
 // dispatchMarker is the output of the tracer manifests below. It deliberately

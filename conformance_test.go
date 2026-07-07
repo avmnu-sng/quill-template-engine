@@ -7,12 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/cover"
-	"github.com/avmnu-sng/quill-template-engine/ext"
 	"github.com/avmnu-sng/quill-template-engine/internal/jsonval"
-	"github.com/avmnu-sng/quill-template-engine/loader"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
-	"github.com/avmnu-sng/quill-template-engine/sandbox"
+	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
+	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
+	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/sandbox"
 )
 
 // buildPolicy turns a fixture's sandbox config into a *sandbox.Policy: the flat
