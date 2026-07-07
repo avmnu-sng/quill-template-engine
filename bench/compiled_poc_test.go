@@ -1,6 +1,8 @@
 package quillbench
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -85,15 +87,24 @@ func TestCompiledMatchesInterp(t *testing.T) {
 	}
 }
 
-// BenchmarkCompiled_Loop_Render times the compiled form, to compare against
-// BenchmarkQuill_Loop_Render (interpreter) and BenchmarkText_Loop_Render.
+// BenchmarkCompiled_Loop_Render times the hand-compiled form across the same row
+// counts as BenchmarkQuill_Loop_Render (interpreter) and BenchmarkText_Loop_Render,
+// so the proof-of-ceiling scaling lines up column-for-column with the others.
 func BenchmarkCompiled_Loop_Render(b *testing.B) {
-	users := quillUsers()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if err := compiledLoop(io.Discard, users); err != nil {
-			b.Fatal(err)
-		}
+	for _, n := range loopSizes {
+		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
+			users := quillUsersN(n)
+			var buf bytes.Buffer
+			if err := compiledLoop(&buf, users); err != nil {
+				b.Fatal(err)
+			}
+			b.SetBytes(int64(buf.Len()))
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := compiledLoop(io.Discard, users); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }

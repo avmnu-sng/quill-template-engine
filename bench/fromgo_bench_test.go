@@ -34,8 +34,7 @@ func hostRecords() []hostRecord {
 func BenchmarkQuill_FromGo_Marshal(b *testing.B) {
 	rows := hostRecords()
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := runtime.FromGo(rows); err != nil {
 			b.Fatal(err)
 		}
@@ -53,10 +52,14 @@ func BenchmarkQuill_RenderValues_Loop(b *testing.B) {
 		b.Fatal(err)
 	}
 	vars := map[string]any{"users": hostRecords()}
+	out, err := env.RenderValues("loop.ql", vars)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := env.RenderValues("loop.ql", vars); err != nil {
+	for b.Loop() {
+		if sink, err = env.RenderValues("loop.ql", vars); err != nil {
 			b.Fatal(err)
 		}
 	}

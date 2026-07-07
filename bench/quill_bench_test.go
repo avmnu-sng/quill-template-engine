@@ -1,12 +1,18 @@
 package quillbench
 
 import (
+	"fmt"
 	"testing"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
 	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
+
+// sink keeps the last rendered string reachable so the compiler cannot elide the
+// render call in a b.Loop body whose result would otherwise be dead. Every render
+// benchmark assigns its output here after computing the byte count for SetBytes.
+var sink string
 
 // ---- Quill templates (the @-sigil statement form) ----
 
@@ -47,12 +53,17 @@ func quillRecord(name, email string, active bool) runtime.Value {
 	return runtime.Arr(r)
 }
 
-func quillUsers() runtime.Value {
-	vals := make([]runtime.Value, loopN)
+// quillUsersN builds n map-shaped records as a runtime list value.
+func quillUsersN(n int) runtime.Value {
+	vals := make([]runtime.Value, n)
 	for i := range vals {
 		vals[i] = quillRecord("user", "user@example.com", true)
 	}
 	return runtime.Arr(runtime.NewList(vals...))
+}
+
+func quillUsers() runtime.Value {
+	return quillUsersN(loopN)
 }
 
 func quillItems() runtime.Value {
@@ -69,7 +80,7 @@ func quillItems() runtime.Value {
 // type-check happen on every iteration.
 func BenchmarkQuill_Tiny_Load(b *testing.B) {
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		env := quill.NewWithArray(map[string]string{"tiny.ql": quillTiny})
 		if _, err := env.LoadTemplate("tiny.ql"); err != nil {
 			b.Fatal(err)
@@ -77,7 +88,9 @@ func BenchmarkQuill_Tiny_Load(b *testing.B) {
 	}
 }
 
-// RENDER: template loaded once, only interp.Render is timed.
+// RENDER: template loaded once, only interp.Render is timed. The output is
+// rendered once before the loop to size SetBytes (so ns/op is complemented by
+// MB/s) and to keep the result reachable via sink against dead-code elimination.
 func BenchmarkQuill_Tiny_Render(b *testing.B) {
 	env := quill.NewWithArray(map[string]string{"tiny.ql": quillTiny})
 	tmpl, err := env.LoadTemplate("tiny.ql")
@@ -85,10 +98,14 @@ func BenchmarkQuill_Tiny_Render(b *testing.B) {
 		b.Fatal(err)
 	}
 	vars := map[string]runtime.Value{"name": runtime.Str("ada")}
+	out, err := interp.Render(env, tmpl, vars)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := interp.Render(env, tmpl, vars); err != nil {
+	for b.Loop() {
+		if sink, err = interp.Render(env, tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -98,7 +115,7 @@ func BenchmarkQuill_Tiny_Render(b *testing.B) {
 
 func BenchmarkQuill_Loop_Load(b *testing.B) {
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
 		if _, err := env.LoadTemplate("loop.ql"); err != nil {
 			b.Fatal(err)
@@ -106,19 +123,30 @@ func BenchmarkQuill_Loop_Load(b *testing.B) {
 	}
 }
 
+// BenchmarkQuill_Loop_Render sweeps the loop row count so per-engine scaling is
+// visible. Each sub-benchmark renders once before the loop to size SetBytes and
+// pins the result to sink against dead-code elimination.
 func BenchmarkQuill_Loop_Render(b *testing.B) {
 	env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
 	tmpl, err := env.LoadTemplate("loop.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
-	vars := map[string]runtime.Value{"users": quillUsers()}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := interp.Render(env, tmpl, vars); err != nil {
-			b.Fatal(err)
-		}
+	for _, n := range loopSizes {
+		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
+			vars := map[string]runtime.Value{"users": quillUsersN(n)}
+			out, err := interp.Render(env, tmpl, vars)
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.SetBytes(int64(len(out)))
+			b.ReportAllocs()
+			for b.Loop() {
+				if sink, err = interp.Render(env, tmpl, vars); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 
@@ -146,10 +174,14 @@ func BenchmarkQuill_LoopInclude_Render(b *testing.B) {
 		b.Fatal(err)
 	}
 	vars := map[string]runtime.Value{"users": quillUsers()}
+	out, err := interp.Render(env, tmpl, vars)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := interp.Render(env, tmpl, vars); err != nil {
+	for b.Loop() {
+		if sink, err = interp.Render(env, tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -159,7 +191,7 @@ func BenchmarkQuill_LoopInclude_Render(b *testing.B) {
 
 func BenchmarkQuill_Compose_Load(b *testing.B) {
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		env := quill.NewWithArray(map[string]string{
 			"base.ql": quillBase,
 			"page.ql": quillPage,
@@ -184,10 +216,14 @@ func BenchmarkQuill_Compose_Render(b *testing.B) {
 		"title": runtime.Str("Daily Report"),
 		"items": quillItems(),
 	}
+	out, err := interp.Render(env, tmpl, vars)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := interp.Render(env, tmpl, vars); err != nil {
+	for b.Loop() {
+		if sink, err = interp.Render(env, tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}
