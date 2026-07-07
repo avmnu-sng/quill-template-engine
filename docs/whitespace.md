@@ -146,9 +146,9 @@ Most whitespace idioms map directly. This table translates the common ones:
 | Trim spaces/tabs but keep newlines | (no direct form) | (no direct form) | `{{~ x ~}}` (line trim) |
 | Strip blank lines from control blocks | `trim_blocks` + `lstrip_blocks` (config) | (manual `-` on every tag) | on by default |
 | Keep the newline a block close would eat | (manual) | (manual) | `@}+` or `pragma keep-close-newline` |
-| Collapse inter-tag whitespace | `{% spaceless %}` (older) / `\|spaceless` | (none) | `\| spaceless` filter or `@apply \| spaceless { ... @}` |
-| Strip leading/trailing whitespace from a value | `\| trim` | (none) | `\| trim` |
-| Indent a block of output | `\| indent(n)` | (manual) | `\| tab(n)`, `\| indent(n)`, or `@tab(n) { ... @}` |
+| Collapse inter-tag whitespace | `{% spaceless %}` (older) / <code>&#124;spaceless</code> | (none) | <code>&#124; spaceless</code> filter or <code>@apply &#124; spaceless { ... @}</code> |
+| Strip leading/trailing whitespace from a value | <code>&#124; trim</code> | (none) | <code>&#124; trim</code> |
+| Indent a block of output | <code>&#124; indent(n)</code> | (manual) | <code>&#124; tab(n)</code>, <code>&#124; indent(n)</code>, or `@tab(n) { ... @}` |
 
 The key differences from Go `text/template`: Quill applies block cleanup by
 default (so you rarely need to sprinkle `-` on every tag), adds a line-only trim

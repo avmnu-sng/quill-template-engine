@@ -221,8 +221,8 @@ yields the fallback rather than an error:
 | `a ?? fb` | `fb` | -- | -- |
 | `a.b ?? fb` | `fb` | `fb` | -- |
 | `a.b.c ?? fb` | `fb` | `fb` | `fb` |
-| `a.b \| default(fb)` | `fb` | `fb` | -- |
-| `a.b.c \| default(fb)` | `fb` | `fb` | `fb` |
+| <code>a.b &#124; default(fb)</code> | `fb` | `fb` | -- |
+| <code>a.b.c &#124; default(fb)</code> | `fb` | `fb` | `fb` |
 | `a.b is defined` | `false` | `false` | -- |
 | `a.b.c is defined` | `false` | `false` | `false` |
 
