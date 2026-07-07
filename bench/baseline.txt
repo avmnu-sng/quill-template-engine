@@ -1,0 +1,1059 @@
+# Quill benchmark baseline (reference; regenerate with 'task bench:baseline' on a quiet machine).
+# Generated 2026-07-07T10:03:40Z with -benchtime=200ms -count=10; benchstat compares ns/op regardless.
+goos: darwin
+goarch: arm64
+pkg: quillbench
+cpu: Apple M2 Max
+BenchmarkCompiled_Loop_Render/n=1-12        	 1533651	       151.9 ns/op	 177.74 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=1-12        	 1662836	       144.6 ns/op	 186.77 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=1-12        	 1660766	       144.3 ns/op	 187.16 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=1-12        	 1621131	       146.9 ns/op	 183.75 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=1-12        	 1643689	       145.8 ns/op	 185.16 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=1-12        	 1668537	       143.8 ns/op	 187.78 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=1-12        	 1657351	       145.7 ns/op	 185.28 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=1-12        	 1633720	       146.0 ns/op	 184.98 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=1-12        	 1660587	       144.3 ns/op	 187.11 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=1-12        	 1657203	       144.7 ns/op	 186.65 MB/s	     136 B/op	       2 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  171378	      1398 ns/op	 193.88 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  173066	      1389 ns/op	 195.06 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  173761	      1394 ns/op	 194.45 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  172732	      1406 ns/op	 192.79 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  174376	      1396 ns/op	 194.11 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  173611	      1388 ns/op	 195.29 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  172671	      1393 ns/op	 194.50 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  174234	      1392 ns/op	 194.62 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  172922	      1408 ns/op	 192.51 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=10-12       	  170578	      1392 ns/op	 194.65 MB/s	    1488 B/op	      11 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   17136	     13947 ns/op	 200.18 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   16944	     14176 ns/op	 196.95 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   12722	     17901 ns/op	 155.97 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   16710	     14376 ns/op	 194.21 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   16725	     14361 ns/op	 194.41 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   16784	     14272 ns/op	 195.63 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   17124	     14131 ns/op	 197.58 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   17095	     14083 ns/op	 198.25 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   16879	     14194 ns/op	 196.71 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=100-12      	   17020	     14182 ns/op	 196.87 MB/s	   14376 B/op	     102 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1618	    149792 ns/op	 192.89 MB/s	  146281 B/op	    1902 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1596	    150351 ns/op	 192.17 MB/s	  146281 B/op	    1902 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1627	    149816 ns/op	 192.86 MB/s	  146281 B/op	    1902 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1585	    150214 ns/op	 192.35 MB/s	  146282 B/op	    1902 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1596	    150043 ns/op	 192.56 MB/s	  146282 B/op	    1902 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1581	    150178 ns/op	 192.39 MB/s	  146281 B/op	    1902 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1610	    149881 ns/op	 192.77 MB/s	  146281 B/op	    1902 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1606	    149982 ns/op	 192.64 MB/s	  146281 B/op	    1902 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1600	    149660 ns/op	 193.06 MB/s	  146281 B/op	    1902 allocs/op
+BenchmarkCompiled_Loop_Render/n=1000-12     	    1591	    150610 ns/op	 191.84 MB/s	  146285 B/op	    1902 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1502346	       159.9 ns/op	 168.90 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1508731	       159.3 ns/op	 169.49 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1477928	       161.5 ns/op	 167.22 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1496059	       160.1 ns/op	 168.62 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1500684	       159.7 ns/op	 169.04 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1487706	       161.1 ns/op	 167.60 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1491759	       160.5 ns/op	 168.21 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1453860	       165.2 ns/op	 163.47 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1443123	       166.4 ns/op	 162.26 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1-12    	 1458097	       163.8 ns/op	 164.80 MB/s	       8 B/op	       1 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  228051	      1062 ns/op	 255.21 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  230215	      1059 ns/op	 255.98 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  226658	      1055 ns/op	 256.84 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  223918	      1064 ns/op	 254.66 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  226953	      1076 ns/op	 251.97 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  225306	      1062 ns/op	 255.08 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  228846	      1057 ns/op	 256.39 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  228679	      1052 ns/op	 257.56 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  230226	      1061 ns/op	 255.43 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=10-12   	  225538	      1061 ns/op	 255.31 MB/s	      80 B/op	      10 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23578	     10150 ns/op	 275.07 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23599	     10155 ns/op	 274.94 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23778	     10118 ns/op	 275.95 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23805	     10056 ns/op	 277.64 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23617	     10163 ns/op	 274.72 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23740	     10106 ns/op	 276.27 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23934	     10054 ns/op	 277.71 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23184	     10245 ns/op	 272.53 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23554	     10218 ns/op	 273.24 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=100-12  	   23754	     10102 ns/op	 276.37 MB/s	     808 B/op	     101 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    2022	    121333 ns/op	 238.13 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    2023	    120800 ns/op	 239.18 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    1525	    151736 ns/op	 190.42 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    1908	    124627 ns/op	 231.84 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    1914	    122902 ns/op	 235.09 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    1952	    122091 ns/op	 236.65 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    1996	    120869 ns/op	 239.04 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    1977	    121528 ns/op	 237.75 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    2004	    121207 ns/op	 238.38 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkCompiledReal_Loop_Render/n=1000-12 	    2006	    120998 ns/op	 238.79 MB/s	   15208 B/op	    1901 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    7035	     32780 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    7704	     32716 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    8187	     33901 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    6800	     34231 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    7191	     33458 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    7682	     32615 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    7083	     32699 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    7856	     32687 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    8181	     32992 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_FromGo_Marshal-12            	    7345	     32446 ns/op	   97632 B/op	     407 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    3038	     78022 ns/op	  35.78 MB/s	  103546 B/op	     521 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    3087	     77491 ns/op	  36.03 MB/s	  103550 B/op	     521 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    3163	     78076 ns/op	  35.76 MB/s	  103591 B/op	     521 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    3042	     78119 ns/op	  35.74 MB/s	  103626 B/op	     521 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    3180	     77996 ns/op	  35.80 MB/s	  103623 B/op	     521 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    3207	     77543 ns/op	  36.01 MB/s	  103612 B/op	     521 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    3218	     78261 ns/op	  35.68 MB/s	  103593 B/op	     521 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    2991	     81989 ns/op	  34.05 MB/s	  103638 B/op	     521 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    2784	     81341 ns/op	  34.32 MB/s	  103596 B/op	     521 allocs/op
+BenchmarkQuill_RenderValues_Loop-12         	    2847	     79776 ns/op	  35.00 MB/s	  103608 B/op	     521 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   53592	      4464 ns/op	    3420 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   53902	      4474 ns/op	    3415 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   53427	      4487 ns/op	    3414 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   53428	      4482 ns/op	    3414 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   53324	      4523 ns/op	    3415 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   53161	      4529 ns/op	    3416 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   52833	      4481 ns/op	    3413 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   53761	      4483 ns/op	    3415 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   52068	      4501 ns/op	    3415 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Load-12                   	   53830	      4489 ns/op	    3413 B/op	      56 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  729289	       339.4 ns/op	  29.46 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  696282	       339.0 ns/op	  29.50 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  728440	       340.8 ns/op	  29.34 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  734965	       340.6 ns/op	  29.36 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  723799	       341.8 ns/op	  29.26 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  712059	       339.8 ns/op	  29.43 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  720368	       341.4 ns/op	  29.29 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  704095	       383.6 ns/op	  26.07 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  717506	       341.5 ns/op	  29.28 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Tiny_Render-12                 	  739153	       338.1 ns/op	  29.57 MB/s	     120 B/op	       6 allocs/op
+BenchmarkJet_Loop_Load-12                   	   21644	     11008 ns/op	    5053 B/op	      82 allocs/op
+BenchmarkJet_Loop_Load-12                   	   21814	     10770 ns/op	    5052 B/op	      82 allocs/op
+BenchmarkJet_Loop_Load-12                   	   22970	     10742 ns/op	    5053 B/op	      82 allocs/op
+BenchmarkJet_Loop_Load-12                   	   22647	     10695 ns/op	    5053 B/op	      82 allocs/op
+BenchmarkJet_Loop_Load-12                   	   21829	     10973 ns/op	    5053 B/op	      82 allocs/op
+BenchmarkJet_Loop_Load-12                   	   21813	     11010 ns/op	    5052 B/op	      82 allocs/op
+BenchmarkJet_Loop_Load-12                   	   21876	     10987 ns/op	    5051 B/op	      82 allocs/op
+BenchmarkJet_Loop_Load-12                   	   21832	     11199 ns/op	    5053 B/op	      82 allocs/op
+BenchmarkJet_Loop_Load-12                   	   21685	     11041 ns/op	    5051 B/op	      82 allocs/op
+BenchmarkJet_Loop_Load-12                   	   21692	     11076 ns/op	    5052 B/op	      82 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  286857	       888.1 ns/op	  30.40 MB/s	     587 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  268318	       894.0 ns/op	  30.20 MB/s	     587 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  285440	       887.7 ns/op	  30.41 MB/s	     586 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  281589	       868.6 ns/op	  31.08 MB/s	     587 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  281474	       870.5 ns/op	  31.01 MB/s	     587 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  264944	       889.1 ns/op	  30.37 MB/s	     587 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  270100	       886.2 ns/op	  30.47 MB/s	     587 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  281491	       869.2 ns/op	  31.06 MB/s	     587 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  276664	       867.4 ns/op	  31.13 MB/s	     587 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=1-12             	  274029	       878.5 ns/op	  30.73 MB/s	     587 B/op	      11 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   37860	      6303 ns/op	  43.00 MB/s	    1528 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   37887	      6337 ns/op	  42.76 MB/s	    1528 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   38119	      6352 ns/op	  42.66 MB/s	    1528 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   37819	      6332 ns/op	  42.80 MB/s	    1528 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   37856	      6353 ns/op	  42.66 MB/s	    1528 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   37924	      6315 ns/op	  42.91 MB/s	    1528 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   37962	      6421 ns/op	  42.20 MB/s	    1529 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   37101	      6477 ns/op	  41.84 MB/s	    1527 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   37224	      6415 ns/op	  42.24 MB/s	    1527 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=10-12            	   37657	      6402 ns/op	  42.33 MB/s	    1528 B/op	      65 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    4071	     60729 ns/op	  45.97 MB/s	   10932 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    4018	     60793 ns/op	  45.93 MB/s	   10939 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    4057	     60879 ns/op	  45.86 MB/s	   10933 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    4074	     60539 ns/op	  46.12 MB/s	   10932 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    4054	     60736 ns/op	  45.97 MB/s	   10927 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    3998	     61266 ns/op	  45.57 MB/s	   10935 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    3940	     60767 ns/op	  45.95 MB/s	   10935 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    4034	     60879 ns/op	  45.86 MB/s	   10933 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    3964	     60580 ns/op	  46.09 MB/s	   10935 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=100-12           	    3952	     60458 ns/op	  46.18 MB/s	   10935 B/op	     605 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     386	    619355 ns/op	  46.65 MB/s	  110973 B/op	    6749 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     388	    706559 ns/op	  40.89 MB/s	  110981 B/op	    6749 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     385	    620516 ns/op	  46.56 MB/s	  111006 B/op	    6749 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     387	    619640 ns/op	  46.63 MB/s	  110998 B/op	    6749 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     390	    617888 ns/op	  46.76 MB/s	  111014 B/op	    6749 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     388	    623196 ns/op	  46.36 MB/s	  111007 B/op	    6749 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     385	    624842 ns/op	  46.24 MB/s	  110986 B/op	    6749 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     387	    624478 ns/op	  46.27 MB/s	  111003 B/op	    6749 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     388	    622670 ns/op	  46.40 MB/s	  111026 B/op	    6749 allocs/op
+BenchmarkJet_Loop_Render/n=1000-12          	     385	    621156 ns/op	  46.51 MB/s	  111012 B/op	    6749 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5977881	        40.46 ns/op	 247.14 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5652849	        41.93 ns/op	 238.50 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5846421	        41.27 ns/op	 242.33 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5849996	        41.06 ns/op	 243.54 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5906922	        40.67 ns/op	 245.89 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5938970	        40.47 ns/op	 247.07 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5925834	        40.48 ns/op	 247.04 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5978650	        40.48 ns/op	 247.06 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5953106	        40.55 ns/op	 246.62 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Tiny_Render-12       	 5937140	        40.74 ns/op	 245.45 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4389303	        55.17 ns/op	 489.39 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4350488	        55.36 ns/op	 487.71 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4309154	        55.63 ns/op	 485.38 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4350981	        55.41 ns/op	 487.27 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4294990	        55.65 ns/op	 485.15 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4322065	        55.55 ns/op	 486.02 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4287988	        55.78 ns/op	 484.04 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4372443	        55.36 ns/op	 487.68 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4361828	        55.37 ns/op	 487.63 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1-12   	 4351580	        55.06 ns/op	 490.42 MB/s	       8 B/op	       1 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  530649	       460.5 ns/op	 588.49 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  513184	       468.2 ns/op	 578.83 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  506854	       460.9 ns/op	 587.96 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  522079	       464.2 ns/op	 583.80 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  533772	       462.4 ns/op	 586.05 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  528096	       470.8 ns/op	 575.58 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  521002	       469.9 ns/op	 576.76 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  533130	       470.6 ns/op	 575.80 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  522670	       466.0 ns/op	 581.49 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=10-12  	  523459	       463.3 ns/op	 584.94 MB/s	      80 B/op	      10 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   54388	      4455 ns/op	 626.70 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   54084	      4467 ns/op	 625.05 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   53652	      4450 ns/op	 627.35 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   54202	      4459 ns/op	 626.09 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   53335	      4468 ns/op	 624.96 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   54066	      4462 ns/op	 625.70 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   54477	      4440 ns/op	 628.86 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   54975	      4430 ns/op	 630.23 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   54057	      4457 ns/op	 626.43 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=100-12 	   53883	      4448 ns/op	 627.77 MB/s	     800 B/op	     100 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    5331	     46831 ns/op	 616.96 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    5130	     46619 ns/op	 619.77 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    5283	     46471 ns/op	 621.74 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    5251	     46602 ns/op	 620.00 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    5188	     47661 ns/op	 606.21 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    3890	     52938 ns/op	 545.79 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    5262	     46497 ns/op	 621.39 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    5226	     46471 ns/op	 621.74 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    5150	     46639 ns/op	 619.51 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuicktemplate_Loop_Render/n=1000-12         	    5256	     46569 ns/op	 620.43 MB/s	    8004 B/op	    1000 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   21754	     11396 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   20066	     11882 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   20481	     11645 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   21121	     11366 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   21759	     11049 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   21600	     11332 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   21510	     11059 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   21792	     11009 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   21795	     11047 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Load-12                          	   21772	     11023 ns/op	   18976 B/op	     206 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  714462	       318.5 ns/op	  31.39 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  758863	       321.9 ns/op	  31.07 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  813007	       318.1 ns/op	  31.44 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  837355	       318.7 ns/op	  31.38 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  783097	       317.6 ns/op	  31.48 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  798060	       317.7 ns/op	  31.48 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  815608	       316.7 ns/op	  31.58 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  761702	       317.7 ns/op	  31.48 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  838329	       316.6 ns/op	  31.58 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Tiny_Render-12                        	  787228	       316.7 ns/op	  31.57 MB/s	     504 B/op	       6 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   17460	     13640 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   17518	     13670 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   17791	     13557 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   17894	     13567 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   17367	     13731 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   16695	     14498 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   16518	     14511 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   16633	     14208 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   16939	     14058 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Load-12                          	   17107	     14029 ns/op	   24016 B/op	     238 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  227925	      1056 ns/op	  25.57 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  233643	      1041 ns/op	  25.95 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  227521	      1039 ns/op	  25.98 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  244274	      1025 ns/op	  26.35 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  241092	      1049 ns/op	  25.74 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  207788	      1065 ns/op	  25.34 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  233540	      1067 ns/op	  25.30 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  246266	      1077 ns/op	  25.07 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  219537	      1068 ns/op	  25.28 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=1-12                    	  228091	      1037 ns/op	  26.04 MB/s	    1008 B/op	      13 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   51290	      4698 ns/op	  57.69 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   50701	      4733 ns/op	  57.26 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   50764	      4747 ns/op	  57.09 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   49656	      4754 ns/op	  57.01 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   51007	      4727 ns/op	  57.32 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   50684	      4749 ns/op	  57.07 MB/s	    1336 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   50277	      4742 ns/op	  57.15 MB/s	    1336 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   51242	      4709 ns/op	  57.55 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   50869	      4713 ns/op	  57.50 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=10-12                   	   50778	      4755 ns/op	  56.99 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5594	     42016 ns/op	  66.45 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5658	     41813 ns/op	  66.77 MB/s	    4850 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5750	     41297 ns/op	  67.61 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5798	     41148 ns/op	  67.85 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5809	     41096 ns/op	  67.94 MB/s	    4855 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5952	     40749 ns/op	  68.52 MB/s	    4855 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5926	     40874 ns/op	  68.31 MB/s	    4850 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5899	     41011 ns/op	  68.08 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5926	     41080 ns/op	  67.96 MB/s	    4850 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=100-12                  	    5834	     40814 ns/op	  68.41 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     571	    415951 ns/op	  69.46 MB/s	   49448 B/op	    1913 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     574	    414375 ns/op	  69.73 MB/s	   48985 B/op	    1913 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     578	    413182 ns/op	  69.93 MB/s	   49211 B/op	    1913 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     573	    414479 ns/op	  69.71 MB/s	   48985 B/op	    1913 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     574	    414827 ns/op	  69.65 MB/s	   48985 B/op	    1913 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     574	    414951 ns/op	  69.63 MB/s	   48985 B/op	    1913 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     585	    414003 ns/op	  69.79 MB/s	   48987 B/op	    1913 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     579	    413821 ns/op	  69.82 MB/s	   48987 B/op	    1913 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     580	    413538 ns/op	  69.87 MB/s	   48984 B/op	    1913 allocs/op
+BenchmarkQuill_Loop_Render/n=1000-12                 	     577	    414182 ns/op	  69.76 MB/s	   48988 B/op	    1913 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3171	     72860 ns/op	  38.32 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3422	     71922 ns/op	  38.82 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3386	     72000 ns/op	  38.78 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3452	     73131 ns/op	  38.18 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3512	     73639 ns/op	  37.91 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3175	     74219 ns/op	  37.62 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3296	     73937 ns/op	  37.76 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3288	     74015 ns/op	  37.72 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3428	     72337 ns/op	  38.60 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_LoopInclude_Render-12                 	    3565	     73044 ns/op	  38.22 MB/s	   70288 B/op	     813 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15608	     15410 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15530	     15455 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15783	     15118 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15699	     15283 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15840	     15292 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15507	     15603 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15258	     15519 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15649	     15253 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15337	     15623 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Load-12                       	   15598	     15424 ns/op	   25464 B/op	     266 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21699	     11033 ns/op	  68.97 MB/s	    1887 B/op	      15 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21826	     11040 ns/op	  68.93 MB/s	    1887 B/op	      15 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21866	     11084 ns/op	  68.66 MB/s	    1885 B/op	      15 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21940	     10972 ns/op	  69.36 MB/s	    1888 B/op	      15 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21786	     11078 ns/op	  68.69 MB/s	    1886 B/op	      15 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21763	     11041 ns/op	  68.92 MB/s	    1888 B/op	      15 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21724	     11089 ns/op	  68.63 MB/s	    1889 B/op	      15 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21710	     11102 ns/op	  68.55 MB/s	    1891 B/op	      15 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21502	     11158 ns/op	  68.20 MB/s	    1887 B/op	      15 allocs/op
+BenchmarkQuill_Compose_Render-12                     	   21672	     11186 ns/op	  68.03 MB/s	    1887 B/op	      15 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   12432	     19297 ns/op	  14.04 MB/s	   25193 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   12642	     19121 ns/op	  14.17 MB/s	   25194 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   12519	     19071 ns/op	  14.21 MB/s	   25194 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   13016	     18553 ns/op	  14.61 MB/s	   25194 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   12818	     18729 ns/op	  14.47 MB/s	   25194 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   12961	     18500 ns/op	  14.65 MB/s	   25194 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   12596	     18996 ns/op	  14.27 MB/s	   25194 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   12939	     18583 ns/op	  14.58 MB/s	   25193 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   12729	     18825 ns/op	  14.40 MB/s	   25194 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=10-12                 	   12540	     19125 ns/op	  14.17 MB/s	   25194 B/op	     222 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1308	    183445 ns/op	  15.22 MB/s	  243474 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1280	    182178 ns/op	  15.33 MB/s	  243420 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1298	    184072 ns/op	  15.17 MB/s	  243475 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1352	    183344 ns/op	  15.23 MB/s	  243472 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1341	    186308 ns/op	  14.99 MB/s	  243462 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1261	    186802 ns/op	  14.95 MB/s	  243434 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1298	    185684 ns/op	  15.04 MB/s	  243443 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1294	    184910 ns/op	  15.10 MB/s	  243486 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1264	    185258 ns/op	  15.07 MB/s	  243443 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=100-12                	    1330	    183209 ns/op	  15.24 MB/s	  243452 B/op	    2113 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     121	   1955182 ns/op	  14.78 MB/s	 2428560 B/op	   21915 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     120	   1985258 ns/op	  14.55 MB/s	 2428531 B/op	   21915 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     121	   1973236 ns/op	  14.64 MB/s	 2429630 B/op	   21915 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     123	   1931148 ns/op	  14.96 MB/s	 2429556 B/op	   21914 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     120	   2000801 ns/op	  14.44 MB/s	 2427430 B/op	   21914 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     100	   2018618 ns/op	  14.31 MB/s	 2427421 B/op	   21914 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     100	   2017160 ns/op	  14.32 MB/s	 2427435 B/op	   21914 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     100	   2009465 ns/op	  14.38 MB/s	 2427432 B/op	   21914 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     100	   2007310 ns/op	  14.39 MB/s	 2428801 B/op	   21915 allocs/op
+BenchmarkQuill_Filter_Render/n=1000-12               	     120	   1988572 ns/op	  14.53 MB/s	 2428560 B/op	   21915 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21433 ns/op	  12.64 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21257 ns/op	  12.75 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21119 ns/op	  12.83 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21203 ns/op	  12.78 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21177 ns/op	  12.80 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21185 ns/op	  12.79 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21153 ns/op	  12.81 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21110 ns/op	  12.84 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21144 ns/op	  12.82 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=10-12                  	   10000	     21126 ns/op	  12.83 MB/s	    4987 B/op	     226 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1174	    205348 ns/op	  13.60 MB/s	   46056 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1178	    205754 ns/op	  13.57 MB/s	   46055 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1183	    203813 ns/op	  13.70 MB/s	   46055 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1173	    204780 ns/op	  13.63 MB/s	   46056 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1179	    204319 ns/op	  13.66 MB/s	   46056 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1178	    203627 ns/op	  13.71 MB/s	   46055 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1184	    204283 ns/op	  13.67 MB/s	   46055 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1186	    204430 ns/op	  13.66 MB/s	   46055 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1162	    204192 ns/op	  13.67 MB/s	   46056 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=100-12                 	    1176	    204382 ns/op	  13.66 MB/s	   46057 B/op	    2206 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2036185 ns/op	  14.19 MB/s	  462705 B/op	   22750 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2052425 ns/op	  14.08 MB/s	  462715 B/op	   22751 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2033880 ns/op	  14.21 MB/s	  462701 B/op	   22750 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2043626 ns/op	  14.14 MB/s	  462692 B/op	   22750 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2056901 ns/op	  14.05 MB/s	  462709 B/op	   22751 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2059816 ns/op	  14.03 MB/s	  462715 B/op	   22751 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2040204 ns/op	  14.16 MB/s	  462724 B/op	   22751 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2053285 ns/op	  14.07 MB/s	  462720 B/op	   22751 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2044690 ns/op	  14.13 MB/s	  462721 B/op	   22751 allocs/op
+BenchmarkText_Filter_Render/n=1000-12                	     100	   2048348 ns/op	  14.11 MB/s	  462720 B/op	   22751 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7756	     32129 ns/op	  28.63 MB/s	    8256 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7471	     32174 ns/op	  28.59 MB/s	    8256 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7640	     32066 ns/op	  28.69 MB/s	    8257 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7609	     32113 ns/op	  28.65 MB/s	    8256 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7922	     32075 ns/op	  28.68 MB/s	    8255 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7395	     31980 ns/op	  28.77 MB/s	    8255 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7428	     32192 ns/op	  28.58 MB/s	    8256 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7708	     32294 ns/op	  28.49 MB/s	    8255 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7578	     32098 ns/op	  28.66 MB/s	    8255 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=10-12                 	    7798	     32033 ns/op	  28.72 MB/s	    8256 B/op	      84 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     742	    316445 ns/op	  29.07 MB/s	   70194 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     753	    314889 ns/op	  29.22 MB/s	   70186 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     756	    319113 ns/op	  28.83 MB/s	   70246 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     764	    314881 ns/op	  29.22 MB/s	   70168 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     741	    319510 ns/op	  28.79 MB/s	   70152 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     756	    320381 ns/op	  28.72 MB/s	   70193 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     760	    318923 ns/op	  28.85 MB/s	   70169 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     753	    321286 ns/op	  28.63 MB/s	   70167 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     742	    321735 ns/op	  28.59 MB/s	   70171 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=100-12                	     748	    319136 ns/op	  28.83 MB/s	   70172 B/op	     714 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      75	   3244845 ns/op	  28.35 MB/s	  698876 B/op	    7014 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      73	   3196389 ns/op	  28.78 MB/s	  699046 B/op	    7014 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      72	   3185535 ns/op	  28.88 MB/s	  699120 B/op	    7014 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      70	   3188895 ns/op	  28.85 MB/s	  699381 B/op	    7014 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      74	   3155707 ns/op	  29.15 MB/s	  702551 B/op	    7014 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      75	   3189247 ns/op	  28.85 MB/s	  698866 B/op	    7014 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      66	   3218716 ns/op	  28.58 MB/s	  699839 B/op	    7014 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      74	   3190185 ns/op	  28.84 MB/s	  700716 B/op	    7014 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      76	   3188991 ns/op	  28.85 MB/s	  702242 B/op	    7014 allocs/op
+BenchmarkQuill_Nested_Render/n=1000-12               	      76	   3204299 ns/op	  28.71 MB/s	  702228 B/op	    7014 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3842	     62717 ns/op	  14.67 MB/s	   12272 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3783	     62628 ns/op	  14.69 MB/s	   12272 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3925	     62507 ns/op	  14.72 MB/s	   12273 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3992	     62757 ns/op	  14.66 MB/s	   12272 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3822	     62425 ns/op	  14.74 MB/s	   12272 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3847	     62760 ns/op	  14.66 MB/s	   12272 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3775	     62918 ns/op	  14.62 MB/s	   12272 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3922	     62859 ns/op	  14.64 MB/s	   12273 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3810	     62747 ns/op	  14.66 MB/s	   12272 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=10-12                  	    3936	     62762 ns/op	  14.66 MB/s	   12272 B/op	     566 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     386	    626129 ns/op	  14.69 MB/s	  118911 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     382	    629780 ns/op	  14.61 MB/s	  118909 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     382	    635151 ns/op	  14.48 MB/s	  118910 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     373	    637210 ns/op	  14.44 MB/s	  118904 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     382	    625523 ns/op	  14.71 MB/s	  118907 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     381	    629616 ns/op	  14.61 MB/s	  118909 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     382	    621286 ns/op	  14.81 MB/s	  118910 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     388	    621344 ns/op	  14.81 MB/s	  118910 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     382	    623339 ns/op	  14.76 MB/s	  118909 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=100-12                 	     384	    622501 ns/op	  14.78 MB/s	  118909 B/op	    5606 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      38	   6225999 ns/op	  14.78 MB/s	 1191282 B/op	   56752 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      38	   6234506 ns/op	  14.76 MB/s	 1191322 B/op	   56752 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      38	   6215901 ns/op	  14.80 MB/s	 1191327 B/op	   56752 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      37	   6232957 ns/op	  14.76 MB/s	 1191280 B/op	   56752 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      38	   6212081 ns/op	  14.81 MB/s	 1191279 B/op	   56752 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      39	   6214843 ns/op	  14.80 MB/s	 1191282 B/op	   56752 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      39	   6203566 ns/op	  14.83 MB/s	 1191287 B/op	   56752 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      39	   6257770 ns/op	  14.70 MB/s	 1191271 B/op	   56752 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      38	   6238996 ns/op	  14.75 MB/s	 1191292 B/op	   56752 allocs/op
+BenchmarkText_Nested_Render/n=1000-12                	      37	   6195966 ns/op	  14.85 MB/s	 1191313 B/op	   56752 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   47005	      5094 ns/op	  10.01 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   47127	      5092 ns/op	  10.02 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   47326	      5084 ns/op	  10.03 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   46972	      5094 ns/op	  10.01 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   47160	      5088 ns/op	  10.02 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   47245	      5085 ns/op	  10.03 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   47374	      5084 ns/op	  10.03 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   47371	      5187 ns/op	   9.83 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   46485	      5941 ns/op	   8.59 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=10-12                   	   47074	      5096 ns/op	  10.01 MB/s	    1032 B/op	      12 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5076	     46873 ns/op	  12.63 MB/s	    1611 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5214	     46529 ns/op	  12.72 MB/s	    1612 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5090	     46715 ns/op	  12.67 MB/s	    1614 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5118	     46581 ns/op	  12.71 MB/s	    1611 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5163	     46708 ns/op	  12.67 MB/s	    1611 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5192	     46445 ns/op	  12.75 MB/s	    1611 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5182	     46702 ns/op	  12.68 MB/s	    1611 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5160	     46577 ns/op	  12.71 MB/s	    1611 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5178	     46871 ns/op	  12.63 MB/s	    1611 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=100-12                  	    5022	     46551 ns/op	  12.72 MB/s	    1611 B/op	      13 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     508	    472559 ns/op	  14.59 MB/s	   10776 B/op	     913 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     507	    473486 ns/op	  14.56 MB/s	   10776 B/op	     913 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     500	    473927 ns/op	  14.54 MB/s	   10776 B/op	     913 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     502	    474299 ns/op	  14.53 MB/s	   11037 B/op	     913 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     504	    473357 ns/op	  14.56 MB/s	   10776 B/op	     913 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     502	    473912 ns/op	  14.54 MB/s	   10776 B/op	     913 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     501	    474079 ns/op	  14.54 MB/s	   10776 B/op	     913 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     506	    472130 ns/op	  14.60 MB/s	   10776 B/op	     913 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     498	    481671 ns/op	  14.31 MB/s	   11039 B/op	     913 allocs/op
+BenchmarkQuill_Cond_Render/n=1000-12                 	     483	    489916 ns/op	  14.07 MB/s	   10776 B/op	     913 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   17000	     14067 ns/op	   3.63 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   17202	     13886 ns/op	   3.67 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   17565	     13678 ns/op	   3.73 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   17623	     13623 ns/op	   3.74 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   17560	     13618 ns/op	   3.75 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   17568	     13689 ns/op	   3.73 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   17814	     13519 ns/op	   3.77 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   16888	     13997 ns/op	   3.64 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   17452	     13786 ns/op	   3.70 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=10-12                    	   17497	     13691 ns/op	   3.72 MB/s	    4747 B/op	     172 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1723	    140039 ns/op	   4.23 MB/s	   46056 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1726	    138872 ns/op	   4.26 MB/s	   46057 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1731	    139838 ns/op	   4.23 MB/s	   46056 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1735	    139184 ns/op	   4.25 MB/s	   46055 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1736	    139398 ns/op	   4.25 MB/s	   46057 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1720	    140124 ns/op	   4.22 MB/s	   46057 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1713	    139512 ns/op	   4.24 MB/s	   46057 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1716	    139107 ns/op	   4.26 MB/s	   46056 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1730	    139825 ns/op	   4.23 MB/s	   46056 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=100-12                   	    1767	    139822 ns/op	   4.23 MB/s	   46057 B/op	    1756 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     171	   1394239 ns/op	   4.94 MB/s	  462697 B/op	   18250 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     171	   1395403 ns/op	   4.94 MB/s	  462714 B/op	   18250 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     170	   1401412 ns/op	   4.92 MB/s	  462697 B/op	   18250 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     172	   1387650 ns/op	   4.97 MB/s	  462727 B/op	   18251 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     171	   1394127 ns/op	   4.94 MB/s	  462699 B/op	   18250 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     171	   1400161 ns/op	   4.92 MB/s	  462702 B/op	   18250 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     171	   1388399 ns/op	   4.96 MB/s	  462707 B/op	   18250 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     169	   1406449 ns/op	   4.90 MB/s	  462691 B/op	   18250 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     168	   1417302 ns/op	   4.86 MB/s	  462699 B/op	   18250 allocs/op
+BenchmarkText_Cond_Render/n=1000-12                  	     170	   1402604 ns/op	   4.91 MB/s	  462714 B/op	   18250 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6646	     35944 ns/op	 111.06 MB/s	    5076 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6825	     35797 ns/op	 111.52 MB/s	    5078 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6675	     35583 ns/op	 112.19 MB/s	    5076 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6741	     35753 ns/op	 111.65 MB/s	    5080 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6849	     35754 ns/op	 111.65 MB/s	    5080 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6706	     35582 ns/op	 112.19 MB/s	    5076 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6740	     35682 ns/op	 111.88 MB/s	    5074 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6954	     35688 ns/op	 111.86 MB/s	    5072 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6777	     35650 ns/op	 111.98 MB/s	    5072 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_Off_Render-12              	    6976	     35562 ns/op	 112.25 MB/s	    5076 B/op	      13 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    5127	     49152 ns/op	 146.32 MB/s	   21189 B/op	     313 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    5143	     48899 ns/op	 147.08 MB/s	   21184 B/op	     313 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    5124	     49255 ns/op	 146.01 MB/s	   21197 B/op	     313 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    4896	     49242 ns/op	 146.05 MB/s	   21187 B/op	     313 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    5060	     48913 ns/op	 147.04 MB/s	   21181 B/op	     313 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    5107	     48938 ns/op	 146.96 MB/s	   21187 B/op	     313 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    4965	     49309 ns/op	 145.86 MB/s	   21184 B/op	     313 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    5028	     49022 ns/op	 146.71 MB/s	   21195 B/op	     313 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    4870	     49353 ns/op	 145.73 MB/s	   21184 B/op	     313 allocs/op
+BenchmarkQuill_Autoescape_On_Render-12               	    4969	     48993 ns/op	 146.80 MB/s	   21198 B/op	     313 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3604	     67008 ns/op	  59.58 MB/s	   12432 B/op	     606 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3690	     66867 ns/op	  59.70 MB/s	   12432 B/op	     606 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3673	     67356 ns/op	  59.27 MB/s	   12432 B/op	     606 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3625	     66338 ns/op	  60.18 MB/s	   12431 B/op	     606 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3628	     66537 ns/op	  60.00 MB/s	   12432 B/op	     606 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3738	     66230 ns/op	  60.27 MB/s	   12432 B/op	     606 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3672	     66462 ns/op	  60.06 MB/s	   12432 B/op	     606 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3656	     66191 ns/op	  60.31 MB/s	   12432 B/op	     606 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3328	     66886 ns/op	  59.68 MB/s	   12432 B/op	     606 allocs/op
+BenchmarkText_Autoescape_Render-12                   	    3582	     66317 ns/op	  60.20 MB/s	   12432 B/op	     606 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1213	    196155 ns/op	  36.66 MB/s	   62797 B/op	    2697 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1216	    197088 ns/op	  36.49 MB/s	   62800 B/op	    2697 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1219	    196018 ns/op	  36.69 MB/s	   62798 B/op	    2697 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1234	    194781 ns/op	  36.92 MB/s	   62798 B/op	    2697 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1237	    194733 ns/op	  36.93 MB/s	   62799 B/op	    2697 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1214	    196262 ns/op	  36.64 MB/s	   62800 B/op	    2697 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1206	    195639 ns/op	  36.76 MB/s	   62799 B/op	    2697 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1245	    194203 ns/op	  37.03 MB/s	   62796 B/op	    2697 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1196	    196838 ns/op	  36.54 MB/s	   62799 B/op	    2697 allocs/op
+BenchmarkHTML_Autoescape_Render-12                   	    1195	    196021 ns/op	  36.69 MB/s	   62800 B/op	    2697 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   49729	      4819 ns/op	  56.23 MB/s	    1336 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   49405	      4861 ns/op	  55.75 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   49819	      4823 ns/op	  56.19 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   50216	      4819 ns/op	  56.24 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   50022	      4829 ns/op	  56.12 MB/s	    1336 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   50385	      5402 ns/op	  50.17 MB/s	    1336 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   49654	      4885 ns/op	  55.48 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   49089	      4862 ns/op	  55.74 MB/s	    1336 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   49587	      4846 ns/op	  55.92 MB/s	    1336 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=10-12        	   49881	      4847 ns/op	  55.92 MB/s	    1337 B/op	      22 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5949	     41243 ns/op	  67.70 MB/s	    4850 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5862	     41326 ns/op	  67.56 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5744	     41180 ns/op	  67.80 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5966	     41401 ns/op	  67.44 MB/s	    4857 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5776	     41532 ns/op	  67.23 MB/s	    4850 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5847	     41085 ns/op	  67.96 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5684	     41141 ns/op	  67.86 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5788	     41357 ns/op	  67.51 MB/s	    4853 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5778	     41462 ns/op	  67.34 MB/s	    4855 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=100-12       	    5826	     41275 ns/op	  67.64 MB/s	    4850 B/op	     113 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     559	    419932 ns/op	  68.80 MB/s	   49221 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     568	    417429 ns/op	  69.22 MB/s	   48985 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     576	    416815 ns/op	  69.32 MB/s	   48985 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     577	    416223 ns/op	  69.42 MB/s	   49212 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     570	    417688 ns/op	  69.17 MB/s	   48988 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     574	    417102 ns/op	  69.27 MB/s	   48985 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     560	    419884 ns/op	  68.81 MB/s	   49220 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     572	    418703 ns/op	  69.01 MB/s	   48985 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     570	    419289 ns/op	  68.91 MB/s	   49215 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Buffered_Render/n=1000-12      	     577	    416704 ns/op	  69.34 MB/s	   48985 B/op	    1913 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   51016	      4723 ns/op	  57.38 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   51253	      4725 ns/op	  57.35 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   50778	      4722 ns/op	  57.39 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   51783	      4729 ns/op	  57.30 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   50839	      4715 ns/op	  57.48 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   50839	      4716 ns/op	  57.47 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   51472	      4711 ns/op	  57.53 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   50599	      4703 ns/op	  57.63 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   51268	      4686 ns/op	  57.83 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=10-12        	   51268	      4693 ns/op	  57.75 MB/s	    1064 B/op	      21 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    6034	     39803 ns/op	  70.14 MB/s	    1795 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    5990	     40093 ns/op	  69.64 MB/s	    1792 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    5986	     39948 ns/op	  69.89 MB/s	    1795 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    6067	     40086 ns/op	  69.65 MB/s	    1792 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    6003	     39866 ns/op	  70.03 MB/s	    1792 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    5895	     40002 ns/op	  69.80 MB/s	    1792 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    5917	     40099 ns/op	  69.63 MB/s	    1792 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    5990	     40081 ns/op	  69.66 MB/s	    1792 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    5848	     40343 ns/op	  69.21 MB/s	    1792 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=100-12       	    6009	     40131 ns/op	  69.57 MB/s	    1792 B/op	     112 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     555	    411202 ns/op	  70.26 MB/s	   16208 B/op	    1912 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     588	    404801 ns/op	  71.38 MB/s	   16207 B/op	    1912 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     590	    403653 ns/op	  71.58 MB/s	   16207 B/op	    1912 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     596	    401387 ns/op	  71.98 MB/s	   16207 B/op	    1912 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     591	    405021 ns/op	  71.34 MB/s	   16207 B/op	    1912 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     596	    403110 ns/op	  71.68 MB/s	   16207 B/op	    1912 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     595	    408847 ns/op	  70.67 MB/s	   16207 B/op	    1912 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     571	    416818 ns/op	  69.32 MB/s	   16208 B/op	    1912 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     573	    413282 ns/op	  69.91 MB/s	   16207 B/op	    1912 allocs/op
+BenchmarkQuill_Stream_Streamed_Render/n=1000-12      	     585	    409493 ns/op	  70.56 MB/s	   16207 B/op	    1912 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   21159	     11485 ns/op	  27.08 MB/s	    8829 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   21026	     11549 ns/op	  26.93 MB/s	    8830 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   21176	     11378 ns/op	  27.33 MB/s	    8830 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   20725	     11496 ns/op	  27.05 MB/s	    8830 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   20899	     11593 ns/op	  26.83 MB/s	    8830 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   21230	     11482 ns/op	  27.09 MB/s	    8830 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   20487	     11673 ns/op	  26.64 MB/s	    8830 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   20708	     11571 ns/op	  26.88 MB/s	    8829 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   21097	     11463 ns/op	  27.13 MB/s	    8830 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=10-12                	   20840	     11517 ns/op	  27.00 MB/s	    8830 B/op	     280 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2218	    107100 ns/op	  29.80 MB/s	   75571 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2366	    106931 ns/op	  29.85 MB/s	   75570 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2184	    107305 ns/op	  29.75 MB/s	   75571 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2320	    107055 ns/op	  29.82 MB/s	   75570 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2192	    107466 ns/op	  29.70 MB/s	   75571 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2404	    108503 ns/op	  29.42 MB/s	   75570 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2276	    105288 ns/op	  30.32 MB/s	   75570 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2409	    106277 ns/op	  30.03 MB/s	   75571 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2402	    105949 ns/op	  30.13 MB/s	   75570 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=100-12               	    2360	    104763 ns/op	  30.47 MB/s	   75570 B/op	    2627 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     224	   1056713 ns/op	  31.13 MB/s	  797494 B/op	   26934 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     228	   1067799 ns/op	  30.80 MB/s	  797506 B/op	   26934 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     228	   1059832 ns/op	  31.04 MB/s	  797489 B/op	   26934 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     226	   1064031 ns/op	  30.91 MB/s	  797508 B/op	   26934 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     223	   1064383 ns/op	  30.90 MB/s	  797512 B/op	   26934 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     224	   1071135 ns/op	  30.71 MB/s	  797496 B/op	   26934 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     222	   1075108 ns/op	  30.60 MB/s	  797508 B/op	   26934 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     223	   1068458 ns/op	  30.79 MB/s	  797499 B/op	   26934 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     224	   1066057 ns/op	  30.85 MB/s	  797504 B/op	   26934 allocs/op
+BenchmarkPongo2_Filter_Render/n=1000-12              	     228	   1051699 ns/op	  31.28 MB/s	  797497 B/op	   26934 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   38142	      6275 ns/op	   8.13 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   37320	      6248 ns/op	   8.16 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   38265	      6233 ns/op	   8.18 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   38116	      6280 ns/op	   8.12 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   37485	      6343 ns/op	   8.04 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   38394	      6183 ns/op	   8.25 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   38420	      6192 ns/op	   8.24 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   38934	      6237 ns/op	   8.18 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   37834	      6260 ns/op	   8.15 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=10-12                  	   39158	      6183 ns/op	   8.25 MB/s	    4643 B/op	     132 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4167	     55912 ns/op	  10.59 MB/s	   35599 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4298	     55577 ns/op	  10.65 MB/s	   35599 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4654	     55371 ns/op	  10.69 MB/s	   35601 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4476	     55497 ns/op	  10.67 MB/s	   35600 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4555	     55949 ns/op	  10.58 MB/s	   35600 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4389	     55641 ns/op	  10.64 MB/s	   35599 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4623	     55471 ns/op	  10.67 MB/s	   35599 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4545	     54970 ns/op	  10.77 MB/s	   35599 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4296	     64747 ns/op	   9.14 MB/s	   35600 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=100-12                 	    4450	     56015 ns/op	  10.57 MB/s	   35600 B/op	    1224 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     436	    542411 ns/op	  12.71 MB/s	  347839 B/op	   12930 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     435	    557557 ns/op	  12.36 MB/s	  347839 B/op	   12930 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     447	    547384 ns/op	  12.59 MB/s	  347843 B/op	   12930 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     423	    549004 ns/op	  12.56 MB/s	  347836 B/op	   12930 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     433	    547924 ns/op	  12.58 MB/s	  347843 B/op	   12930 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     442	    549975 ns/op	  12.53 MB/s	  347836 B/op	   12930 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     436	    550336 ns/op	  12.53 MB/s	  347840 B/op	   12930 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     430	    555836 ns/op	  12.40 MB/s	  347838 B/op	   12930 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     434	    551231 ns/op	  12.50 MB/s	  347835 B/op	   12930 allocs/op
+BenchmarkPongo2_Cond_Render/n=1000-12                	     440	    547898 ns/op	  12.58 MB/s	  347843 B/op	   12930 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27268	      8792 ns/op	  35.37 MB/s	    2091 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27301	      8798 ns/op	  35.35 MB/s	    2092 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27253	      8813 ns/op	  35.29 MB/s	    2092 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27247	      8800 ns/op	  35.34 MB/s	    2092 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27300	      8760 ns/op	  35.50 MB/s	    2090 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27399	      8802 ns/op	  35.33 MB/s	    2091 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27294	      8776 ns/op	  35.44 MB/s	    2091 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27645	      8668 ns/op	  35.88 MB/s	    2093 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27507	      8691 ns/op	  35.79 MB/s	    2090 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=10-12                   	   27600	      8731 ns/op	  35.62 MB/s	    2091 B/op	      95 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2880	     83911 ns/op	  38.04 MB/s	   16574 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2881	     85396 ns/op	  37.38 MB/s	   16555 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2949	     84486 ns/op	  37.78 MB/s	   16544 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2925	     84332 ns/op	  37.85 MB/s	   16560 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2865	     84408 ns/op	  37.82 MB/s	   16570 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2936	     84374 ns/op	  37.83 MB/s	   16574 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2883	     83821 ns/op	  38.08 MB/s	   16572 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2904	     83459 ns/op	  38.25 MB/s	   16563 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2889	     84050 ns/op	  37.98 MB/s	   16564 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=100-12                  	    2918	     83896 ns/op	  38.05 MB/s	   16556 B/op	     905 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     279	    852439 ns/op	  38.59 MB/s	  167198 B/op	    9749 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     278	    859353 ns/op	  38.28 MB/s	  167316 B/op	    9749 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     277	    858775 ns/op	  38.30 MB/s	  167368 B/op	    9749 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     280	    857405 ns/op	  38.36 MB/s	  167312 B/op	    9749 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     279	    858853 ns/op	  38.30 MB/s	  167369 B/op	    9749 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     279	    857865 ns/op	  38.34 MB/s	  167333 B/op	    9749 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     280	    855141 ns/op	  38.46 MB/s	  167388 B/op	    9749 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     280	    853782 ns/op	  38.53 MB/s	  167203 B/op	    9749 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     277	    857609 ns/op	  38.35 MB/s	  167322 B/op	    9749 allocs/op
+BenchmarkJet_Filter_Render/n=1000-12                 	     279	    858090 ns/op	  38.33 MB/s	  167182 B/op	    9749 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   63682	      3796 ns/op	  13.44 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   63265	      3822 ns/op	  13.34 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   62528	      3805 ns/op	  13.40 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   64056	      3831 ns/op	  13.31 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   63403	      3828 ns/op	  13.32 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   63218	      3724 ns/op	  13.70 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   64078	      3669 ns/op	  13.90 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   65324	      3649 ns/op	  13.98 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   65865	      3654 ns/op	  13.96 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=10-12                     	   66726	      3625 ns/op	  14.07 MB/s	     561 B/op	      15 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6756	     34855 ns/op	  16.98 MB/s	    1282 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6868	     34840 ns/op	  16.99 MB/s	    1282 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6844	     34855 ns/op	  16.98 MB/s	    1282 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6853	     34976 ns/op	  16.93 MB/s	    1281 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6954	     34777 ns/op	  17.02 MB/s	    1281 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6770	     34756 ns/op	  17.03 MB/s	    1281 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6842	     34891 ns/op	  16.97 MB/s	    1281 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6912	     34840 ns/op	  16.99 MB/s	    1282 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6865	     34848 ns/op	  16.99 MB/s	    1282 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=100-12                    	    6912	     34846 ns/op	  16.99 MB/s	    1281 B/op	     105 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     682	    353997 ns/op	  19.47 MB/s	   14461 B/op	    1749 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     684	    352378 ns/op	  19.56 MB/s	   14462 B/op	    1749 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     679	    353561 ns/op	  19.50 MB/s	   14464 B/op	    1749 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     678	    354433 ns/op	  19.45 MB/s	   14462 B/op	    1749 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     680	    353635 ns/op	  19.49 MB/s	   14464 B/op	    1749 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     682	    352778 ns/op	  19.54 MB/s	   14461 B/op	    1749 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     674	    356011 ns/op	  19.36 MB/s	   14464 B/op	    1749 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     672	    354801 ns/op	  19.43 MB/s	   14464 B/op	    1749 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     680	    353538 ns/op	  19.50 MB/s	   14464 B/op	    1749 allocs/op
+BenchmarkJet_Cond_Render/n=1000-12                   	     681	    353698 ns/op	  19.49 MB/s	   14461 B/op	    1749 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   26983	      8912 ns/op	  34.90 MB/s	    7934 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   26170	      9006 ns/op	  34.53 MB/s	    7933 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   26704	      8998 ns/op	  34.56 MB/s	    7933 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   27076	      8953 ns/op	  34.74 MB/s	    7934 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   27153	      8849 ns/op	  35.14 MB/s	    7933 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   26528	      9009 ns/op	  34.52 MB/s	    7933 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   26402	      9078 ns/op	  34.26 MB/s	    7934 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   26552	      9032 ns/op	  34.43 MB/s	    7934 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   26718	      8958 ns/op	  34.72 MB/s	    7934 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=10-12             	   26890	      8954 ns/op	  34.73 MB/s	    7934 B/op	      72 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    2905	     85006 ns/op	  37.55 MB/s	   70661 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    2854	     84870 ns/op	  37.61 MB/s	   70643 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    2848	     86206 ns/op	  37.03 MB/s	   70642 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    2876	     84984 ns/op	  37.56 MB/s	   70652 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    2781	     85238 ns/op	  37.45 MB/s	   70634 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    2866	     84468 ns/op	  37.79 MB/s	   70652 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    2836	     85130 ns/op	  37.50 MB/s	   70666 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    3028	     84650 ns/op	  37.71 MB/s	   70650 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    2848	     85333 ns/op	  37.41 MB/s	   70647 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=100-12            	    2840	     85088 ns/op	  37.51 MB/s	   70666 B/op	     613 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     272	    878923 ns/op	  37.42 MB/s	  713598 B/op	    6913 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     268	    882246 ns/op	  37.28 MB/s	  714096 B/op	    6913 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     272	    869808 ns/op	  37.82 MB/s	  714562 B/op	    6913 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     271	    878874 ns/op	  37.43 MB/s	  714086 B/op	    6913 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     270	    886493 ns/op	  37.10 MB/s	  716036 B/op	    6913 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     266	    882935 ns/op	  37.25 MB/s	  714094 B/op	    6913 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     270	    879042 ns/op	  37.42 MB/s	  714081 B/op	    6913 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     270	    882790 ns/op	  37.26 MB/s	  714087 B/op	    6913 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     274	    880064 ns/op	  37.38 MB/s	  714081 B/op	    6913 allocs/op
+BenchmarkQuill_PeerFilter_Render/n=1000-12           	     187	   1114230 ns/op	  29.52 MB/s	  714307 B/op	    6913 allocs/op
+BenchmarkText_Tiny_Load-12                           	  104004	      2313 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Load-12                           	  106422	      2283 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Load-12                           	  106336	      2259 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Load-12                           	  107299	      2273 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Load-12                           	  104472	      2293 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Load-12                           	  106312	      2211 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Load-12                           	  109292	      2284 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Load-12                           	  103202	      2297 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Load-12                           	  107070	      2256 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Load-12                           	  108703	      2276 ns/op	    3744 B/op	      35 allocs/op
+BenchmarkText_Tiny_Render-12                         	  587365	       413.1 ns/op	  24.21 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Tiny_Render-12                         	  555330	       414.2 ns/op	  24.14 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Tiny_Render-12                         	  592488	       411.4 ns/op	  24.31 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Tiny_Render-12                         	  623308	       411.2 ns/op	  24.32 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Tiny_Render-12                         	  618715	       412.8 ns/op	  24.22 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Tiny_Render-12                         	  597615	       411.0 ns/op	  24.33 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Tiny_Render-12                         	  604273	       412.7 ns/op	  24.23 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Tiny_Render-12                         	  614504	       414.2 ns/op	  24.14 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Tiny_Render-12                         	  601152	       411.1 ns/op	  24.32 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Tiny_Render-12                         	  615884	       416.2 ns/op	  24.02 MB/s	     176 B/op	       5 allocs/op
+BenchmarkText_Loop_Load-12                           	   44064	      5464 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Load-12                           	   43569	      5429 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Load-12                           	   44640	      5402 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Load-12                           	   43686	      5494 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Load-12                           	   43069	      5548 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Load-12                           	   44218	      5473 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Load-12                           	   43780	      5528 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Load-12                           	   43633	      5490 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Load-12                           	   43009	      5539 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Load-12                           	   44374	      5480 ns/op	    5760 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  190947	      1194 ns/op	  22.61 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  205212	      1202 ns/op	  22.45 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  205426	      1201 ns/op	  22.49 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  214549	      1189 ns/op	  22.71 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  209548	      1199 ns/op	  22.52 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  207180	      1202 ns/op	  22.46 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  197886	      1198 ns/op	  22.55 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  212660	      1195 ns/op	  22.60 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  199411	      1202 ns/op	  22.47 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=1-12                     	  202472	      1191 ns/op	  22.68 MB/s	     576 B/op	      14 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   26155	      9205 ns/op	  29.44 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   26079	      9226 ns/op	  29.37 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   25948	      9244 ns/op	  29.32 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   26199	      9199 ns/op	  29.46 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   26068	      9206 ns/op	  29.44 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   25977	      9306 ns/op	  29.12 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   26242	      9169 ns/op	  29.56 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   26076	      9194 ns/op	  29.48 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   25908	      9261 ns/op	  29.26 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=10-12                    	   25958	      9230 ns/op	  29.36 MB/s	    1945 B/op	      86 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2682	     87799 ns/op	  31.80 MB/s	   15634 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2726	     86311 ns/op	  32.35 MB/s	   15634 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2770	     85657 ns/op	  32.60 MB/s	   15634 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2698	     87387 ns/op	  31.95 MB/s	   15634 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2804	     86374 ns/op	  32.32 MB/s	   15635 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2792	     87089 ns/op	  32.06 MB/s	   15635 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2737	     87694 ns/op	  31.84 MB/s	   15634 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2814	     86506 ns/op	  32.28 MB/s	   15635 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2805	     87714 ns/op	  31.83 MB/s	   15634 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=100-12                   	    2793	     87351 ns/op	  31.96 MB/s	   15635 B/op	     806 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     274	    877074 ns/op	  32.94 MB/s	  158489 B/op	    8750 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     274	    871505 ns/op	  33.15 MB/s	  158487 B/op	    8750 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     276	    863864 ns/op	  33.45 MB/s	  158486 B/op	    8750 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     277	    866294 ns/op	  33.35 MB/s	  158485 B/op	    8750 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     276	    868747 ns/op	  33.26 MB/s	  158489 B/op	    8750 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     276	    867899 ns/op	  33.29 MB/s	  158486 B/op	    8750 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     276	    869006 ns/op	  33.25 MB/s	  158488 B/op	    8750 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     272	    873636 ns/op	  33.07 MB/s	  158484 B/op	    8750 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     272	    874374 ns/op	  33.04 MB/s	  158491 B/op	    8750 allocs/op
+BenchmarkText_Loop_Render/n=1000-12                  	     277	    865807 ns/op	  33.37 MB/s	  158485 B/op	    8750 allocs/op
+BenchmarkText_Compose_Load-12                        	   26152	      9297 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Load-12                        	   26274	      9076 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Load-12                        	   25725	      9261 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Load-12                        	   26050	      9229 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Load-12                        	   25776	      9172 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Load-12                        	   26097	      9226 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Load-12                        	   26035	      9275 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Load-12                        	   26300	      9149 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Load-12                        	   25930	      9218 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Load-12                        	   25848	      9281 ns/op	    9800 B/op	     126 allocs/op
+BenchmarkText_Compose_Render-12                      	   22408	     10698 ns/op	  71.32 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkText_Compose_Render-12                      	   22514	     10646 ns/op	  71.67 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkText_Compose_Render-12                      	   22526	     10833 ns/op	  70.43 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkText_Compose_Render-12                      	   22357	     10692 ns/op	  71.36 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkText_Compose_Render-12                      	   22473	     10693 ns/op	  71.36 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkText_Compose_Render-12                      	   22492	     10645 ns/op	  71.67 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkText_Compose_Render-12                      	   22616	     10663 ns/op	  71.56 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkText_Compose_Render-12                      	   22501	     10653 ns/op	  71.62 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkText_Compose_Render-12                      	   22497	     10645 ns/op	  71.68 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkText_Compose_Render-12                      	   22603	     10673 ns/op	  71.49 MB/s	    2161 B/op	     112 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   86289	      2726 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   89496	      2682 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   88936	      2678 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   88720	      2683 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   89952	      2686 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   89390	      2733 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   89002	      2717 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   93939	      2650 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   89331	      2724 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Load-12                           	   89688	      2676 ns/op	    4440 B/op	      46 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  311271	       783.0 ns/op	  12.77 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  331951	       765.8 ns/op	  13.06 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  307768	       769.3 ns/op	  13.00 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  301815	       766.4 ns/op	  13.05 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  318864	       777.0 ns/op	  12.87 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  301731	       890.5 ns/op	  11.23 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  287260	       791.5 ns/op	  12.63 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  319555	       764.9 ns/op	  13.07 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  326828	       774.5 ns/op	  12.91 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Tiny_Render-12                         	  289387	       779.0 ns/op	  12.84 MB/s	     288 B/op	      10 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   40063	      5982 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   40310	      5989 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   40458	      6012 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   40365	      5968 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   40990	      5908 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   40725	      5950 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   40452	      5951 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   41301	      5879 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   40567	      5917 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Load-12                           	   40395	      5967 ns/op	    6456 B/op	      97 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  102874	      2317 ns/op	  12.95 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  107073	      2296 ns/op	  13.06 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  105873	      2308 ns/op	  13.00 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  101160	      2335 ns/op	  12.85 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  104793	      2317 ns/op	  12.95 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  103196	      2309 ns/op	  12.99 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  102303	      2332 ns/op	  12.87 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  100270	      2338 ns/op	  12.83 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  103918	      2325 ns/op	  12.90 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=1-12                     	  104176	      2306 ns/op	  13.01 MB/s	     912 B/op	      29 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20493 ns/op	  14.69 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20502 ns/op	  14.68 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20540 ns/op	  14.65 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20435 ns/op	  14.73 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20408 ns/op	  14.75 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20346 ns/op	  14.79 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20497 ns/op	  14.69 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20464 ns/op	  14.71 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20458 ns/op	  14.71 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=10-12                    	   10000	     20317 ns/op	  14.81 MB/s	    5315 B/op	     237 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1249	    200271 ns/op	  15.44 MB/s	   49986 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1227	    200035 ns/op	  15.46 MB/s	   49988 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1198	    199321 ns/op	  15.51 MB/s	   49987 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1209	    199921 ns/op	  15.47 MB/s	   49989 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1210	    199707 ns/op	  15.48 MB/s	   49988 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1202	    199675 ns/op	  15.49 MB/s	   49986 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1195	    198462 ns/op	  15.58 MB/s	   49987 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1166	    198283 ns/op	  15.59 MB/s	   49987 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1252	    197250 ns/op	  15.68 MB/s	   49986 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=100-12                   	    1206	    199561 ns/op	  15.49 MB/s	   49987 B/op	    2397 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     100	   2001340 ns/op	  15.94 MB/s	  502648 B/op	   24741 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     100	   2007032 ns/op	  15.89 MB/s	  502686 B/op	   24742 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     100	   2007510 ns/op	  15.89 MB/s	  502654 B/op	   24742 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     100	   2013807 ns/op	  15.84 MB/s	  502656 B/op	   24742 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     100	   2019225 ns/op	  15.79 MB/s	  502651 B/op	   24742 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     100	   2010201 ns/op	  15.87 MB/s	  502691 B/op	   24742 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     120	   1997690 ns/op	  15.96 MB/s	  502663 B/op	   24742 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     120	   2001549 ns/op	  15.93 MB/s	  502678 B/op	   24742 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     100	   2012704 ns/op	  15.85 MB/s	  502691 B/op	   24742 allocs/op
+BenchmarkHTML_Loop_Render/n=1000-12                  	     120	   1997610 ns/op	  15.97 MB/s	  502681 B/op	   24742 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   24306	      9971 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   23842	     10042 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   24162	      9872 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   24531	      9873 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   24340	      9952 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   24176	      9925 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   23787	      9969 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   23821	     10024 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   24614	      9864 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Load-12                        	   24085	     10026 ns/op	   10760 B/op	     142 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5806	     42351 ns/op	  18.02 MB/s	   13602 B/op	     623 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5134	     42306 ns/op	  18.04 MB/s	   13601 B/op	     623 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5709	     42498 ns/op	  17.95 MB/s	   13602 B/op	     623 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5595	     42098 ns/op	  18.12 MB/s	   13601 B/op	     623 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5941	     42207 ns/op	  18.08 MB/s	   13601 B/op	     623 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5571	     41713 ns/op	  18.29 MB/s	   13601 B/op	     623 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5864	     42471 ns/op	  17.97 MB/s	   13601 B/op	     623 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5605	     42492 ns/op	  17.96 MB/s	   13601 B/op	     623 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5877	     42270 ns/op	  18.05 MB/s	   13601 B/op	     623 allocs/op
+BenchmarkHTML_Compose_Render-12                      	    5816	     42687 ns/op	  17.87 MB/s	   13602 B/op	     623 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  152767	      1589 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  150903	      1566 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  157026	      1585 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  157191	      1572 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  155383	      1588 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  150693	      1611 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  153234	      1592 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  150754	      1600 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  157326	      1583 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Load-12                         	  154996	      1588 ns/op	    2522 B/op	      37 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  300046	       811.9 ns/op	  12.32 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  286782	       816.1 ns/op	  12.25 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  314700	       820.0 ns/op	  12.20 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  313237	       816.8 ns/op	  12.24 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  285781	       818.4 ns/op	  12.22 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  295618	       804.2 ns/op	  12.43 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  316772	       814.8 ns/op	  12.27 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  303162	       820.0 ns/op	  12.19 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  292454	       797.2 ns/op	  12.54 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Tiny_Render-12                       	  301726	       810.8 ns/op	  12.33 MB/s	    1016 B/op	      15 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   42381	      5688 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   42218	      5547 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   42656	      5632 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   42826	      5651 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   42823	      5580 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   42541	      5670 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   42218	      5719 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   42237	      5666 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   43002	      5695 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Load-12                         	   42109	      5700 ns/op	    6274 B/op	     122 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  154396	      1597 ns/op	  16.91 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  146229	      1597 ns/op	  16.91 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  146138	      1589 ns/op	  16.99 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  148627	      1812 ns/op	  14.90 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  152649	      1601 ns/op	  16.87 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  157158	      1571 ns/op	  17.18 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  150309	      1593 ns/op	  16.95 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  152730	      1589 ns/op	  16.99 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  153162	      1603 ns/op	  16.84 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=1-12                   	  146918	      1607 ns/op	  16.80 MB/s	    1769 B/op	      29 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   29143	      8247 ns/op	  32.86 MB/s	    5900 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   28947	      8270 ns/op	  32.77 MB/s	    5900 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   28845	      8157 ns/op	  33.22 MB/s	    5900 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   29568	      8061 ns/op	  33.62 MB/s	    5899 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   29829	      7947 ns/op	  34.10 MB/s	    5900 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   29080	      8268 ns/op	  32.78 MB/s	    5900 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   29115	      8372 ns/op	  32.37 MB/s	    5900 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   29323	      8325 ns/op	  32.55 MB/s	    5900 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   29179	      8337 ns/op	  32.51 MB/s	    5900 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=10-12                  	   29172	      8220 ns/op	  32.97 MB/s	    5900 B/op	     170 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3346	     71975 ns/op	  38.79 MB/s	   46703 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3465	     72211 ns/op	  38.66 MB/s	   46703 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3398	     71952 ns/op	  38.80 MB/s	   46703 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3328	     72338 ns/op	  38.60 MB/s	   46703 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3416	     72904 ns/op	  38.30 MB/s	   46703 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3307	     72485 ns/op	  38.52 MB/s	   46703 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3688	     72332 ns/op	  38.60 MB/s	   46703 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3357	     72421 ns/op	  38.55 MB/s	   46703 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3342	     72224 ns/op	  38.66 MB/s	   46702 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=100-12                 	    3369	     71253 ns/op	  39.18 MB/s	   46702 B/op	    1527 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     332	    722463 ns/op	  39.99 MB/s	  443663 B/op	   15933 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     330	    724705 ns/op	  39.87 MB/s	  443666 B/op	   15933 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     334	    717167 ns/op	  40.29 MB/s	  443660 B/op	   15933 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     333	    720415 ns/op	  40.11 MB/s	  443660 B/op	   15933 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     327	    720477 ns/op	  40.10 MB/s	  443661 B/op	   15933 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     340	    717013 ns/op	  40.30 MB/s	  443667 B/op	   15933 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     338	    721578 ns/op	  40.04 MB/s	  443664 B/op	   15933 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     330	    716347 ns/op	  40.33 MB/s	  443667 B/op	   15933 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     339	    710258 ns/op	  40.68 MB/s	  443662 B/op	   15933 allocs/op
+BenchmarkPongo2_Loop_Render/n=1000-12                	     330	    721906 ns/op	  40.02 MB/s	  443666 B/op	   15933 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   30842	      7745 ns/op	   1.29 MB/s	    4209 B/op	      61 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   31234	      7785 ns/op	   1.28 MB/s	    4226 B/op	      61 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   30609	      7822 ns/op	   1.28 MB/s	    4246 B/op	      61 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   30838	      7397 ns/op	   1.35 MB/s	    4202 B/op	      61 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   31568	      7705 ns/op	   1.30 MB/s	    4202 B/op	      61 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   31081	      7785 ns/op	   1.28 MB/s	    4216 B/op	      61 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   30337	      7840 ns/op	   1.28 MB/s	    4242 B/op	      61 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   30712	      7778 ns/op	   1.29 MB/s	    4214 B/op	      61 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   30710	      7487 ns/op	   1.34 MB/s	    4197 B/op	      61 allocs/op
+BenchmarkStick_Tiny_LoadRender-12                    	   34394	      7141 ns/op	   1.40 MB/s	    4216 B/op	      61 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7693	     32129 ns/op	   0.84 MB/s	   11718 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7470	     32300 ns/op	   0.84 MB/s	   11750 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7717	     32243 ns/op	   0.84 MB/s	   11691 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7653	     32174 ns/op	   0.84 MB/s	   11770 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7892	     32141 ns/op	   0.84 MB/s	   11725 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7766	     32227 ns/op	   0.84 MB/s	   11803 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7545	     32270 ns/op	   0.84 MB/s	   11779 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7890	     32264 ns/op	   0.84 MB/s	   11716 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7622	     31937 ns/op	   0.85 MB/s	   11747 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1-12                	    7702	     32100 ns/op	   0.84 MB/s	   11667 B/op	     116 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5350	     45092 ns/op	   6.01 MB/s	   24051 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5365	     44424 ns/op	   6.10 MB/s	   23950 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5619	     43106 ns/op	   6.29 MB/s	   23824 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5610	     43643 ns/op	   6.21 MB/s	   24072 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5538	     44687 ns/op	   6.06 MB/s	   24076 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5458	     44267 ns/op	   6.12 MB/s	   23965 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5622	     45119 ns/op	   6.01 MB/s	   24023 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5280	     44930 ns/op	   6.03 MB/s	   24082 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5271	     44629 ns/op	   6.07 MB/s	   23992 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=10-12               	    5751	     44658 ns/op	   6.07 MB/s	   24081 B/op	     297 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1611	    149867 ns/op	  18.63 MB/s	  148104 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1615	    151097 ns/op	  18.48 MB/s	  147531 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1599	    151176 ns/op	  18.47 MB/s	  147464 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1594	    150962 ns/op	  18.49 MB/s	  146757 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1627	    150690 ns/op	  18.53 MB/s	  147057 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1626	    150753 ns/op	  18.52 MB/s	  146972 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1574	    149927 ns/op	  18.62 MB/s	  146955 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1605	    149740 ns/op	  18.65 MB/s	  146642 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1608	    149816 ns/op	  18.64 MB/s	  147602 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=100-12              	    1628	    151038 ns/op	  18.49 MB/s	  147110 B/op	    2188 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     194	   1230012 ns/op	  23.49 MB/s	 1394441 B/op	   27306 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     194	   1224394 ns/op	  23.60 MB/s	 1393843 B/op	   27306 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     195	   1216629 ns/op	  23.75 MB/s	 1393724 B/op	   27306 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     198	   1216894 ns/op	  23.74 MB/s	 1392162 B/op	   27305 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     196	   1223336 ns/op	  23.62 MB/s	 1391867 B/op	   27305 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     194	   1230289 ns/op	  23.48 MB/s	 1389680 B/op	   27305 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     192	   1243153 ns/op	  23.24 MB/s	 1393712 B/op	   27305 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     196	   1217261 ns/op	  23.74 MB/s	 1393319 B/op	   27305 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     198	   1215739 ns/op	  23.77 MB/s	 1392349 B/op	   27306 allocs/op
+BenchmarkStick_Loop_LoadRender/n=1000-12             	     194	   1229239 ns/op	  23.50 MB/s	 1392345 B/op	   27306 allocs/op
+PASS
+ok  	quillbench	253.150s
+?   	quillbench/qtpl	[no test files]
