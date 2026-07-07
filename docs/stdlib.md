@@ -11,7 +11,7 @@ forms, named and defaulted arguments) is in [Expressions](guide/expressions.md).
 
 | Kind | Surface | First argument |
 |------|---------|----------------|
-| Filter | `x \| name` or `x \| name(args)` | the piped value `x` |
+| Filter | <code>x &#124; name</code> or <code>x &#124; name(args)</code> | the piped value `x` |
 | Function | `name(args)` | none implicit; all explicit |
 | Test | `x is name` / `x is name(arg)` / `x is not name` | the tested value `x` |
 

@@ -36,7 +36,7 @@ binding. Higher binds tighter (evaluated first).
 
 | Level | Operators | Assoc |
 |-------|-----------|-------|
-| 17 | postfix: `.` `?.` `[ ]` `?[ ]` `( )` call `\|` filter | left |
+| 17 | postfix: `.` `?.` `[ ]` `?[ ]` `( )` call <code>&#124;</code> filter | left |
 | 16 | prefix: `not` (`!`) `-` `+` `...` spread | right |
 | 15 | `**` power | right |
 | 14 | `*` `/` `//` `%` | left |
@@ -46,10 +46,10 @@ binding. Higher binds tighter (evaluated first).
 | 10 | comparison/membership/test: `==` `!=` `<` `>` `<=` `>=` `<=>` `in` `not in` `matches` `starts with` `ends with` `has some` `has every` `is` `is not` | non-assoc |
 | 9 | `b_and` (`&`) | left |
 | 8 | `b_xor` (`^`) | left |
-| 7 | `b_or` (`\|\|\|`) | left |
+| 7 | `b_or` (<code>&#124;&#124;&#124;</code>) | left |
 | 6 | `and` (`&&`) | left |
 | 5 | `xor` | left |
-| 4 | `or` (`\|\|`) | left |
+| 4 | `or` (<code>&#124;&#124;</code>) | left |
 | 3 | `??` coalesce, `?:` elvis | right |
 | 2 | `? :` ternary, postfix `if`/`unless`/`else` | right |
 | 1 | `=>` arrow, `=` assignment / destructuring | right |
