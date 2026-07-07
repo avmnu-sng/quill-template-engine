@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-07-07
+
+### Changed
+
+- **BREAKING: the library packages moved under `pkg/`.** All fifteen internal
+  and public packages now live under a single `pkg/` directory, leaning the repo
+  root from seventeen top-level directories to eight. Update your imports:
+  `.../runtime` -> `.../pkg/runtime`, `.../loader` -> `.../pkg/loader`, and
+  likewise for `check`, `compile`, `compiled`, `cover`, `errors`, `ext`, and
+  `sandbox` (the previously-internal `lex`/`ast`/`parse`/`source`/`interp`/`cache`
+  moved from `core/` to `pkg/`). The module root import
+  (`github.com/avmnu-sng/quill-template-engine`) and
+  `go install .../cmd/quill@latest` are unchanged; most code only imports the
+  root package plus `runtime`/`loader`.
+
+### Fixed
+
+- The documentation site rendered filter-pipe examples as `\|` instead of `|`
+  inside table code spans (a mkdocs/python-markdown escaping quirk; GitHub was
+  unaffected). Those cells now use an HTML entity so the pipe renders correctly.
+
 ## [v0.2.0] - 2026-07-06
 
 ### Security
@@ -110,6 +131,7 @@ template engine for Go.
   (`quill`) and reports coverage (`quill cover`) with text, LCOV, or HTML output
   and a `-fail-under` gate.
 
-[Unreleased]: https://github.com/avmnu-sng/quill-template-engine/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/avmnu-sng/quill-template-engine/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/avmnu-sng/quill-template-engine/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/avmnu-sng/quill-template-engine/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/avmnu-sng/quill-template-engine/releases/tag/v0.1.0
