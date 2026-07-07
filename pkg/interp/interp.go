@@ -612,7 +612,7 @@ func posErr(n *ast.Node, err error) error {
 	}
 	var qe *errors.Error
 	if as(err, &qe) {
-		if qe.Src == nil && qe.Line == 0 && n != nil {
+		if qe.Src() == nil && qe.Line() == 0 && n != nil {
 			return qe.At(n.Src, n.Line)
 		}
 		return qe

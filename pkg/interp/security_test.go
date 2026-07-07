@@ -369,10 +369,11 @@ func TestSandboxStrictUnknownType(t *testing.T) {
 		t.Errorf("lenient message = %q, want per-member deny", got)
 	}
 
-	// Strict: the same access reports the unknown-type variant naming the type.
+	// Strict: the same access reports the unknown-type variant naming the type,
+	// carrying the dedicated SecUnknownType class.
 	strict := sandboxStub(nil, &sandbox.Policy{Strict: true})
 	err = renderErr(t, strict, "t", "{{ u.secret }}", map[string]runtime.Value{"u": u})
-	wantSecurity(t, err, errors.SecProperty, "secret")
+	wantSecurity(t, err, errors.SecUnknownType, "secret")
 	if got := err.Error(); !strings.Contains(got, "unknown to the sandbox policy") {
 		t.Errorf("strict message = %q, want unknown-type variant", got)
 	}

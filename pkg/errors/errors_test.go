@@ -30,10 +30,10 @@ func TestAtIsCopy(t *testing.T) {
 	e := New(KindRender, "boom")
 	src := source.New("a.ql", "")
 	e2 := e.At(src, 5)
-	if e.Src != nil || e.Line != 0 {
+	if e.Src() != nil || e.Line() != 0 {
 		t.Fatal("At mutated the receiver")
 	}
-	if e2.Src != src || e2.Line != 5 {
+	if e2.Src() != src || e2.Line() != 5 {
 		t.Fatal("At did not annotate the copy")
 	}
 }
@@ -41,8 +41,8 @@ func TestAtIsCopy(t *testing.T) {
 func TestAtPosRendersColumn(t *testing.T) {
 	src := source.New("tmpl.ql", "line one\nline two\n")
 	e := New(KindSyntax, "boom").AtPos(src, 2, 7)
-	if e.Line != 2 || e.Col != 7 {
-		t.Fatalf("AtPos did not set line/col: line=%d col=%d", e.Line, e.Col)
+	if e.Line() != 2 || e.Col() != 7 {
+		t.Fatalf("AtPos did not set line/col: line=%d col=%d", e.Line(), e.Col())
 	}
 	if !strings.Contains(e.Error(), "tmpl.ql:2:7") {
 		t.Fatalf("message %q lacks name:line:col", e.Error())
@@ -54,8 +54,8 @@ func TestAtPosRendersColumn(t *testing.T) {
 func TestAtOmitsColumn(t *testing.T) {
 	src := source.New("tmpl.ql", "x\n")
 	e := New(KindSyntax, "boom").At(src, 3)
-	if e.Col != 0 {
-		t.Fatalf("At set a nonzero column: %d", e.Col)
+	if e.Col() != 0 {
+		t.Fatalf("At set a nonzero column: %d", e.Col())
 	}
 	msg := e.Error()
 	if !strings.Contains(msg, "tmpl.ql:3") {
@@ -113,14 +113,15 @@ func TestSecurityIsCatchableAndCarriesNames(t *testing.T) {
 }
 
 func TestSecurityUnknownType(t *testing.T) {
-	e := SecurityUnknownType(SecProperty, "Stranger", "secret")
+	e := SecurityUnknownType("Stranger", "secret")
 	var sec *Security
 	if !stderrors.As(error(e), &sec) {
 		t.Fatal("errors.As did not match *Security")
 	}
-	// It carries the SAME class as the access (so a host catches it uniformly)
-	// plus the offending type and member names.
-	if sec.Class != SecProperty || sec.Type != "Stranger" || sec.Name != "secret" {
+	// It carries the dedicated SecUnknownType class (so a host can tell an
+	// unregistered/mistyped type from a denied-but-known member) plus the
+	// offending type and member names.
+	if sec.Class != SecUnknownType || sec.Type != "Stranger" || sec.Name != "secret" {
 		t.Errorf("class/type/name = %v/%q/%q", sec.Class, sec.Type, sec.Name)
 	}
 	if KindOf(e) != KindSecurity {
@@ -137,7 +138,7 @@ func TestSecurityUnknownType(t *testing.T) {
 func TestSecurityClassLabels(t *testing.T) {
 	cases := map[SecurityClass]string{
 		SecTag: "tag", SecFilter: "filter", SecFunction: "function",
-		SecMethod: "method", SecProperty: "property",
+		SecMethod: "method", SecProperty: "property", SecUnknownType: "unknown-type",
 	}
 	for c, want := range cases {
 		if c.String() != want {

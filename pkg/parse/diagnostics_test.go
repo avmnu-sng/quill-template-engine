@@ -35,8 +35,8 @@ func TestUnterminatedInterpReportsOpenerLine(t *testing.T) {
 	if !ok {
 		t.Fatalf("error is %T, want *errors.Error", err)
 	}
-	if qe.Line != 2 {
-		t.Fatalf("line = %d, want 2 (the '{{' opener)", qe.Line)
+	if qe.Line() != 2 {
+		t.Fatalf("line = %d, want 2 (the '{{' opener)", qe.Line())
 	}
 	if !strings.Contains(qe.Msg, "unterminated interpolation") {
 		t.Fatalf("message %q is not the unterminated-interpolation error", qe.Msg)
@@ -55,8 +55,8 @@ func TestUnterminatedBlockReportsOpenerLine(t *testing.T) {
 	if !ok {
 		t.Fatalf("error is %T, want *errors.Error", err)
 	}
-	if qe.Line != 2 {
-		t.Fatalf("line = %d, want 2 (the '@if' opener)", qe.Line)
+	if qe.Line() != 2 {
+		t.Fatalf("line = %d, want 2 (the '@if' opener)", qe.Line())
 	}
 	if !strings.Contains(qe.Msg, "unclosed block") {
 		t.Fatalf("message %q is not the unclosed-block error", qe.Msg)
