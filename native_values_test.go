@@ -19,7 +19,7 @@ func TestRenderValuesParity(t *testing.T) {
 	}
 	body := `{{ user.name | upper }}{{ ", admin" if user.admin }}: {{ user.tags | join("/") }}`
 
-	env := NewWithArray(map[string]string{"t.ql": body})
+	env := NewFromMap(map[string]string{"t.ql": body})
 	native, err := env.RenderValues("t.ql", map[string]any{
 		"user": user{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
 	})
@@ -47,7 +47,7 @@ func TestRenderValuesParity(t *testing.T) {
 
 // TestRenderValuesMapsAndSlices passes native maps and slices directly.
 func TestRenderValuesMapsAndSlices(t *testing.T) {
-	env := NewWithArray(map[string]string{
+	env := NewFromMap(map[string]string{
 		"t.ql": `@for k, v in cfg {{{ k }}={{ v }}
 @}`,
 	})
@@ -66,7 +66,7 @@ func TestRenderValuesMapsAndSlices(t *testing.T) {
 
 // TestRenderStringValues marshals native bindings for an ad-hoc body.
 func TestRenderStringValues(t *testing.T) {
-	env := NewWithArray(nil)
+	env := NewFromMap(nil)
 	out, err := env.RenderStringValues("ad-hoc", `{{ nums | join("+") }}`, map[string]any{
 		"nums": []int{1, 2, 3, 4},
 	})
@@ -81,7 +81,7 @@ func TestRenderStringValues(t *testing.T) {
 // TestRenderValuesMixedHandBuilt lets a hand-built runtime.Value ride alongside
 // native bindings in the same map.
 func TestRenderValuesMixedHandBuilt(t *testing.T) {
-	env := NewWithArray(map[string]string{"t.ql": `{{ a }}-{{ b }}`})
+	env := NewFromMap(map[string]string{"t.ql": `{{ a }}-{{ b }}`})
 	out, err := env.RenderValues("t.ql", map[string]any{
 		"a": "native",
 		"b": runtime.Str("built"),
@@ -97,7 +97,7 @@ func TestRenderValuesMixedHandBuilt(t *testing.T) {
 // TestRenderValuesUnsupported surfaces a marshaling error from a binding and
 // renders nothing.
 func TestRenderValuesUnsupported(t *testing.T) {
-	env := NewWithArray(map[string]string{"t.ql": `{{ x }}`})
+	env := NewFromMap(map[string]string{"t.ql": `{{ x }}`})
 	out, err := env.RenderValues("t.ql", map[string]any{"x": make(chan int)})
 	if err == nil {
 		t.Fatalf("RenderValues with chan binding = nil error, want marshaling error")
@@ -135,7 +135,7 @@ func TestRenderValuesMatchesConformanceFixture(t *testing.T) {
 		Meta map[string]int `quill:"meta"`
 	}
 
-	env := NewWithArray(map[string]string{"template.ql": string(tmpl)})
+	env := NewFromMap(map[string]string{"template.ql": string(tmpl)})
 	out, err := env.RenderValues("template.ql", map[string]any{
 		"user": user{
 			Name: "ada",
@@ -155,7 +155,7 @@ func TestRenderValuesMatchesConformanceFixture(t *testing.T) {
 
 // TestRenderValuesNilBindings renders with no bindings.
 func TestRenderValuesNilBindings(t *testing.T) {
-	env := NewWithArray(map[string]string{"t.ql": `static`})
+	env := NewFromMap(map[string]string{"t.ql": `static`})
 	out, err := env.RenderValues("t.ql", nil)
 	if err != nil {
 		t.Fatalf("RenderValues(nil): %v", err)

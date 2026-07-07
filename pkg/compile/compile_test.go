@@ -280,10 +280,10 @@ func renderInterp(t *testing.T, cs compiledCase) (string, error) {
 		t.Fatalf("%s: vars: %v", cs.name, err)
 	}
 	if cs.templates != nil {
-		env := quill.NewWithArray(cs.templates, opts...)
+		env := quill.NewFromMap(cs.templates, opts...)
 		return env.Render(cs.entry, vars)
 	}
-	env := quill.NewWithArray(map[string]string{cs.name + ".ql": cs.template}, opts...)
+	env := quill.NewFromMap(map[string]string{cs.name + ".ql": cs.template}, opts...)
 	return env.Render(cs.name+".ql", vars)
 }
 
@@ -373,7 +373,7 @@ func TestLoadGateParity(t *testing.T) {
 			if cerr == nil {
 				t.Fatal("Module compiled a template the facade rejects at load")
 			}
-			env := quill.NewWithArray(map[string]string{tc.name + ".ql": tc.template})
+			env := quill.NewFromMap(map[string]string{tc.name + ".ql": tc.template})
 			_, ferr := env.Render(tc.name+".ql", map[string]runtime.Value{})
 			if ferr == nil {
 				t.Fatalf("facade unexpectedly rendered; Module error was %v", cerr)

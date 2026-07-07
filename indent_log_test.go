@@ -14,7 +14,7 @@ import (
 // on error.
 func renderQ(t *testing.T, src string, opts ...Option) string {
 	t.Helper()
-	env := NewWithArray(map[string]string{"t.ql": src}, opts...)
+	env := NewFromMap(map[string]string{"t.ql": src}, opts...)
 	out, err := env.Render("t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatalf("render error: %v", err)
@@ -109,7 +109,7 @@ func TestTabBlockMidLineEntry(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			env := NewWithArray(map[string]string{"t.ql": tc.src})
+			env := NewFromMap(map[string]string{"t.ql": tc.src})
 			out, err := env.Render("t.ql", tc.vars)
 			if err != nil {
 				t.Fatalf("render error: %v", err)
@@ -142,7 +142,7 @@ func TestTabBlockCumulative(t *testing.T) {
 // TestTabBlockInterpolation proves indentation applies to interpolated values,
 // not just literal text.
 func TestTabBlockInterpolation(t *testing.T) {
-	env := NewWithArray(map[string]string{"t.ql": "@tab(1) {\n{{ name }}\n@}\n"})
+	env := NewFromMap(map[string]string{"t.ql": "@tab(1) {\n{{ name }}\n@}\n"})
 	out, err := env.Render("t.ql", map[string]runtime.Value{"name": runtime.Str("Ada")})
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestLogWritesToLoggerNoOutput(t *testing.T) {
 	logger := log.New(&buf, "", 0)
 	// @log is a line statement recognized at line start; it consumes its line and
 	// emits nothing, so the surrounding A and B lines abut.
-	env := NewWithArray(map[string]string{"t.ql": "A\n@log \"hello\"\nB"}, WithLogger(logger))
+	env := NewFromMap(map[string]string{"t.ql": "A\n@log \"hello\"\nB"}, WithLogger(logger))
 	out, err := env.Render("t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +184,7 @@ func TestLogDefaultLoggerDiscards(t *testing.T) {
 // value) and logs its text form.
 func TestLogExpressionEvaluated(t *testing.T) {
 	var buf bytes.Buffer
-	env := NewWithArray(map[string]string{"t.ql": "@log user.name\n"},
+	env := NewFromMap(map[string]string{"t.ql": "@log user.name\n"},
 		WithLogger(log.New(&buf, "", 0)))
 	_, err := env.Render("t.ql", map[string]runtime.Value{
 		"user": func() runtime.Value {
@@ -210,7 +210,7 @@ func TestLogIsCoverable(t *testing.T) {
 	// 4: @log "always"
 	src := "@if flag {\n@log \"ran\"\n@}\n@log \"always\"\n"
 	coll := cover.NewCollector()
-	env := NewWithArray(map[string]string{"t.ql": src},
+	env := NewFromMap(map[string]string{"t.ql": src},
 		WithLogger(log.New(&bytes.Buffer{}, "", 0)), WithCoverage(coll))
 	if _, err := env.Render("t.ql", map[string]runtime.Value{"flag": runtime.Bool(false)}); err != nil {
 		t.Fatal(err)
@@ -226,7 +226,7 @@ func TestCommentNotCoverableNorRendered(t *testing.T) {
 	// 1: A{# this is a comment #}B
 	src := "A{# this is a comment #}B\n"
 	coll := cover.NewCollector()
-	env := NewWithArray(map[string]string{"t.ql": src}, WithCoverage(coll))
+	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
 	out, err := env.Render("t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +256,7 @@ func TestCommentNotCoverableNorRendered(t *testing.T) {
 func TestTabBlockCoverable(t *testing.T) {
 	src := "@tab(1) {\nx\n@}\n"
 	coll := cover.NewCollector()
-	env := NewWithArray(map[string]string{"t.ql": src}, WithCoverage(coll))
+	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
 	if _, err := env.Render("t.ql", map[string]runtime.Value{}); err != nil {
 		t.Fatal(err)
 	}

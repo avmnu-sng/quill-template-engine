@@ -47,7 +47,7 @@ func BenchmarkQuill_FromGo_Marshal(b *testing.B) {
 // prepared-template cache), then every iteration marshals the native rows
 // through FromGo and renders the Loop workload from the result.
 func BenchmarkQuill_RenderValues_Loop(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
+	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
 	if _, err := env.LoadTemplate("loop.ql"); err != nil {
 		b.Fatal(err)
 	}

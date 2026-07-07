@@ -42,7 +42,7 @@ func main() {
 }
 
 func render() error {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"base.quill": base,
 		"page.quill": page,
 	})

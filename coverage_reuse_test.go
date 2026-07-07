@@ -15,7 +15,7 @@ func TestCoverageProvideYield(t *testing.T) {
 	// 4: @yield s
 	src := "@provide s {\nx\n@}\n@yield s\n"
 	coll := cover.NewCollector()
-	env := NewWithArray(map[string]string{"t.ql": src}, WithCoverage(coll))
+	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
 	if _, err := env.Render("t.ql", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestCoverageCallBlock(t *testing.T) {
 	// 6: @}
 	src := "@macro w() {\n{{ caller() }}\n@}\n@call w() {\nbody\n@}\n"
 	coll := cover.NewCollector()
-	env := NewWithArray(map[string]string{"t.ql": src}, WithCoverage(coll))
+	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
 	if _, err := env.Render("t.ql", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestCoverageCallBlock(t *testing.T) {
 func TestCoverageRecursiveForArms(t *testing.T) {
 	src := "@for n in tree recursive {\n{{ n.name }}{{ loop(n.children) }}\n@}\n"
 	coll := cover.NewCollector()
-	env := NewWithArray(map[string]string{"t.ql": src}, WithCoverage(coll))
+	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
 
 	leaf := runtime.NewArray()
 	leaf.SetStr("name", runtime.Str("only"))

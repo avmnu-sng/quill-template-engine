@@ -73,7 +73,7 @@ func compiledLoop(w io.Writer, users runtime.Value) error {
 // TestCompiledMatchesInterp asserts the hand-compiled loop is byte-identical to
 // the interpreter, so the benchmark below compares equivalent work.
 func TestCompiledMatchesInterp(t *testing.T) {
-	env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
+	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
 	want, err := env.Render("loop.ql", map[string]runtime.Value{"users": quillUsers()})
 	if err != nil {
 		t.Fatal(err)

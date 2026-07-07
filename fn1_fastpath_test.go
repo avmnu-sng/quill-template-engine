@@ -36,7 +36,7 @@ func TestFn1HostFilterGetsFreshArgSlice(t *testing.T) {
 			return runtime.Str("H:" + strings.ToUpper(s)), nil
 		},
 	})
-	e := NewWithArray(nil, WithExtensions(set))
+	e := NewFromMap(nil, WithExtensions(set))
 	out, err := e.RenderString("m", "@for x in [\"a\", \"b\", \"c\"] {\n{{ x | upper }}\n@}\n", nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -59,7 +59,7 @@ func TestFn1ShadowedFilterWithoutFn1TakesGeneralPath(t *testing.T) {
 			return runtime.Str("shadow"), nil
 		},
 	})
-	e := NewWithArray(nil, WithExtensions(set))
+	e := NewFromMap(nil, WithExtensions(set))
 	out, err := e.RenderString("m", `{{ "x" | upper }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -97,7 +97,7 @@ func TestFn1NeedsFlagsDisableFastCall(t *testing.T) {
 		},
 		NeedsContext: true,
 	})
-	e := NewWithArray(nil, WithExtensions(set))
+	e := NewFromMap(nil, WithExtensions(set))
 	out, err := e.RenderString("m", "@set who = \"ada\"\n{{ \"x\" | upper }}", nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -140,7 +140,7 @@ func TestFn1SpreadArgKeepsGeneralPath(t *testing.T) {
 	var calls []string
 	set := ext.NewExtensionSet()
 	set.AddFilter(probeFilter("probe1", &calls))
-	e := NewWithArray(nil, WithExtensions(set))
+	e := NewFromMap(nil, WithExtensions(set))
 
 	vars := map[string]runtime.Value{"empty": runtime.Arr(runtime.NewArray())}
 	out, err := e.RenderString("m", `{{ "a" | probe1 }};{{ "b" | probe1(...empty) }}`, vars)
@@ -159,7 +159,7 @@ func TestFn1SpreadArgKeepsGeneralPath(t *testing.T) {
 // under its worst case -- alternating filter names -- and under repeats, so a
 // stale-memo bug would misroute a call to the wrong filter and change bytes.
 func TestFn1MemoResolvesAlternatingFilters(t *testing.T) {
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	out, err := e.RenderString("m",
 		"@for x in [\"aB\", \"cD\"] {\n{{ x | upper }}{{ x | lower }}{{ x | upper }}\n@}\n", nil)
 	if err != nil {
@@ -193,7 +193,7 @@ func TestFn1FastAndGeneralRoutesByteEqual(t *testing.T) {
 		)),
 		"empty": runtime.Arr(runtime.NewArray()),
 	}
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	for _, name := range audited {
 		fastTpl := fmt.Sprintf("@for v in vals {\n[{{ v | %s | join(\",\") }}]\n@}\n", name)
 		genTpl := fmt.Sprintf("@for v in vals {\n[{{ v | %s(...empty) | join(\",\") }}]\n@}\n", name)

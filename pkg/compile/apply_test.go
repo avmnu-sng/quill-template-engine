@@ -335,7 +335,7 @@ func ctxkeys(args []runtime.Value) (runtime.Value, error) {
 }
 
 func main() {
-	env := quill.NewWithArray(map[string]string{%q: %q})
+	env := quill.NewFromMap(map[string]string{%q: %q})
 	env.Extensions().AddFilter(&ext.Filter{Name: "ctxkeys", NeedsContext: true, Fn: ctxkeys})
 
 	want, werr := env.Render(%q, map[string]runtime.Value{})

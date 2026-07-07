@@ -16,7 +16,7 @@ func TestSourceFunction(t *testing.T) {
 		"frag.ql": "RAW {{ x }} BODY",
 		"main.ql": `{{ source("frag.ql") }}`,
 	}
-	e := NewWithArray(tmpls)
+	e := NewFromMap(tmpls)
 	out, err := e.Render("main.ql", nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -39,7 +39,7 @@ func TestSourceFunction(t *testing.T) {
 // TestTemplateFromString covers compiling and rendering a string at runtime with
 // the live context (spec 03 Section 3.3).
 func TestTemplateFromString(t *testing.T) {
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	out, err := e.RenderString("m",
 		`{{ template_from_string("Hi {{ name | upper }}") }}`,
 		map[string]runtime.Value{"name": runtime.Str("ada")})
@@ -54,7 +54,7 @@ func TestTemplateFromString(t *testing.T) {
 // TestDumpFunction covers dump() producing a Go-native structured render of a
 // value (spec 03 Section 3.3).
 func TestDumpFunction(t *testing.T) {
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	out, err := e.RenderString("m", `{{ dump(n) }}`, map[string]runtime.Value{"n": runtime.Int(7)})
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -72,7 +72,7 @@ func TestHostConstantsAndEnums(t *testing.T) {
 	exts.AddConstant("APP_NAME", runtime.Str("quill"))
 	exts.AddEnum("Suit", []runtime.Value{runtime.Str("hearts"), runtime.Str("spades")})
 
-	e := NewWithArray(nil, WithExtensions(exts))
+	e := NewFromMap(nil, WithExtensions(exts))
 	out, err := e.RenderString("m",
 		`{{ constant("APP_NAME") }} / {{ enum("Suit") }} / {{ enum_cases("Suit") | join(",") }} / {{ "quill" is constant("APP_NAME") }}`,
 		nil)
@@ -105,7 +105,7 @@ func TestHostFunctionRegistration(t *testing.T) {
 			return runtime.Str(name), nil
 		},
 	})
-	e := NewWithArray(nil, WithExtensions(exts))
+	e := NewFromMap(nil, WithExtensions(exts))
 	out, err := e.RenderString("m", `{{ javaBoxed("int") }} {{ javaBoxed("Widget") }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -118,7 +118,7 @@ func TestHostFunctionRegistration(t *testing.T) {
 // TestEscapeStrategiesEndToEnd covers the escape filter under an autoescape-html
 // environment and via explicit strategy selection (spec 03 Section 5.5).
 func TestEscapeStrategiesEndToEnd(t *testing.T) {
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	out, err := e.RenderString("m",
 		`{{ "a b" | escape("url") }} {{ "<x>" | escape("html") }} {{ "x y" | escape("js") }}`,
 		nil)
@@ -136,11 +136,11 @@ func TestEscapeStrategiesEndToEnd(t *testing.T) {
 // the inclusive max bound, not a seed.
 func TestRandomSeedDeterminism(t *testing.T) {
 	body := `{{ random(1000) }}|{{ random(10, 20) }}|{{ [1,2,3,4,5] | shuffle | join(",") }}`
-	a, err := NewWithArray(nil, WithRandomSeed(99)).RenderString("m", body, nil)
+	a, err := NewFromMap(nil, WithRandomSeed(99)).RenderString("m", body, nil)
 	if err != nil {
 		t.Fatalf("render a: %v", err)
 	}
-	b, err := NewWithArray(nil, WithRandomSeed(99)).RenderString("m", body, nil)
+	b, err := NewFromMap(nil, WithRandomSeed(99)).RenderString("m", body, nil)
 	if err != nil {
 		t.Fatalf("render b: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestRandomSeedDeterminism(t *testing.T) {
 
 	// random(lo, hi) draws within the inclusive bound, never the literal seed.
 	for i := 0; i < 50; i++ {
-		out, err := NewWithArray(nil).RenderString("m", `{{ random(10, 20) }}`, nil)
+		out, err := NewFromMap(nil).RenderString("m", `{{ random(10, 20) }}`, nil)
 		if err != nil {
 			t.Fatalf("render: %v", err)
 		}
@@ -165,7 +165,7 @@ func TestRandomSeedDeterminism(t *testing.T) {
 // is none reaching their registered predicates (spec 03 Section 4).
 func TestKeywordTests(t *testing.T) {
 	body := `{{ flag is true }}|{{ x is null }}|{{ y is none }}|{{ 1 is true }}`
-	out, err := NewWithArray(nil).RenderString("m", body, map[string]runtime.Value{
+	out, err := NewFromMap(nil).RenderString("m", body, map[string]runtime.Value{
 		"flag": runtime.Bool(true),
 		"x":    runtime.Null(),
 		"y":    runtime.Str("set"),

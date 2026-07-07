@@ -32,13 +32,13 @@ func TestTypesRenderIdentically(t *testing.T) {
 	)
 	vars := map[string]runtime.Value{"users": users}
 
-	plain := NewWithArray(nil)
+	plain := NewFromMap(nil)
 	gotUntyped, err := plain.RenderString("u.ql", untyped, vars)
 	if err != nil {
 		t.Fatalf("untyped render: %v", err)
 	}
 
-	withTypes := NewWithArray(nil, WithTypes(reg))
+	withTypes := NewFromMap(nil, WithTypes(reg))
 	gotTyped, err := withTypes.RenderString("t.ql", typed, vars)
 	if err != nil {
 		t.Fatalf("typed render: %v", err)
@@ -55,7 +55,7 @@ func TestTypesRenderIdentically(t *testing.T) {
 // TestCheckTimeRejection proves an ill-typed template is rejected at Load/Render
 // (before any byte is emitted) with a positioned KindTypeCheck error.
 func TestCheckTimeRejection(t *testing.T) {
-	e := NewWithArray(map[string]string{
+	e := NewFromMap(map[string]string{
 		"bad.ql": "@types {\n  s: string\n@}\n{{ s + 1 }}",
 	})
 	out, err := e.Render("bad.ql", map[string]runtime.Value{"s": runtime.Str("x")})
@@ -78,7 +78,7 @@ func TestCheckTimeRejection(t *testing.T) {
 func TestUnannotatedUnaffectedByRegistry(t *testing.T) {
 	reg := check.NewRegistry()
 	reg.AddType(&check.ObjectType{Name: "User", Stringify: true})
-	e := NewWithArray(nil, WithTypes(reg))
+	e := NewFromMap(nil, WithTypes(reg))
 	out, err := e.RenderString("t.ql", "{{ a + b }}", map[string]runtime.Value{
 		"a": runtime.Int(2), "b": runtime.Int(3),
 	})

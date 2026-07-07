@@ -47,7 +47,7 @@ func TestArrayValueSemantics(t *testing.T) {
 			"1,99"},
 	}
 	for _, c := range cases {
-		env := NewWithArray(map[string]string{"t.ql": c.src})
+		env := NewFromMap(map[string]string{"t.ql": c.src})
 		out, err := env.Render("t.ql", map[string]runtime.Value{})
 		if err != nil {
 			t.Errorf("%s: %v", c.name, err)

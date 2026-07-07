@@ -82,7 +82,7 @@ func TestMacroKwargsTail(t *testing.T) {
 // the positional variadic: without a kwargs tail an unknown named argument is a
 // typo error, and with one the same argument is absorbed silently.
 func TestMacroKwargsSymmetry(t *testing.T) {
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 
 	// No kwargs tail: an unknown named argument is rejected.
 	_, err := e.RenderString("t", "@macro f(name) {\n{{ name }}\n@}\n{{ f(\"a\", extra: 1) }}", nil)
@@ -103,7 +103,7 @@ func TestMacroKwargsSymmetry(t *testing.T) {
 // TestMacroKwargsDuplicate rejects the same named key supplied twice to a kwargs
 // tail, matching the duplicate-named-argument rule for ordinary parameters.
 func TestMacroKwargsDuplicate(t *testing.T) {
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	_, err := e.RenderString("t",
 		"@macro f(**opts) {\n{{ opts.k }}\n@}\n{{ f(k: 1, k: 2) }}", nil)
 	if err == nil {
@@ -128,7 +128,7 @@ func TestMacroTailNotLast(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			e := NewWithArray(nil)
+			e := NewFromMap(nil)
 			_, err := e.RenderString("t", tc.tmpl, nil)
 			if err == nil {
 				t.Fatalf("expected a parse error for %q", tc.tmpl)
@@ -194,7 +194,7 @@ func TestInlineRegistryTestHostShadow(t *testing.T) {
 		Name: "filter",
 		Fn:   func(args []runtime.Value) (bool, error) { return true, nil },
 	})
-	e := NewWithArray(nil, WithExtensions(set))
+	e := NewFromMap(nil, WithExtensions(set))
 	// "nope" is not a registered filter, but the host "filter" test always
 	// returns true, proving the host shadow wins over the built-in predicate.
 	out, err := e.RenderString("t", "{{ \"nope\" is filter }}", nil)

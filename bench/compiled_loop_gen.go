@@ -336,7 +336,7 @@ func qpos(err error, src *source.Source, line int) error {
 	}
 	var qe *qerrors.Error
 	if stderrors.As(err, &qe) {
-		if qe.Src == nil && qe.Line == 0 {
+		if qe.Src() == nil && qe.Line() == 0 {
 			return qe.At(src, line)
 		}
 		return qe

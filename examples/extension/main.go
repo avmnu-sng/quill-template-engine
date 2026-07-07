@@ -58,7 +58,7 @@ func callables() *ext.ExtensionSet {
 }
 
 func render() error {
-	env := quill.NewWithArray(
+	env := quill.NewFromMap(
 		map[string]string{"demo.quill": tmpl},
 		quill.WithExtensions(callables()),
 	)

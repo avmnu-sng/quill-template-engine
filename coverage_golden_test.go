@@ -52,7 +52,7 @@ func goldenReport(t *testing.T) *cover.Report {
 	foot := "FOOT\n"
 
 	coll := cover.NewCollector()
-	env := NewWithArray(map[string]string{
+	env := NewFromMap(map[string]string{
 		"page.ql": page,
 		"foot.ql": foot,
 	}, WithCoverage(coll))

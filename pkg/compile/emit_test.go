@@ -250,7 +250,7 @@ func ctxkeys(args []runtime.Value) (runtime.Value, error) {
 }
 
 func main() {
-	env := quill.NewWithArray(map[string]string{%q: %q})
+	env := quill.NewFromMap(map[string]string{%q: %q})
 	env.Extensions().AddFilter(&ext.Filter{Name: "ctxkeys", NeedsContext: true, Fn: ctxkeys})
 
 	want, werr := env.Render(%q, map[string]runtime.Value{})
@@ -356,7 +356,7 @@ func (w *capWriter) Write(p []byte) (int, error) {
 }
 
 func main() {
-	env := quill.NewWithArray(map[string]string{%q: %q})
+	env := quill.NewFromMap(map[string]string{%q: %q})
 	vars := map[string]runtime.Value{"s": runtime.Str("mid")}
 
 	full, err := env.Render(%q, vars)

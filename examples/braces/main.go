@@ -36,7 +36,7 @@ func main() {
 }
 
 func render() error {
-	env := quill.NewWithArray(map[string]string{"server.quill": tmpl})
+	env := quill.NewFromMap(map[string]string{"server.quill": tmpl})
 
 	location := func(path, upstream string) runtime.Value {
 		l := runtime.NewArray()

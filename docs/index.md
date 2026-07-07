@@ -74,7 +74,7 @@ import (
 )
 
 func main() {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
 	out, err := env.Render("greet.quill", map[string]runtime.Value{

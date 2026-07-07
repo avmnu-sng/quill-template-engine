@@ -365,8 +365,8 @@ func New(ldr loader.Loader, opts ...Option) *Environment {
 	return e
 }
 
-// NewWithArray is a convenience constructor over an in-memory template map.
-func NewWithArray(templates map[string]string, opts ...Option) *Environment {
+// NewFromMap is a convenience constructor over an in-memory template map.
+func NewFromMap(templates map[string]string, opts ...Option) *Environment {
 	return New(loader.NewArrayLoader(templates), opts...)
 }
 
@@ -765,14 +765,6 @@ func (e *Environment) RenderStringTo(w io.Writer, name, body string, vars map[st
 		return err
 	}
 	return interp.RenderTo(e, tmpl, vars, w)
-}
-
-// Display renders the named template directly into w -- the push model of the
-// Template contract, under its traditional name. It is RenderTo: a slot-free
-// template closure streams with bounded memory, a slot-using one buffers then
-// writes, and the bytes written equal Render's returned string.
-func (e *Environment) Display(w io.Writer, name string, vars map[string]runtime.Value) error {
-	return e.RenderTo(w, name, vars)
 }
 
 // RenderValues renders the named template from native Go bindings: each value in

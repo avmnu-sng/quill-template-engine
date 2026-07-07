@@ -47,7 +47,7 @@ func TestCustomCallableStructForm(t *testing.T) {
 			return runtime.Str(string(r)), nil
 		},
 	})
-	e := NewWithArray(nil, WithExtensions(set))
+	e := NewFromMap(nil, WithExtensions(set))
 	out, err := e.RenderString("m", `{{ "abc" | reverse_str }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -74,7 +74,7 @@ func TestCustomCallableTypedHelper(t *testing.T) {
 	}))
 	set.AddTest(ext.NewTest("positive", func(x int64) bool { return x > 0 }))
 
-	e := NewWithArray(nil, WithExtensions(set))
+	e := NewFromMap(nil, WithExtensions(set))
 	out, err := e.RenderString("m",
 		`{{ 3 | times(4) }} {{ clamp(20, 0, 10) }} {{ 5 is positive }}`, nil)
 	if err != nil {
@@ -88,7 +88,7 @@ func TestCustomCallableTypedHelper(t *testing.T) {
 // TestExtensionBundleEndToEnd renders using a bundle registered via
 // WithExtension, proving the Extension interface path works end to end.
 func TestExtensionBundleEndToEnd(t *testing.T) {
-	e := NewWithArray(nil, WithExtension(mathExt{}))
+	e := NewFromMap(nil, WithExtension(mathExt{}))
 	out, err := e.RenderString("m", `{{ 5 | times(3) }} {{ clamp(99, 0, 10) }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -114,7 +114,7 @@ func TestComposeShadowOrder(t *testing.T) {
 		return runtime.Str("SHADOWED"), nil
 	}})
 
-	e := NewWithArray(nil, WithExtensions(lower, upper))
+	e := NewFromMap(nil, WithExtensions(lower, upper))
 	out, err := e.RenderString("m", `{{ "x" | tag }} {{ "y" | upper }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -132,7 +132,7 @@ func TestComposeInterleavedSetsAndBundles(t *testing.T) {
 		return runtime.Str("early"), nil
 	}})
 	// mathExt (a bundle) ships a real "times"; passed after `early`, it shadows it.
-	e := NewWithArray(nil, WithExtensions(early), WithExtension(mathExt{}))
+	e := NewFromMap(nil, WithExtensions(early), WithExtension(mathExt{}))
 	out, err := e.RenderString("m", `{{ 2 | times(3) }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -159,7 +159,7 @@ func TestCustomCallableUnderTypeChecker(t *testing.T) {
 	// An empty registry: no host signatures, so clamp is unknown to the checker
 	// and must type as any (the dynamic fallback host callables already use).
 	reg := check.NewRegistry()
-	e := NewWithArray(nil, WithExtensions(set), WithTypes(reg))
+	e := NewFromMap(nil, WithExtensions(set), WithTypes(reg))
 	out, err := e.RenderString("m",
 		`@set n: int = clamp(20, 0, 10)`+"\n"+`{{ n }}`, nil)
 	if err != nil {
@@ -182,7 +182,7 @@ func TestCustomCallableSandboxAllow(t *testing.T) {
 		Tags:      map[string]bool{},
 		Graph:     sandbox.NewTypeGraph(),
 	}
-	e := NewWithArray(nil, WithExtensions(set), WithSandboxPolicy(pol), WithSandboxActive(true))
+	e := NewFromMap(nil, WithExtensions(set), WithSandboxPolicy(pol), WithSandboxActive(true))
 	out, err := e.RenderString("m", `{{ 4 | times(2) }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -204,7 +204,7 @@ func TestCustomCallableSandboxDeny(t *testing.T) {
 		Tags:      map[string]bool{},
 		Graph:     sandbox.NewTypeGraph(),
 	}
-	e := NewWithArray(nil, WithExtensions(set), WithSandboxPolicy(pol), WithSandboxActive(true))
+	e := NewFromMap(nil, WithExtensions(set), WithSandboxPolicy(pol), WithSandboxActive(true))
 	_, err := e.RenderString("m", `{{ 4 | times(2) }}`, nil)
 	if err == nil {
 		t.Fatal("expected a sandbox denial")

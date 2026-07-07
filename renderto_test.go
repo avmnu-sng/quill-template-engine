@@ -507,12 +507,12 @@ func TestRenderToValuesAndStringToAndDisplay(t *testing.T) {
 	}
 
 	buf.Reset()
-	if err := New(loader.NewArrayLoader(tmpls)).Display(&buf, "main.ql",
+	if err := New(loader.NewArrayLoader(tmpls)).RenderTo(&buf, "main.ql",
 		map[string]runtime.Value{"a": runtime.Int(1), "b": runtime.Int(2)}); err != nil {
-		t.Fatalf("Display error: %v", err)
+		t.Fatalf("RenderTo error: %v", err)
 	}
 	if buf.String() != "sum: 3\n" {
-		t.Fatalf("Display mismatch: %q", buf.String())
+		t.Fatalf("RenderTo mismatch: %q", buf.String())
 	}
 }
 

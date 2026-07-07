@@ -73,7 +73,7 @@ func TestCompiledLoopGenIsCurrent(t *testing.T) {
 // is byte-identical to the interpreter's Render of the same template and data,
 // so BenchmarkCompiledReal_Loop_Render measures equivalent work.
 func TestCompiledRealMatchesInterp(t *testing.T) {
-	env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
+	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
 	want, err := env.Render("loop.ql", map[string]runtime.Value{"users": quillUsers()})
 	if err != nil {
 		t.Fatal(err)

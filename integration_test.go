@@ -21,7 +21,7 @@ func mkList(vals ...runtime.Value) runtime.Value { return runtime.Arr(runtime.Ne
 // render is a helper that renders body as an ad-hoc template with vars.
 func render(t *testing.T, body string, vars map[string]runtime.Value) string {
 	t.Helper()
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	out, err := e.RenderString("test", body, vars)
 	if err != nil {
 		t.Fatalf("render error: %v\ntemplate:\n%s", err, body)
@@ -36,7 +36,7 @@ func TestAnchor(t *testing.T) {
 		"base.tmpl": "HEADER\n@block body {\ndefault body\n@}\nFOOTER",
 		"anchor.ql": "@extends \"base.tmpl\"\n\n@block body {\n@for u in users {\n{{ u.name | upper }}{{ \", admin\" if u.isAdmin }}\n@}\n@}\n",
 	}
-	e := NewWithArray(tmpls)
+	e := NewFromMap(tmpls)
 	users := mkList(
 		mkMap("name", runtime.Str("ada"), "isAdmin", runtime.Bool(true)),
 		mkMap("name", runtime.Str("bob"), "isAdmin", runtime.Bool(false)),
@@ -117,7 +117,7 @@ func TestControlFlow(t *testing.T) {
 // TestForNonIterableStrict verifies the strict divergence: a for over a
 // non-iterable is a runtime error, NOT a silent empty loop (spec 01 Section 4.2).
 func TestForNonIterableStrict(t *testing.T) {
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	_, err := e.RenderString("t", "@for x in n {\n{{ x }}\n@}\n",
 		map[string]runtime.Value{"n": runtime.Int(5)})
 	if err == nil {
@@ -154,7 +154,7 @@ func TestWithAndApply(t *testing.T) {
 }
 
 func TestStrictUndefined(t *testing.T) {
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	_, err := e.RenderString("t", "{{ missing }}", nil)
 	if err == nil {
 		t.Fatal("expected a strict-undefined error")
@@ -164,7 +164,7 @@ func TestStrictUndefined(t *testing.T) {
 		t.Errorf("is defined: %q", got)
 	}
 	// lenient mode yields empty.
-	le := NewWithArray(nil, WithStrictVariables(false))
+	le := NewFromMap(nil, WithStrictVariables(false))
 	out, err := le.RenderString("t", "[{{ missing }}]", nil)
 	if err != nil || out != "[]" {
 		t.Errorf("lenient: out=%q err=%v", out, err)
@@ -176,7 +176,7 @@ func TestInheritanceParent(t *testing.T) {
 		"base.ql":  "@block title {\nBASE\n@}\n",
 		"child.ql": "@extends \"base.ql\"\n@block title {\n{{ parent() }}+CHILD\n@}\n",
 	}
-	e := NewWithArray(tmpls)
+	e := NewFromMap(tmpls)
 	out, err := e.Render("child.ql", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -205,7 +205,7 @@ func TestMacroRecursionAndImport(t *testing.T) {
 		"forms.ql": "@macro input(name) {\n<{{ name }}>\n@}\n",
 		"page.ql":  "@from \"forms.ql\" import input\n{{ input(\"x\") }}",
 	}
-	e := NewWithArray(tmpls)
+	e := NewFromMap(tmpls)
 	out, err := e.Render("page.ql", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -219,7 +219,7 @@ func TestMacroRecursionAndImport(t *testing.T) {
 		"forms.ql": "@macro input(name) {\n[{{ name }}]\n@}\n",
 		"page.ql":  "@import \"forms.ql\" as forms\n{{ forms.input(\"y\") }}",
 	}
-	e2 := NewWithArray(tmpls2)
+	e2 := NewFromMap(tmpls2)
 	out2, err := e2.Render("page.ql", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -245,7 +245,7 @@ func TestInclude(t *testing.T) {
 		"row.ql":  "ROW:{{ user }}",
 		"page.ql": "@include \"row.ql\" with { user: \"ada\" }\n@include \"missing.ql\" ignore missing\nEND",
 	}
-	e := NewWithArray(tmpls)
+	e := NewFromMap(tmpls)
 	out, err := e.Render("page.ql", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -258,7 +258,7 @@ func TestInclude(t *testing.T) {
 		"row.ql":  "ROW:{{ user }}",
 		"cand.ql": "@include [\"nope.ql\", \"row.ql\"] with { user: \"z\" }",
 	}
-	e2 := NewWithArray(tmpls2)
+	e2 := NewFromMap(tmpls2)
 	out, err = e2.Render("cand.ql", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -273,7 +273,7 @@ func TestIncludeOnly(t *testing.T) {
 		"row.ql":  "{{ outer ?? \"-\" }}:{{ user }}",
 		"page.ql": "@include \"row.ql\" with { user: \"a\" } only",
 	}
-	e := NewWithArray(tmpls)
+	e := NewFromMap(tmpls)
 	out, err := e.Render("page.ql", map[string]runtime.Value{"outer": runtime.Str("O")})
 	if err != nil {
 		t.Fatal(err)
@@ -322,7 +322,7 @@ func TestEscapingOffByDefault(t *testing.T) {
 // TestEscapingHTMLOn verifies the html strategy escapes when enabled, while a
 // raw/Safe value stays verbatim (spec 04 Section 8).
 func TestEscapingHTMLOn(t *testing.T) {
-	e := NewWithArray(nil, WithAutoescapeHTML(true))
+	e := NewFromMap(nil, WithAutoescapeHTML(true))
 	out, err := e.RenderString("t", "{{ v }}", map[string]runtime.Value{"v": runtime.Str("<b>&")})
 	if err != nil {
 		t.Fatal(err)
@@ -376,7 +376,7 @@ func TestGuard(t *testing.T) {
 }
 
 func TestParseCaching(t *testing.T) {
-	e := NewWithArray(map[string]string{"x.ql": "{{ 1 + 1 }}"})
+	e := NewFromMap(map[string]string{"x.ql": "{{ 1 + 1 }}"})
 	out1, _ := e.Render("x.ql", nil)
 	out2, _ := e.Render("x.ql", nil) // second render hits the cache
 	if out1 != "2" || out2 != "2" {

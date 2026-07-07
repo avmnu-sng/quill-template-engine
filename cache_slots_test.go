@@ -192,17 +192,17 @@ func TestCompiledCacheSharesWarmCacheUnderConcurrency(t *testing.T) {
 		},
 	}
 
-	env := NewWithArray(tmpls, WithCompiled(manifest))
+	env := NewFromMap(tmpls, WithCompiled(manifest))
 
 	// A tracer proves the gate serves the compiled unit rather than falling back,
 	// so the concurrent loop measures the compiled shared-cache path.
 	tracer := markerManifest("t.ql", src, defaultFingerprint(), false)
-	tenv := NewWithArray(tmpls, WithCompiled(tracer))
+	tenv := NewFromMap(tmpls, WithCompiled(tracer))
 	if out, err := tenv.Render("t.ql", nil); err != nil || out != dispatchMarker {
 		t.Fatalf("dispatch gate did not serve the compiled unit: out=%q err=%v", out, err)
 	}
 
-	interp := NewWithArray(tmpls)
+	interp := NewFromMap(tmpls)
 	if out, err := interp.Render("t.ql", nil); err != nil || out != want {
 		t.Fatalf("interpreter render drifted from the pinned contract: out=%q err=%v", out, err)
 	}

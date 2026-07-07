@@ -47,7 +47,7 @@ func markerManifest(entry, src string, fp compiled.Fingerprint, usesLog bool) *c
 }
 
 func TestWithCompiledServesInstalledUnit(t *testing.T) {
-	env := NewWithArray(
+	env := NewFromMap(
 		map[string]string{"t.ql": "hi", "other.ql": "bye"},
 		WithCompiled(markerManifest("t.ql", "hi", defaultFingerprint(), false)),
 	)
@@ -115,7 +115,7 @@ func TestWithCompiledOptionFlipFallsBack(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			opts := append([]Option{WithCompiled(markerManifest("t.ql", src, tc.fp, false))}, tc.opts...)
-			env := NewWithArray(map[string]string{"t.ql": src}, opts...)
+			env := NewFromMap(map[string]string{"t.ql": src}, opts...)
 			out, err := env.Render("t.ql", nil)
 			if err != nil {
 				t.Fatal(err)
@@ -147,7 +147,7 @@ func TestWithCompiledFeatureGatesFallBack(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			env := NewWithArray(
+			env := NewFromMap(
 				map[string]string{"t.ql": src},
 				WithCompiled(markerManifest("t.ql", src, defaultFingerprint(), false)),
 				tc.opt,
@@ -167,7 +167,7 @@ func TestWithCompiledFeatureGatesFallBack(t *testing.T) {
 // manifest whose embedded source differs from the loader's text by a single
 // byte must never be served.
 func TestWithCompiledSourceByteEditFallsBack(t *testing.T) {
-	env := NewWithArray(
+	env := NewFromMap(
 		map[string]string{"t.ql": "hi"},
 		WithCompiled(markerManifest("t.ql", "hi!", defaultFingerprint(), false)),
 	)
@@ -181,7 +181,7 @@ func TestWithCompiledSourceByteEditFallsBack(t *testing.T) {
 	// A manifest citing a member the loader cannot serve is equally unprovable.
 	m := markerManifest("t.ql", "hi", defaultFingerprint(), false)
 	m.Sources["missing.ql"] = "gone"
-	env2 := NewWithArray(map[string]string{"t.ql": "hi"}, WithCompiled(m))
+	env2 := NewFromMap(map[string]string{"t.ql": "hi"}, WithCompiled(m))
 	out, err = env2.Render("t.ql", nil)
 	if err != nil || out != "hi" {
 		t.Fatalf("unit with unloadable member served: got %q, %v", out, err)
@@ -221,7 +221,7 @@ func TestWithCompiledAbsentIncludeGate(t *testing.T) {
 	// A fresh Environment whose loader never had the target serves compiled
 	// again: the check runs per render against live loader state, not once at
 	// install, so a target present in one Environment never poisons another.
-	env2 := NewWithArray(map[string]string{"t.ql": "head\n"}, WithCompiled(m))
+	env2 := NewFromMap(map[string]string{"t.ql": "head\n"}, WithCompiled(m))
 	out, err = env2.Render("t.ql", nil)
 	if err != nil || out != dispatchMarker {
 		t.Fatalf("absent-include unit not served in a fresh loader: got %q, %v", out, err)
@@ -274,14 +274,14 @@ func TestWithCompiledLogGate(t *testing.T) {
 	const src = "x\n@log \"note\"\n"
 	m := func() *compiled.Manifest { return markerManifest("t.ql", src, defaultFingerprint(), true) }
 
-	env := NewWithArray(map[string]string{"t.ql": src}, WithCompiled(m()))
+	env := NewFromMap(map[string]string{"t.ql": src}, WithCompiled(m()))
 	out, err := env.Render("t.ql", nil)
 	if err != nil || out != dispatchMarker {
 		t.Fatalf("UsesLog unit with discard logger not served: got %q, %v", out, err)
 	}
 
 	var buf bytes.Buffer
-	env2 := NewWithArray(map[string]string{"t.ql": src},
+	env2 := NewFromMap(map[string]string{"t.ql": src},
 		WithCompiled(m()), WithLogger(log.New(&buf, "", 0)))
 	out, err = env2.Render("t.ql", nil)
 	if err != nil {
@@ -297,7 +297,7 @@ func TestWithCompiledLogGate(t *testing.T) {
 
 func TestWithCompiledVerifyServesInterpAndReports(t *testing.T) {
 	var divs []compiled.Divergence
-	env := NewWithArray(
+	env := NewFromMap(
 		map[string]string{"t.ql": "hi"},
 		WithCompiled(markerManifest("t.ql", "hi", defaultFingerprint(), false)),
 		WithCompiledVerify(func(d compiled.Divergence) { divs = append(divs, d) }),
@@ -340,7 +340,7 @@ func TestWithCompiledVerifyCleanUnitReportsNothing(t *testing.T) {
 		},
 	}
 	called := 0
-	env := NewWithArray(map[string]string{"t.ql": "hi"},
+	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(clean),
 		WithCompiledVerify(func(compiled.Divergence) { called++ }))
 	out, err := env.Render("t.ql", nil)
@@ -365,7 +365,7 @@ func TestWithCompiledVerifyReportsErrorDivergence(t *testing.T) {
 		},
 	}
 	var divs []compiled.Divergence
-	env := NewWithArray(map[string]string{"t.ql": "hi"},
+	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(failing),
 		WithCompiledVerify(func(d compiled.Divergence) { divs = append(divs, d) }))
 	out, err := env.Render("t.ql", nil)
@@ -387,7 +387,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 	const src = "hi{{ nope }}"
 	tmpls := map[string]string{"t.ql": src}
 
-	base := NewWithArray(tmpls)
+	base := NewFromMap(tmpls)
 	var wBase strings.Builder
 	baseErr := base.RenderTo(&wBase, "t.ql", nil)
 	if baseErr == nil {
@@ -411,7 +411,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 		},
 	}
 
-	direct := NewWithArray(tmpls, WithCompiled(faithful))
+	direct := NewFromMap(tmpls, WithCompiled(faithful))
 	var wDirect strings.Builder
 	directErr := direct.RenderTo(&wDirect, "t.ql", nil)
 	if directErr == nil || directErr.Error() != baseErr.Error() || wDirect.String() != wBase.String() {
@@ -420,7 +420,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 	}
 
 	divs := 0
-	shadow := NewWithArray(tmpls,
+	shadow := NewFromMap(tmpls,
 		WithCompiled(faithful),
 		WithCompiledVerify(func(compiled.Divergence) { divs++ }))
 	var wShadow strings.Builder
@@ -452,7 +452,7 @@ const slotsErrorSrc = "@yield s\nvisible output here\n@provide s {\nprovided\n@}
 // manifest stays faithful regardless of the placeholder token's number.
 func faithfulSlotsManifest(t *testing.T, tmpls map[string]string) (*compiled.Manifest, string, error) {
 	t.Helper()
-	interpEnv := NewWithArray(tmpls)
+	interpEnv := NewFromMap(tmpls)
 	partial, rerr := interpEnv.Render("t.ql", nil)
 	if rerr == nil {
 		t.Fatal("slots template did not error under strict variables")
@@ -488,7 +488,7 @@ func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
 	tmpls := map[string]string{"t.ql": slotsErrorSrc}
 
 	// The interpreter's streaming path is the ground truth: nothing on error.
-	interpEnv := NewWithArray(tmpls)
+	interpEnv := NewFromMap(tmpls)
 	var iw strings.Builder
 	iErr := interpEnv.RenderTo(&iw, "t.ql", nil)
 	if iErr == nil {
@@ -503,7 +503,7 @@ func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
 	// Direct dispatch: RenderTo must discard the partial on error, matching the
 	// interpreter, while the string path (Render) still returns that partial to
 	// preserve Render's own contract.
-	direct := NewWithArray(tmpls, WithCompiled(m))
+	direct := NewFromMap(tmpls, WithCompiled(m))
 	var dw strings.Builder
 	dErr := direct.RenderTo(&dw, "t.ql", nil)
 	if dErr == nil || dErr.Error() != rerr.Error() {
@@ -523,7 +523,7 @@ func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
 	// on error, so w must end empty even though the shadow comparison buffered
 	// both engines' partials to compare them.
 	var divs int
-	shadow := NewWithArray(tmpls,
+	shadow := NewFromMap(tmpls,
 		WithCompiled(m),
 		WithCompiledVerify(func(compiled.Divergence) { divs++ }))
 	var sw strings.Builder
@@ -543,7 +543,7 @@ func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
 // TestWithCompiledVerifyNilIsDirectDispatch pins that a nil callback leaves
 // direct dispatch on, mirroring WithCoverage(nil).
 func TestWithCompiledVerifyNilIsDirectDispatch(t *testing.T) {
-	env := NewWithArray(map[string]string{"t.ql": "hi"},
+	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(markerManifest("t.ql", "hi", defaultFingerprint(), false)),
 		WithCompiledVerify(nil))
 	out, err := env.Render("t.ql", nil)
@@ -558,7 +558,7 @@ func TestWithCompiledVerifyNilIsDirectDispatch(t *testing.T) {
 // first render's mutation privatizes and cannot leak into the second.
 func TestWithCompiledVerifyDoubleRenderIsolation(t *testing.T) {
 	const src = "@set m.x = m.x + 1\n{{ m.x }}"
-	env := NewWithArray(map[string]string{"t.ql": src},
+	env := NewFromMap(map[string]string{"t.ql": src},
 		WithCompiled(markerManifest("t.ql", src, defaultFingerprint(), false)),
 		WithCompiledVerify(func(compiled.Divergence) {}))
 	m := runtime.NewArray()
@@ -579,7 +579,7 @@ func TestWithCompiledVerifyDoubleRenderIsolation(t *testing.T) {
 // same warm-render Builder sizing hint the interpreter path maintains, so the
 // second by-name render pre-grows instead of paying the doubling ladder.
 func TestWithCompiledRecordsOutSizeHint(t *testing.T) {
-	env := NewWithArray(map[string]string{"t.ql": "hi"},
+	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(markerManifest("t.ql", "hi", defaultFingerprint(), false)))
 	if _, err := env.Render("t.ql", nil); err != nil {
 		t.Fatal(err)
@@ -597,7 +597,7 @@ func TestWithCompiledMalformedManifestIgnored(t *testing.T) {
 	noRender := &compiled.Manifest{Entry: "t.ql", Sources: map[string]string{"t.ql": "hi"}, Fingerprint: defaultFingerprint()}
 	noEntrySource := markerManifest("t.ql", "hi", defaultFingerprint(), false)
 	delete(noEntrySource.Sources, "t.ql")
-	env := NewWithArray(map[string]string{"t.ql": "hi"},
+	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(nil, noRender, noEntrySource))
 	out, err := env.Render("t.ql", nil)
 	if err != nil || out != "hi" {
@@ -620,8 +620,8 @@ func TestWithCompiledConcurrentRenders(t *testing.T) {
 		},
 	}
 	templates := map[string]string{"static.ql": "Hello\n", "dyn.ql": "{{ n + 1 }}"}
-	direct := NewWithArray(templates, WithCompiled(parity))
-	shadow := NewWithArray(templates, WithCompiled(parity),
+	direct := NewFromMap(templates, WithCompiled(parity))
+	shadow := NewFromMap(templates, WithCompiled(parity),
 		WithCompiledVerify(func(d compiled.Divergence) { t.Errorf("unexpected divergence: %+v", d) }))
 
 	var wg sync.WaitGroup

@@ -22,7 +22,7 @@ func TestLoopValueIsFrozenSnapshot(t *testing.T) {
 		"@}\n" +
 		"@set snap = loop\n" +
 		"@}"
-	env := NewWithArray(map[string]string{"t.ql": src})
+	env := NewFromMap(map[string]string{"t.ql": src})
 	out, err := env.Render("t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +49,7 @@ func TestLoopParentCapturedInsideInnerIterations(t *testing.T) {
 		"after-inner: {{ keep.index }}/{{ keep.first }}/{{ keep.last }}\n" +
 		"@}\n" +
 		"post: {{ keep.index }}/{{ keep.last }}\n"
-	env := NewWithArray(map[string]string{"t.ql": src})
+	env := NewFromMap(map[string]string{"t.ql": src})
 	out, err := env.Render("t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func TestLoopParentChainCapturedAcrossNesting(t *testing.T) {
 		"@}\n" +
 		"@}\n" +
 		"{{ snap.index }}/{{ snap.parent.index }}\n"
-	env := NewWithArray(map[string]string{"t.ql": src})
+	env := NewFromMap(map[string]string{"t.ql": src})
 	out, err := env.Render("t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func TestCapturedLoopValuesStayEqualAndIndependent(t *testing.T) {
 		"{{ first.index }}/{{ first.prev }}/{{ first.next }} " +
 		"{{ second.index }}/{{ second.prev }}/{{ second.next }} " +
 		"{{ first.parent.index }}/{{ second.parent.index }}\n"
-	env := NewWithArray(map[string]string{"t.ql": src})
+	env := NewFromMap(map[string]string{"t.ql": src})
 	out, err := env.Render("t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
@@ -146,7 +146,7 @@ func TestRecursiveLoopDepthSurface(t *testing.T) {
 	}
 	top := runtime.NewArray()
 	top.SetInt(0, node("a", node("b", leaf("c"), leaf("d"))))
-	env := NewWithArray(map[string]string{"t.ql": src})
+	env := NewFromMap(map[string]string{"t.ql": src})
 	out, err := env.Render("t.ql", map[string]runtime.Value{"tree": runtime.Arr(top)})
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ func TestLoopValueFieldSurface(t *testing.T) {
 		{"ismapping", "@for x in [1] {\n{{ loop is mapping }}\n@}", "true"},
 	}
 	for _, c := range cases {
-		env := NewWithArray(map[string]string{"t.ql": c.src})
+		env := NewFromMap(map[string]string{"t.ql": c.src})
 		out, err := env.Render("t.ql", map[string]runtime.Value{})
 		if err != nil {
 			t.Errorf("%s: %v", c.name, err)

@@ -12,7 +12,7 @@ import (
 // Render a template by name from an in-memory template map. Output escaping is
 // off by default.
 func Example() {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
 	out, err := env.Render("greet.quill", map[string]runtime.Value{
@@ -35,7 +35,7 @@ func ExampleEnvironment_RenderValues() {
 		Tags  []string `quill:"tags"`
 	}
 
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"user.quill": `{{ user.name }} (admin: {{ user.admin }}) tags: {{ user.tags | join(", ") }}`,
 	})
 	out, err := env.RenderValues("user.quill", map[string]any{
@@ -51,7 +51,7 @@ func ExampleEnvironment_RenderValues() {
 // Stream output to any io.Writer with RenderTo instead of buffering the whole
 // result.
 func ExampleEnvironment_RenderTo() {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"list.quill": "@for n in nums {\nitem {{ n }}\n@}",
 	})
 	err := env.RenderTo(os.Stdout, "list.quill", map[string]runtime.Value{
@@ -70,7 +70,7 @@ func ExampleEnvironment_RenderTo() {
 
 // Turn on HTML escaping globally with WithAutoescapeHTML.
 func ExampleWithAutoescapeHTML() {
-	env := quill.NewWithArray(
+	env := quill.NewFromMap(
 		map[string]string{"page.quill": `<p>{{ body }}</p>`},
 		quill.WithAutoescapeHTML(true),
 	)
@@ -99,7 +99,7 @@ func ExampleWithExtensions() {
 		}
 	}))
 
-	env := quill.NewWithArray(
+	env := quill.NewFromMap(
 		map[string]string{"demo.quill": `{{ clamp(42, 0, 10) }}`},
 		quill.WithExtensions(set),
 	)

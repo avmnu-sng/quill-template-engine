@@ -19,7 +19,7 @@
 // # The facade
 //
 // Environment is the engine facade. Build one over a Loader with New (or over an
-// in-memory template map with NewWithArray), then Render by name. Output escaping
+// in-memory template map with NewFromMap), then Render by name. Output escaping
 // is off by default, like Go text/template, and undefined variables are strict by
 // default; both, along with the sandbox, the type registry, coverage, streaming,
 // the compiled backend, and host extensions, are configured through Option

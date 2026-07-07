@@ -9,7 +9,7 @@ site is the narrative layer.
 ## Where to look
 
 - **The facade** -- [`quill`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine):
-  `Environment`, `New`, `NewWithArray`, `Render`, `RenderValues`, `RenderTo`, and
+  `Environment`, `New`, `NewFromMap`, `Render`, `RenderValues`, `RenderTo`, and
   the `Option` values (`WithAutoescapeHTML`, `WithStrictVariables`, `WithCoverage`,
   `WithExtensions`, `WithExtension`, `WithSandboxPolicy`, `WithSandboxActive`,
   `WithTypes`, `WithTabWidth`, `WithCompiled`, `WithLogger`).

@@ -40,7 +40,7 @@ func main() {
 // text report and enforces a 100% unit-coverage threshold via FailUnder.
 func render(out *os.File) error {
 	coll := cover.NewCollector()
-	env := quill.NewWithArray(
+	env := quill.NewFromMap(
 		map[string]string{"greet.quill": tmpl},
 		quill.WithCoverage(coll),
 	)

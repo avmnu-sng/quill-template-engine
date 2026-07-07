@@ -57,7 +57,7 @@ func TestVerifyOutputs(t *testing.T) {
 	want := loopWant(loopN)
 
 	// ----- Quill tiny (sanity on the filter path) -----
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"tiny.ql": quillTiny,
 		"loop.ql": quillLoop,
 	})

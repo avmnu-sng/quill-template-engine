@@ -78,7 +78,7 @@ func TestVerifyThirdparty(t *testing.T) {
 	want := loopWant(loopN)
 
 	// ----- Quill interpreter -----
-	env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
+	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
 	qInterp, err := env.Render("loop.ql", map[string]runtime.Value{"users": quillUsers()})
 	if err != nil {
 		t.Fatal(err)

@@ -164,7 +164,7 @@ func pkgName(name string) string {
 // runCompiled builds ONE scratch Go module containing every case's generated
 // package plus a main that renders each case with framed output, runs it
 // once, and returns the per-case results. Registry parity with the facade
-// comes from building the ExtensionSet through quill.NewWithArray in the
+// comes from building the ExtensionSet through quill.NewFromMap in the
 // scratch process.
 func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile.Result) map[string]caseResult {
 	t.Helper()
@@ -210,7 +210,7 @@ func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile
 	mainB.WriteString(")\n\n")
 	mainB.WriteString(mainSupport)
 	mainB.WriteString("func main() {\n")
-	mainB.WriteString("\texts := quill.NewWithArray(map[string]string{}).Extensions()\n")
+	mainB.WriteString("\texts := quill.NewFromMap(map[string]string{}).Extensions()\n")
 	mainB.WriteString("\t_ = exts\n")
 	for _, cs := range cases {
 		res, ok := results[cs.name]
@@ -326,7 +326,7 @@ func runEnvCase(base string, m *compiled.Manifest, varsJSON string) {
 		return
 	}
 	tmpls := manifestTemplates(m)
-	env := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
+	env := quill.NewFromMap(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
 	out, err := env.Render(m.Entry, vars)
 	if err != nil {
 		emit(base+"@env", true, err.Error())
@@ -342,7 +342,7 @@ func runEnvCase(base string, m *compiled.Manifest, varsJSON string) {
 	if err != nil {
 		emit(base+"@renderto-ok", true, "vars decode: "+err.Error())
 	} else {
-		rtenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
+		rtenv := quill.NewFromMap(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
 		var rw strings.Builder
 		rterr := rtenv.RenderTo(&rw, m.Entry, rtvars)
 		switch {
@@ -361,7 +361,7 @@ func runEnvCase(base string, m *compiled.Manifest, varsJSON string) {
 	// marker result proves the dispatch gate passes for this configuration;
 	// without it the env render above could silently compare the interpreter
 	// against itself.
-	tenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(tracerManifest(m)))...)
+	tenv := quill.NewFromMap(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(tracerManifest(m)))...)
 	tvars, err := decodeVars(varsJSON)
 	if err != nil {
 		emit(base+"@tracer", true, err.Error())
@@ -463,7 +463,7 @@ func runEnvMatrix(base string, m *compiled.Manifest, varsJSON string) {
 			emit(base+"@matrix", true, label+": vars decode: "+err.Error())
 			return
 		}
-		ref := quill.NewWithArray(tmpls, envOpts(cfp)...)
+		ref := quill.NewFromMap(tmpls, envOpts(cfp)...)
 		refOut, refErr := ref.Render(m.Entry, refVars)
 
 		mixVars, err := decodeVars(varsJSON)
@@ -471,7 +471,7 @@ func runEnvMatrix(base string, m *compiled.Manifest, varsJSON string) {
 			emit(base+"@matrix", true, label+": vars decode: "+err.Error())
 			return
 		}
-		mixed := quill.NewWithArray(tmpls, append(envOpts(cfp), quill.WithCompiled(m))...)
+		mixed := quill.NewFromMap(tmpls, append(envOpts(cfp), quill.WithCompiled(m))...)
 		mixOut, mixErr := mixed.Render(m.Entry, mixVars)
 		if mixOut != refOut || !sameErrText(mixErr, refErr) {
 			emit(base+"@matrix", true, fmt.Sprintf("%s: mixed render diverged: got %q / %s, want %q / %s",
@@ -484,7 +484,7 @@ func runEnvMatrix(base string, m *compiled.Manifest, varsJSON string) {
 			emit(base+"@matrix", true, label+": vars decode: "+err.Error())
 			return
 		}
-		tenv := quill.NewWithArray(tmpls, append(envOpts(cfp), quill.WithCompiled(tracerManifest(m)))...)
+		tenv := quill.NewFromMap(tmpls, append(envOpts(cfp), quill.WithCompiled(tracerManifest(m)))...)
 		tout, terr := tenv.Render(m.Entry, trcVars)
 		served := terr == nil && tout == "\x02TRACER\x02"
 		if served != (cfp == fp) {
@@ -509,7 +509,7 @@ func runRenderToCase(base string, m *compiled.Manifest, varsJSON string) {
 		emit(base+"@renderto", true, "vars decode: "+err.Error())
 		return
 	}
-	ienv := quill.NewWithArray(tmpls, envOpts(m.Fingerprint)...)
+	ienv := quill.NewFromMap(tmpls, envOpts(m.Fingerprint)...)
 	var iw strings.Builder
 	ierr := ienv.RenderTo(&iw, m.Entry, ivars)
 	if ierr == nil {
@@ -522,7 +522,7 @@ func runRenderToCase(base string, m *compiled.Manifest, varsJSON string) {
 		emit(base+"@renderto", true, "vars decode: "+err.Error())
 		return
 	}
-	cenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
+	cenv := quill.NewFromMap(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
 	var cw strings.Builder
 	cerr := cenv.RenderTo(&cw, m.Entry, cvars)
 	if !sameErrText(cerr, ierr) {
@@ -558,8 +558,8 @@ func runCacheCase(base string, m *compiled.Manifest, varsJSON, varsJSON2 string)
 		return env.Render(m.Entry, vars)
 	}
 	tmpls := manifestTemplates(m)
-	ienv := quill.NewWithArray(tmpls, envOpts(m.Fingerprint)...)
-	cenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
+	ienv := quill.NewFromMap(tmpls, envOpts(m.Fingerprint)...)
+	cenv := quill.NewFromMap(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m))...)
 
 	i1, ierr1 := render(ienv, varsJSON)
 	c1, cerr1 := render(cenv, varsJSON)
@@ -601,8 +601,8 @@ func runCacheSharedRootCase(base string, m *compiled.Manifest, varsJSON string, 
 	for n, s := range manifestTemplates(peer) {
 		tmpls[n] = s
 	}
-	ienv := quill.NewWithArray(tmpls, envOpts(m.Fingerprint)...)
-	cenv := quill.NewWithArray(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m, peer))...)
+	ienv := quill.NewFromMap(tmpls, envOpts(m.Fingerprint)...)
+	cenv := quill.NewFromMap(tmpls, append(envOpts(m.Fingerprint), quill.WithCompiled(m, peer))...)
 
 	i1, ierr1 := render(ienv, m.Entry, varsJSON)
 	c1, cerr1 := render(cenv, m.Entry, varsJSON)

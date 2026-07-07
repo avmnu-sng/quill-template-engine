@@ -147,7 +147,7 @@ func TestVerifyScenariosThirdparty(t *testing.T) {
 
 	// ---- Peer filter scenario: upper + join ----
 	{
-		env := quill.NewWithArray(map[string]string{"filter.ql": quillPeerFilter})
+		env := quill.NewFromMap(map[string]string{"filter.ql": quillPeerFilter})
 		qOut, err := env.Render("filter.ql", quillFilterVars(n))
 		if err != nil {
 			t.Fatalf("quill peer filter: %v", err)
@@ -191,7 +191,7 @@ func TestVerifyScenariosThirdparty(t *testing.T) {
 
 	// ---- Peer conditional scenario (reuses the offline templates/data) ----
 	{
-		env := quill.NewWithArray(map[string]string{"cond.ql": quillCond})
+		env := quill.NewFromMap(map[string]string{"cond.ql": quillCond})
 		qOut, err := env.Render("cond.ql", quillCondVars(n))
 		if err != nil {
 			t.Fatalf("quill cond: %v", err)
@@ -338,7 +338,7 @@ func BenchmarkJet_Cond_Render(b *testing.B) {
 // ============================================================================
 
 func BenchmarkQuill_PeerFilter_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"filter.ql": quillPeerFilter})
+	env := quill.NewFromMap(map[string]string{"filter.ql": quillPeerFilter})
 	tmpl, err := env.LoadTemplate("filter.ql")
 	if err != nil {
 		b.Fatal(err)

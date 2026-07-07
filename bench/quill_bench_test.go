@@ -81,7 +81,7 @@ func quillItems() runtime.Value {
 func BenchmarkQuill_Tiny_Load(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		env := quill.NewWithArray(map[string]string{"tiny.ql": quillTiny})
+		env := quill.NewFromMap(map[string]string{"tiny.ql": quillTiny})
 		if _, err := env.LoadTemplate("tiny.ql"); err != nil {
 			b.Fatal(err)
 		}
@@ -92,7 +92,7 @@ func BenchmarkQuill_Tiny_Load(b *testing.B) {
 // rendered once before the loop to size SetBytes (so ns/op is complemented by
 // MB/s) and to keep the result reachable via sink against dead-code elimination.
 func BenchmarkQuill_Tiny_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"tiny.ql": quillTiny})
+	env := quill.NewFromMap(map[string]string{"tiny.ql": quillTiny})
 	tmpl, err := env.LoadTemplate("tiny.ql")
 	if err != nil {
 		b.Fatal(err)
@@ -116,7 +116,7 @@ func BenchmarkQuill_Tiny_Render(b *testing.B) {
 func BenchmarkQuill_Loop_Load(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
+		env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
 		if _, err := env.LoadTemplate("loop.ql"); err != nil {
 			b.Fatal(err)
 		}
@@ -127,7 +127,7 @@ func BenchmarkQuill_Loop_Load(b *testing.B) {
 // visible. Each sub-benchmark renders once before the loop to size SetBytes and
 // pins the result to sink against dead-code elimination.
 func BenchmarkQuill_Loop_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
+	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
 	tmpl, err := env.LoadTemplate("loop.ql")
 	if err != nil {
 		b.Fatal(err)
@@ -165,7 +165,7 @@ const quillLoopIncludeRow = `{{ loop.index }}. {{ u.name | upper }} <{{ u.email 
 `
 
 func BenchmarkQuill_LoopInclude_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"loopinc.ql": quillLoopInclude,
 		"row.ql":     quillLoopIncludeRow,
 	})
@@ -192,7 +192,7 @@ func BenchmarkQuill_LoopInclude_Render(b *testing.B) {
 func BenchmarkQuill_Compose_Load(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		env := quill.NewWithArray(map[string]string{
+		env := quill.NewFromMap(map[string]string{
 			"base.ql": quillBase,
 			"page.ql": quillPage,
 		})
@@ -204,7 +204,7 @@ func BenchmarkQuill_Compose_Load(b *testing.B) {
 }
 
 func BenchmarkQuill_Compose_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"base.ql": quillBase,
 		"page.ql": quillPage,
 	})

@@ -399,7 +399,7 @@ func callables() *ext.ExtensionSet {
 	return set
 }
 
-env := quill.NewWithArray(
+env := quill.NewFromMap(
 	map[string]string{"demo.quill": `{{ "ab" | repeat(3) }} {{ clamp(42, 0, 10) }}`},
 	quill.WithExtensions(callables()),
 )
