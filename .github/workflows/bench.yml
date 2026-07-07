@@ -1,0 +1,53 @@
+name: bench
+
+# Manual-dispatch only. Benchmarks are noisy on shared GitHub runners, so this
+# workflow never runs on push or pull_request and is NOT part of the `ci-done`
+# aggregate gate -- it produces an artifact for humans to inspect, not a pass/fail
+# signal. Run it from the Actions tab; the numbers are a rough directional read,
+# not a regression guard (reproduce locally with `task bench:all` for real
+# figures on a quiet machine).
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Benchmark repetitions (-count) per benchmark'
+        required: false
+        default: '10'
+
+# One dispatch at a time; a later run supersedes an in-flight one.
+concurrency:
+  group: bench-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: bench
+    runs-on: ubuntu-latest
+    # The harness is a separate nested module; every step runs inside it.
+    defaults:
+      run:
+        shell: bash
+        working-directory: bench
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+      # Run the full suite (all eight engines) via the thirdparty build tag and
+      # tee the raw `go test -bench` output to a file for the artifact.
+      - name: Run benchmarks
+        run: |
+          go test -tags thirdparty -bench=. -benchmem \
+            -count='${{ github.event.inputs.count }}' \
+            -run='^$' ./... | tee bench-results.txt
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-results
+          path: bench/bench-results.txt
+          if-no-files-found: error
+          retention-days: 30
