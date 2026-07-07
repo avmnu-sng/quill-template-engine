@@ -2,7 +2,7 @@ package parse
 
 import (
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
-	"github.com/avmnu-sng/quill-template-engine/pkg/lex"
+	"github.com/avmnu-sng/quill-template-engine/internal/lex"
 )
 
 // This file holds the structural grammar of spec 02 Section 3 / design/

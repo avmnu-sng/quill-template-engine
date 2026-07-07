@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
-	"github.com/avmnu-sng/quill-template-engine/pkg/lex"
+	"github.com/avmnu-sng/quill-template-engine/internal/lex"
 )
 
 // Deeply nested grouping that stays below maxDepth must parse without the former
