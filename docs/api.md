@@ -13,26 +13,26 @@ site is the narrative layer.
   the `Option` values (`WithAutoescapeHTML`, `WithStrictVariables`, `WithCoverage`,
   `WithExtensions`, `WithExtension`, `WithSandboxPolicy`, `WithSandboxActive`,
   `WithTypes`, `WithTabWidth`, `WithCompiled`, `WithLogger`).
-- **The value model** -- [`runtime`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/runtime):
+- **The value model** -- [`runtime`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/runtime):
   `Value`, the constructors (`Str`, `Int`, `Float`, `Bool`, `Arr`, `Null`), the
   ordered `*Array`, `Safe`, the `Object` interface, and `FromGo`.
-- **Loaders** -- [`loader`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/loader):
+- **Loaders** -- [`loader`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/loader):
   `Loader`, `NewFilesystemLoader`, `NewArrayLoader`, `NewChainLoader`,
   `NewPrefixLoader`, `NewFSLoader`, `NewFuncLoader`.
-- **Extensions** -- [`ext`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/ext):
+- **Extensions** -- [`ext`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/ext):
   `Filter`, `Function`, `Test`, `ExtensionSet`, `Extension`, `BaseExtension`, and
   the typed helpers `NewFilter`, `NewFunction`, `NewTest`, `NewFilter1`.
-- **Coverage** -- [`cover`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/cover):
+- **Coverage** -- [`cover`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/cover):
   `Collector`, `Report`, the writers, and `MergeReports`.
-- **The sandbox** -- [`sandbox`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/sandbox):
+- **The sandbox** -- [`sandbox`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/sandbox):
   `Policy`, `NewTypeGraph`.
-- **The type checker** -- [`check`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/check):
+- **The type checker** -- [`check`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/check):
   `Registry`, `Signature`, `Type`.
-- **The compile backend** -- [`compile`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/compile)
-  and [`compiled`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/compiled):
+- **The compile backend** -- [`compile`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/compile)
+  and [`compiled`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/compiled):
   `Module`, `Options`, `Result`, and the `Manifest` contract `WithCompiled`
   installs.
-- **Errors** -- [`errors`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/errors):
+- **Errors** -- [`errors`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/errors):
   the structured error family, including `*errors.Security` for sandbox
   violations.
 

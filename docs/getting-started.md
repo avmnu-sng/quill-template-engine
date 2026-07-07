@@ -35,7 +35,7 @@ import (
 	"fmt"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 func main() {
@@ -67,7 +67,7 @@ A loader resolves a template name to its source. Loading templates from disk let
 under a root:
 
 ```go
-import "github.com/avmnu-sng/quill-template-engine/loader"
+import "github.com/avmnu-sng/quill-template-engine/pkg/loader"
 
 env := quill.New(loader.NewFilesystemLoader("templates"))
 ```

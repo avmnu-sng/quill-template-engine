@@ -84,7 +84,7 @@ import (
 	"fmt"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/runtime"
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
 func main() {
@@ -200,7 +200,7 @@ task ci           # the full pipeline: lint, checks, tests, and security scans
 A thin `Makefile` forwards `make build`/`make test`/`make check` to the
 equivalent `task` targets. The engine itself is standard-library only; the
 linters and scanners are dev tooling. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
+[CONTRIBUTING.md](.github/CONTRIBUTING.md) for the full workflow.
 
 ## License
 
