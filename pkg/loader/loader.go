@@ -10,6 +10,7 @@
 package loader
 
 import (
+	stderrors "errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,12 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )
+
+// ErrNotFound is the sentinel every loader miss wraps. Test for a missing
+// template with errors.Is(err, loader.ErrNotFound) rather than inspecting the
+// message text: error strings are not part of the compatibility contract, but
+// this sentinel is.
+var ErrNotFound = stderrors.New("template not found")
 
 // Loader resolves a template name to a *source.Source. Exists is a cheap
 // presence probe used by candidate lists and the block("name", "other") /
@@ -118,18 +125,16 @@ func (l *FilesystemLoader) Exists(name string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// notFound builds the canonical not-found error so callers can match KindRuntime
-// and the "not found" message shape consistently.
+// notFound builds the canonical not-found error: a KindRuntime *errors.Error
+// wrapping ErrNotFound, so callers match it precisely with errors.Is while the
+// rendered message still names the missing template.
 func notFound(name string) error {
-	return errors.New(errors.KindRuntime, "template %q not found", name)
+	return errors.Wrap(errors.KindRuntime, ErrNotFound, "template %q not found", name)
 }
 
-// IsNotFound reports whether err is a loader not-found error, letting the engine
-// implement ignore-missing and candidate-list fallthrough without string-
-// matching across call sites.
+// IsNotFound reports whether err is (or wraps) a loader not-found error. It is
+// errors.Is(err, ErrNotFound); the prior message-substring heuristic is gone, so
+// an unrelated error whose text merely contains "not found" no longer matches.
 func IsNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "not found")
+	return stderrors.Is(err, ErrNotFound)
 }
