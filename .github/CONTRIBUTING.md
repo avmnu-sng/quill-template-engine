@@ -75,5 +75,5 @@ The gates a change must keep green:
 ## Reporting security issues
 
 Do not open a public issue for a security vulnerability. See
-[SECURITY.md](https://github.com/avmnu-sng/quill-template-engine/blob/main/SECURITY.md)
+[SECURITY.md](https://github.com/avmnu-sng/quill-template-engine/blob/main/.github/SECURITY.md)
 for the private reporting process.
