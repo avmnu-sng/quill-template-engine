@@ -55,6 +55,11 @@ BREAKING set; after it, compatibility is the rule.
   through `Src()`/`Line()`/`Col()` methods instead of fields; a dedicated
   `errors.SecUnknownType` class distinguishes an unregistered host type from a
   denied-but-known member.
+- **BREAKING: `cover.Collector`'s instrumentation hooks (`Hit`, `SeedTemplate`,
+  `SeedMacro`) are removed from the public API.** They were engine-internal --
+  driven by the interpreter, never by hosts, which consume coverage through the
+  report methods (`Report`, `Summary`, `TemplateCoverage`, `Counts`,
+  `MergeReports`). The instrumentation core moved to an internal package.
 - Error MESSAGE strings are documented as NOT part of the compatibility contract:
   classify a failure by the exported `Kind`, with `errors.As`/`errors.Is`, or
   against a sentinel such as `loader.ErrNotFound` -- never by matching text.
