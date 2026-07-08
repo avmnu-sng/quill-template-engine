@@ -462,7 +462,7 @@ func (c *compiler) assemble() []byte {
 	b.WriteString("// (quill.WithCompiled): the entry template, its embedded source text, the\n")
 	b.WriteString("// fingerprint of the compile options its bytes depend on, and the render\n")
 	b.WriteString("// entry point.\n")
-	fmt.Fprintf(&b, "var %sManifest = &compiled.Manifest{\n", c.opts.FuncName)
+	fmt.Fprintf(&b, "var %sManifest = compiled.NewManifest(compiled.ManifestParams{\n", c.opts.FuncName)
 	b.WriteString("\tEntry:   qSrc.Name(),\n")
 	if len(c.srcs) == 1 {
 		b.WriteString("\tSources: map[string]string{qSrc.Name(): qSrc.Code()},\n")
@@ -474,7 +474,7 @@ func (c *compiler) assemble() []byte {
 		}
 		b.WriteString("\t},\n")
 	}
-	fmt.Fprintf(&b, "\tFingerprint: compiled.Fingerprint{AutoescapeHTML: %v, LenientVariables: %v, TabWidth: %d, RandomSeed: %d, RandomSeedSet: %v},\n",
+	fmt.Fprintf(&b, "\tFingerprint: compiled.NewFingerprint(compiled.FingerprintParams{AutoescapeHTML: %v, LenientVariables: %v, TabWidth: %d, RandomSeed: %d, RandomSeedSet: %v}),\n",
 		c.opts.AutoescapeHTML, c.opts.LenientVariables, c.opts.TabWidth, c.opts.RandomSeed, c.opts.RandomSeedSet)
 	fmt.Fprintf(&b, "\tUsesLog: %v,\n", c.usesLog)
 	fmt.Fprintf(&b, "\tUsesSlots: %v,\n", c.usesSlots)
@@ -486,7 +486,7 @@ func (c *compiler) assemble() []byte {
 		b.WriteString("\t},\n")
 	}
 	fmt.Fprintf(&b, "\tRender:  %s,\n", c.opts.FuncName)
-	b.WriteString("}\n\n")
+	b.WriteString("})\n\n")
 	b.WriteString(prelude)
 	return b.Bytes()
 }

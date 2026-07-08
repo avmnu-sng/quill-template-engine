@@ -39,10 +39,10 @@ func TestGeneratedManifestCarriesOptionsFingerprint(t *testing.T) {
 		RandomSeedSet:    true,
 	})
 	for _, want := range []string{
-		"var RenderTManifest = &compiled.Manifest{",
+		"var RenderTManifest = compiled.NewManifest(compiled.ManifestParams{",
 		"Entry:       qSrc.Name(),",
 		"Sources:     map[string]string{qSrc.Name(): qSrc.Code()},",
-		"Fingerprint: compiled.Fingerprint{AutoescapeHTML: true, LenientVariables: true, TabWidth: 2, RandomSeed: 9, RandomSeedSet: true},",
+		"Fingerprint: compiled.NewFingerprint(compiled.FingerprintParams{AutoescapeHTML: true, LenientVariables: true, TabWidth: 2, RandomSeed: 9, RandomSeedSet: true}),",
 		"UsesLog:     false,",
 		"Render:      RenderT,",
 		"\"github.com/avmnu-sng/quill-template-engine/pkg/compiled\"",
@@ -58,11 +58,11 @@ func TestGeneratedManifestCarriesOptionsFingerprint(t *testing.T) {
 // generated engine handle actually uses, not the raw zero values passed in.
 func TestGeneratedManifestNormalizesDefaults(t *testing.T) {
 	src := compileSource(t, "t.ql", "hi", compile.Options{PackageName: "fx"})
-	want := "Fingerprint: compiled.Fingerprint{AutoescapeHTML: false, LenientVariables: false, TabWidth: 4, RandomSeed: 0, RandomSeedSet: false},"
+	want := "Fingerprint: compiled.NewFingerprint(compiled.FingerprintParams{AutoescapeHTML: false, LenientVariables: false, TabWidth: 4, RandomSeed: 0, RandomSeedSet: false}),"
 	if !strings.Contains(src, want) {
 		t.Errorf("generated source missing %q", want)
 	}
-	if !strings.Contains(src, "var RenderManifest = &compiled.Manifest{") {
+	if !strings.Contains(src, "var RenderManifest = compiled.NewManifest(compiled.ManifestParams{") {
 		t.Error("default FuncName must yield RenderManifest")
 	}
 }

@@ -222,14 +222,14 @@ func RenderLoop(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Val
 // (quill.WithCompiled): the entry template, its embedded source text, the
 // fingerprint of the compile options its bytes depend on, and the render
 // entry point.
-var RenderLoopManifest = &compiled.Manifest{
+var RenderLoopManifest = compiled.NewManifest(compiled.ManifestParams{
 	Entry:       qSrc.Name(),
 	Sources:     map[string]string{qSrc.Name(): qSrc.Code()},
-	Fingerprint: compiled.Fingerprint{AutoescapeHTML: false, LenientVariables: false, TabWidth: 4, RandomSeed: 0, RandomSeedSet: false},
+	Fingerprint: compiled.NewFingerprint(compiled.FingerprintParams{AutoescapeHTML: false, LenientVariables: false, TabWidth: 4, RandomSeed: 0, RandomSeedSet: false}),
 	UsesLog:     false,
 	UsesSlots:   false,
 	Render:      RenderLoop,
-}
+})
 
 // qWriter is the output layer: outside a @tab region it forwards bytes
 // unchanged while tracking the line-start cursor; inside one it prefixes the

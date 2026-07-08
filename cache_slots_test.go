@@ -167,7 +167,7 @@ func TestCompiledCacheSharesWarmCacheUnderConcurrency(t *testing.T) {
 	const want = "body\n"
 	tmpls := map[string]string{"t.ql": src}
 
-	manifest := &compiled.Manifest{
+	manifest := compiled.NewManifest(compiled.ManifestParams{
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": src},
 		Fingerprint: defaultFingerprint(),
@@ -190,7 +190,7 @@ func TestCompiledCacheSharesWarmCacheUnderConcurrency(t *testing.T) {
 			_, err := io.WriteString(w, body)
 			return err
 		},
-	}
+	})
 
 	env := NewFromMap(tmpls, WithCompiled(manifest))
 

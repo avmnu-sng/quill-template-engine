@@ -294,21 +294,21 @@ func WithLogger(l *log.Logger) Option {
 func WithCompiled(manifests ...*compiled.Manifest) Option {
 	return func(e *Environment) {
 		for _, m := range manifests {
-			if m == nil || m.Render == nil || m.Entry == "" {
+			if m == nil || m.Render() == nil || m.Entry() == "" {
 				continue
 			}
-			if _, ok := m.Sources[m.Entry]; !ok {
+			if _, ok := m.Sources()[m.Entry()]; !ok {
 				continue
 			}
 			if e.compiledUnits == nil {
 				e.compiledUnits = map[string]*compiledUnit{}
 			}
-			members := make([]string, 0, len(m.Sources))
-			for name := range m.Sources {
+			members := make([]string, 0, len(m.Sources()))
+			for name := range m.Sources() {
 				members = append(members, name)
 			}
 			sort.Strings(members)
-			e.compiledUnits[m.Entry] = &compiledUnit{manifest: m, members: members}
+			e.compiledUnits[m.Entry()] = &compiledUnit{manifest: m, members: members}
 		}
 	}
 }
@@ -520,18 +520,18 @@ func (e *Environment) compiledFor(name string) *compiled.Manifest {
 		return nil
 	}
 	m := u.manifest
-	fp := m.Fingerprint
-	if fp.AutoescapeHTML != e.autoescapeHTML ||
-		fp.LenientVariables != !e.strictVariables ||
-		fp.TabWidth != e.tabWidth ||
-		fp.RandomSeed != e.randomSeed ||
-		fp.RandomSeedSet != e.randomSeedSet {
+	fp := m.Fingerprint()
+	if fp.AutoescapeHTML() != e.autoescapeHTML ||
+		fp.LenientVariables() != !e.strictVariables ||
+		fp.TabWidth() != e.tabWidth ||
+		fp.RandomSeed() != e.randomSeed ||
+		fp.RandomSeedSet() != e.randomSeedSet {
 		return nil
 	}
 	if e.policy != nil || e.sandboxActive || e.coverage != nil || e.typeRegistry != nil {
 		return nil
 	}
-	if m.UsesLog && e.logger.Writer() != io.Discard {
+	if m.UsesLog() && e.logger.Writer() != io.Discard {
 		return nil
 	}
 	if !e.unitCoherent(u) {
@@ -542,7 +542,7 @@ func (e *Environment) compiledFor(name string) *compiled.Manifest {
 	// loader serves it, the interpreter would inline the partial, so dispatch
 	// must fall back. This is the runtime template-exists check the compiled
 	// render function cannot make from its stateless signature.
-	for _, name := range m.AbsentIncludes {
+	for _, name := range m.AbsentIncludes() {
 		if e.TemplateExists(name) {
 			return nil
 		}
@@ -584,7 +584,7 @@ func (e *Environment) unitCoherent(u *compiledUnit) bool {
 	}
 	u.ok = true
 	for i, name := range u.members {
-		if u.witness[i].Src.Code() != u.manifest.Sources[name] {
+		if u.witness[i].Src.Code() != u.manifest.Sources()[name] {
 			u.ok = false
 			break
 		}
@@ -603,10 +603,10 @@ func (e *Environment) unitCoherent(u *compiledUnit) bool {
 func (e *Environment) renderShadowed(m *compiled.Manifest, tmpl *interp.Template, vars map[string]runtime.Value) (string, error) {
 	interpOut, interpErr := interp.Render(e, tmpl, vars)
 	var b strings.Builder
-	compErr := m.Render(&b, e.extensions, vars, e.renderCache)
+	compErr := m.Render()(&b, e.extensions, vars, e.renderCache)
 	if b.String() != interpOut || !sameErrorText(compErr, interpErr) {
 		e.compiledVerify(compiled.Divergence{
-			Template:       m.Entry,
+			Template:       m.Entry(),
 			CompiledOutput: b.String(),
 			InterpOutput:   interpOut,
 			CompiledErr:    compErr,
@@ -649,7 +649,7 @@ func (e *Environment) Render(name string, vars map[string]runtime.Value) (string
 		if hint := tmpl.OutGrowHint(); hint > 0 {
 			b.Grow(hint)
 		}
-		err := m.Render(&b, e.extensions, vars, e.renderCache)
+		err := m.Render()(&b, e.extensions, vars, e.renderCache)
 		if err == nil {
 			tmpl.RecordOutSize(b.Len())
 		}
@@ -710,7 +710,7 @@ func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime
 			// withheld. The render error outranks a write error because it is the
 			// authoritative result the comparison above already served.
 			out, rerr := e.renderShadowed(m, tmpl, vars)
-			if rerr != nil && m.UsesSlots {
+			if rerr != nil && m.UsesSlots() {
 				return rerr
 			}
 			_, werr := io.WriteString(w, out)
@@ -719,20 +719,20 @@ func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime
 			}
 			return werr
 		}
-		if m.UsesSlots {
+		if m.UsesSlots() {
 			// A slots unit's generated render writes its partial, unresolved
 			// buffer to the writer on error; buffering into a scratch builder and
 			// writing it only on success keeps that placeholder-bearing partial
 			// off the caller's writer, mirroring the interpreter's buffered-slots
 			// branch which writes nothing when the render fails.
 			var b strings.Builder
-			if rerr := m.Render(&b, e.extensions, vars, e.renderCache); rerr != nil {
+			if rerr := m.Render()(&b, e.extensions, vars, e.renderCache); rerr != nil {
 				return rerr
 			}
 			_, werr := io.WriteString(w, b.String())
 			return werr
 		}
-		return m.Render(w, e.extensions, vars, e.renderCache)
+		return m.Render()(w, e.extensions, vars, e.renderCache)
 	}
 	return interp.RenderTo(e, tmpl, vars, w)
 }

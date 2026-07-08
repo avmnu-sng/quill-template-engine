@@ -28,13 +28,13 @@ const dispatchMarker = "\x02COMPILED\x02"
 // defaultFingerprint matches an Environment built with no options: autoescape
 // off, strict variables, tab width 4, unseeded randomness.
 func defaultFingerprint() compiled.Fingerprint {
-	return compiled.Fingerprint{TabWidth: 4}
+	return compiled.NewFingerprint(compiled.FingerprintParams{TabWidth: 4})
 }
 
 // markerManifest builds a tracer manifest for entry over src: fingerprint and
 // sources as given, render function emitting dispatchMarker.
 func markerManifest(entry, src string, fp compiled.Fingerprint, usesLog bool) *compiled.Manifest {
-	return &compiled.Manifest{
+	return compiled.NewManifest(compiled.ManifestParams{
 		Entry:       entry,
 		Sources:     map[string]string{entry: src},
 		Fingerprint: fp,
@@ -43,7 +43,7 @@ func markerManifest(entry, src string, fp compiled.Fingerprint, usesLog bool) *c
 			_, err := io.WriteString(w, dispatchMarker)
 			return err
 		},
-	}
+	})
 }
 
 func TestWithCompiledServesInstalledUnit(t *testing.T) {
@@ -84,10 +84,7 @@ func TestWithCompiledServesInstalledUnit(t *testing.T) {
 func TestWithCompiledOptionFlipFallsBack(t *testing.T) {
 	const src = "hi"
 	seeded := func(seed int64) compiled.Fingerprint {
-		fp := defaultFingerprint()
-		fp.RandomSeed = seed
-		fp.RandomSeedSet = true
-		return fp
+		return compiled.NewFingerprint(compiled.FingerprintParams{TabWidth: 4, RandomSeed: seed, RandomSeedSet: true})
 	}
 	cases := []struct {
 		name   string
@@ -97,14 +94,14 @@ func TestWithCompiledOptionFlipFallsBack(t *testing.T) {
 	}{
 		{"matched-defaults", nil, defaultFingerprint(), true},
 		{"env-autoescape-on", []Option{WithAutoescapeHTML(true)}, defaultFingerprint(), false},
-		{"unit-autoescape-on", nil, compiled.Fingerprint{AutoescapeHTML: true, TabWidth: 4}, false},
-		{"both-autoescape-on", []Option{WithAutoescapeHTML(true)}, compiled.Fingerprint{AutoescapeHTML: true, TabWidth: 4}, true},
+		{"unit-autoescape-on", nil, compiled.NewFingerprint(compiled.FingerprintParams{AutoescapeHTML: true, TabWidth: 4}), false},
+		{"both-autoescape-on", []Option{WithAutoescapeHTML(true)}, compiled.NewFingerprint(compiled.FingerprintParams{AutoescapeHTML: true, TabWidth: 4}), true},
 		{"env-lenient", []Option{WithStrictVariables(false)}, defaultFingerprint(), false},
-		{"unit-lenient", nil, compiled.Fingerprint{LenientVariables: true, TabWidth: 4}, false},
-		{"both-lenient", []Option{WithStrictVariables(false)}, compiled.Fingerprint{LenientVariables: true, TabWidth: 4}, true},
+		{"unit-lenient", nil, compiled.NewFingerprint(compiled.FingerprintParams{LenientVariables: true, TabWidth: 4}), false},
+		{"both-lenient", []Option{WithStrictVariables(false)}, compiled.NewFingerprint(compiled.FingerprintParams{LenientVariables: true, TabWidth: 4}), true},
 		{"env-tabwidth-2", []Option{WithTabWidth(2)}, defaultFingerprint(), false},
-		{"unit-tabwidth-2", nil, compiled.Fingerprint{TabWidth: 2}, false},
-		{"both-tabwidth-2", []Option{WithTabWidth(2)}, compiled.Fingerprint{TabWidth: 2}, true},
+		{"unit-tabwidth-2", nil, compiled.NewFingerprint(compiled.FingerprintParams{TabWidth: 2}), false},
+		{"both-tabwidth-2", []Option{WithTabWidth(2)}, compiled.NewFingerprint(compiled.FingerprintParams{TabWidth: 2}), true},
 		{"env-seeded", []Option{WithRandomSeed(7)}, defaultFingerprint(), false},
 		{"unit-seeded", nil, seeded(7), false},
 		{"both-seeded", []Option{WithRandomSeed(7)}, seeded(7), true},
@@ -180,7 +177,7 @@ func TestWithCompiledSourceByteEditFallsBack(t *testing.T) {
 	}
 	// A manifest citing a member the loader cannot serve is equally unprovable.
 	m := markerManifest("t.ql", "hi", defaultFingerprint(), false)
-	m.Sources["missing.ql"] = "gone"
+	m.Sources()["missing.ql"] = "gone"
 	env2 := NewFromMap(map[string]string{"t.ql": "hi"}, WithCompiled(m))
 	out, err = env2.Render("t.ql", nil)
 	if err != nil || out != "hi" {
@@ -196,8 +193,16 @@ func TestWithCompiledSourceByteEditFallsBack(t *testing.T) {
 func TestWithCompiledAbsentIncludeGate(t *testing.T) {
 	// The entry inlined `@include "gone.ql" ignore missing` as nothing; the
 	// compiled render (the marker) is byte-exact only while gone.ql is absent.
-	m := markerManifest("t.ql", "head\n", defaultFingerprint(), false)
-	m.AbsentIncludes = []string{"gone.ql"}
+	m := compiled.NewManifest(compiled.ManifestParams{
+		Entry:          "t.ql",
+		Sources:        map[string]string{"t.ql": "head\n"},
+		Fingerprint:    defaultFingerprint(),
+		AbsentIncludes: []string{"gone.ql"},
+		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+			_, err := io.WriteString(w, dispatchMarker)
+			return err
+		},
+	})
 
 	ldr := loader.NewArrayLoader(map[string]string{"t.ql": "head\n"})
 	env := New(ldr, WithCompiled(m))
@@ -330,7 +335,7 @@ func TestWithCompiledVerifyServesInterpAndReports(t *testing.T) {
 }
 
 func TestWithCompiledVerifyCleanUnitReportsNothing(t *testing.T) {
-	clean := &compiled.Manifest{
+	clean := compiled.NewManifest(compiled.ManifestParams{
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": "hi"},
 		Fingerprint: defaultFingerprint(),
@@ -338,7 +343,7 @@ func TestWithCompiledVerifyCleanUnitReportsNothing(t *testing.T) {
 			_, err := io.WriteString(w, "hi")
 			return err
 		},
-	}
+	})
 	called := 0
 	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(clean),
@@ -353,7 +358,7 @@ func TestWithCompiledVerifyCleanUnitReportsNothing(t *testing.T) {
 }
 
 func TestWithCompiledVerifyReportsErrorDivergence(t *testing.T) {
-	failing := &compiled.Manifest{
+	failing := compiled.NewManifest(compiled.ManifestParams{
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": "hi"},
 		Fingerprint: defaultFingerprint(),
@@ -363,7 +368,7 @@ func TestWithCompiledVerifyReportsErrorDivergence(t *testing.T) {
 			}
 			return io.ErrUnexpectedEOF
 		},
-	}
+	})
 	var divs []compiled.Divergence
 	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(failing),
@@ -399,7 +404,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 
 	// A faithful unit mirrors the interpreter exactly: the partial bytes,
 	// then an error with identical text.
-	faithful := &compiled.Manifest{
+	faithful := compiled.NewManifest(compiled.ManifestParams{
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": src},
 		Fingerprint: defaultFingerprint(),
@@ -409,7 +414,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 			}
 			return errors.New(baseErr.Error())
 		},
-	}
+	})
 
 	direct := NewFromMap(tmpls, WithCompiled(faithful))
 	var wDirect strings.Builder
@@ -460,7 +465,7 @@ func faithfulSlotsManifest(t *testing.T, tmpls map[string]string) (*compiled.Man
 	if !strings.Contains(partial, "\x00\x01QUILL_SLOT_") {
 		t.Fatalf("interp string render did not leave an unresolved placeholder: %q", partial)
 	}
-	m := &compiled.Manifest{
+	m := compiled.NewManifest(compiled.ManifestParams{
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": slotsErrorSrc},
 		Fingerprint: defaultFingerprint(),
@@ -471,7 +476,7 @@ func faithfulSlotsManifest(t *testing.T, tmpls map[string]string) (*compiled.Man
 			}
 			return errors.New(rerr.Error())
 		},
-	}
+	})
 	return m, partial, rerr
 }
 
@@ -594,9 +599,9 @@ func TestWithCompiledRecordsOutSizeHint(t *testing.T) {
 }
 
 func TestWithCompiledMalformedManifestIgnored(t *testing.T) {
-	noRender := &compiled.Manifest{Entry: "t.ql", Sources: map[string]string{"t.ql": "hi"}, Fingerprint: defaultFingerprint()}
+	noRender := compiled.NewManifest(compiled.ManifestParams{Entry: "t.ql", Sources: map[string]string{"t.ql": "hi"}, Fingerprint: defaultFingerprint()})
 	noEntrySource := markerManifest("t.ql", "hi", defaultFingerprint(), false)
-	delete(noEntrySource.Sources, "t.ql")
+	delete(noEntrySource.Sources(), "t.ql")
 	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(nil, noRender, noEntrySource))
 	out, err := env.Render("t.ql", nil)
@@ -610,7 +615,7 @@ func TestWithCompiledMalformedManifestIgnored(t *testing.T) {
 // Environment, alongside a verify-mode Environment sharing the same manifest
 // value; run with -race this is the artifact-sharing safety gate.
 func TestWithCompiledConcurrentRenders(t *testing.T) {
-	parity := &compiled.Manifest{
+	parity := compiled.NewManifest(compiled.ManifestParams{
 		Entry:       "static.ql",
 		Sources:     map[string]string{"static.ql": "Hello\n"},
 		Fingerprint: defaultFingerprint(),
@@ -618,7 +623,7 @@ func TestWithCompiledConcurrentRenders(t *testing.T) {
 			_, err := io.WriteString(w, "Hello\n")
 			return err
 		},
-	}
+	})
 	templates := map[string]string{"static.ql": "Hello\n", "dyn.ql": "{{ n + 1 }}"}
 	direct := NewFromMap(templates, WithCompiled(parity))
 	shadow := NewFromMap(templates, WithCompiled(parity),
