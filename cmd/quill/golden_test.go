@@ -356,27 +356,12 @@ func TestCLIGoldenErrors(t *testing.T) {
 
 // --- Exit-code contract -------------------------------------------------------
 
-// exitCode mirrors main's error-to-exit-status reduction exactly: main calls
-// os.Exit(1) on any non-nil error from dispatch and returns 0 otherwise. It is a
-// test-local reflection of that mapping (main itself cannot be called without
-// exiting the test process), so this pins the observable contract main enforces.
-func exitCode(err error) int {
-	if err != nil {
-		return 1
-	}
-	return 0
-}
-
-// TestCLIGoldenExitCodes pins the CLI's exit-code model. main maps a nil error to
-// exit 0 and any non-nil error to exit 1, so the observable contract is: success
-// (including a PASSING coverage gate) is 0; every failure -- the coverage-gate
-// failure AND every hard error -- is 1. This test asserts that mapping through
-// exitCode, the same reduction main performs.
-//
-// NOTE (pre-freeze wart, unchanged): the coverage-gate failure shares exit code 1
-// with hard errors, so a CI job cannot distinguish "coverage too low" from
-// "template not found" by exit code alone. Recorded for a human decision; not
-// changed here.
+// TestCLIGoldenExitCodes pins the CLI's exit-code model through exitStatus -- the
+// exact reduction main performs (main itself cannot be called without exiting the
+// test process). The observable contract: success, including a PASSING coverage
+// gate, is 0; an UNMET coverage gate is 2, distinct so a CI job can tell "coverage
+// too low" from a real failure; every other error (a template not found, a
+// not-compilable template) is 1.
 func TestCLIGoldenExitCodes(t *testing.T) {
 	dir := writeTemplate(t)
 	dataPath := filepath.Join(dir, "data.json")
@@ -416,7 +401,7 @@ func TestCLIGoldenExitCodes(t *testing.T) {
 			run: func(out, errOut *bytes.Buffer) error {
 				return runCover([]string{"-root", dir, "-cases", filepath.Join(dir, "cases_fail.json"), "-fail-under", "100"}, out, errOut, nil)
 			},
-			want: 1,
+			want: 2,
 		},
 		{
 			name: "render_hard_error",
@@ -436,7 +421,7 @@ func TestCLIGoldenExitCodes(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			var out, errOut bytes.Buffer
-			got := exitCode(c.run(&out, &errOut))
+			got := exitStatus(c.run(&out, &errOut))
 			if got != c.want {
 				t.Errorf("exit code = %d, want %d (stderr %q)", got, c.want, errOut.String())
 			}

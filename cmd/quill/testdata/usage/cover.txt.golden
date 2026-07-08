@@ -11,7 +11,7 @@ Flags:
   -data string
     	JSON data file for a single-template run ("-" reads stdin)
   -fail-under float
-    	exit non-zero if total unit coverage percent is below N
+    	exit with code 2 if total unit coverage percent is below N
   -format string
     	report format: text (default), lcov, or html (default "text")
   -o string
@@ -20,5 +20,3 @@ Flags:
     	template root the loader resolves names under (default ".")
   -strict
     	strict-undefined handling; -strict=false enables lenient mode (default true)
-  -threshold float
-    	alias for -fail-under

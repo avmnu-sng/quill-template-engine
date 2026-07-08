@@ -30,6 +30,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -45,8 +46,31 @@ import (
 func main() {
 	if err := dispatch(os.Args[1:], os.Stdout, os.Stderr, os.Stdin); err != nil {
 		fmt.Fprintf(os.Stderr, "quill: %v\n", err)
-		os.Exit(1)
+		os.Exit(exitStatus(err))
 	}
+}
+
+// coverageGateError reports that "quill cover -fail-under" was not met. It is a
+// distinct error type so exitStatus can map it to its own process exit code,
+// separate from a hard failure.
+type coverageGateError struct{ got, gate float64 }
+
+func (e *coverageGateError) Error() string {
+	return fmt.Sprintf("template unit coverage %.1f%% is below -fail-under %.1f%%", e.got, e.gate)
+}
+
+// exitStatus reduces a dispatch error to a process exit code: an unmet coverage
+// gate is 2, so a CI job can tell "coverage too low" from a real failure; any
+// other error is 1; and success (a nil error) is 0.
+func exitStatus(err error) int {
+	if err == nil {
+		return 0
+	}
+	var ge *coverageGateError
+	if errors.As(err, &ge) {
+		return 2
+	}
+	return 1
 }
 
 // dispatch routes to a subcommand ("cover" or "compile"); anything else is the

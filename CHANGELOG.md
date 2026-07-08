@@ -60,6 +60,9 @@ BREAKING set; after it, compatibility is the rule.
   driven by the interpreter, never by hosts, which consume coverage through the
   report methods (`Report`, `Summary`, `TemplateCoverage`, `Counts`,
   `MergeReports`). The instrumentation core moved to an internal package.
+- The `quill cover` CI gate now exits with code **2** when total unit coverage is
+  below `-fail-under` (distinct from a hard error's exit 1, so CI can tell the two
+  apart); the redundant `-threshold` alias is removed -- use `-fail-under`.
 - Error MESSAGE strings are documented as NOT part of the compatibility contract:
   classify a failure by the exported `Kind`, with `errors.As`/`errors.Is`, or
   against a sentinel such as `loader.ErrNotFound` -- never by matching text.
