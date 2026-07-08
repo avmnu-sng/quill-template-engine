@@ -30,6 +30,7 @@ to hit are the context parameter, the opaque `runtime.Value`, and the `ext`/
 | Coverage hooks | `coll.Hit(...)`, `coll.SeedTemplate(...)` | removed (engine-internal) |
 | AOT compile | `import ".../pkg/compile"` | the `quill compile` command |
 | Not-found check | text match on `"not found"` | `errors.Is(err, loader.ErrNotFound)` |
+| FuncLoader callback | `func(name)(string, bool)` | `func(name)(string, bool, error)` |
 | Coverage gate exit | `1` (shared with errors) | `2` (distinct); `-threshold` -> `-fail-under` |
 
 ## 1. `context.Context` on every render and load
@@ -225,6 +226,22 @@ More broadly, error **message strings are not part of the compatibility
 contract**: branch on the exported `Kind`, with `errors.As`/`errors.Is`, or
 against a sentinel such as `loader.ErrNotFound` -- never by matching message
 text.
+
+The `loader.NewFuncLoader` callback also gained an error return --
+`func(name string) (string, bool, error)` -- so a database- or network-backed
+loader can report an I/O failure distinctly from a miss. Return a nil error and
+`false` for a plain miss:
+
+```go
+// v0.3.0
+loader.NewFuncLoader(func(name string) (string, bool) { return store[name], ok })
+
+// v1.0.0
+loader.NewFuncLoader(func(name string) (string, bool, error) {
+    src, ok := store[name]
+    return src, ok, nil
+})
+```
 
 ## 11. CLI: coverage-gate exit code and flag
 

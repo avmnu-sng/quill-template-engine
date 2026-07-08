@@ -476,15 +476,17 @@ env := quill.New(loader.NewFSLoader(templatesFS, "templates"))
 
 ### FuncLoader
 
-`loader.NewFuncLoader(fn func(name string) (source string, ok bool))` adapts a
-plain callback into a loader. The callback returns the template source and a
-boolean reporting whether the name is known; a false second result becomes the
-not-found error. It is the lightest way to source templates from a database, a
-config object, or any lookup a host already owns.
+`loader.NewFuncLoader(fn func(name string) (source string, ok bool, err error))`
+adapts a plain callback into a loader. The callback returns the template source,
+a boolean reporting whether the name is known, and an error: a false `ok` with a
+nil error becomes the not-found error, while a non-nil error propagates unchanged
+so a database- or network-backed lookup can report an I/O failure distinctly from
+a miss. It is the lightest way to source templates from a database, a config
+object, or any lookup a host already owns.
 
 ```go
-env := quill.New(loader.NewFuncLoader(func(name string) (string, bool) {
+env := quill.New(loader.NewFuncLoader(func(name string) (string, bool, error) {
 	src, ok := templateStore[name]
-	return src, ok
+	return src, ok, nil
 }))
 ```

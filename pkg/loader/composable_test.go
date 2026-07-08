@@ -2,6 +2,7 @@ package loader
 
 import (
 	"embed"
+	stderrors "errors"
 	"testing"
 )
 
@@ -205,9 +206,9 @@ func TestFSLoaderEscape(t *testing.T) {
 // path and a nil callback.
 func TestFuncLoaderCallback(t *testing.T) {
 	store := map[string]string{"greeting.ql": "hi {{ name }}"}
-	l := NewFuncLoader(func(name string) (string, bool) {
+	l := NewFuncLoader(func(name string) (string, bool, error) {
 		src, ok := store[name]
-		return src, ok
+		return src, ok, nil
 	})
 
 	if !l.Exists("greeting.ql") {
@@ -238,6 +239,23 @@ func TestFuncLoaderCallback(t *testing.T) {
 	if _, err := nilLoader.Get("anything"); !IsNotFound(err) {
 		t.Errorf("nil callback err = %v, want not-found", err)
 	}
+
+	// A callback error is propagated as-is, distinct from a miss, and makes a
+	// probe report the name as not known.
+	sentinel := stderrors.New("backing store unavailable")
+	errLoader := NewFuncLoader(func(name string) (string, bool, error) {
+		return "", false, sentinel
+	})
+	_, err = errLoader.Get("x.ql")
+	if !stderrors.Is(err, sentinel) {
+		t.Errorf("Get err = %v, want the callback error", err)
+	}
+	if IsNotFound(err) {
+		t.Error("a callback error must not be reported as not-found")
+	}
+	if errLoader.Exists("x.ql") {
+		t.Error("Exists should be false when the callback errors")
+	}
 }
 
 // TestComposableSatisfyLoader is a compile-time assertion that every new loader
@@ -254,7 +272,7 @@ func TestComposableSatisfyLoader(t *testing.T) {
 func TestLoadersCompose(t *testing.T) {
 	router := NewPrefixLoader(map[string]Loader{
 		"embed": NewFSLoader(embedFS, "testdata/embed"),
-		"func":  NewFuncLoader(func(name string) (string, bool) { return "FN:" + name, true }),
+		"func":  NewFuncLoader(func(name string) (string, bool, error) { return "FN:" + name, true, nil }),
 	})
 	override := NewArrayLoader(map[string]string{"embed/header.ql": "OVERRIDDEN"})
 	chain := NewChainLoader(override, router)
