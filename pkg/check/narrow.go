@@ -105,7 +105,7 @@ func narrowToCollection(cur, fallback *Type) *Type {
 	}
 	var kept []*Type
 	for _, a := range cur.arms() {
-		if a.Kind == KList || a.Kind == KMap {
+		if a.kind == KList || a.kind == KMap {
 			kept = append(kept, a)
 		}
 	}

@@ -121,7 +121,7 @@ func (c *checker) exprType(n *ast.Node, sc *scope) (*Type, error) {
 // listType infers a sequence literal's type as list<join of element types>; an
 // empty [] is list<any> (Section 6.1).
 func (c *checker) listType(n *ast.Node, sc *scope) (*Type, error) {
-	elem := Never
+	elem := never
 	for _, ch := range n.Children {
 		var et *Type
 		var err error
@@ -131,8 +131,8 @@ func (c *checker) listType(n *ast.Node, sc *scope) (*Type, error) {
 				return Any, e
 			}
 			// A spread of a list contributes its element type; otherwise any.
-			if st != nil && st.Kind == KList {
-				et = st.Elem
+			if st != nil && st.kind == KList {
+				et = st.elem
 			} else {
 				et = Any
 			}
@@ -144,7 +144,7 @@ func (c *checker) listType(n *ast.Node, sc *scope) (*Type, error) {
 		}
 		elem = join(elem, et)
 	}
-	if elem.Kind == KNever {
+	if elem.kind == kNever {
 		elem = Any
 	}
 	return ListOf(elem), nil
@@ -154,8 +154,8 @@ func (c *checker) listType(n *ast.Node, sc *scope) (*Type, error) {
 // string (the canonical key kind for a literal); the value type is the join of
 // entry values. An empty {} is map<any, any> (Section 6.1).
 func (c *checker) mapType(n *ast.Node, sc *scope) (*Type, error) {
-	keyT := Never
-	valT := Never
+	keyT := never
+	valT := never
 	for _, e := range n.Children {
 		if e.Kind != ast.KindMapEntry {
 			continue
@@ -193,10 +193,10 @@ func (c *checker) mapType(n *ast.Node, sc *scope) (*Type, error) {
 			keyT, valT = Any, Any
 		}
 	}
-	if keyT.Kind == KNever {
+	if keyT.kind == kNever {
 		keyT = Any
 	}
-	if valT.Kind == KNever {
+	if valT.kind == kNever {
 		valT = Any
 	}
 	return MapOf(keyT, valT), nil
@@ -229,15 +229,15 @@ func (c *checker) attrType(n *ast.Node, sc *scope) (*Type, error) {
 
 // memberOf resolves member m on a (non-null) receiver type.
 func (c *checker) memberOf(n *ast.Node, recv *Type, m string) (*Type, error) {
-	if recv == nil || recv.Kind == KAny {
+	if recv == nil || recv.kind == KAny {
 		return Any, nil
 	}
-	switch recv.Kind {
+	switch recv.kind {
 	case KObject:
 		if !c.reg.nominal() {
 			return Any, nil // opaque host type: members are dynamic
 		}
-		if t, ok := c.reg.memberType(recv.Name, m); ok {
+		if t, ok := c.reg.memberType(recv.name, m); ok {
 			return t, nil
 		}
 		// A member miss is absence-class: the strict access path surfaces it, but the
@@ -245,12 +245,12 @@ func (c *checker) memberOf(n *ast.Node, recv *Type, m string) (*Type, error) {
 		return Any, errAbsent(n, "type %s has no member %s", recv.String(), quoteName(m))
 	case KMap:
 		// a.b on a map reads the value type (string key "b").
-		return recv.Val, nil
+		return recv.val, nil
 	case KUnion:
 		// Resolve on each arm and join; a null arm is permitted only under ?. which
 		// already removed it, so a plain union with a non-member arm errors.
-		out := Never
-		for _, arm := range recv.Union {
+		out := never
+		for _, arm := range recv.union {
 			mt, err := c.memberOf(n, arm, m)
 			if err != nil {
 				return Any, err
@@ -292,27 +292,27 @@ func (c *checker) indexType(n *ast.Node, sc *scope) (*Type, error) {
 
 // subscriptOf resolves a[k] on a (non-null) receiver, checking the key kind.
 func (c *checker) subscriptOf(n *ast.Node, recv, keyT *Type) (*Type, error) {
-	if recv == nil || recv.Kind == KAny {
+	if recv == nil || recv.kind == KAny {
 		return Any, nil
 	}
-	switch recv.Kind {
+	switch recv.kind {
 	case KList:
 		if !c.consistent(keyT, Int) {
 			return Any, errAt(n, "list subscript must be an int, found %s", keyT.String())
 		}
-		return recv.Elem, nil
+		return recv.elem, nil
 	case KMap:
-		if !c.consistent(keyT, recv.Key) {
-			return Any, errAt(n, "map key must be %s, found %s", recv.Key.String(), keyT.String())
+		if !c.consistent(keyT, recv.key) {
+			return Any, errAt(n, "map key must be %s, found %s", recv.key.String(), keyT.String())
 		}
-		return recv.Val, nil
+		return recv.val, nil
 	case KString:
 		return String, nil
 	case KObject:
 		return Any, nil // host index interface: dynamic
 	case KUnion:
-		out := Never
-		for _, arm := range recv.Union {
+		out := never
+		for _, arm := range recv.union {
 			rt, err := c.subscriptOf(n, arm, keyT)
 			if err != nil {
 				return Any, err
@@ -343,7 +343,7 @@ func (c *checker) sliceType(n *ast.Node, sc *scope) (*Type, error) {
 			}
 		}
 	}
-	switch recv.Kind {
+	switch recv.kind {
 	case KList, KString, KAny:
 		return recv, nil
 	default:
@@ -365,7 +365,7 @@ func (c *checker) unaryType(n *ast.Node, sc *scope) (*Type, error) {
 	if t.isAny() {
 		return Any, nil
 	}
-	if t.Kind == KInt || t.Kind == KFloat {
+	if t.kind == KInt || t.kind == KFloat {
 		return t, nil
 	}
 	return Any, errAt(n, "unary %s requires a number, found %s", n.Str, t.String())

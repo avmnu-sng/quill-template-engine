@@ -16,7 +16,7 @@ func TestTypeString(t *testing.T) {
 		{Int, "int"},
 		{Float, "float"},
 		{String, "string"},
-		{Never, "never"},
+		{never, "never"},
 		{ListOf(Int), "list<int>"},
 		{ListOf(ListOf(String)), "list<list<string>>"},
 		{MapOf(String, Int), "map<string, int>"},
@@ -38,13 +38,13 @@ func TestTypeString(t *testing.T) {
 // TestAsNullable checks the exact `base | null` shape detection.
 func TestAsNullable(t *testing.T) {
 	// null in first arm.
-	u := &Type{Kind: KUnion, Union: []*Type{Null, Int}}
-	if b, ok := u.asNullable(); !ok || b.Kind != KInt {
+	u := &Type{kind: KUnion, union: []*Type{Null, Int}}
+	if b, ok := u.asNullable(); !ok || b.kind != KInt {
 		t.Fatalf("asNullable(null|int) = %v, %v", b, ok)
 	}
 	// null in second arm.
-	u2 := &Type{Kind: KUnion, Union: []*Type{Int, Null}}
-	if b, ok := u2.asNullable(); !ok || b.Kind != KInt {
+	u2 := &Type{kind: KUnion, union: []*Type{Int, Null}}
+	if b, ok := u2.asNullable(); !ok || b.kind != KInt {
 		t.Fatalf("asNullable(int|null) = %v, %v", b, ok)
 	}
 	// three arms is not the nullable sugar.
@@ -93,29 +93,29 @@ func TestEqualType(t *testing.T) {
 // TestJoinAndUnion checks the least-upper-bound rules: any absorbs, never is the
 // identity, equal types collapse, and distinct scalars form a union.
 func TestJoinAndUnion(t *testing.T) {
-	if got := join(Int, Any); got.Kind != KAny {
+	if got := join(Int, Any); got.kind != KAny {
 		t.Errorf("join(int, any) must be any, got %s", got)
 	}
-	if got := join(Never, Int); got.Kind != KInt {
+	if got := join(never, Int); got.kind != KInt {
 		t.Errorf("join(never, int) must be int, got %s", got)
 	}
-	if got := join(Int, Never); got.Kind != KInt {
+	if got := join(Int, never); got.kind != KInt {
 		t.Errorf("join(int, never) must be int, got %s", got)
 	}
-	if got := join(Int, Int); got.Kind != KInt {
+	if got := join(Int, Int); got.kind != KInt {
 		t.Errorf("join(int, int) must be int, got %s", got)
 	}
 	if got := join(Int, String); got.String() != "int | string" {
 		t.Errorf("join(int, string) = %s", got)
 	}
 	// unionOf absorbs any and dedups.
-	if got := unionOf([]*Type{Int, Any, String}); got.Kind != KAny {
+	if got := unionOf([]*Type{Int, Any, String}); got.kind != KAny {
 		t.Errorf("unionOf with any must be any, got %s", got)
 	}
-	if got := unionOf([]*Type{Int, Int}); got.Kind != KInt {
+	if got := unionOf([]*Type{Int, Int}); got.kind != KInt {
 		t.Errorf("unionOf of duplicates collapses to the scalar, got %s", got)
 	}
-	if got := unionOf(nil); got.Kind != KNever {
+	if got := unionOf(nil); got.kind != kNever {
 		t.Errorf("unionOf(empty) is never, got %s", got)
 	}
 	// unionOf flattens a nested union.
@@ -127,16 +127,16 @@ func TestJoinAndUnion(t *testing.T) {
 
 // TestRemoveNull covers the null-subtraction used by ?? / ?: and is-not-null.
 func TestRemoveNull(t *testing.T) {
-	if got := removeNull(Any); got.Kind != KAny {
+	if got := removeNull(Any); got.kind != KAny {
 		t.Errorf("removeNull(any) = %s", got)
 	}
-	if got := removeNull(Null); got.Kind != KNever {
+	if got := removeNull(Null); got.kind != kNever {
 		t.Errorf("removeNull(null) = %s", got)
 	}
-	if got := removeNull(Int); got.Kind != KInt {
+	if got := removeNull(Int); got.kind != KInt {
 		t.Errorf("removeNull(int) = %s", got)
 	}
-	if got := removeNull(join(String, Null)); got.Kind != KString {
+	if got := removeNull(join(String, Null)); got.kind != KString {
 		t.Errorf("removeNull(string?) = %s", got)
 	}
 }
@@ -159,7 +159,7 @@ func TestConsistentRelation(t *testing.T) {
 	yes(Any, Int)
 	yes(Int, Any)
 	yes(nil, Int) // nil defaults to any
-	yes(Never, Int)
+	yes(never, Int)
 	yes(Int, Int)
 	no(Int, String)
 	// a source union is consistent with t iff every arm is.
@@ -187,7 +187,7 @@ func TestConsistentRelation(t *testing.T) {
 func TestRenderableAndIterable(t *testing.T) {
 	c := &checker{reg: nominalRegistry()}
 	// renderable.
-	for _, r := range []*Type{Any, Null, Bool, Int, Float, String, Never} {
+	for _, r := range []*Type{Any, Null, Bool, Int, Float, String, never} {
 		if !c.renderable(r) {
 			t.Errorf("%s must be renderable", r.String())
 		}
@@ -210,11 +210,11 @@ func TestRenderableAndIterable(t *testing.T) {
 	}
 	// iterableElem.
 	elem, key, ok := c.iterableElem(ListOf(String))
-	if !ok || elem.Kind != KString || key.Kind != KInt {
+	if !ok || elem.kind != KString || key.kind != KInt {
 		t.Errorf("list<string> iterableElem = %s,%s,%v", elem, key, ok)
 	}
 	elem, key, ok = c.iterableElem(MapOf(String, Int))
-	if !ok || elem.Kind != KInt || key.Kind != KString {
+	if !ok || elem.kind != KInt || key.kind != KString {
 		t.Errorf("map iterableElem = %s,%s,%v", elem, key, ok)
 	}
 	if _, _, ok := c.iterableElem(Int); ok {

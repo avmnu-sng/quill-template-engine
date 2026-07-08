@@ -81,7 +81,7 @@ func (c *checker) arithType(n *ast.Node, op string, sc *scope) (*Type, error) {
 	if op == "/" {
 		return Float, nil
 	}
-	if lt.Kind == KInt && rt.Kind == KInt {
+	if lt.kind == KInt && rt.kind == KInt {
 		return Int, nil
 	}
 	return Float, nil
@@ -106,7 +106,7 @@ func (c *checker) checkOrder(n *ast.Node, sc *scope) error {
 	if lt.isAny() || rt.isAny() {
 		return nil
 	}
-	if (numeric(lt) && numeric(rt)) || (lt.Kind == KString && rt.Kind == KString) {
+	if (numeric(lt) && numeric(rt)) || (lt.kind == KString && rt.kind == KString) {
 		return nil
 	}
 	return errAt(n, "cannot order %s against %s", lt.String(), rt.String())
@@ -117,16 +117,16 @@ func numeric(t *Type) bool {
 	if t == nil {
 		return false
 	}
-	switch t.Kind {
+	switch t.kind {
 	case KInt, KFloat:
 		return true
 	case KUnion:
-		for _, a := range t.Union {
+		for _, a := range t.union {
 			if !numeric(a) {
 				return false
 			}
 		}
-		return len(t.Union) > 0
+		return len(t.union) > 0
 	default:
 		return false
 	}

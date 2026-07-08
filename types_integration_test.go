@@ -20,11 +20,9 @@ func TestTypesRenderIdentically(t *testing.T) {
 	typed := "@types {\n  users: list<Object<\"User\">>\n@}\n@for u: Object<\"User\"> in users {\n{{ u.name | upper }}: {{ u.age + 1 }}\n@}"
 
 	reg := check.NewRegistry()
-	reg.AddType(&check.ObjectType{
-		Name:      "User",
-		Members:   map[string]*check.Type{"name": check.String, "age": check.Int},
-		Stringify: true,
-	})
+	reg.AddType(check.NewObjectType("User").
+		WithMembers(map[string]*check.Type{"name": check.String, "age": check.Int}).
+		WithStringify(true))
 
 	users := mkList(
 		mkMap("name", runtime.Str("ada"), "age", runtime.Int(40)),
@@ -77,7 +75,7 @@ func TestCheckTimeRejection(t *testing.T) {
 // unannotated template's behavior: it still renders the dynamic floor.
 func TestUnannotatedUnaffectedByRegistry(t *testing.T) {
 	reg := check.NewRegistry()
-	reg.AddType(&check.ObjectType{Name: "User", Stringify: true})
+	reg.AddType(check.NewObjectType("User").WithStringify(true))
 	e := NewFromMap(nil, WithTypes(reg))
 	out, err := e.RenderString("t.ql", "{{ a + b }}", map[string]runtime.Value{
 		"a": runtime.Int(2), "b": runtime.Int(3),

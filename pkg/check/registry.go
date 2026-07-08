@@ -34,26 +34,87 @@ type Registry struct {
 // dotted-access rule, spec 04 Section 5), its callable method signatures, its
 // iteration element type (nil when not iterable), whether it stringifies, and
 // its declared supertype/interface names for nominal consistency.
+//
+// Its fields are unexported so the checker's shared state cannot be mutated by a
+// host after registration: build one with NewObjectType and the fluent With*
+// setters, then hand it to Registry.AddType.
 type ObjectType struct {
-	Name       string
-	Members    map[string]*Type      // dotted-access member -> type
-	Methods    map[string]*Signature // a.m() method -> signature
-	ElemType   *Type                 // for-iteration element type; nil when not iterable
-	Stringify  bool                  // has a stringify hook (renderable)
-	Supertypes []string              // declared base types / interfaces
+	name       string                // host type name
+	members    map[string]*Type      // dotted-access member -> type
+	methods    map[string]*Signature // a.m() method -> signature
+	elemType   *Type                 // for-iteration element type; nil when not iterable
+	stringify  bool                  // has a stringify hook (renderable)
+	supertypes []string              // declared base types / interfaces
+}
+
+// NewObjectType returns a host Object type named name, with no members, methods,
+// iteration element, stringify hook, or supertypes. Attach those with the
+// fluent With* setters before registering it with Registry.AddType.
+func NewObjectType(name string) *ObjectType { return &ObjectType{name: name} }
+
+// WithMembers sets the dotted-access member types (field/get/is/has accessors
+// collapsed to the member name) and returns the receiver for chaining.
+func (o *ObjectType) WithMembers(members map[string]*Type) *ObjectType {
+	o.members = members
+	return o
+}
+
+// WithMethods sets the a.m() method signatures and returns the receiver for
+// chaining.
+func (o *ObjectType) WithMethods(methods map[string]*Signature) *ObjectType {
+	o.methods = methods
+	return o
+}
+
+// WithElemType sets the for-iteration element type (nil leaves the type
+// non-iterable) and returns the receiver for chaining.
+func (o *ObjectType) WithElemType(elem *Type) *ObjectType {
+	o.elemType = elem
+	return o
+}
+
+// WithStringify marks whether the type has a stringify hook (is renderable) and
+// returns the receiver for chaining.
+func (o *ObjectType) WithStringify(stringify bool) *ObjectType {
+	o.stringify = stringify
+	return o
+}
+
+// WithSupertypes sets the declared base type / interface names used for nominal
+// consistency and returns the receiver for chaining.
+func (o *ObjectType) WithSupertypes(supertypes []string) *ObjectType {
+	o.supertypes = supertypes
+	return o
 }
 
 // Signature is the static type of a callable (host filter/function/test or
-// macro/block). Params lists the parameter types in order; Optional is the
+// macro/block). params lists the parameter types in order; optional is the
 // count of trailing parameters that may be omitted (those with defaults or the
-// variadic itself); Variadic marks a trailing ...rest that absorbs extra
-// positional arguments of element type VarElem; Ret is the result type.
+// variadic itself); variadic marks a trailing ...rest that absorbs extra
+// positional arguments of element type varElem; ret is the result type.
+//
+// Its fields are unexported so the checker's shared state cannot be mutated by a
+// host after registration: build one with NewSignature.
 type Signature struct {
-	Params   []*Type
-	Optional int
-	Variadic bool
-	VarElem  *Type
-	Ret      *Type
+	params   []*Type
+	optional int
+	variadic bool
+	varElem  *Type
+	ret      *Type
+}
+
+// NewSignature returns a callable signature with the given ordered parameter
+// types and result type. optional is the count of trailing parameters that may
+// be omitted; when variadic is true the trailing ...rest absorbs extra
+// positional arguments of element type varElem (pass nil when not variadic).
+func NewSignature(params []*Type, optional int, variadic bool, varElem, ret *Type) *Signature {
+	return &Signature{
+		params:   params,
+		optional: optional,
+		variadic: variadic,
+		varElem:  varElem,
+		ret:      ret,
+	}
 }
 
 // NewRegistry returns an empty registry the host populates with AddType /
@@ -70,7 +131,7 @@ func (r *Registry) AddType(t *ObjectType) {
 	if r.types == nil {
 		r.types = map[string]*ObjectType{}
 	}
-	r.types[t.Name] = t
+	r.types[t.name] = t
 }
 
 // AddSignature registers (or replaces) a host callable's signature by name.
@@ -125,10 +186,10 @@ func (r *Registry) memberType(name, member string) (*Type, bool) {
 	if ot == nil {
 		return Any, true
 	}
-	if t, ok := ot.Members[member]; ok {
+	if t, ok := ot.members[member]; ok {
 		return t, true
 	}
-	for _, sup := range ot.Supertypes {
+	for _, sup := range ot.supertypes {
 		if t, ok := r.memberType(sup, member); ok {
 			return t, true
 		}
@@ -144,10 +205,10 @@ func (r *Registry) methodSig(name, method string) (*Signature, bool) {
 	if ot == nil {
 		return nil, true
 	}
-	if s, ok := ot.Methods[method]; ok {
+	if s, ok := ot.methods[method]; ok {
 		return s, true
 	}
-	for _, sup := range ot.Supertypes {
+	for _, sup := range ot.supertypes {
 		if s, ok := r.methodSig(sup, method); ok {
 			return s, true
 		}
@@ -163,10 +224,10 @@ func (r *Registry) iterElem(name string) (*Type, bool) {
 	if ot == nil {
 		return Any, true
 	}
-	if ot.ElemType == nil {
+	if ot.elemType == nil {
 		return nil, false
 	}
-	return ot.ElemType, true
+	return ot.elemType, true
 }
 
 // stringifies reports whether a known Object type renders to text. An
@@ -177,7 +238,7 @@ func (r *Registry) stringifies(name string) bool {
 	if ot == nil {
 		return true
 	}
-	return ot.Stringify
+	return ot.stringify
 }
 
 // subtypeOf reports whether sub is the same as or a declared subtype/interface
@@ -190,7 +251,7 @@ func (r *Registry) subtypeOf(sub, sup string) bool {
 	if ot == nil {
 		return false
 	}
-	for _, s := range ot.Supertypes {
+	for _, s := range ot.supertypes {
 		if r.subtypeOf(s, sup) {
 			return true
 		}

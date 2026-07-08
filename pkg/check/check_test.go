@@ -22,13 +22,10 @@ func checkSrc(t *testing.T, body string, reg *Registry) error {
 // userRegistry builds a registry with one User host type for the nominal tests.
 func userRegistry() *Registry {
 	r := NewRegistry()
-	r.AddType(&ObjectType{
-		Name:      "User",
-		Members:   map[string]*Type{"name": String, "age": Int, "active": Bool},
-		Methods:   map[string]*Signature{"label": {Params: []*Type{String}, Ret: String}},
-		ElemType:  nil,
-		Stringify: true,
-	})
+	r.AddType(NewObjectType("User").
+		WithMembers(map[string]*Type{"name": String, "age": Int, "active": Bool}).
+		WithMethods(map[string]*Signature{"label": NewSignature([]*Type{String}, 0, false, nil, String)}).
+		WithStringify(true))
 	return r
 }
 
