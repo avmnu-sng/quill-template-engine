@@ -1,4 +1,4 @@
-package cover
+package covercore
 
 import "github.com/avmnu-sng/quill-template-engine/pkg/ast"
 
@@ -15,7 +15,7 @@ import "github.com/avmnu-sng/quill-template-engine/pkg/ast"
 // The walk is intentionally exhaustive over both statement bodies and expression
 // subtrees: a branch operator can appear anywhere an expression can (a ternary in
 // a print, in a filter argument, in a @set value), so every child is visited.
-func seedWalk(c *Collector, name string, n *ast.Node) {
+func seedWalk(c *Core, name string, n *ast.Node) {
 	if n == nil {
 		return
 	}
@@ -34,7 +34,7 @@ func seedWalk(c *Collector, name string, n *ast.Node) {
 // without recursing (seedWalk handles recursion). It is the seeding counterpart
 // of the interpreter's per-node hit calls, so the two stay in lockstep: a node
 // the interp records a hit for is seeded here under the same kind.
-func seedNode(c *Collector, name string, n *ast.Node) {
+func seedNode(c *Core, name string, n *ast.Node) {
 	switch n.Kind {
 	case ast.KindText, ast.KindVerbatim:
 		c.seed(name, n, UnitText)
@@ -101,7 +101,7 @@ func seedNode(c *Collector, name string, n *ast.Node) {
 // (taken and not-taken) and the single arm of a terminal @else. The arms are
 // anchored at the CLAUSE position so each clause in a chain gets its own
 // line:col, matching how execIf records them.
-func seedIfArms(c *Collector, name string, ifNode *ast.Node) {
+func seedIfArms(c *Core, name string, ifNode *ast.Node) {
 	for _, clause := range ifNode.Children {
 		if clause.Kind != ast.KindClause {
 			continue

@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/avmnu-sng/quill-template-engine/internal/covercore"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
 	"github.com/avmnu-sng/quill-template-engine/pkg/cache"
 	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
@@ -390,13 +391,15 @@ type interp struct {
 	lastFilterName string
 	lastFilter     *ext.Filter
 
-	// cov is the coverage Collector for this render, or nil when coverage is off.
-	// When nil every coverage hook (in cover.go) is a single nil comparison the
-	// branch predictor makes free -- the zero-overhead-when-disabled guarantee. It
-	// is copied from the engine's Coverage() at construction and threaded into
-	// nested renders (includes, embeds) so a partial's coverage aggregates under
-	// its own name.
-	cov *cover.Collector
+	// cov is the coverage core for this render, or nil when coverage is off. When
+	// nil every coverage hook (in cover.go) is a single nil comparison the branch
+	// predictor makes free -- the zero-overhead-when-disabled guarantee. It is the
+	// internal instrumentation core unwrapped from the engine's host-facing
+	// Collector (via covercore.CoreOf) at construction, and threaded into nested
+	// renders (includes, embeds) so a partial's coverage aggregates under its own
+	// name. Recording against the Core keeps the record side (Hit / Seed) off the
+	// host-visible cover.Collector.
+	cov *covercore.Core
 
 	// forSafe answers whether a given @for node's loop value provably never
 	// escapes, so execFor can pool its snapshot buffer. It is folded from the
@@ -452,7 +455,7 @@ func newInterp(rctx context.Context, eng Engine, root *Template, out Sink) *inte
 		escape:      autoesc,
 		sandboxOn:   eng.SandboxActive(),
 		atLineStart: true,
-		cov:         eng.Coverage(),
+		cov:         covercore.CoreOf(eng.Coverage()),
 	}
 	// Every interp starts as its own slot owner; a nested render redirects to
 	// its parent's owner via shareSlotsFrom.

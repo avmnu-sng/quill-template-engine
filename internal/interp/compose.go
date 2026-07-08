@@ -1,8 +1,8 @@
 package interp
 
 import (
+	"github.com/avmnu-sng/quill-template-engine/internal/covercore"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
-	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
@@ -46,7 +46,7 @@ func (in *interp) renderBlockBody(n *ast.Node, ctx *runtime.Scope) error {
 	// own template name via the node's Src), so an override counts under the child
 	// and a never-overridden parent block under the parent. parent() renders the
 	// next definition down and counts it too.
-	in.covUnit(n, cover.UnitBlock)
+	in.covUnit(n, covercore.UnitBlock)
 	body := n.Children
 	for len(body) > 0 && (body[0].Kind == ast.KindParams || body[0].Kind == ast.KindType) {
 		body = body[1:]
@@ -370,7 +370,7 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 	// entered as a render root / @include / @extends target is fully seeded
 	// separately by covSeed, and that full seed takes precedence.
 	in.covSeedMacro(entry.home, entry.node)
-	in.covUnit(entry.node, cover.UnitMacro)
+	in.covUnit(entry.node, covercore.UnitMacro)
 
 	// Render the macro body in a child interp that sees the home template's macro
 	// namespace (so recursion / sibling calls by bare name work), with the macro's

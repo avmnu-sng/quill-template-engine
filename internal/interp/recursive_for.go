@@ -1,8 +1,8 @@
 package interp
 
 import (
+	"github.com/avmnu-sng/quill-template-engine/internal/covercore"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
-	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
@@ -69,13 +69,13 @@ func (in *interp) execRecursiveFor(n *ast.Node, ctx *runtime.Scope, target1, tar
 	}
 
 	if len(pairs) == 0 {
-		in.covArm(n, cover.ForEmpty)
+		in.covArm(n, covercore.ForEmpty)
 		if elseBody != nil {
 			return in.execItems(elseBody.Children, ctx)
 		}
 		return nil
 	}
-	in.covArm(n, cover.ForBody)
+	in.covArm(n, covercore.ForBody)
 	in.recursiveLoops = append(in.recursiveLoops, frame)
 	defer func() { in.recursiveLoops = in.recursiveLoops[:len(in.recursiveLoops)-1] }()
 

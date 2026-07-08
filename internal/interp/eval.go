@@ -1,8 +1,8 @@
 package interp
 
 import (
+	"github.com/avmnu-sng/quill-template-engine/internal/covercore"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
-	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
@@ -369,10 +369,10 @@ func (in *interp) evalTernary(n *ast.Node, ctx *runtime.Scope) (runtime.Value, e
 		// The condition is truthy: the then arm (Child 1) is taken. This also covers
 		// postfix "{{ x if c }}" / "{{ x unless c }}", which the parser desugars into
 		// a ternary, so both surface forms are measured here.
-		in.covArm(n, cover.TernThen)
+		in.covArm(n, covercore.TernThen)
 		return in.eval(n.Child(1), ctx, false)
 	}
-	in.covArm(n, cover.TernElse)
+	in.covArm(n, covercore.TernElse)
 	return in.eval(n.Child(2), ctx, false)
 }
 
@@ -383,11 +383,11 @@ func (in *interp) evalCoalesce(n *ast.Node, ctx *runtime.Scope) (runtime.Value, 
 	}
 	if !left.IsNull() {
 		// Left was non-null and is kept.
-		in.covArm(n, cover.CoalLeft)
+		in.covArm(n, covercore.CoalLeft)
 		return left, nil
 	}
 	// Left was null: the right fallback is used.
-	in.covArm(n, cover.CoalRight)
+	in.covArm(n, covercore.CoalRight)
 	return in.eval(n.Child(1), ctx, false)
 }
 
@@ -398,11 +398,11 @@ func (in *interp) evalElvis(n *ast.Node, ctx *runtime.Scope) (runtime.Value, err
 	}
 	if runtime.Truthy(left) {
 		// Left was truthy and is kept.
-		in.covArm(n, cover.ElvisLeft)
+		in.covArm(n, covercore.ElvisLeft)
 		return left, nil
 	}
 	// Left was falsy: the right fallback is used.
-	in.covArm(n, cover.ElvisRight)
+	in.covArm(n, covercore.ElvisRight)
 	return in.eval(n.Child(1), ctx, false)
 }
 

@@ -1,8 +1,8 @@
 package interp
 
 import (
+	"github.com/avmnu-sng/quill-template-engine/internal/covercore"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
-	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
 )
 
 // This file holds the coverage instrumentation hooks the interpreter calls at
@@ -12,11 +12,17 @@ import (
 // guarantee (docs/coverage.md Section 6). The hooks only read a node's position
 // and increment a counter; they never touch the value pipeline or the output
 // sink, so instrumentation cannot change rendered bytes (the binding invariant).
+//
+// in.cov is a *covercore.Core -- the engine-internal instrumentation core. The
+// host attaches a *cover.Collector (via WithCoverage) that wraps a Core; the
+// interpreter unwraps it to the Core through covercore.CoreOf at construction
+// (see newInterp). Recording against the Core, not the Collector, keeps the
+// record side (Hit / Seed) off the host-facing Collector surface.
 
 // covSeed statically seeds a template's coverable regions before its body runs,
 // so unreached code counts against the denominator. It is idempotent per template
-// name (the Collector skips an already-seeded template), so seeding each template
-// as it enters a render is cheap and safe to repeat across renders.
+// name (the Core skips an already-seeded template), so seeding each template as it
+// enters a render is cheap and safe to repeat across renders.
 func (in *interp) covSeed(t *Template) {
 	if in.cov == nil || t == nil {
 		return
@@ -28,7 +34,7 @@ func (in *interp) covSeed(t *Template) {
 // when a template is entered ONLY as a macro home (its macro invoked via @import /
 // @from). Unlike covSeed it does not seed the home's top-level body, which an
 // import never renders, so unreachable top-level markup is not reported as an
-// uncovered gap. It is idempotent per macro and a nil Collector is a no-op.
+// uncovered gap. It is idempotent per macro and a nil Core is a no-op.
 func (in *interp) covSeedMacro(home *Template, macroNode *ast.Node) {
 	if in.cov == nil || home == nil || macroNode == nil {
 		return
@@ -40,7 +46,7 @@ func (in *interp) covSeedMacro(home *Template, macroNode *ast.Node) {
 // the given kind. The region is anchored under n's own source name, so a node
 // from an included partial or a macro home counts under that template, not the
 // render root.
-func (in *interp) covUnit(n *ast.Node, kind cover.RegionKind) {
+func (in *interp) covUnit(n *ast.Node, kind covercore.RegionKind) {
 	if in.cov == nil {
 		return
 	}
@@ -50,7 +56,7 @@ func (in *interp) covUnit(n *ast.Node, kind cover.RegionKind) {
 // covArm records that a specific branch arm at node n was taken. It shares the
 // unit path but names a branch-arm kind, which the report tallies in the separate
 // branch denominator.
-func (in *interp) covArm(n *ast.Node, kind cover.RegionKind) {
+func (in *interp) covArm(n *ast.Node, kind covercore.RegionKind) {
 	if in.cov == nil {
 		return
 	}

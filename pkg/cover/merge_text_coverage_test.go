@@ -38,18 +38,18 @@ func TestReportMergeMethodUnionsCounts(t *testing.T) {
 		hits[regionID{tmpl: "t.ql", line: reg.Line, col: reg.Col, kind: reg.Kind}] = reg.Hits
 	}
 	// Counts add for a region hit in both operands (2 + 5).
-	if got := hits[regionID{"t.ql", 1, 1, UnitPrint}]; got != 7 {
+	if got := hits[regionID{tmpl: "t.ql", line: 1, col: 1, kind: UnitPrint}]; got != 7 {
 		t.Errorf("merged UnitPrint hits = %d want 7", got)
 	}
 	// Each branch arm was taken by exactly one operand; both add to non-zero.
-	if got := hits[regionID{"t.ql", 2, 1, IfThen}]; got != 1 {
+	if got := hits[regionID{tmpl: "t.ql", line: 2, col: 1, kind: IfThen}]; got != 1 {
 		t.Errorf("merged IfThen hits = %d want 1", got)
 	}
-	if got := hits[regionID{"t.ql", 2, 1, IfElse}]; got != 3 {
+	if got := hits[regionID{tmpl: "t.ql", line: 2, col: 1, kind: IfElse}]; got != 3 {
 		t.Errorf("merged IfElse hits = %d want 3", got)
 	}
 	// A region present only in b is present after the union with its own count.
-	if got := hits[regionID{"t.ql", 3, 1, UnitText}]; got != 4 {
+	if got := hits[regionID{tmpl: "t.ql", line: 3, col: 1, kind: UnitText}]; got != 4 {
 		t.Errorf("b-only UnitText hits = %d want 4", got)
 	}
 
