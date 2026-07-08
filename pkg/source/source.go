@@ -47,7 +47,7 @@ func (s *Source) WithCode(code string) *Source {
 	return New(s.Name(), code)
 }
 
-// Line returns the 1-based content of the given 1-based line, or "" when the
+// Line returns the content of the given 1-based line, or "" when the
 // line is out of range or the Source is nil. It is a convenience for building
 // error messages that quote the offending line.
 func (s *Source) Line(n int) string {

@@ -79,9 +79,10 @@
 //
 // Output escaping is off by default. HTML escaping is available globally
 // (WithAutoescapeHTML) or as one of six strategies applied by the escape/e filter
-// and the @escape region. A host-supplied SecurityPolicy (sandbox.Policy)
-// restricts the permitted tags, filters, functions, per-type methods, and
-// per-type properties, enforced at compile time for the tag/filter/function floor
+// and the @escape region. A host-supplied sandbox.Policy (installed with
+// WithSandboxPolicy -- the spec's SecurityPolicy) restricts the permitted tags,
+// filters, functions, per-type methods, and per-type properties, enforced at
+// compile time for the tag/filter/function floor
 // and at each host member-access site for the type-graph. The sandbox activates
 // globally (WithSandboxActive), per @sandbox region, or per sandboxed include, and
 // each violation raises a host-catchable *errors.Security. Allowlisting is uniform

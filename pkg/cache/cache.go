@@ -50,11 +50,11 @@ func (c *Cache) Clear() {
 
 // RenderCache memoizes rendered body fragments by key, backing the @cache region
 // statement (spec 01 Section 4.7). It is the engine-default, in-memory pluggable
-// cache: a key->string map guarded by a mutex with no eviction. The ttl is a
-// documented no-op here (the in-memory cache never expires an entry); a host that
-// needs ttl/tags-driven invalidation supplies its own implementation. Tags are
-// recorded per key so an invalidation by tag can drop every keyed entry that
-// carried it.
+// cache: a key->string map guarded by a mutex with no eviction. It never expires
+// an entry on its own -- the @cache region's ttl is intentionally not honored by
+// this built-in cache; a host that needs ttl-driven expiry supplies its own
+// implementation. Tags are recorded per key so an invalidation by tag can drop
+// every keyed entry that carried it.
 type RenderCache struct {
 	mu      sync.RWMutex
 	entries map[string]string
@@ -78,8 +78,8 @@ func (c *RenderCache) Get(key string) (string, bool) {
 }
 
 // Put stores a rendered body under key, recording its tags for later
-// tag-invalidation. ttl is accepted for API symmetry but is a no-op for this
-// non-expiring in-memory cache.
+// tag-invalidation. This built-in cache takes no ttl and never expires an entry;
+// the @cache region's ttl is intentionally a no-op for it.
 func (c *RenderCache) Put(key string, body string, tags []string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
