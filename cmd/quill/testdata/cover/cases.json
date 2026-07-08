@@ -1,0 +1,10 @@
+[
+  {
+    "template": "page.ql",
+    "data": {
+      "name": "ada",
+      "admin": true,
+      "count": 3
+    }
+  }
+]
