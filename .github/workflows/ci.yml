@@ -16,20 +16,55 @@ permissions:
   contents: read
 
 jobs:
+  # Resolve the Go versions to test: every minor from the go.mod floor through
+  # the current stable release, computed at run time. This keeps the range
+  # contiguous with zero maintenance -- no minor silently drops out when a new
+  # Go ships (e.g. when 1.27 lands, 1.25 is still tested), and the floor tracks
+  # go.mod automatically. Emits a JSON array for the test matrix and the latest
+  # minor (used to pick the single coverage-uploading leg).
+  go-versions:
+    name: resolve Go versions
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.compute.outputs.list }}
+      latest: ${{ steps.compute.outputs.latest }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: compute
+        shell: bash
+        run: |
+          set -euo pipefail
+          floor=$(awk '/^go [0-9]/{print $2; exit}' go.mod)
+          ver=$(curl -fsSL --retry 3 'https://go.dev/VERSION?m=text')
+          latest=${ver%%$'\n'*}          # first line, e.g. go1.26.5
+          latest=${latest#go}            # 1.26.5
+          maj=${floor%%.*}               # 1
+          fmin=${floor#*.}; fmin=${fmin%%.*}     # floor minor (handles 1.23 and 1.23.0)
+          lmin=${latest#*.}; lmin=${lmin%%.*}    # latest minor
+          if [ "$lmin" -lt "$fmin" ]; then
+            echo "resolved latest ($maj.$lmin) is below the go.mod floor ($floor)" >&2
+            exit 1
+          fi
+          list=""
+          for m in $(seq "$fmin" "$lmin"); do list="$list\"$maj.$m\","; done
+          {
+            echo "list=[${list%,}]"
+            echo "latest=$maj.$lmin"
+          } >> "$GITHUB_OUTPUT"
+          echo "Testing Go: [${list%,}] (floor $floor, latest $maj.$lmin)"
+
   test:
     name: test (${{ matrix.os }}, ${{ matrix.go }})
+    needs: go-versions
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
-        # Every Go minor from the go.mod floor to the latest. "1.23" (the floor)
-        # and "1.24" are pinned; oldstable and stable track the two newest
-        # releases (1.25 and 1.26 today), so the range stays contiguous with no
-        # gap. As newer Go ships, pin any minor that drops out of the
-        # oldstable/stable window here to keep it contiguous. Quote versions so
-        # YAML does not read a value like 1.20 as the float 1.2.
-        go: [ "1.23", "1.24", oldstable, stable ]
+        # Every Go minor from the go.mod floor through the current stable,
+        # resolved at run time by the go-versions job -- always contiguous, with
+        # no manual bump when a new Go ships.
+        go: ${{ fromJSON(needs.go-versions.outputs.list) }}
     # Force bash on every OS so the test command's arguments parse identically;
     # the Windows default shell (PowerShell) mangles the go test flag list.
     defaults:
@@ -53,7 +88,7 @@ jobs:
       - name: Test
         run: go test -race -shuffle=on -covermode=atomic -coverpkg=./... -coverprofile=coverage.out ./...
       - name: Upload coverage artifact
-        if: matrix.os == 'ubuntu-latest' && matrix.go == 'stable'
+        if: matrix.os == 'ubuntu-latest' && matrix.go == needs.go-versions.outputs.latest
         uses: actions/upload-artifact@v7
         with:
           name: coverage
@@ -135,15 +170,17 @@ jobs:
   ci-done:
     name: ci-done
     # The single required status check. It aggregates every other job so branch
-    # protection needs to reference only this one.
-    needs: [ test, lint, coverage, bench ]
+    # protection needs to reference only this one. go-versions is included so a
+    # failed matrix resolution (which would skip test) cannot slip through, and
+    # 'skipped' is treated as failure since no job here is skipped on a green run.
+    needs: [ go-versions, test, lint, coverage, bench ]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Verify all jobs succeeded
         run: |
-          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
-            echo "One or more CI jobs failed or were cancelled."
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "true" ]; then
+            echo "One or more CI jobs failed, were cancelled, or were skipped."
             exit 1
           fi
           echo "All CI jobs succeeded."
