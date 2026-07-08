@@ -55,6 +55,12 @@ import "github.com/avmnu-sng/quill-template-engine/internal/covercore"
 // type so the vocabulary is defined once yet remains the host-visible kind of a
 // reported Region. Unit kinds answer "did this node run?"; branch-arm kinds
 // answer "was this specific arm taken?".
+//
+// Because RegionKind aliases an internal type, its two methods do not appear in
+// this package's godoc: String returns the kind's human-readable name (as shown
+// in the verbose text report), and IsBranchArm reports whether the kind is a
+// branch arm rather than a unit (Region.Branch exposes the latter for a reported
+// region).
 type RegionKind = covercore.RegionKind
 
 // The region-kind constants are re-exported from covercore so a host consuming

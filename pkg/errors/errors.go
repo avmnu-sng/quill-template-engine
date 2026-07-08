@@ -90,9 +90,17 @@ func (k Kind) String() string {
 // is raised below the layer that knows it; a higher layer fills it in with At or
 // AtPos before re-returning. Col is the 1-based column; it is 0 when unknown, and
 // the rendered message omits it in that case.
+//
+// A constructed *Error is immutable and safe for concurrent use by multiple
+// goroutines -- At and AtPos return annotated copies rather than mutating the
+// receiver -- so long as callers treat the exported Kind, Msg, and Cause fields
+// as read-only after construction.
 type Error struct {
 	Kind Kind
-	Msg  string
+	// Msg is the human-readable, ASCII fault message. Like Kind it is read-only:
+	// mutating it after construction is undefined, and its exact text is not part
+	// of the compatibility contract (see the package doc).
+	Msg string
 	// Cause is an optional wrapped error, exposed via Unwrap.
 	Cause error
 
@@ -240,6 +248,11 @@ func (c SecurityClass) String() string {
 // on Class (spec 04 Section 8.3, design/escaping-safety Section 6.9). The wrapped
 // *Error is unexported; reach it (and its position) through Unwrap or the Src,
 // Line, and Col methods.
+//
+// A constructed *Security is immutable and safe for concurrent use by multiple
+// goroutines -- At returns an annotated copy rather than mutating the receiver --
+// so long as callers treat the exported Class, Name, and Type fields (and the
+// wrapped *Error) as read-only after construction.
 type Security struct {
 	err   *Error
 	Class SecurityClass

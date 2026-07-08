@@ -15,6 +15,10 @@ import (
 // a string key keeps its bytes and is tagged as string. The kind tag is held in
 // a parallel map so a Pair can reconstruct the original Int/Str Value during
 // iteration without re-parsing.
+//
+// The zero value is not usable: construct with NewArray or NewList. Writing to a
+// zero-value Array (its backing map is nil) panics. An *Array is not safe for
+// concurrent use; confine one to a single render/goroutine.
 type Array struct {
 	keys []string         // insertion order of canonical key encodings
 	vals map[string]Value // canonical key encoding -> value

@@ -6,7 +6,7 @@
 // The design follows spec 06-architecture-and-roadmap and design/parser-nodes:
 // "uniform Node with Kind discriminator, ordered children, Lineno/Source." One
 // struct represents a literal, an operator, a statement, and the module root
-// alike; the differences live in Kind, the scalar attributes (Str/Int/Float/Op),
+// alike; the differences live in Kind, the scalar attributes (Str/Int/Float/Bool),
 // and the shape of Children. This keeps tree walks simple (one switch on Kind)
 // at the cost of a few kind-specific accessor conventions, documented per Kind
 // in kind.go.

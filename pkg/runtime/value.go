@@ -63,6 +63,14 @@ func (k Kind) String() string {
 // than switching on the tag by hand. A given field is only meaningful for the
 // matching Kind; an accessor called on the wrong kind returns that field's zero
 // value, so callers must gate on Kind first.
+//
+// Concurrency: a Value is not safe to share across concurrent renders. A Value
+// that wraps an *Array carries copy-on-write state that binding and even
+// outer-scope reads mutate in place -- ShareValue/Own, and Scope.Get and
+// Context.Clone, which share-mark arrays on read -- so the same Value, or the
+// *Array, Context, or Scope it reaches, races when reached from two goroutines
+// at once. Build or FromGo-marshal a fresh Value per render, or confine each
+// Value to a single goroutine.
 type Value struct {
 	kind Kind
 	b    bool    // KBool
@@ -117,7 +125,9 @@ type Stringifier interface {
 	Stringify() (string, error)
 }
 
-// Counter lets a host Object report a length for the length filter / is empty.
+// Counter lets a host Object report a length for the length filter (spec 03
+// Section 2.2). It is not consulted by is empty; an Object is never empty (see
+// Empty).
 type Counter interface {
 	Count() int
 }
@@ -168,14 +178,14 @@ func Int(i int64) Value { return Value{kind: KInt, i: i} }
 // boundary (spec 04 Section 2.1); this constructor does not validate so that
 // the boundary check has a single, explicit home (see RejectNonFinite).
 //
-// SLICE GAP (s0-runtime): RejectNonFinite is a forward primitive that is NOT
-// yet wired into any boundary in this slice -- it is exercised only by its own
-// unit test. The host-float and arithmetic boundaries that will call it land in
-// a later milestone (arithmetic operators are deferred to M2/M3). Until then a
-// caller CAN construct Float(NaN)/Float(Inf), and Equal/Order are NOT total
-// over those constructed values (Equal(Float(NaN),Float(NaN)) is false). The
-// reflexivity/totality invariant the compare.go comments cite holds only once
-// that boundary is wired; reviewers should not assume it is enforced yet.
+// Non-finite floats are rejected at the boundaries that lift a host or computed
+// float64 into a Float: the JSON/host data bridge and both the interpreter and
+// compiled-backend arithmetic operators call RejectNonFinite before constructing
+// the Float, so any Float that entered through those boundaries is finite. Float
+// itself performs no validation -- a caller that hand-constructs Float(NaN) or
+// Float(Inf) bypasses that guard, and Equal/Order are not total over such
+// non-finite values (Equal(Float(NaN), Float(NaN)) is false). Route a raw host
+// float64 through RejectNonFinite before calling Float.
 func Float(f float64) Value { return Value{kind: KFloat, f: f} }
 
 // Str wraps a byte string.

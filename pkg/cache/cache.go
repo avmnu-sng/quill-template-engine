@@ -15,7 +15,9 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
 )
 
-// Cache is a concurrency-safe name->module memo.
+// Cache is a concurrency-safe name->module memo. The zero value is not usable
+// (its internal map is nil, so Put panics); obtain a Cache from New. All methods
+// are safe for concurrent use by multiple goroutines after construction.
 type Cache struct {
 	mu      sync.RWMutex
 	modules map[string]*ast.Node
@@ -55,6 +57,10 @@ func (c *Cache) Clear() {
 // this built-in cache; a host that needs ttl-driven expiry supplies its own
 // implementation. Tags are recorded per key so an invalidation by tag can drop
 // every keyed entry that carried it.
+//
+// The zero value is not usable: obtain a RenderCache from NewRenderCache (Put
+// panics on a nil internal map otherwise). All methods are safe for concurrent
+// use by multiple goroutines after construction.
 type RenderCache struct {
 	mu      sync.RWMutex
 	entries map[string]string

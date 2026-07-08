@@ -31,6 +31,15 @@ import (
 // The defaults match the spec: autoescape is OFF by default (spec 04
 // Section 8.1) and strict_variables is ON (the strict-by-default
 // undefined policy, spec 04 Section 6). Both are configurable via Option.
+//
+// A constructed Environment is safe for concurrent use by multiple goroutines:
+// Option values are applied only during New (or NewFromMap), and afterward every
+// render and load entry point reads immutable configuration or concurrency-safe
+// caches (the parse cache, the render cache, and the mutex-guarded prepared and
+// compiled-unit memos), so one Environment can back concurrent renders -- for
+// example a single Environment per process serving concurrent requests.
+// Construction is not itself concurrent; build the Environment fully before
+// sharing it across goroutines.
 type Environment struct {
 	loader      loader.Loader
 	cache       *cache.Cache

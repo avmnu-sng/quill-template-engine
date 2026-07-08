@@ -1,5 +1,10 @@
 package check
 
+import (
+	"maps"
+	"slices"
+)
+
 // Registry is the host-supplied static-typing surface the checker consults for
 // Object<"Name"> member types and host callable signatures (design/type-system.md
 // Sections 4.4, 9.1). It is the typing counterpart of the sandbox type-graph:
@@ -35,9 +40,10 @@ type Registry struct {
 // iteration element type (nil when not iterable), whether it stringifies, and
 // its declared supertype/interface names for nominal consistency.
 //
-// Its fields are unexported so the checker's shared state cannot be mutated by a
-// host after registration: build one with NewObjectType and the fluent With*
-// setters, then hand it to Registry.AddType.
+// Its fields are unexported, and the maps and slices passed to the With* setters
+// are copied, so the checker's shared state cannot be mutated by a host after
+// registration: build one with NewObjectType and the fluent With* setters, then
+// hand it to Registry.AddType.
 type ObjectType struct {
 	name       string                // host type name
 	members    map[string]*Type      // dotted-access member -> type
@@ -55,14 +61,14 @@ func NewObjectType(name string) *ObjectType { return &ObjectType{name: name} }
 // WithMembers sets the dotted-access member types (field/get/is/has accessors
 // collapsed to the member name) and returns the receiver for chaining.
 func (o *ObjectType) WithMembers(members map[string]*Type) *ObjectType {
-	o.members = members
+	o.members = maps.Clone(members)
 	return o
 }
 
 // WithMethods sets the a.m() method signatures and returns the receiver for
 // chaining.
 func (o *ObjectType) WithMethods(methods map[string]*Signature) *ObjectType {
-	o.methods = methods
+	o.methods = maps.Clone(methods)
 	return o
 }
 
@@ -83,7 +89,7 @@ func (o *ObjectType) WithStringify(stringify bool) *ObjectType {
 // WithSupertypes sets the declared base type / interface names used for nominal
 // consistency and returns the receiver for chaining.
 func (o *ObjectType) WithSupertypes(supertypes []string) *ObjectType {
-	o.supertypes = supertypes
+	o.supertypes = slices.Clone(supertypes)
 	return o
 }
 
@@ -93,8 +99,9 @@ func (o *ObjectType) WithSupertypes(supertypes []string) *ObjectType {
 // variadic itself); variadic marks a trailing ...rest that absorbs extra
 // positional arguments of element type varElem; ret is the result type.
 //
-// Its fields are unexported so the checker's shared state cannot be mutated by a
-// host after registration: build one with NewSignature.
+// Its fields are unexported, and the params slice passed to NewSignature is
+// copied, so the checker's shared state cannot be mutated by a host after
+// registration: build one with NewSignature.
 type Signature struct {
 	params   []*Type
 	optional int
@@ -109,7 +116,7 @@ type Signature struct {
 // positional arguments of element type varElem (pass nil when not variadic).
 func NewSignature(params []*Type, optional int, variadic bool, varElem, ret *Type) *Signature {
 	return &Signature{
-		params:   params,
+		params:   slices.Clone(params),
 		optional: optional,
 		variadic: variadic,
 		varElem:  varElem,

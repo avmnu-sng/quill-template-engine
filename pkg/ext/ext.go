@@ -125,6 +125,17 @@ func EngineConfigFromValue(v runtime.Value) (EngineConfig, bool) {
 // parser already resolved two-word spellings and aliases to a canonical single
 // name where it could, and the registry also holds explicit alias entries the
 // stdlib installs.
+//
+// A Set is built during setup, then frozen for reads: register all callables and
+// tables (AddFilter/AddFunction/AddTest/AddConstant/AddEnum, Register, or Merge)
+// before the Set backs any render. The mutators write unsynchronized maps and
+// must not run concurrently with each other or with a render; once frozen, the
+// read-only lookups (Filter/Function/Test, HasFilter/HasFunction/HasTest,
+// Constant/Enum) are safe for concurrent use, including the concurrent renders
+// that resolve callables through the Set. To layer host additions onto a Set
+// already in use, Clone it and mutate the copy. The zero value is not usable:
+// construct with NewSet (empty) or Core (the stdlib catalogue); the Add*
+// mutators panic on a zero-value Set because its backing maps are nil.
 type Set struct {
 	filters   map[string]*Filter
 	functions map[string]*Function

@@ -23,6 +23,9 @@ package runtime
 //
 // Context remains beside Scope as the raw ordered-map primitive with an eager
 // Clone; the interpreter's render path uses Scope.
+//
+// A Scope is not safe for concurrent use: Get share-marks values found in an
+// outer frame in place, so a scope chain belongs to a single render/goroutine.
 type Scope struct {
 	parent  *Scope
 	entries []scopeEntry

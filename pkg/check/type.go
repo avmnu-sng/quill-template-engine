@@ -78,7 +78,12 @@ type Type struct {
 	union  []*Type // KUnion arms (each non-union, non-any)
 }
 
-// The scalar singletons. Types are immutable once built, so sharing is safe.
+// The scalar singletons. Each *Type is immutable (all fields unexported), so the
+// pointed-to values are safe to share and use concurrently. These package
+// variables are part of the frozen v1 API and MUST NOT be reassigned by a host:
+// the checker uses them internally as canonical return values and constructor
+// arguments, so clobbering a binding (for example check.Int = check.String)
+// silently corrupts inference for every template in the process.
 var (
 	Any    = &Type{kind: KAny}
 	Null   = &Type{kind: KNull}

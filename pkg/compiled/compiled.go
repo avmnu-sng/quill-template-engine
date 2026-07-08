@@ -35,6 +35,11 @@ import (
 // *cache.RenderCache satisfies this interface directly; a host may supply any
 // implementation with the same two methods, and the narrow surface keeps
 // eviction and tag-invalidation controls off the generated-code boundary.
+//
+// Implementations must be safe for concurrent use: the Environment shares one
+// RenderCache across renders and may call Get and Put concurrently from
+// concurrent renders. The engine-default *cache.RenderCache is safe; a custom
+// implementation must provide its own synchronization.
 type RenderCache interface {
 	// Get returns the stored body for key and whether one is present, so a
 	// compiled @cache region replays a hit and re-renders a miss.
@@ -49,6 +54,12 @@ type RenderCache interface {
 // callables through exts, reads top-level variables from vars, and memoizes
 // @cache regions through rc (nil when the engine exposes no store), returning
 // the first render error.
+//
+// The Environment invokes a single RenderFunc value concurrently across
+// concurrent renders, sharing one exts and one rc, so an implementation must be
+// safe for concurrent calls: it must confine mutable state to its parameters and
+// locals (the compile backend's generated functions are stateless, which
+// satisfies this).
 type RenderFunc func(ctx context.Context, w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc RenderCache) error
 
 // Fingerprint captures the compile options that shape a generated unit's

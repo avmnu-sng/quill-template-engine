@@ -38,6 +38,13 @@ package sandbox
 // registered subtypes (B4). It is keyed by the host's registered type name (the
 // ClassName a host Object reports). A type with no registered parents matches
 // only its own name.
+//
+// A TypeGraph is built by the host before use: call Declare to add edges, then
+// install it in a Policy with WithTypeGraph. After install the graph must be
+// treated as read-only; in that state the concurrent reads that happen when
+// renders consult the owning Policy (via AllowsMethod/AllowsProperty/Knows) are
+// safe. Declare is not safe to call concurrently with itself or with any render
+// whose Policy references this graph.
 type TypeGraph struct {
 	// parents maps a type name to its direct declared supertypes/interfaces. The
 	// closure (a type plus all ancestors) is computed on demand by ancestors.
@@ -91,6 +98,12 @@ func (g *TypeGraph) ancestors(typeName string) []string {
 // through its Allows* / Knows / Strict accessors. A nil Policy denies nothing
 // because enforcement is gated on the sandbox being active; an active sandbox
 // with an empty Policy (NewPolicy()) denies everything (uniform allowlisting).
+//
+// A Policy is built once (NewPolicy plus its options) and is thereafter immutable
+// and safe for unlimited concurrent reads: the interpreter consults the single
+// installed Policy across concurrent renders without locking. Do not mutate a
+// Policy after installing it with WithSandboxPolicy, and do not call Declare on a
+// TypeGraph passed to WithTypeGraph after installation.
 type Policy struct {
 	// tags is the set of allowed statement keywords (for, if, block, include,
 	// macro, ...). A used keyword outside the set is a SecurityTag violation (B1).
@@ -199,8 +212,12 @@ func AllowProperties(typeName string, props ...string) PolicyOption {
 	}
 }
 
-// Strict turns on strict member-access reporting (spec 04 Section 8.3); see the
-// Policy.strict field for the strict-versus-lenient distinction.
+// Strict turns on strict member-access reporting (spec 04 Section 8.3). In strict
+// mode a member access on a host type the policy does not know at all -- no method
+// or property allowlist entry and absent from the type-graph, per Policy.Knows --
+// reports a distinct unknown-type error; in the default lenient mode that same
+// access falls through to an ordinary per-member deny. The tag/filter/function
+// allowlist floor is unaffected either way.
 func Strict() PolicyOption {
 	return func(p *Policy) { p.strict = true }
 }

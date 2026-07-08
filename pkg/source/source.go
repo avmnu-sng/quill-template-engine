@@ -10,7 +10,9 @@ package source
 import "strings"
 
 // Source is an immutable template origin: a human-facing name and the template
-// text after CRLF/CR normalization to LF. It is safe to share by pointer.
+// text after CRLF/CR normalization to LF. It is safe to share by pointer. A nil
+// *Source is a valid, safe receiver: Name, Code, and Line all return "" on a nil
+// Source, so callers may invoke these methods without a nil check.
 type Source struct {
 	name string
 	code string

@@ -1,8 +1,10 @@
 // Package loader resolves a template name to its source bytes. The engine asks a
 // Loader for a template by name when it must render an @extends parent, an
-// @include target, or an @import/@from source. Two loaders ship: an ArrayLoader
-// backed by an in-memory name->source map (for tests and embedded templates) and
-// a FilesystemLoader rooted at a directory.
+// @include target, or an @import/@from source. Several loaders ship: ArrayLoader
+// (an in-memory name->source map), FilesystemLoader (an on-disk root directory),
+// FSLoader (an fs.FS such as an embed.FS), FuncLoader (a host callback), and the
+// composable ChainLoader (first hit over an ordered list) and PrefixLoader
+// (prefix-routed sub-loaders).
 //
 // A miss is reported as a *errors.Error of KindRuntime so the engine can
 // distinguish "not found" (which ignore-missing tolerates and a candidate list
@@ -29,6 +31,11 @@ var ErrNotFound = stderrors.New("template not found")
 // presence probe used by candidate lists and the block("name", "other") /
 // ignore-missing paths so the engine need not catch a Get error to test
 // existence.
+//
+// The engine may call Get and Exists concurrently from multiple in-flight
+// renders, so a Loader implementation must be safe for concurrent Get/Exists.
+// Every loader in this package is safe for concurrent use once fully constructed;
+// the exception is mutating a loader after construction (see ArrayLoader.Set).
 type Loader interface {
 	Get(name string) (*source.Source, error)
 	Exists(name string) bool
@@ -50,7 +57,10 @@ func NewArrayLoader(templates map[string]string) *ArrayLoader {
 	return &ArrayLoader{templates: cp}
 }
 
-// Set adds or replaces a template, allowing incremental population.
+// Set adds or replaces a template, allowing incremental population. It is not
+// safe to call concurrently with Get, Exists, or a render that consults this
+// loader; populate the loader before handing it to an Environment used for
+// concurrent renders.
 func (l *ArrayLoader) Set(name, src string) { l.templates[name] = src }
 
 // Get returns the named template's source, or a not-found error.
