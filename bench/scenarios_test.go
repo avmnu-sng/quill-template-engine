@@ -26,7 +26,6 @@ import (
 	texttmpl "text/template"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
@@ -135,14 +134,14 @@ func BenchmarkQuill_Filter_Render(b *testing.B) {
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := quillFilterVars(n)
-			out, err := interp.Render(context.Background(), env, tmpl, vars)
+			out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
+				if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -256,14 +255,14 @@ func BenchmarkQuill_Nested_Render(b *testing.B) {
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := quillNestedVars(n)
-			out, err := interp.Render(context.Background(), env, tmpl, vars)
+			out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
+				if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -362,14 +361,14 @@ func BenchmarkQuill_Cond_Render(b *testing.B) {
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := quillCondVars(n)
-			out, err := interp.Render(context.Background(), env, tmpl, vars)
+			out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
+				if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -474,14 +473,14 @@ func BenchmarkQuill_Autoescape_Off_Render(b *testing.B) {
 		b.Fatal(err)
 	}
 	vars := quillEscapeVars(autoescapeN)
-	out, err := interp.Render(context.Background(), env, tmpl, vars)
+	out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
+		if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -499,14 +498,14 @@ func BenchmarkQuill_Autoescape_On_Render(b *testing.B) {
 		b.Fatal(err)
 	}
 	vars := quillEscapeVars(autoescapeN)
-	out, err := interp.Render(context.Background(), env, tmpl, vars)
+	out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
+		if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}

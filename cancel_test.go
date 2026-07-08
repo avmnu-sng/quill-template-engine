@@ -52,7 +52,7 @@ func TestRenderCancelledDuringLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// A host filter that cancels the render context the first time it runs, so
 	// the SECOND loop iteration hits the cancellation checkpoint.
-	e.Extensions().AddFilter(&ext.Filter{
+	e.extensions.AddFilter(&ext.Filter{
 		Name: "tripwire",
 		Fn: func(_ context.Context, args []runtime.Value) (runtime.Value, error) {
 			cancel()

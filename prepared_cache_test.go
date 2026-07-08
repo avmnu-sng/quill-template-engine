@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
+	"github.com/avmnu-sng/quill-template-engine/internal/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
 	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
@@ -69,22 +69,24 @@ func preparedMemoVars() map[string]runtime.Value {
 }
 
 // TestLoadTemplateReturnsStableTemplatePointer pins the documented identity
-// contract: on one Environment, LoadTemplate of an unchanged template returns
-// the SAME *interp.Template pointer across calls, because the prepared memo
-// serves the Template built at first load instead of re-preparing.
+// contract: on one Environment, the prepared memo serves the SAME underlying
+// *interp.Template pointer across warm loads instead of re-preparing. The public
+// LoadTemplate wraps that shared template in a fresh opaque handle per call, so
+// the pointer contract is asserted on the unexported loadTemplate the wrapper
+// and the render machinery consume.
 func TestLoadTemplateReturnsStableTemplatePointer(t *testing.T) {
 	env := New(loader.NewArrayLoader(preparedMemoFixtures()))
 	for _, name := range preparedMemoEntries() {
-		first, err := env.LoadTemplate(context.Background(), name)
+		first, err := env.loadTemplate(context.Background(), name)
 		if err != nil {
-			t.Fatalf("LoadTemplate(%q) first: %v", name, err)
+			t.Fatalf("loadTemplate(%q) first: %v", name, err)
 		}
-		second, err := env.LoadTemplate(context.Background(), name)
+		second, err := env.loadTemplate(context.Background(), name)
 		if err != nil {
-			t.Fatalf("LoadTemplate(%q) second: %v", name, err)
+			t.Fatalf("loadTemplate(%q) second: %v", name, err)
 		}
 		if first != second {
-			t.Errorf("LoadTemplate(%q) returned distinct Templates across warm calls", name)
+			t.Errorf("loadTemplate(%q) returned distinct Templates across warm calls", name)
 		}
 	}
 }
@@ -102,18 +104,18 @@ func TestLoadTemplateRepreparesWhenParseCacheServesNewModule(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render before module swap: %v", err)
 	}
-	stale, err := env.LoadTemplate(context.Background(), "page.ql")
+	stale, err := env.loadTemplate(context.Background(), "page.ql")
 	if err != nil {
-		t.Fatalf("LoadTemplate before module swap: %v", err)
+		t.Fatalf("loadTemplate before module swap: %v", err)
 	}
 	mod, err := parse.Parse(source.New("page.ql", fixtures["page.ql"]))
 	if err != nil {
 		t.Fatalf("re-parse: %v", err)
 	}
 	env.cache.Put("page.ql", mod)
-	fresh, err := env.LoadTemplate(context.Background(), "page.ql")
+	fresh, err := env.loadTemplate(context.Background(), "page.ql")
 	if err != nil {
-		t.Fatalf("LoadTemplate after module swap: %v", err)
+		t.Fatalf("loadTemplate after module swap: %v", err)
 	}
 	if fresh == stale {
 		t.Fatal("LoadTemplate served the stale Template after the parse cache module changed")
@@ -214,18 +216,18 @@ func TestTemplateExistsAndRawSourceUnaffectedByMemo(t *testing.T) {
 	fixtures := preparedMemoFixtures()
 	env := New(loader.NewArrayLoader(fixtures))
 	check := func(stage string) {
-		if !env.TemplateExists("page.ql") {
-			t.Errorf("%s: TemplateExists(page.ql) = false", stage)
+		if !env.templateExists("page.ql") {
+			t.Errorf("%s: templateExists(page.ql) = false", stage)
 		}
-		if env.TemplateExists("missing.ql") {
-			t.Errorf("%s: TemplateExists(missing.ql) = true", stage)
+		if env.templateExists("missing.ql") {
+			t.Errorf("%s: templateExists(missing.ql) = true", stage)
 		}
-		src, ok := env.RawSource("page.ql")
+		src, ok := env.rawSource("page.ql")
 		if !ok || src != fixtures["page.ql"] {
-			t.Errorf("%s: RawSource(page.ql) = %q, %v; want fixture source, true", stage, src, ok)
+			t.Errorf("%s: rawSource(page.ql) = %q, %v; want fixture source, true", stage, src, ok)
 		}
-		if _, ok := env.RawSource("missing.ql"); ok {
-			t.Errorf("%s: RawSource(missing.ql) reported ok", stage)
+		if _, ok := env.rawSource("missing.ql"); ok {
+			t.Errorf("%s: rawSource(missing.ql) reported ok", stage)
 		}
 	}
 	check("cold")

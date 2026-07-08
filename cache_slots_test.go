@@ -106,10 +106,10 @@ func TestCacheRegionWithoutSlotsIsServedFromStore(t *testing.T) {
 	if _, err := env.Render(context.Background(), "plain.ql", nil); err != nil {
 		t.Fatalf("first render: %v", err)
 	}
-	if _, ok := env.RenderCache().Get("plain.ql\x00p"); !ok {
+	if _, ok := env.renderCache.Get("plain.ql\x00p"); !ok {
 		t.Fatal("slot-free cache region was not memoized")
 	}
-	env.RenderCache().Put("plain.ql\x00p", "SENTINEL\n", nil)
+	env.renderCache.Put("plain.ql\x00p", "SENTINEL\n", nil)
 	second, err := env.Render(context.Background(), "plain.ql", nil)
 	if err != nil {
 		t.Fatalf("second render: %v", err)
@@ -136,7 +136,7 @@ func TestCacheRegionSlotFreeAmidSlotActivity(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s first render: %v", name, err)
 		}
-		if _, ok := env.RenderCache().Get(name + "\x00side"); !ok {
+		if _, ok := env.renderCache.Get(name + "\x00side"); !ok {
 			t.Fatalf("%s: slot-free cache region amid slot activity was not memoized", name)
 		}
 		second, err := env.Render(context.Background(), name, nil)
@@ -234,7 +234,7 @@ func TestCompiledCacheSharesWarmCacheUnderConcurrency(t *testing.T) {
 	for err := range errs {
 		t.Fatalf("concurrent compiled cache render diverged: %v", err)
 	}
-	if cached, ok := env.RenderCache().Get("t.ql\x00hdr"); !ok || cached != want {
+	if cached, ok := env.renderCache.Get("t.ql\x00hdr"); !ok || cached != want {
 		t.Fatalf("shared cache did not warm under concurrency: got %q ok=%v", cached, ok)
 	}
 }
@@ -251,13 +251,13 @@ func TestCacheRegionSlotGating(t *testing.T) {
 	if _, err := env.Render(context.Background(), "plain.ql", nil); err != nil {
 		t.Fatalf("plain render: %v", err)
 	}
-	if _, ok := env.RenderCache().Get("plain.ql\x00p"); !ok {
+	if _, ok := env.renderCache.Get("plain.ql\x00p"); !ok {
 		t.Fatal("slot-free cache region was not memoized")
 	}
 	if _, err := env.Render(context.Background(), "slotty.ql", nil); err != nil {
 		t.Fatalf("slotty render: %v", err)
 	}
-	if _, ok := env.RenderCache().Get("slotty.ql\x00s"); ok {
+	if _, ok := env.renderCache.Get("slotty.ql\x00s"); ok {
 		t.Fatal("slot-using cache region was memoized; it must render fresh every time")
 	}
 }

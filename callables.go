@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avmnu-sng/quill-template-engine/internal/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
-	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 

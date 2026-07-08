@@ -45,7 +45,6 @@ import (
 	texttmpl "text/template"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
 
 	jet "github.com/CloudyKit/jet/v6"
 	pongo2 "github.com/flosch/pongo2/v6"
@@ -347,14 +346,14 @@ func BenchmarkQuill_PeerFilter_Render(b *testing.B) {
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := quillFilterVars(n)
-			out, err := interp.Render(context.Background(), env, tmpl, vars)
+			out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
+				if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 					b.Fatal(err)
 				}
 			}

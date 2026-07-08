@@ -590,7 +590,7 @@ func TestWithCompiledRecordsOutSizeHint(t *testing.T) {
 	if _, err := env.Render(context.Background(), "t.ql", nil); err != nil {
 		t.Fatal(err)
 	}
-	tmpl, err := env.LoadTemplate(context.Background(), "t.ql")
+	tmpl, err := env.loadTemplate(context.Background(), "t.ql")
 	if err != nil {
 		t.Fatal(err)
 	}

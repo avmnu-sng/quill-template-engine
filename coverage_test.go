@@ -399,12 +399,12 @@ func TestCoverageMacroHomeTopLevelNotSeeded(t *testing.T) {
 // Environment reports no Collector, so the interp's coverage hooks are inert.
 func TestCoverageZeroOverheadWhenDisabled(t *testing.T) {
 	env := NewFromMap(map[string]string{"t.ql": "{{ x }}"})
-	if env.Coverage() != nil {
+	if env.coverage != nil {
 		t.Error("an Environment without WithCoverage must have a nil Collector")
 	}
 	// WithCoverage(nil) is the same as off.
 	env2 := NewFromMap(map[string]string{"t.ql": "{{ x }}"}, WithCoverage(nil))
-	if env2.Coverage() != nil {
+	if env2.coverage != nil {
 		t.Error("WithCoverage(nil) must leave coverage off")
 	}
 }
