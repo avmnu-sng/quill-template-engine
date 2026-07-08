@@ -586,9 +586,11 @@ Under the default (escaping off) the capture is a plain `Str`; under an
 
 ## 5. Composition: inheritance, blocks, macros, includes
 
-Composition is built on the `Template` contract
-(`Render`/`Block`/`HasBlock`/`Macro`/`HasMacro`/`Parent`). The shared data
-structure is the BLOCK TABLE, an ordered map from block name to a
+Composition is built on the internal template contract -- render a body, resolve
+a block by name, look up a macro, and walk the parent chain. (The public opaque
+`quill.Template` handle exposes only the inspection surface `Name`/`BlockNames`/
+`HasBlock`/`HasMacro`.) The shared data structure is the BLOCK TABLE, an ordered
+map from block name to a
 `BlockRef{Owner, ID}`; inheritance, embed, and trait reuse all reduce to building
 and merging block tables and walking a parent chain. Macros are a separate,
 isolated function namespace. The narrative treatment is in

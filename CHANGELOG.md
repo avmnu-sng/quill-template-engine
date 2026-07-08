@@ -13,7 +13,9 @@ First stable release. From v1.0.0 the exported API follows semantic versioning:
 no exported symbol in the root package or the `pkg/` packages changes
 incompatibly within the v1 series. This release makes the pre-1.0 breaking
 changes that shape that frozen surface, so it carries an unusually large
-BREAKING set; after it, compatibility is the rule.
+BREAKING set; after it, compatibility is the rule. See the [migration
+guide](https://avmnu-sng.github.io/quill-template-engine/migration/) for an
+old-to-new API mapping of every change below.
 
 ### Changed
 

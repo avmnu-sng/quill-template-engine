@@ -9,13 +9,17 @@ site is the narrative layer.
 ## Where to look
 
 - **The facade** -- [`quill`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine):
-  `Environment`, `New`, `NewFromMap`, `Render`, `RenderValues`, `RenderTo`, and
-  the `Option` values (`WithAutoescapeHTML`, `WithStrictVariables`, `WithCoverage`,
-  `WithExtensions`, `WithExtension`, `WithSandboxPolicy`, `WithSandboxActive`,
-  `WithTypes`, `WithTabWidth`, `WithCompiled`, `WithLogger`).
+  `Environment`, `New`, `NewFromMap`, the `Render`/`RenderTo`/`RenderValues`
+  family (each taking a `context.Context` first), `LoadTemplate`/`CompileString`
+  and `RenderPrepared` for the parse-once/render-many path, the opaque `Template`,
+  and the `Option` values (`WithAutoescapeHTML`, `WithStrictVariables`,
+  `WithCoverage`, `WithExtensions`, `WithExtension`, `WithSandboxPolicy`,
+  `WithSandboxActive`, `WithTypes`, `WithTabWidth`, `WithCompiled`, `WithLogger`).
 - **The value model** -- [`runtime`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/runtime):
-  `Value`, the constructors (`Str`, `Int`, `Float`, `Bool`, `Arr`, `Null`), the
-  ordered `*Array`, `Safe`, the `Object` interface, and `FromGo`.
+  the opaque `Value` with its `Kind()` and `AsBool`/`AsInt`/`AsFloat`/`AsStr`/
+  `AsArray`/`AsObject` accessors, the constructors (`Str`, `Int`, `Float`, `Bool`,
+  `Arr`, `Null`, `Safe`), the ordered `*Array`, the `Object` interface, and
+  `FromGo`.
 - **Loaders** -- [`loader`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/loader):
   `Loader`, `NewFilesystemLoader`, `NewArrayLoader`, `NewChainLoader`,
   `NewPrefixLoader`, `NewFSLoader`, `NewFuncLoader`.
@@ -25,13 +29,15 @@ site is the narrative layer.
 - **Coverage** -- [`cover`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/cover):
   `Collector`, `Report`, the writers, and `MergeReports`.
 - **The sandbox** -- [`sandbox`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/sandbox):
-  `Policy`, `NewTypeGraph`.
+  the opaque `Policy`, its `NewPolicy` builder and allow-options (`AllowTags`,
+  `AllowFilters`, `AllowFunctions`, `AllowMethods`, `AllowProperties`, `Strict`,
+  `WithTypeGraph`), and `NewTypeGraph`.
 - **The type checker** -- [`check`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/check):
   `Registry`, `Signature`, `Type`.
-- **The compile backend** -- [`compile`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/compile)
-  and [`compiled`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/compiled):
-  `Module`, `Options`, `Result`, and the `Manifest` contract `WithCompiled`
-  installs.
+- **The compiled-render contract** -- [`compiled`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/compiled):
+  the `Manifest`/`Fingerprint` contract `WithCompiled` installs, built with
+  `NewManifest`/`NewFingerprint`. The compile-to-Go backend itself is internal;
+  generate a unit with the `quill compile` command (see the [CLI](cli.md)).
 - **Errors** -- [`errors`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/errors):
   the structured error family, including `*errors.Security` for sandbox
   violations.
@@ -51,6 +57,13 @@ each feature:
 
 ## Stability
 
-Quill is under active development and its API is not yet stable (pre-1.0). Breaking
-changes are noted in the [Changelog](changelog.md). Pin a version in your
-`go.mod` and review the changelog before upgrading.
+From v1.0.0, Quill follows semantic versioning: no exported symbol in the root
+package or the `pkg/` packages changes incompatibly within the v1 series. Error
+message strings are not part of that contract -- classify a failure by its
+exported `Kind`, with `errors.As`/`errors.Is`, or against a sentinel such as
+`loader.ErrNotFound`, never by matching message text. The engine internals (the
+lexer, parser, interpreter, and compile-to-Go backend) live under `internal/` and
+are not importable; the `quill` command's flags, exit codes, and generated-source
+shape are the compile backend's stable surface. Changes are noted in the
+[Changelog](changelog.md); pin a major version in your `go.mod` and review the
+changelog before upgrading.
