@@ -38,11 +38,11 @@ func prepSandbox(t *testing.T, name, body string) *Template {
 // what activates the sandbox.
 func TestRenderSandboxedAllows(t *testing.T) {
 	eng := newStub(nil)
-	eng.policy = &sandbox.Policy{
-		Tags:      map[string]bool{"for": true},
-		Filters:   map[string]bool{"upper": true},
-		Functions: map[string]bool{"range": true},
-	}
+	eng.policy = sandbox.NewPolicy(
+		sandbox.AllowTags("for"),
+		sandbox.AllowFilters("upper"),
+		sandbox.AllowFunctions("range"),
+	)
 	// Global sandbox stays OFF; RenderSandboxed forces it on for this render.
 	if eng.sandboxOn {
 		t.Fatal("precondition: engine global sandbox must be off")
@@ -79,11 +79,11 @@ func TestRenderSandboxedDenies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			eng := newStub(nil)
 			// Policy allows only `for`/`upper`/`range`; each case uses something else.
-			eng.policy = &sandbox.Policy{
-				Tags:      map[string]bool{"for": true},
-				Filters:   map[string]bool{"upper": true},
-				Functions: map[string]bool{"range": true},
-			}
+			eng.policy = sandbox.NewPolicy(
+				sandbox.AllowTags("for"),
+				sandbox.AllowFilters("upper"),
+				sandbox.AllowFunctions("range"),
+			)
 			tmpl := prepSandbox(t, "t", tc.body)
 			vars := map[string]runtime.Value{"s": runtime.Str("Hi")}
 			_, err := RenderSandboxed(eng, tmpl, vars)

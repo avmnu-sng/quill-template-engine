@@ -16,35 +16,29 @@ import (
 )
 
 // buildPolicy turns a fixture's sandbox config into a *sandbox.Policy: the flat
-// allowlists become string sets, the method/property maps become two-level
-// sets, and the type-graph edges are declared so per-type matching walks them.
-func buildPolicy(c *sandboxConfig) *sandbox.Policy {
-	set := func(xs []string) map[string]bool {
-		m := map[string]bool{}
-		for _, x := range xs {
-			m[x] = true
-		}
-		return m
-	}
-	two := func(in map[string][]string) map[string]map[string]bool {
-		out := map[string]map[string]bool{}
-		for typ, members := range in {
-			out[typ] = set(members)
-		}
-		return out
-	}
+// allowlists become Allow* options, the method/property maps loop into per-type
+// options, and the type-graph edges are declared so per-type matching walks them.
+func buildPolicy(c *sandboxConfig, strict bool) *sandbox.Policy {
 	g := sandbox.NewTypeGraph()
 	for typ, supers := range c.Graph {
 		g.Declare(typ, supers...)
 	}
-	return &sandbox.Policy{
-		Tags:       set(c.Tags),
-		Filters:    set(c.Filters),
-		Functions:  set(c.Functions),
-		Methods:    two(c.Methods),
-		Properties: two(c.Properties),
-		Graph:      g,
+	opts := []sandbox.PolicyOption{
+		sandbox.AllowTags(c.Tags...),
+		sandbox.AllowFilters(c.Filters...),
+		sandbox.AllowFunctions(c.Functions...),
+		sandbox.WithTypeGraph(g),
 	}
+	for typ, members := range c.Methods {
+		opts = append(opts, sandbox.AllowMethods(typ, members...))
+	}
+	for typ, members := range c.Properties {
+		opts = append(opts, sandbox.AllowProperties(typ, members...))
+	}
+	if strict {
+		opts = append(opts, sandbox.Strict())
+	}
+	return sandbox.NewPolicy(opts...)
 }
 
 // conformanceConfig is the optional per-fixture knob file (config.json). All
@@ -174,8 +168,7 @@ func fixtureSetup(t *testing.T, dir string) (tmpls map[string]string, main strin
 		opts = append(opts, WithRandomSeed(*cfg.RandomSeed))
 	}
 	if cfg.Sandbox != nil {
-		pol := buildPolicy(cfg.Sandbox)
-		pol.Strict = cfg.SandboxStrict
+		pol := buildPolicy(cfg.Sandbox, cfg.SandboxStrict)
 		opts = append(opts, WithSandboxPolicy(pol))
 		if cfg.SandboxActive {
 			opts = append(opts, WithSandboxActive(true))

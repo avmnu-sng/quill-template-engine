@@ -137,7 +137,7 @@ func TestWithCompiledFeatureGatesFallBack(t *testing.T) {
 		name string
 		opt  Option
 	}{
-		{"sandbox-policy", WithSandboxPolicy(&sandbox.Policy{})},
+		{"sandbox-policy", WithSandboxPolicy(sandbox.NewPolicy())},
 		{"sandbox-active", WithSandboxActive(true)},
 		{"coverage", WithCoverage(cover.NewCollector())},
 		{"types", WithTypes(&check.Registry{})},

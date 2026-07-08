@@ -573,7 +573,7 @@ func TestRenderToSandboxActive(t *testing.T) {
 
 	run := func(filters []string) (string, error, string, error) {
 		mk := func() *Environment {
-			pol := buildPolicy(&sandboxConfig{Filters: filters})
+			pol := buildPolicy(&sandboxConfig{Filters: filters}, false)
 			return New(loader.NewArrayLoader(tmpls),
 				WithSandboxPolicy(pol), WithSandboxActive(true))
 		}

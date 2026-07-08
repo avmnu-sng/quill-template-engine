@@ -98,7 +98,7 @@ func wantSecurity(t *testing.T, err error, class errors.SecurityClass, name stri
 // renders, a disallowed one raises SecurityTag naming the keyword.
 func TestSandboxTagAllowDeny(t *testing.T) {
 	// for is allowed -> renders.
-	pol := &sandbox.Policy{Tags: map[string]bool{"for": true}}
+	pol := sandbox.NewPolicy(sandbox.AllowTags("for"))
 	eng := sandboxStub(nil, pol)
 	got, err := renderStubAt(t, eng, "@for x in xs {\n{{ x }}\n@}\n",
 		map[string]runtime.Value{"xs": runtime.Arr(runtime.NewList(runtime.Int(1), runtime.Int(2)))})
@@ -116,7 +116,7 @@ func TestSandboxTagAllowDeny(t *testing.T) {
 
 // TestSandboxFilterAllowDeny covers the filter allowlist (B2).
 func TestSandboxFilterAllowDeny(t *testing.T) {
-	pol := &sandbox.Policy{Filters: map[string]bool{"upper": true}}
+	pol := sandbox.NewPolicy(sandbox.AllowFilters("upper"))
 	eng := sandboxStub(nil, pol)
 	if got, err := renderStubAt(t, eng, "{{ s | upper }}",
 		map[string]runtime.Value{"s": runtime.Str("hi")}); err != nil || got != "HI" {
@@ -129,10 +129,10 @@ func TestSandboxFilterAllowDeny(t *testing.T) {
 // TestSandboxFunctionAllowDeny covers the function allowlist (B3), including the
 // `..` range operator counting as the range function (B8).
 func TestSandboxFunctionAllowDeny(t *testing.T) {
-	pol := &sandbox.Policy{
-		Tags:      map[string]bool{"for": true},
-		Functions: map[string]bool{"range": true, "max": true},
-	}
+	pol := sandbox.NewPolicy(
+		sandbox.AllowTags("for"),
+		sandbox.AllowFunctions("range", "max"),
+	)
 	eng := sandboxStub(nil, pol)
 	// range allowed -> `1..3` works.
 	if _, err := renderStubAt(t, eng, "@for x in 1..3 {\n{{ x }}\n@}\n", nil); err != nil {
@@ -147,7 +147,7 @@ func TestSandboxFunctionAllowDeny(t *testing.T) {
 	wantSecurity(t, err, errors.SecFunction, "min")
 
 	// .. with range NOT allowed -> denied as the range function.
-	eng2 := sandboxStub(nil, &sandbox.Policy{Tags: map[string]bool{"for": true}})
+	eng2 := sandboxStub(nil, sandbox.NewPolicy(sandbox.AllowTags("for")))
 	err = renderErr(t, eng2, "t", "@for x in 1..3 {\n{{ x }}\n@}\n", nil)
 	wantSecurity(t, err, errors.SecFunction, "range")
 }
@@ -156,10 +156,10 @@ func TestSandboxFunctionAllowDeny(t *testing.T) {
 // (B4/B10), with case-sensitive matching.
 func TestSandboxMethodAllowDeny(t *testing.T) {
 	g := sandbox.NewTypeGraph()
-	pol := &sandbox.Policy{
-		Methods: map[string]map[string]bool{"Entity": {"greet": true}},
-		Graph:   g,
-	}
+	pol := sandbox.NewPolicy(
+		sandbox.AllowMethods("Entity", "greet"),
+		sandbox.WithTypeGraph(g),
+	)
 	eng := sandboxStub(nil, pol)
 	u := runtime.Obj(&hostEntity{name: "ada"})
 
@@ -177,9 +177,7 @@ func TestSandboxMethodAllowDeny(t *testing.T) {
 
 // TestSandboxPropertyAllowDeny covers runtime property gating (B5/B11).
 func TestSandboxPropertyAllowDeny(t *testing.T) {
-	pol := &sandbox.Policy{
-		Properties: map[string]map[string]bool{"Entity": {"name": true}},
-	}
+	pol := sandbox.NewPolicy(sandbox.AllowProperties("Entity", "name"))
 	eng := sandboxStub(nil, pol)
 	u := runtime.Obj(&hostEntity{name: "ada"})
 
@@ -194,14 +192,14 @@ func TestSandboxPropertyAllowDeny(t *testing.T) {
 // host object to text requires its Stringify member be allowed.
 func TestSandboxStringifyGate(t *testing.T) {
 	// Stringify allowed -> interpolation works.
-	pol := &sandbox.Policy{Methods: map[string]map[string]bool{"Entity": {"Stringify": true}}}
+	pol := sandbox.NewPolicy(sandbox.AllowMethods("Entity", "Stringify"))
 	eng := sandboxStub(nil, pol)
 	u := runtime.Obj(&hostEntity{name: "ada"})
 	if got, err := renderStubAt(t, eng, "{{ u }}", map[string]runtime.Value{"u": u}); err != nil || got != "ada" {
 		t.Fatalf("allowed stringify: got %q err %v", got, err)
 	}
 	// Stringify NOT allowed -> denied at the coercion site.
-	eng2 := sandboxStub(nil, &sandbox.Policy{})
+	eng2 := sandboxStub(nil, sandbox.NewPolicy())
 	err := renderErr(t, eng2, "t", "{{ u }}", map[string]runtime.Value{"u": u})
 	wantSecurity(t, err, errors.SecMethod, "Stringify")
 }
@@ -209,7 +207,7 @@ func TestSandboxStringifyGate(t *testing.T) {
 // TestSandboxArrowGating covers B13: a higher-order filter under the sandbox
 // rejects a non-template (host) callable, while a template-defined arrow works.
 func TestSandboxArrowGating(t *testing.T) {
-	pol := &sandbox.Policy{Filters: map[string]bool{"map": true, "join": true}}
+	pol := sandbox.NewPolicy(sandbox.AllowFilters("map", "join"))
 	eng := sandboxStub(nil, pol)
 	xs := runtime.Arr(runtime.NewList(runtime.Int(1), runtime.Int(2)))
 
@@ -234,7 +232,7 @@ func TestSandboxArrowGating(t *testing.T) {
 func TestSandboxRegionForcesSandbox(t *testing.T) {
 	// Engine is NOT globally sandboxed, but has a policy allowing only `if`.
 	eng := newStub(nil)
-	eng.policy = &sandbox.Policy{Tags: map[string]bool{"if": true}}
+	eng.policy = sandbox.NewPolicy(sandbox.AllowTags("if"))
 
 	// Outside any region, an unlisted filter renders fine (sandbox off).
 	if got, err := renderStubAt(t, eng, "{{ s | upper }}",
@@ -262,10 +260,10 @@ func TestSandboxedInclude(t *testing.T) {
 	}
 	// Globally sandboxed, policy allows include but NOT upper. The child include
 	// stays sandboxed (B16), so its `upper` is denied.
-	pol := &sandbox.Policy{
-		Tags:      map[string]bool{"include": true},
-		Functions: map[string]bool{"include": true},
-	}
+	pol := sandbox.NewPolicy(
+		sandbox.AllowTags("include"),
+		sandbox.AllowFunctions("include"),
+	)
 	eng := sandboxStub(tmpls, pol)
 	err := renderErr(t, eng, "t", "@include \"child.ql\"\n",
 		map[string]runtime.Value{"s": runtime.Str("hi")})
@@ -281,12 +279,12 @@ func TestSandboxStringifyGateConcat(t *testing.T) {
 	u := runtime.Obj(&hostEntity{name: "ada"})
 
 	// Empty policy -> the concat coercion is denied.
-	eng := sandboxStub(nil, &sandbox.Policy{})
+	eng := sandboxStub(nil, sandbox.NewPolicy())
 	err := renderErr(t, eng, "t", `{{ "" ~ u }}`, map[string]runtime.Value{"u": u})
 	wantSecurity(t, err, errors.SecMethod, "Stringify")
 
 	// Stringify allowed -> the concat renders.
-	pol := &sandbox.Policy{Methods: map[string]map[string]bool{"Entity": {"Stringify": true}}}
+	pol := sandbox.NewPolicy(sandbox.AllowMethods("Entity", "Stringify"))
 	eng2 := sandboxStub(nil, pol)
 	if got, err := renderStubAt(t, eng2, `{{ "x" ~ u }}`, map[string]runtime.Value{"u": u}); err != nil || got != "xada" {
 		t.Fatalf("allowed stringify in concat: got %q err %v", got, err)
@@ -303,15 +301,15 @@ func TestSandboxStringifyGateJoin(t *testing.T) {
 	xs := runtime.Arr(runtime.NewList(u))
 
 	// join allowed but Stringify not -> the element coercion is denied.
-	eng := sandboxStub(nil, &sandbox.Policy{Filters: map[string]bool{"join": true}})
+	eng := sandboxStub(nil, sandbox.NewPolicy(sandbox.AllowFilters("join")))
 	err := renderErr(t, eng, "t", `{{ xs | join(",") }}`, map[string]runtime.Value{"xs": xs})
 	wantSecurity(t, err, errors.SecMethod, "Stringify")
 
 	// Both allowed -> renders.
-	pol := &sandbox.Policy{
-		Filters: map[string]bool{"join": true},
-		Methods: map[string]map[string]bool{"Entity": {"Stringify": true}},
-	}
+	pol := sandbox.NewPolicy(
+		sandbox.AllowFilters("join"),
+		sandbox.AllowMethods("Entity", "Stringify"),
+	)
 	eng2 := sandboxStub(nil, pol)
 	if got, err := renderStubAt(t, eng2, `{{ xs | join(",") }}`, map[string]runtime.Value{"xs": xs}); err != nil || got != "ada" {
 		t.Fatalf("allowed stringify in join: got %q err %v", got, err)
@@ -319,7 +317,7 @@ func TestSandboxStringifyGateJoin(t *testing.T) {
 
 	// A scalar (non-object) collection is unaffected by the gate.
 	scalars := runtime.Arr(runtime.NewList(runtime.Int(1), runtime.Int(2)))
-	eng3 := sandboxStub(nil, &sandbox.Policy{Filters: map[string]bool{"join": true}})
+	eng3 := sandboxStub(nil, sandbox.NewPolicy(sandbox.AllowFilters("join")))
 	if got, err := renderStubAt(t, eng3, `{{ xs | join(",") }}`, map[string]runtime.Value{"xs": scalars}); err != nil || got != "1,2" {
 		t.Fatalf("scalar join under empty member policy: got %q err %v", got, err)
 	}
@@ -333,7 +331,7 @@ func TestSandboxStringifyGateReplace(t *testing.T) {
 	pairs := runtime.NewArray()
 	pairs.SetStr("x", u) // value is a host object -> coerced by replace.
 
-	eng := sandboxStub(nil, &sandbox.Policy{Filters: map[string]bool{"replace": true}})
+	eng := sandboxStub(nil, sandbox.NewPolicy(sandbox.AllowFilters("replace")))
 	err := renderErr(t, eng, "t", `{{ "x" | replace(m) }}`, map[string]runtime.Value{"m": runtime.Arr(pairs)})
 	wantSecurity(t, err, errors.SecMethod, "Stringify")
 }
@@ -343,10 +341,10 @@ func TestSandboxStringifyGateReplace(t *testing.T) {
 // the inline `| map(f)` form rejects it. Without the gate the two
 // filter-application paths enforce the rule inconsistently.
 func TestSandboxApplyArrowGating(t *testing.T) {
-	pol := &sandbox.Policy{
-		Tags:    map[string]bool{"apply": true},
-		Filters: map[string]bool{"map": true},
-	}
+	pol := sandbox.NewPolicy(
+		sandbox.AllowTags("apply"),
+		sandbox.AllowFilters("map"),
+	)
 	eng := sandboxStub(nil, pol)
 	err := renderErr(t, eng, "t", "@apply | map(f) {\nx\n@}\n", map[string]runtime.Value{
 		"f": runtime.Obj(hostCallable{}),
@@ -362,7 +360,7 @@ func TestSandboxStrictUnknownType(t *testing.T) {
 	u := runtime.Obj(&hostEntity{name: "ada"}) // ClassName "Entity", unknown to an empty policy.
 
 	// Lenient (default): the per-member property deny is reported.
-	lenient := sandboxStub(nil, &sandbox.Policy{})
+	lenient := sandboxStub(nil, sandbox.NewPolicy())
 	err := renderErr(t, lenient, "t", "{{ u.secret }}", map[string]runtime.Value{"u": u})
 	wantSecurity(t, err, errors.SecProperty, "secret")
 	if got := err.Error(); !strings.Contains(got, "is not allowed by the sandbox policy") {
@@ -371,7 +369,7 @@ func TestSandboxStrictUnknownType(t *testing.T) {
 
 	// Strict: the same access reports the unknown-type variant naming the type,
 	// carrying the dedicated SecUnknownType class.
-	strict := sandboxStub(nil, &sandbox.Policy{Strict: true})
+	strict := sandboxStub(nil, sandbox.NewPolicy(sandbox.Strict()))
 	err = renderErr(t, strict, "t", "{{ u.secret }}", map[string]runtime.Value{"u": u})
 	wantSecurity(t, err, errors.SecUnknownType, "secret")
 	if got := err.Error(); !strings.Contains(got, "unknown to the sandbox policy") {
@@ -380,10 +378,10 @@ func TestSandboxStrictUnknownType(t *testing.T) {
 
 	// Strict but the type IS known (has a property entry) -> ordinary per-member
 	// deny for the unlisted member, not the unknown-type variant.
-	known := sandboxStub(nil, &sandbox.Policy{
-		Strict:     true,
-		Properties: map[string]map[string]bool{"Entity": {"name": true}},
-	})
+	known := sandboxStub(nil, sandbox.NewPolicy(
+		sandbox.Strict(),
+		sandbox.AllowProperties("Entity", "name"),
+	))
 	err = renderErr(t, known, "t", "{{ u.secret }}", map[string]runtime.Value{"u": u})
 	wantSecurity(t, err, errors.SecProperty, "secret")
 	if got := err.Error(); strings.Contains(got, "unknown to the sandbox policy") {

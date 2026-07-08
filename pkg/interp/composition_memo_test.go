@@ -375,7 +375,7 @@ func TestSandboxPhaseOneRunsOnMemoizedChain(t *testing.T) {
 		"base.ql": "@block body {\n@for i in [1, 2] {\n{{ i }}\n@}\n@}\n",
 		"page.ql": "@extends \"base.ql\"\n",
 	}
-	pol := &sandbox.Policy{Tags: map[string]bool{"block": true, "extends": true}}
+	pol := sandbox.NewPolicy(sandbox.AllowTags("block", "extends"))
 
 	eng := newCachingStub(fixtures)
 	eng.policy = pol

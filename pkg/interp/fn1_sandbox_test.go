@@ -14,7 +14,7 @@ import (
 // like the general path rejects it, because the fast call runs the arrow gate
 // on the piped value -- the one value that exists there.
 func TestFn1SandboxArrowGateOnPipedValue(t *testing.T) {
-	pol := &sandbox.Policy{Filters: map[string]bool{"upper": true}}
+	pol := sandbox.NewPolicy(sandbox.AllowFilters("upper"))
 	eng := sandboxStub(nil, pol)
 	err := renderErr(t, eng, "t", "{{ f | upper }}", map[string]runtime.Value{
 		"f": runtime.Obj(hostCallable{}),
@@ -29,7 +29,7 @@ func TestFn1SandboxArrowGateOnPipedValue(t *testing.T) {
 // host object without an allowed Stringify member is denied before the
 // filter runs.
 func TestFn1SandboxStringifyGateShadowedJoin(t *testing.T) {
-	eng := sandboxStub(nil, &sandbox.Policy{Filters: map[string]bool{"join": true}})
+	eng := sandboxStub(nil, sandbox.NewPolicy(sandbox.AllowFilters("join")))
 	joinLike := func(v runtime.Value) (runtime.Value, error) {
 		out := ""
 		if v.Kind == runtime.KArray && v.Arr != nil {
@@ -54,10 +54,10 @@ func TestFn1SandboxStringifyGateShadowedJoin(t *testing.T) {
 
 	// With Stringify allowed the same fast call renders, proving the denial
 	// above came from the gate, not from the shadow being unreachable.
-	eng2 := sandboxStub(nil, &sandbox.Policy{
-		Filters: map[string]bool{"join": true},
-		Methods: map[string]map[string]bool{"Entity": {"Stringify": true}},
-	})
+	eng2 := sandboxStub(nil, sandbox.NewPolicy(
+		sandbox.AllowFilters("join"),
+		sandbox.AllowMethods("Entity", "Stringify"),
+	))
 	eng2.exts.AddFilter(ext.NewFilter1("join", joinLike))
 	got, err := renderStubAt(t, eng2, "{{ xs | join }}", map[string]runtime.Value{
 		"xs": runtime.Arr(xs),
@@ -72,7 +72,7 @@ func TestFn1SandboxStringifyGateShadowedJoin(t *testing.T) {
 // sandbox's per-render callable check, so an unlisted upper is denied before
 // the template body runs.
 func TestFn1SandboxAuditedNamesStillPhaseChecked(t *testing.T) {
-	eng := sandboxStub(nil, &sandbox.Policy{Filters: map[string]bool{}})
+	eng := sandboxStub(nil, sandbox.NewPolicy())
 	err := renderErr(t, eng, "t", "{{ s | upper }}", map[string]runtime.Value{
 		"s": runtime.Str("x"),
 	})

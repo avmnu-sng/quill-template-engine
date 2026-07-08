@@ -176,12 +176,10 @@ func TestCustomCallableSandboxAllow(t *testing.T) {
 	set := ext.NewExtensionSet()
 	set.AddFilter(ext.NewFilter("times", func(x, n int64) int64 { return x * n }))
 
-	pol := &sandbox.Policy{
-		Filters:   map[string]bool{"times": true},
-		Functions: map[string]bool{},
-		Tags:      map[string]bool{},
-		Graph:     sandbox.NewTypeGraph(),
-	}
+	pol := sandbox.NewPolicy(
+		sandbox.AllowFilters("times"),
+		sandbox.WithTypeGraph(sandbox.NewTypeGraph()),
+	)
 	e := NewFromMap(nil, WithExtensions(set), WithSandboxPolicy(pol), WithSandboxActive(true))
 	out, err := e.RenderString("m", `{{ 4 | times(2) }}`, nil)
 	if err != nil {
@@ -198,12 +196,9 @@ func TestCustomCallableSandboxDeny(t *testing.T) {
 	set := ext.NewExtensionSet()
 	set.AddFilter(ext.NewFilter("times", func(x, n int64) int64 { return x * n }))
 
-	pol := &sandbox.Policy{
-		Filters:   map[string]bool{}, // times NOT allowlisted
-		Functions: map[string]bool{},
-		Tags:      map[string]bool{},
-		Graph:     sandbox.NewTypeGraph(),
-	}
+	pol := sandbox.NewPolicy( // times NOT allowlisted
+		sandbox.WithTypeGraph(sandbox.NewTypeGraph()),
+	)
 	e := NewFromMap(nil, WithExtensions(set), WithSandboxPolicy(pol), WithSandboxActive(true))
 	_, err := e.RenderString("m", `{{ 4 | times(2) }}`, nil)
 	if err == nil {

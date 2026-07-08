@@ -60,7 +60,7 @@ func (in *interp) checkMethodAllowed(recv runtime.Value, method string) error {
 	typeName := className(recv.Obj)
 	pol := in.eng.Policy()
 	if !pol.AllowsMethod(typeName, method) {
-		if pol.Strict && !pol.Knows(typeName) {
+		if pol.Strict() && !pol.Knows(typeName) {
 			return errors.SecurityUnknownType(typeName, method)
 		}
 		return errors.SecurityMethod(typeName, method)
@@ -83,7 +83,7 @@ func (in *interp) checkPropertyAllowed(recv runtime.Value, prop string) error {
 	typeName := className(recv.Obj)
 	pol := in.eng.Policy()
 	if !pol.AllowsProperty(typeName, prop) {
-		if pol.Strict && !pol.Knows(typeName) {
+		if pol.Strict() && !pol.Knows(typeName) {
 			return errors.SecurityUnknownType(typeName, prop)
 		}
 		return errors.SecurityProperty(typeName, prop)
@@ -107,7 +107,7 @@ func (in *interp) checkStringifyAllowed(v runtime.Value) error {
 	typeName := className(v.Obj)
 	pol := in.eng.Policy()
 	if !pol.AllowsMethod(typeName, "Stringify") {
-		if pol.Strict && !pol.Knows(typeName) {
+		if pol.Strict() && !pol.Knows(typeName) {
 			return errors.SecurityUnknownType(typeName, "Stringify")
 		}
 		return errors.SecurityMethod(typeName, "Stringify")
