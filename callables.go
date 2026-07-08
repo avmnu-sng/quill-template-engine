@@ -188,8 +188,8 @@ func templateFromStringFn(args []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), err
 	}
 	vars := map[string]runtime.Value{}
-	if ctxArr.Kind == runtime.KArray && ctxArr.Arr != nil {
-		for _, p := range ctxArr.Arr.Pairs() {
+	if ctxArr.Kind() == runtime.KArray && ctxArr.AsArray() != nil {
+		for _, p := range ctxArr.AsArray().Pairs() {
 			key, _ := runtime.ToText(p.Key)
 			vars[key] = p.Val
 		}
@@ -277,15 +277,15 @@ func includeFn(args []runtime.Value) (runtime.Value, error) {
 	}
 
 	vars := map[string]runtime.Value{}
-	if withContext && ctxArr.Kind == runtime.KArray && ctxArr.Arr != nil {
-		for _, p := range ctxArr.Arr.Pairs() {
+	if withContext && ctxArr.Kind() == runtime.KArray && ctxArr.AsArray() != nil {
+		for _, p := range ctxArr.AsArray().Pairs() {
 			key, _ := runtime.ToText(p.Key)
 			vars[key] = p.Val
 		}
 	}
 	// The explicit vars map (arg 3) overrides context vars.
-	if len(args) > 3 && args[3].Kind == runtime.KArray && args[3].Arr != nil {
-		for _, p := range args[3].Arr.Pairs() {
+	if len(args) > 3 && args[3].Kind() == runtime.KArray && args[3].AsArray() != nil {
+		for _, p := range args[3].AsArray().Pairs() {
 			key, _ := runtime.ToText(p.Key)
 			vars[key] = p.Val
 		}

@@ -18,10 +18,10 @@ func TestEnsureTraversableArray(t *testing.T) {
 	if len(pairs) != 2 {
 		t.Fatalf("len=%d, want 2", len(pairs))
 	}
-	if pairs[0].Key.Kind != KStr || pairs[0].Key.S != "b" {
+	if pairs[0].Key.Kind() != KStr || pairs[0].Key.AsStr() != "b" {
 		t.Fatalf("first key = %v, want str b", pairs[0].Key)
 	}
-	if pairs[1].Key.Kind != KInt || pairs[1].Key.I != 0 {
+	if pairs[1].Key.Kind() != KInt || pairs[1].Key.AsInt() != 0 {
 		t.Fatalf("second key = %v, want int 0", pairs[1].Key)
 	}
 }
@@ -32,7 +32,7 @@ func TestEnsureTraversableObject(t *testing.T) {
 		pairs:    []Pair{{Key: Int(0), Val: Str("a")}},
 	}
 	pairs, err := EnsureTraversable(Obj(o), false)
-	if err != nil || len(pairs) != 1 || pairs[0].Val.S != "a" {
+	if err != nil || len(pairs) != 1 || pairs[0].Val.AsStr() != "a" {
 		t.Fatalf("iterable object = %v, %v", pairs, err)
 	}
 }
@@ -41,7 +41,7 @@ func TestEnsureTraversableNonIterableStrict(t *testing.T) {
 	for _, v := range []Value{Null(), Int(3), Str("x"), Bool(true), Obj(newFieldObj("Plain", nil))} {
 		_, err := EnsureTraversable(v, false)
 		if errors.KindOf(err) != errors.KindIteration {
-			t.Fatalf("non-iterable %s: kind = %v, want iteration", v.Kind, errors.KindOf(err))
+			t.Fatalf("non-iterable %s: kind = %v, want iteration", v.Kind(), errors.KindOf(err))
 		}
 	}
 }

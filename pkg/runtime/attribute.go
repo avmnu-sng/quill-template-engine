@@ -45,74 +45,74 @@ func GetAttribute(recv, key Value, kind AccessKind, allowAbsent bool) (Value, er
 }
 
 func getDot(recv, key Value, allowAbsent bool) (Value, error) {
-	name := key.S // dotted access always names a string member
-	switch recv.Kind {
+	name := key.s // dotted access always names a string member
+	switch recv.kind {
 	case KArray:
 		// A nil *Array is a valid empty collection everywhere else in the
 		// runtime (Truthy, Empty, In, arrayEqual all guard Arr == nil); treat
 		// it as an empty array here so a benign empty value never panics.
-		if recv.Arr == nil {
+		if recv.arr == nil {
 			return absent(allowAbsent, errors.New(errors.KindUndefined,
-				"no key %q (available keys: %s)", name, keyList(recv.Arr)))
+				"no key %q (available keys: %s)", name, keyList(recv.arr)))
 		}
-		if v, ok := recv.Arr.GetStr(name); ok {
+		if v, ok := recv.arr.GetStr(name); ok {
 			return v, nil
 		}
 		return absent(allowAbsent, errors.New(errors.KindUndefined,
-			"no key %q (available keys: %s)", name, keyList(recv.Arr)))
+			"no key %q (available keys: %s)", name, keyList(recv.arr)))
 	case KObject:
-		if v, ok := recv.Obj.GetField(name); ok {
+		if v, ok := recv.obj.GetField(name); ok {
 			return v, nil
 		}
 		return absent(allowAbsent, errors.New(errors.KindUndefined,
-			"no member %q on object %s", name, objectClass(recv.Obj)))
+			"no member %q on object %s", name, objectClass(recv.obj)))
 	case KSafe:
 		// A Safe normalizes to Str for member access, which has no members.
 		return Null(), errors.New(errors.KindAttribute,
 			"cannot read member %q of a string", name)
 	default:
 		return Null(), errors.New(errors.KindAttribute,
-			"cannot read member %q of %s", name, recv.Kind)
+			"cannot read member %q of %s", name, recv.kind)
 	}
 }
 
 func getIndex(recv, key Value, allowAbsent bool) (Value, error) {
 	// Only Int and Str keys may subscript; bool/float/null are type errors
 	// (spec 04 Section 6.2), regardless of suppression.
-	switch key.Kind {
+	switch key.kind {
 	case KInt, KStr:
 		// ok
 	default:
 		return Null(), errors.New(errors.KindKey,
-			"cannot subscript with a %s key", key.Kind)
+			"cannot subscript with a %s key", key.kind)
 	}
 
-	switch recv.Kind {
+	switch recv.kind {
 	case KArray:
 		// A nil *Array is a valid empty collection (mirrors the Arr == nil
 		// guards in truthy.go/iterate.go/compare.go); never dereference it.
-		if recv.Arr == nil {
+		if recv.arr == nil {
 			return absent(allowAbsent, errors.New(errors.KindUndefined,
-				"no key %s (available keys: %s)", keyText(key), keyList(recv.Arr)))
+				"no key %s (available keys: %s)", keyText(key), keyList(recv.arr)))
 		}
-		if v, ok := recv.Arr.Get(key); ok {
+		if v, ok := recv.arr.Get(key); ok {
 			return v, nil
 		}
 		return absent(allowAbsent, errors.New(errors.KindUndefined,
-			"no key %s (available keys: %s)", keyText(key), keyList(recv.Arr)))
+			"no key %s (available keys: %s)", keyText(key), keyList(recv.arr)))
 	case KObject:
-		if ix, ok := recv.Obj.(Indexable); ok {
+		if ix, ok := recv.obj.(Indexable); ok {
 			if v, found := ix.GetIndex(key); found {
 				return v, nil
 			}
 			return absent(allowAbsent, errors.New(errors.KindUndefined,
-				"no index %s on object %s", keyText(key), objectClass(recv.Obj)))
+				"no index %s on object %s", keyText(key), objectClass(recv.obj)))
 		}
 		return Null(), errors.New(errors.KindAttribute,
-			"object %s does not support subscripting", objectClass(recv.Obj))
+			"object %s does not support subscripting", objectClass(recv.obj))
 	default:
 		return Null(), errors.New(errors.KindAttribute,
-			"cannot subscript %s", recv.Kind)
+			"cannot subscript %s", recv.kind)
 	}
 }
 
@@ -129,9 +129,9 @@ func absent(allowAbsent bool, err error) (Value, error) {
 func keyText(key Value) string {
 	s, err := ToText(key)
 	if err != nil {
-		return key.Kind.String()
+		return key.kind.String()
 	}
-	if key.Kind == KStr {
+	if key.kind == KStr {
 		return "\"" + s + "\""
 	}
 	return s
@@ -168,23 +168,23 @@ type FieldSetter interface {
 // must implement FieldSetter, otherwise the assignment is a runtime error naming
 // the immutable receiver. A non-collection receiver has no members to assign.
 func SetMember(recv Value, name string, v Value) error {
-	switch recv.Kind {
+	switch recv.kind {
 	case KArray:
-		if recv.Arr == nil {
+		if recv.arr == nil {
 			return errors.New(errors.KindRuntime,
 				"cannot assign member %q of an empty collection", name)
 		}
-		recv.Arr.SetStr(name, v)
+		recv.arr.SetStr(name, v)
 		return nil
 	case KObject:
-		if fs, ok := recv.Obj.(FieldSetter); ok {
+		if fs, ok := recv.obj.(FieldSetter); ok {
 			return fs.SetField(name, v)
 		}
 		return errors.New(errors.KindRuntime,
-			"object %s does not support member assignment", objectClass(recv.Obj))
+			"object %s does not support member assignment", objectClass(recv.obj))
 	default:
 		return errors.New(errors.KindRuntime,
-			"cannot assign member %q of %s", name, recv.Kind)
+			"cannot assign member %q of %s", name, recv.kind)
 	}
 }
 
@@ -200,28 +200,28 @@ type IndexSetter interface {
 // the key; a host Object must implement IndexSetter. It backs a subscript set
 // target (@set recv[key] = v).
 func SetIndex(recv, key, v Value) error {
-	switch key.Kind {
+	switch key.kind {
 	case KInt, KStr:
 		// ok
 	default:
-		return errors.New(errors.KindKey, "cannot subscript with a %s key", key.Kind)
+		return errors.New(errors.KindKey, "cannot subscript with a %s key", key.kind)
 	}
-	switch recv.Kind {
+	switch recv.kind {
 	case KArray:
-		if recv.Arr == nil {
+		if recv.arr == nil {
 			return errors.New(errors.KindRuntime,
 				"cannot assign into an empty collection")
 		}
-		recv.Arr.SetKey(key, v)
+		recv.arr.SetKey(key, v)
 		return nil
 	case KObject:
-		if is, ok := recv.Obj.(IndexSetter); ok {
+		if is, ok := recv.obj.(IndexSetter); ok {
 			return is.SetIndex(key, v)
 		}
 		return errors.New(errors.KindRuntime,
-			"object %s does not support subscript assignment", objectClass(recv.Obj))
+			"object %s does not support subscript assignment", objectClass(recv.obj))
 	default:
-		return errors.New(errors.KindRuntime, "cannot subscript-assign %s", recv.Kind)
+		return errors.New(errors.KindRuntime, "cannot subscript-assign %s", recv.kind)
 	}
 }
 
@@ -229,28 +229,28 @@ func SetIndex(recv, key, v Value) error {
 // presence of a member without ever throwing (spec 04 Section 8.3). It is true
 // for a present key even when its stored value is Null.
 func IsDefinedAttribute(recv, key Value, kind AccessKind) bool {
-	switch recv.Kind {
+	switch recv.kind {
 	case KArray:
 		// A nil *Array holds no members, so every presence test is false
 		// without dereferencing (mirrors the Arr == nil guards elsewhere).
-		if recv.Arr == nil {
+		if recv.arr == nil {
 			return false
 		}
 		if kind == AccessDot {
-			_, ok := recv.Arr.GetStr(key.S)
+			_, ok := recv.arr.GetStr(key.s)
 			return ok
 		}
-		if key.Kind != KInt && key.Kind != KStr {
+		if key.kind != KInt && key.kind != KStr {
 			return false
 		}
-		_, ok := recv.Arr.Get(key)
+		_, ok := recv.arr.Get(key)
 		return ok
 	case KObject:
 		if kind == AccessDot {
-			_, ok := recv.Obj.GetField(key.S)
+			_, ok := recv.obj.GetField(key.s)
 			return ok
 		}
-		if ix, ok := recv.Obj.(Indexable); ok {
+		if ix, ok := recv.obj.(Indexable); ok {
 			_, found := ix.GetIndex(key)
 			return found
 		}

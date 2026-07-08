@@ -32,8 +32,8 @@ func TestFn1SandboxStringifyGateShadowedJoin(t *testing.T) {
 	eng := sandboxStub(nil, sandbox.NewPolicy(sandbox.AllowFilters("join")))
 	joinLike := func(v runtime.Value) (runtime.Value, error) {
 		out := ""
-		if v.Kind == runtime.KArray && v.Arr != nil {
-			for _, p := range v.Arr.Pairs() {
+		if v.Kind() == runtime.KArray && v.AsArray() != nil {
+			for _, p := range v.AsArray().Pairs() {
 				s, err := runtime.ToText(p.Val)
 				if err != nil {
 					return runtime.Null(), err

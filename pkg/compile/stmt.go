@@ -189,8 +189,8 @@ func (c *compiler) emitValueLocal(v string, line int) {
 func (c *compiler) emitPlainValueLocal(v string, line int) {
 	wrap := func(e string) string { return c.qposE(e, line) }
 	v = c.spillAdjacent(v)
-	c.openf("if %s.Kind == runtime.KStr || %s.Kind == runtime.KSafe {", v, v)
-	c.emitWrite(v+".S", wrap)
+	c.openf("if %s.Kind() == runtime.KStr || %s.Kind() == runtime.KSafe {", v, v)
+	c.emitWrite(v+".AsStr()", wrap)
 	c.ind--
 	e := c.tmp("qe")
 	c.linef("} else if %s := %s(%s, %s, %s); %s != nil {", e, c.emitFn(), c.writer(), q(""), v, e)
@@ -202,7 +202,7 @@ func (c *compiler) emitPlainValueLocal(v string, line int) {
 // stmtPrintPlain lowers a print with no active escape strategy, where the
 // emit helper reduces to ToText plus a write. A static-Int expression writes
 // its strconv.FormatInt rendering directly -- exactly ToText's Int spelling.
-// Every other expression takes an inline Str/Safe kind guard writing v.S
+// Every other expression takes an inline Str/Safe kind guard writing v.AsStr()
 // verbatim (ToText returns those kinds' bytes unchanged and no escaping
 // applies), falling back to the emit helper for the remaining kinds'
 // spellings and their authoritative errors. The guarded value skips the
@@ -456,7 +456,7 @@ func (c *compiler) stmtApply(n *ast.Node) error {
 	if c.escapeStrategy() != "" {
 		text := c.tmp("qt")
 		e := c.tmp("qe")
-		c.openf("if %s.Kind != runtime.KSafe {", v)
+		c.openf("if %s.Kind() != runtime.KSafe {", v)
 		c.linef("%s, %s := runtime.ToText(%s)", text, e, v)
 		c.checkErr(e, n.Line)
 		c.linef("%s = runtime.Safe(%s)", v, text)
@@ -923,11 +923,11 @@ func (c *compiler) bindPattern(pat *ast.Node, val string) error {
 // arity rules: required slots bound positionally, elided slots skipped,
 // optional slots null-padded, and a trailing spread capturing the rest.
 func (c *compiler) bindListPattern(pat *ast.Node, val string) error {
-	c.openf("if %s.Kind != runtime.KArray || %s.Arr == nil {", val, val)
+	c.openf("if %s.Kind() != runtime.KArray || %s.AsArray() == nil {", val, val)
 	c.linef(c.ret(c.qposE(`qerrors.New(qerrors.KindRuntime, "destructuring expects a sequence")`, pat.Line)))
 	c.closeb()
 	ps := c.tmp("qp")
-	c.linef("%s := %s.Arr.Pairs()", ps, val)
+	c.linef("%s := %s.AsArray().Pairs()", ps, val)
 
 	fixed := pat.Children
 	var tail *ast.Node
@@ -1116,8 +1116,8 @@ func (c *compiler) stmtFor(n *ast.Node) error {
 		c.linef("var %s *runtime.Array", it.arr)
 		c.linef("var %s []runtime.Pair", it.pairs)
 		c.linef("%s := 0", it.n)
-		c.openf("if %s.Kind == runtime.KArray && %s.Arr != nil {", iv, iv)
-		c.linef("%s = %s.Arr", it.arr, iv)
+		c.openf("if %s.Kind() == runtime.KArray && %s.AsArray() != nil {", iv, iv)
+		c.linef("%s = %s.AsArray()", it.arr, iv)
 		c.linef("%s = %s.Len()", it.n, it.arr)
 		c.ind--
 		c.linef("} else {")

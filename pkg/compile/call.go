@@ -56,9 +56,9 @@ func (c *compiler) collectArgs(n *ast.Node, prefix []string) (string, error) {
 				return "", err
 			}
 			v = c.spill(v)
-			c.openf("if %s.Kind == runtime.KArray && %s.Arr != nil {", v, v)
+			c.openf("if %s.Kind() == runtime.KArray && %s.AsArray() != nil {", v, v)
 			p := c.tmp("qp")
-			c.openf("for _, %s := range %s.Arr.Pairs() {", p, v)
+			c.openf("for _, %s := range %s.AsArray().Pairs() {", p, v)
 			c.linef("%s = append(%s, %s.Val)", args, args, p)
 			c.closeb()
 			c.closeb()
@@ -273,16 +273,16 @@ func (c *compiler) exprMethodCall(n *ast.Node, callee *ast.Node) (string, error)
 	}
 	res := c.tmp("qt")
 	c.linef("var %s runtime.Value", res)
-	c.openf("if %s.Kind == runtime.KObject {", recv)
+	c.openf("if %s.Kind() == runtime.KObject {", recv)
 	v := c.tmp("qt")
 	e := c.tmp("qe")
-	c.linef("%s, %s := %s.Obj.CallMethod(%s, %s)", v, e, recv, q(callee.Str), args)
+	c.linef("%s, %s := %s.AsObject().CallMethod(%s, %s)", v, e, recv, q(callee.Str), args)
 	c.checkErr(e, n.Line)
 	c.linef("%s = %s", res, v)
 	c.ind--
 	c.linef("} else {")
 	c.ind++
-	c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindAttribute, \"cannot call method %%q on %%s\", %s, %s.Kind)", q(callee.Str), recv), n.Line)))
+	c.linef(c.ret(c.qposE(fmt.Sprintf("qerrors.New(qerrors.KindAttribute, \"cannot call method %%q on %%s\", %s, %s.Kind())", q(callee.Str), recv), n.Line)))
 	c.closeb()
 	return res, nil
 }
@@ -407,8 +407,8 @@ func (c *compiler) exprTest(n *ast.Node) (string, error) {
 		c.ind++
 		name := c.tmp("qs")
 		c.linef("%s := \"\"", name)
-		c.openf("if %s.Kind == runtime.KStr || %s.Kind == runtime.KSafe {", subject, subject)
-		c.linef("%s = %s.S", name, subject)
+		c.openf("if %s.Kind() == runtime.KStr || %s.Kind() == runtime.KSafe {", subject, subject)
+		c.linef("%s = %s.AsStr()", name, subject)
 		c.closeb()
 		present := c.tmp("qk")
 		c.linef("%s := %s != \"\" && exts.%s(%s)", present, name, registryKind, name)

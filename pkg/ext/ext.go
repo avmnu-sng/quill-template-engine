@@ -106,10 +106,10 @@ type EngineConfig interface {
 // for a missing or configuration-less handle, in which case the callable falls
 // back to its engine-default behavior.
 func EngineConfigFromValue(v runtime.Value) (EngineConfig, bool) {
-	if v.Kind != runtime.KObject {
+	if v.Kind() != runtime.KObject {
 		return nil, false
 	}
-	if cfg, ok := v.Obj.(EngineConfig); ok {
+	if cfg, ok := v.AsObject().(EngineConfig); ok {
 		return cfg, true
 	}
 	return nil, false

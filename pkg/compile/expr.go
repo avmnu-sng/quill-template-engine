@@ -114,9 +114,9 @@ func (c *compiler) exprList(n *ast.Node) (string, error) {
 				return "", err
 			}
 			v = c.spill(v)
-			c.openf("if %s.Kind == runtime.KArray && %s.Arr != nil {", v, v)
+			c.openf("if %s.Kind() == runtime.KArray && %s.AsArray() != nil {", v, v)
 			p := c.tmp("qp")
-			c.openf("for _, %s := range %s.Arr.Pairs() {", p, v)
+			c.openf("for _, %s := range %s.AsArray().Pairs() {", p, v)
 			c.linef("%s.SetInt(%s, %s.Val)", arr, idx, p)
 			c.linef("%s++", idx)
 			c.closeb()
@@ -170,9 +170,9 @@ func (c *compiler) exprMap(n *ast.Node) (string, error) {
 				return "", err
 			}
 			v = c.spill(v)
-			c.openf("if %s.Kind == runtime.KArray && %s.Arr != nil {", v, v)
+			c.openf("if %s.Kind() == runtime.KArray && %s.AsArray() != nil {", v, v)
 			p := c.tmp("qp")
-			c.openf("for _, %s := range %s.Arr.Pairs() {", p, v)
+			c.openf("for _, %s := range %s.AsArray().Pairs() {", p, v)
 			c.linef("%s.SetKey(%s.Key, %s.Val)", arr, p, p)
 			c.closeb()
 			c.closeb()
@@ -209,8 +209,8 @@ func (c *compiler) exprAttr(n *ast.Node, allowAbsent bool) (string, error) {
 		hit := c.tmp("qk")
 		c.linef("var %s runtime.Value", v)
 		c.linef("%s := false", hit)
-		c.openf("if %s.Kind == runtime.KArray && %s.Arr != nil {", recv, recv)
-		c.linef("%s, %s = %s.Arr.GetStr(%s)", v, hit, recv, q(n.Str))
+		c.openf("if %s.Kind() == runtime.KArray && %s.AsArray() != nil {", recv, recv)
+		c.linef("%s, %s = %s.AsArray().GetStr(%s)", v, hit, recv, q(n.Str))
 		c.closeb()
 		c.openf("if !%s {", hit)
 		gv := c.tmp("qt")

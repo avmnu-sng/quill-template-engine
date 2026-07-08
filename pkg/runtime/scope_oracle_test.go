@@ -126,8 +126,8 @@ func (g *twinGen) twin(depth int) (Value, Value) {
 // track records an array pair created outside twin (a copy-on-write clone) so
 // its flags join the per-operation sweep.
 func (g *twinGen) track(vn, vo Value) {
-	if vn.Kind == KArray && vn.Arr != nil && vo.Kind == KArray && vo.Arr != nil {
-		g.pairs = append(g.pairs, [2]*Array{vn.Arr, vo.Arr})
+	if vn.Kind() == KArray && vn.AsArray() != nil && vo.Kind() == KArray && vo.AsArray() != nil {
+		g.pairs = append(g.pairs, [2]*Array{vn.AsArray(), vo.AsArray()})
 	}
 }
 
@@ -135,12 +135,12 @@ func (g *twinGen) track(vn, vo Value) {
 // kind, scalar payload, and for arrays the shared flag, the key sequence,
 // and every element recursively. Twin trees are acyclic by construction.
 func equalTwinValues(vn, vo Value) error {
-	if vn.Kind != vo.Kind {
-		return fmt.Errorf("kind %v != oracle %v", vn.Kind, vo.Kind)
+	if vn.Kind() != vo.Kind() {
+		return fmt.Errorf("kind %v != oracle %v", vn.Kind(), vo.Kind())
 	}
-	switch vn.Kind {
+	switch vn.Kind() {
 	case KArray:
-		an, ao := vn.Arr, vo.Arr
+		an, ao := vn.AsArray(), vo.AsArray()
 		if (an == nil) != (ao == nil) {
 			return fmt.Errorf("nil array %v != oracle %v", an == nil, ao == nil)
 		}
@@ -163,7 +163,7 @@ func equalTwinValues(vn, vo Value) error {
 		}
 		return nil
 	default:
-		if vn.B != vo.B || vn.I != vo.I || vn.F != vo.F || vn.S != vo.S {
+		if vn.AsBool() != vo.AsBool() || vn.AsInt() != vo.AsInt() || vn.AsFloat() != vo.AsFloat() || vn.AsStr() != vo.AsStr() {
 			return fmt.Errorf("scalar payload %+v != oracle %+v", vn, vo)
 		}
 		return nil
@@ -313,7 +313,7 @@ func TestScopeMatchesMapOracle(t *testing.T) {
 					if okN != okO {
 						t.Fatalf("op %d: Get(%q) found %v != oracle %v", op, name, okN, okO)
 					}
-					if !okN || vn.Kind != KArray || vn.Arr == nil {
+					if !okN || vn.Kind() != KArray || vn.AsArray() == nil {
 						continue
 					}
 					ownedN, clonedN := Own(vn)
@@ -324,8 +324,8 @@ func TestScopeMatchesMapOracle(t *testing.T) {
 					g.track(ownedN, ownedO)
 					elem := int64(r.Intn(3))
 					val := int64(r.Intn(100))
-					ownedN.Arr.SetInt(elem, Int(val))
-					ownedO.Arr.SetInt(elem, Int(val))
+					ownedN.AsArray().SetInt(elem, Int(val))
+					ownedO.AsArray().SetInt(elem, Int(val))
 					sn.SetOwned(name, ownedN)
 					so.SetOwned(name, ownedO)
 				}

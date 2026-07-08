@@ -53,10 +53,10 @@ func TestRegisterFoldsEveryFamily(t *testing.T) {
 	if _, ok := s.Test("blank"); !ok {
 		t.Error("test blank not registered")
 	}
-	if v, ok := s.Constant("GREETING"); !ok || v.S != "hello" {
+	if v, ok := s.Constant("GREETING"); !ok || v.AsStr() != "hello" {
 		t.Errorf("constant GREETING = %+v ok=%v", v, ok)
 	}
-	if cases, ok := s.Enum("Mood"); !ok || len(cases) != 2 || cases[0].S != "happy" {
+	if cases, ok := s.Enum("Mood"); !ok || len(cases) != 2 || cases[0].AsStr() != "happy" {
 		t.Errorf("enum Mood = %+v ok=%v", cases, ok)
 	}
 }
@@ -94,11 +94,11 @@ func TestMergeShadowOrder(t *testing.T) {
 
 	f, _ := base.Filter("who")
 	got, _ := f.Fn(nil)
-	if got.S != "over" {
-		t.Errorf("shadow: who = %q, want over", got.S)
+	if got.AsStr() != "over" {
+		t.Errorf("shadow: who = %q, want over", got.AsStr())
 	}
-	if v, _ := base.Constant("K"); v.S != "over" {
-		t.Errorf("shadow: K = %q, want over", v.S)
+	if v, _ := base.Constant("K"); v.AsStr() != "over" {
+		t.Errorf("shadow: K = %q, want over", v.AsStr())
 	}
 	if _, ok := base.Filter("only_over"); !ok {
 		t.Error("merge dropped only_over")
@@ -134,8 +134,8 @@ func TestMergeEnumsAreCopied(t *testing.T) {
 	stored[0] = runtime.Str("mutated")
 
 	got, _ := dst.Enum("E")
-	if got[0].S != "a" {
-		t.Errorf("merged enum aliased source: %q", got[0].S)
+	if got[0].AsStr() != "a" {
+		t.Errorf("merged enum aliased source: %q", got[0].AsStr())
 	}
 }
 

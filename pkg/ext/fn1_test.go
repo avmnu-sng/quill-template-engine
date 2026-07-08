@@ -130,18 +130,18 @@ func (*fn1Opaque) CallMethod(string, []runtime.Value) (runtime.Value, error) {
 // for arrays the full ordered key/value pair list, recursively. Objects
 // compare by identity, matching how the engine treats host handles.
 func valuesDeepEqual(a, b runtime.Value) bool {
-	if a.Kind != b.Kind {
+	if a.Kind() != b.Kind() {
 		return false
 	}
-	switch a.Kind {
+	switch a.Kind() {
 	case runtime.KArray:
-		if (a.Arr == nil) != (b.Arr == nil) {
+		if (a.AsArray() == nil) != (b.AsArray() == nil) {
 			return false
 		}
-		if a.Arr == nil {
+		if a.AsArray() == nil {
 			return true
 		}
-		ap, bp := a.Arr.Pairs(), b.Arr.Pairs()
+		ap, bp := a.AsArray().Pairs(), b.AsArray().Pairs()
 		if len(ap) != len(bp) {
 			return false
 		}
@@ -152,25 +152,23 @@ func valuesDeepEqual(a, b runtime.Value) bool {
 		}
 		return true
 	case runtime.KObject:
-		return a.Obj == b.Obj
+		return a.AsObject() == b.AsObject()
 	default:
-		return a.I == b.I && a.F == b.F && a.S == b.S && a.B == b.B
+		return a.AsInt() == b.AsInt() && a.AsFloat() == b.AsFloat() && a.AsStr() == b.AsStr() && a.AsBool() == b.AsBool()
 	}
 }
 
 // deepCopyValue snapshots a value so post-call mutation checks compare
 // against the pre-call state rather than shared storage.
 func deepCopyValue(v runtime.Value) runtime.Value {
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return v
 	}
 	cp := runtime.NewArray()
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		cp.SetKey(p.Key, deepCopyValue(p.Val))
 	}
-	out := v
-	out.Arr = cp
-	return out
+	return runtime.Arr(cp)
 }
 
 // TestFn1MatchesFnOnBattery asserts the two dispatch routes of every audited
@@ -230,21 +228,21 @@ func TestFn1DoesNotAliasOrMutateInput(t *testing.T) {
 			if !valuesDeepEqual(v, snapshot) {
 				t.Errorf("%s[%d]: Fn1 mutated its input", name, i)
 			}
-			if err != nil || res.Kind != runtime.KArray || res.Arr == nil {
+			if err != nil || res.Kind() != runtime.KArray || res.AsArray() == nil {
 				continue
 			}
 			if fn1Selecting[name] {
 				resSlow, errSlow := f.Fn([]runtime.Value{v})
-				if errSlow != nil || resSlow.Kind != runtime.KArray || resSlow.Arr != res.Arr {
+				if errSlow != nil || resSlow.Kind() != runtime.KArray || resSlow.AsArray() != res.AsArray() {
 					t.Errorf("%s[%d]: fast and general routes select different storage", name, i)
 				}
 				continue
 			}
-			if v.Kind == runtime.KArray && v.Arr != nil && res.Arr == v.Arr {
+			if v.Kind() == runtime.KArray && v.AsArray() != nil && res.AsArray() == v.AsArray() {
 				t.Errorf("%s[%d]: result aliases the input array", name, i)
 				continue
 			}
-			res.Arr.SetStr("fn1-probe", runtime.Int(999))
+			res.AsArray().SetStr("fn1-probe", runtime.Int(999))
 			if !valuesDeepEqual(v, snapshot) {
 				t.Errorf("%s[%d]: mutating the result changed the input", name, i)
 			}

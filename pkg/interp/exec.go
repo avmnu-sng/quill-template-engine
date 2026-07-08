@@ -132,8 +132,8 @@ func (in *interp) resolveExtendsName(extends *ast.Node, ctx *runtime.Scope) (str
 	if err != nil {
 		return "", err
 	}
-	if v.Kind == runtime.KArray && v.Arr != nil {
-		for _, p := range v.Arr.Pairs() {
+	if v.Kind() == runtime.KArray && v.AsArray() != nil {
+		for _, p := range v.AsArray().Pairs() {
 			name, err := runtime.ToText(p.Val)
 			if err != nil {
 				return "", err
@@ -573,9 +573,9 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 	// slice is a separate allocation), a KObject Iterable, or any escaping or
 	// non-array iterand keeps today's fresh path.
 	var pairs []runtime.Pair
-	if poolLoopSnapshots && filter == nil && in.forSafe[n] && collVal.Kind == runtime.KArray && collVal.Arr != nil {
-		bp, buf := acquirePairBuf(collVal.Arr.Len())
-		pairs = collVal.Arr.PairsInto(buf)
+	if poolLoopSnapshots && filter == nil && in.forSafe[n] && collVal.Kind() == runtime.KArray && collVal.AsArray() != nil {
+		bp, buf := acquirePairBuf(collVal.AsArray().Len())
+		pairs = collVal.AsArray().PairsInto(buf)
 		// The pooled path never reruns the filter block, so pairs is final here;
 		// deferring the direct call (not a closure) captures it now and avoids a
 		// per-loop closure heap allocation.
@@ -857,11 +857,11 @@ func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Scope
 // fixed count an upper, not exact, bound -- the difference between required and
 // fixed is null-padded.
 func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Scope) error {
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return posErr(pat, errors.New(errors.KindRuntime,
 			"destructuring expects a sequence"))
 	}
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 
 	// Separate the fixed slots from an optional trailing "...rest" tail. The parser
 	// guarantees a KindSpread slot is last, so at most one exists and it is final.
@@ -1146,11 +1146,11 @@ func (in *interp) evalCacheTags(tagsExpr *ast.Node, ctx *runtime.Scope) ([]strin
 	if err != nil {
 		return nil, err
 	}
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return nil, nil
 	}
 	var tags []string
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		t, err := runtime.ToText(p.Val)
 		if err != nil {
 			return nil, err
@@ -1191,8 +1191,8 @@ func (in *interp) execWith(n *ast.Node, ctx *runtime.Scope) error {
 	} else {
 		scope = ctx.Child()
 	}
-	if mapVal.Kind == runtime.KArray && mapVal.Arr != nil {
-		for _, p := range mapVal.Arr.Pairs() {
+	if mapVal.Kind() == runtime.KArray && mapVal.AsArray() != nil {
+		for _, p := range mapVal.AsArray().Pairs() {
 			name, err := runtime.ToText(p.Key)
 			if err != nil {
 				return err
@@ -1256,7 +1256,7 @@ func (in *interp) execApply(n *ast.Node, ctx *runtime.Scope) error {
 	// which the slice's safeness model (spec 04 Section 8.2) wraps for the same
 	// reason. Without this, e.g. an already-escaped "&lt;" would re-escape its "&"
 	// to "&amp;". The off strategy (escape == "") leaves v untouched, byte-exact.
-	if in.escape != "" && v.Kind != runtime.KSafe {
+	if in.escape != "" && v.Kind() != runtime.KSafe {
 		text, err := runtime.ToText(v)
 		if err != nil {
 			return posErr(n, err)
@@ -1321,24 +1321,24 @@ func (in *interp) execTabBlock(n *ast.Node, ctx *runtime.Scope) error {
 // zero or below yields zero (no indentation added). A non-numeric level is a
 // runtime error, matching the tab filter's numeric contract.
 func tabLevels(v runtime.Value) (int, error) {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KInt:
-		if v.I < 0 {
+		if v.AsInt() < 0 {
 			return 0, nil
 		}
 		// int is 32-bit on some targets; clamp so a level past the platform int
 		// range cannot wrap negative (which would later panic strings.Repeat).
-		if v.I > math.MaxInt {
+		if v.AsInt() > math.MaxInt {
 			return math.MaxInt, nil
 		}
-		return int(v.I), nil
+		return int(v.AsInt()), nil
 	case runtime.KFloat:
-		if v.F < 0 {
+		if v.AsFloat() < 0 {
 			return 0, nil
 		}
-		return int(v.F), nil
+		return int(v.AsFloat()), nil
 	default:
-		return 0, errors.New(errors.KindRuntime, "@tab level must be a number, got %s", v.Kind)
+		return 0, errors.New(errors.KindRuntime, "@tab level must be a number, got %s", v.Kind())
 	}
 }
 

@@ -15,12 +15,12 @@ func TestShapingWrap(t *testing.T) {
 		got  string
 		want string
 	}{
-		{"basic", callFilter(t, "wrap", runtime.Str("the quick brown fox"), runtime.Int(9)).S, "the quick\nbrown fox"},
-		{"exact fit", callFilter(t, "wrap", runtime.Str("aaa bbb"), runtime.Int(7)).S, "aaa bbb"},
-		{"long word whole", callFilter(t, "wrap", runtime.Str("supercalifragilistic hi"), runtime.Int(5)).S, "supercalifragilistic\nhi"},
-		{"custom break", callFilter(t, "wrap", runtime.Str("a b c d"), runtime.Int(3), runtime.Str("|")).S, "a b|c d"},
-		{"keeps paragraphs", callFilter(t, "wrap", runtime.Str("aa bb\ncc dd"), runtime.Int(5)).S, "aa bb\ncc dd"},
-		{"blank line kept", callFilter(t, "wrap", runtime.Str("a\n\nb"), runtime.Int(4)).S, "a\n\nb"},
+		{"basic", callFilter(t, "wrap", runtime.Str("the quick brown fox"), runtime.Int(9)).AsStr(), "the quick\nbrown fox"},
+		{"exact fit", callFilter(t, "wrap", runtime.Str("aaa bbb"), runtime.Int(7)).AsStr(), "aaa bbb"},
+		{"long word whole", callFilter(t, "wrap", runtime.Str("supercalifragilistic hi"), runtime.Int(5)).AsStr(), "supercalifragilistic\nhi"},
+		{"custom break", callFilter(t, "wrap", runtime.Str("a b c d"), runtime.Int(3), runtime.Str("|")).AsStr(), "a b|c d"},
+		{"keeps paragraphs", callFilter(t, "wrap", runtime.Str("aa bb\ncc dd"), runtime.Int(5)).AsStr(), "aa bb\ncc dd"},
+		{"blank line kept", callFilter(t, "wrap", runtime.Str("a\n\nb"), runtime.Int(4)).AsStr(), "a\n\nb"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -33,7 +33,7 @@ func TestShapingWrap(t *testing.T) {
 	// Width is counted in runes, not bytes: a three-rune multi-byte word fits a
 	// width-3 line, and the next word wraps. U+00E9 is a two-byte rune.
 	acc := "\u00e9\u00e9\u00e9"
-	got := callFilter(t, "wrap", runtime.Str(acc+" "+acc), runtime.Int(3)).S
+	got := callFilter(t, "wrap", runtime.Str(acc+" "+acc), runtime.Int(3)).AsStr()
 	if want := acc + "\n" + acc; got != want {
 		t.Errorf("rune-width wrap = %q, want %q", got, want)
 	}
@@ -58,12 +58,12 @@ func TestShapingTruncate(t *testing.T) {
 		got  string
 		want string
 	}{
-		{"cap with default omission", callFilter(t, "truncate", runtime.Str("hello world foo"), runtime.Int(11)).S, "hello wo..."},
-		{"within length", callFilter(t, "truncate", runtime.Str("short"), runtime.Int(10)).S, "short"},
-		{"exact length", callFilter(t, "truncate", runtime.Str("abcde"), runtime.Int(5)).S, "abcde"},
-		{"custom omission", callFilter(t, "truncate", runtime.Str("abcdefgh"), runtime.Int(5), runtime.Str(">")).S, "abcd>"},
-		{"preserve word", callFilter(t, "truncate", runtime.Str("hello world foo"), runtime.Int(11), runtime.Str("..."), runtime.Bool(true)).S, "hello..."},
-		{"marker larger than budget", callFilter(t, "truncate", runtime.Str("abcdef"), runtime.Int(2)).S, ".."},
+		{"cap with default omission", callFilter(t, "truncate", runtime.Str("hello world foo"), runtime.Int(11)).AsStr(), "hello wo..."},
+		{"within length", callFilter(t, "truncate", runtime.Str("short"), runtime.Int(10)).AsStr(), "short"},
+		{"exact length", callFilter(t, "truncate", runtime.Str("abcde"), runtime.Int(5)).AsStr(), "abcde"},
+		{"custom omission", callFilter(t, "truncate", runtime.Str("abcdefgh"), runtime.Int(5), runtime.Str(">")).AsStr(), "abcd>"},
+		{"preserve word", callFilter(t, "truncate", runtime.Str("hello world foo"), runtime.Int(11), runtime.Str("..."), runtime.Bool(true)).AsStr(), "hello..."},
+		{"marker larger than budget", callFilter(t, "truncate", runtime.Str("abcdef"), runtime.Int(2)).AsStr(), ".."},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestShapingTruncate(t *testing.T) {
 func truncLen(t *testing.T, s string, n int) int {
 	t.Helper()
 	out := callFilter(t, "truncate", runtime.Str(s), runtime.Int(int64(n)))
-	return len([]rune(out.S))
+	return len([]rune(out.AsStr()))
 }
 
 // TestShapingTruncateLength asserts the rune length never exceeds the cap.
@@ -100,11 +100,11 @@ func TestShapingCenter(t *testing.T) {
 		got  string
 		want string
 	}{
-		{"even padding", callFilter(t, "center", runtime.Str("hi"), runtime.Int(6)).S, "  hi  "},
-		{"odd extra on right", callFilter(t, "center", runtime.Str("hi"), runtime.Int(5)).S, " hi  "},
-		{"within width", callFilter(t, "center", runtime.Str("hello"), runtime.Int(3)).S, "hello"},
-		{"custom fill", callFilter(t, "center", runtime.Str("x"), runtime.Int(5), runtime.Str("*")).S, "**x**"},
-		{"multi-rune fill clipped", callFilter(t, "center", runtime.Str("x"), runtime.Int(5), runtime.Str("ab")).S, "abxab"},
+		{"even padding", callFilter(t, "center", runtime.Str("hi"), runtime.Int(6)).AsStr(), "  hi  "},
+		{"odd extra on right", callFilter(t, "center", runtime.Str("hi"), runtime.Int(5)).AsStr(), " hi  "},
+		{"within width", callFilter(t, "center", runtime.Str("hello"), runtime.Int(3)).AsStr(), "hello"},
+		{"custom fill", callFilter(t, "center", runtime.Str("x"), runtime.Int(5), runtime.Str("*")).AsStr(), "**x**"},
+		{"multi-rune fill clipped", callFilter(t, "center", runtime.Str("x"), runtime.Int(5), runtime.Str("ab")).AsStr(), "abxab"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestShapingWordcount(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			got := callFilter(t, "wordcount", runtime.Str(c.in))
-			if got.Kind != runtime.KInt || got.I != c.want {
+			if got.Kind() != runtime.KInt || got.AsInt() != c.want {
 				t.Errorf("wordcount(%q) = %v, want %d", c.in, got, c.want)
 			}
 		})

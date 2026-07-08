@@ -37,9 +37,9 @@ func TestScalarKindTests(t *testing.T) {
 		{"callable", runtime.Null(), false},
 	}
 	for _, c := range cases {
-		t.Run(c.test+"/"+c.val.Kind.String(), func(t *testing.T) {
+		t.Run(c.test+"/"+c.val.Kind().String(), func(t *testing.T) {
 			if got := callTest(t, c.test, c.val); got != c.want {
-				t.Errorf("is %s over %s = %v, want %v", c.test, c.val.Kind, got, c.want)
+				t.Errorf("is %s over %s = %v, want %v", c.test, c.val.Kind(), got, c.want)
 			}
 		})
 	}

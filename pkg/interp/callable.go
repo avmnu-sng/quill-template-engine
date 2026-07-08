@@ -81,10 +81,10 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Scope) (runtime.Value, erro
 		if err != nil {
 			return runtime.Null(), err
 		}
-		if mr, ok := recv.Obj.(*selfRef); ok && recv.Kind == runtime.KObject {
+		if mr, ok := recv.AsObject().(*selfRef); ok && recv.Kind() == runtime.KObject {
 			return in.callMacroIn(n, mr.tmpl, callee.Str, ctx)
 		}
-		if ns, ok := recv.Obj.(*importNS); ok && recv.Kind == runtime.KObject {
+		if ns, ok := recv.AsObject().(*importNS); ok && recv.Kind() == runtime.KObject {
 			return in.callMacroIn(n, ns.tmpl, callee.Str, ctx)
 		}
 		// Host method call a.b(args).
@@ -92,20 +92,20 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Scope) (runtime.Value, erro
 		if err != nil {
 			return runtime.Null(), err
 		}
-		if recv.Kind == runtime.KObject {
+		if recv.Kind() == runtime.KObject {
 			// Sandbox Phase-2: gate the method by the policy via the host type-graph
 			// before invoking it (B10). A trusted shim / Safe receiver bypasses.
 			if err := in.checkMethodAllowed(recv, callee.Str); err != nil {
 				return runtime.Null(), posErr(n, err)
 			}
-			res, err := recv.Obj.CallMethod(callee.Str, args)
+			res, err := recv.AsObject().CallMethod(callee.Str, args)
 			if err != nil {
 				return runtime.Null(), posErr(n, err)
 			}
 			return res, nil
 		}
 		return runtime.Null(), posErr(n, errors.New(errors.KindAttribute,
-			"cannot call method %q on %s", callee.Str, recv.Kind))
+			"cannot call method %q on %s", callee.Str, recv.Kind()))
 	}
 
 	return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
@@ -283,11 +283,11 @@ func (in *interp) evalTest(n *ast.Node, ctx *runtime.Scope) (runtime.Value, erro
 // callable and is reported absent.
 func (in *interp) registryTest(name string, subject runtime.Value) (present, ok bool) {
 	var callable string
-	switch subject.Kind {
+	switch subject.Kind() {
 	case runtime.KStr:
-		callable = subject.S
+		callable = subject.AsStr()
 	case runtime.KSafe:
-		callable = subject.S
+		callable = subject.AsStr()
 	default:
 		callable = ""
 	}
@@ -359,8 +359,8 @@ func (in *interp) collectArgs(n *ast.Node, ctx *runtime.Scope, prefix []runtime.
 			if err != nil {
 				return nil, err
 			}
-			if v.Kind == runtime.KArray && v.Arr != nil {
-				for _, p := range v.Arr.Pairs() {
+			if v.Kind() == runtime.KArray && v.AsArray() != nil {
+				for _, p := range v.AsArray().Pairs() {
 					args = append(args, p.Val)
 				}
 			}
@@ -419,10 +419,10 @@ func (in *interp) collectArgsNamed(n *ast.Node, ctx *runtime.Scope) (positional 
 			if err != nil {
 				return nil, nil, err
 			}
-			if v.Kind == runtime.KArray && v.Arr != nil {
-				for _, p := range v.Arr.Pairs() {
-					if p.Key.Kind == runtime.KStr {
-						named = append(named, namedArg{name: p.Key.S, val: p.Val})
+			if v.Kind() == runtime.KArray && v.AsArray() != nil {
+				for _, p := range v.AsArray().Pairs() {
+					if p.Key.Kind() == runtime.KStr {
+						named = append(named, namedArg{name: p.Key.AsStr(), val: p.Val})
 					} else {
 						positional = append(positional, p.Val)
 					}
@@ -570,10 +570,10 @@ func (e *engineRef) RandomSeed() (int64, bool) { return e.eng.RandomSeed() }
 // registered outside this package -- e.g. the facade's include() -- reach the
 // engine without exporting the shim type.
 func EngineFromValue(v runtime.Value) (Engine, bool) {
-	if v.Kind != runtime.KObject {
+	if v.Kind() != runtime.KObject {
 		return nil, false
 	}
-	if ref, ok := v.Obj.(*engineRef); ok {
+	if ref, ok := v.AsObject().(*engineRef); ok {
 		return ref.eng, true
 	}
 	return nil, false
@@ -584,10 +584,10 @@ func EngineFromValue(v runtime.Value) (Engine, bool) {
 // uses it to honor B16: a nested include inside an active sandbox stays
 // sandboxed even when the call did not pass sandboxed: true.
 func SandboxActiveFromValue(v runtime.Value) bool {
-	if v.Kind != runtime.KObject {
+	if v.Kind() != runtime.KObject {
 		return false
 	}
-	if ref, ok := v.Obj.(*engineRef); ok && ref.in != nil {
+	if ref, ok := v.AsObject().(*engineRef); ok && ref.in != nil {
 		return ref.in.sandboxOn
 	}
 	return false

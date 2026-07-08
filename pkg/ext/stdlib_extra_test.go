@@ -25,9 +25,9 @@ func flagged(name string, flag runtime.Value) runtime.Value {
 func gridRows(t *testing.T, v runtime.Value) string {
 	t.Helper()
 	var rows []string
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		var cells []string
-		for _, c := range p.Val.Arr.Pairs() {
+		for _, c := range p.Val.AsArray().Pairs() {
 			s, err := runtime.ToText(c.Val)
 			if err != nil {
 				t.Fatalf("ToText: %v", err)
@@ -79,18 +79,18 @@ func TestColumnsTransposeOfBatch(t *testing.T) {
 	columned := callFilter(t, "columns", seq, n)
 
 	// batch(3) grid rows.
-	rows := batched.Arr.Pairs()
-	cols := columned.Arr.Pairs()
+	rows := batched.AsArray().Pairs()
+	cols := columned.AsArray().Pairs()
 	for c, colPair := range cols {
 		var want []string
 		for _, rowPair := range rows {
-			if cell, ok := rowPair.Val.Arr.GetInt(int64(c)); ok {
+			if cell, ok := rowPair.Val.AsArray().GetInt(int64(c)); ok {
 				s, _ := runtime.ToText(cell)
 				want = append(want, s)
 			}
 		}
 		var got []string
-		for _, cell := range colPair.Val.Arr.Pairs() {
+		for _, cell := range colPair.Val.AsArray().Pairs() {
 			s, _ := runtime.ToText(cell.Val)
 			got = append(got, s)
 		}
@@ -178,7 +178,7 @@ func TestSortMap(t *testing.T) {
 			args := append([]runtime.Value{m}, tc.by...)
 			got := callFilter(t, "sort_map", args...)
 			var parts []string
-			for _, p := range got.Arr.Pairs() {
+			for _, p := range got.AsArray().Pairs() {
 				k, _ := runtime.ToText(p.Key)
 				val, _ := runtime.ToText(p.Val)
 				parts = append(parts, k+"="+val)
@@ -207,7 +207,7 @@ func TestSortMap(t *testing.T) {
 			args := append([]runtime.Value{tied}, tc.by...)
 			got := callFilter(t, "sort_map", args...)
 			var parts []string
-			for _, p := range got.Arr.Pairs() {
+			for _, p := range got.AsArray().Pairs() {
 				k, _ := runtime.ToText(p.Key)
 				val, _ := runtime.ToText(p.Val)
 				parts = append(parts, k+"="+val)

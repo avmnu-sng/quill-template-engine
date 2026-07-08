@@ -714,10 +714,10 @@ func (c *compiler) emitSteps(name string, steps []resolveStep, val, found string
 			c.linef("%s = true", found)
 			c.closeb()
 		case s.withVar != "":
-			c.openf("if !%s && %s.Kind == runtime.KArray && %s.Arr != nil {", found, s.withVar, s.withVar)
+			c.openf("if !%s && %s.Kind() == runtime.KArray && %s.AsArray() != nil {", found, s.withVar, s.withVar)
 			inner := c.tmp("qt")
 			ok := c.tmp("qk")
-			c.openf("if %s, %s := %s.Arr.GetStr(%s); %s {", inner, ok, s.withVar, q(name), ok)
+			c.openf("if %s, %s := %s.AsArray().GetStr(%s); %s {", inner, ok, s.withVar, q(name), ok)
 			c.linef("%s = runtime.ShareValue(%s)", val, inner)
 			c.linef("%s = true", found)
 			c.closeb()
@@ -836,8 +836,8 @@ func (c *compiler) emitContext() string {
 		}
 		if f.kind == frameWith || f.kind == frameWithOnly {
 			p := c.tmp("qp")
-			c.openf("if %s.Kind == runtime.KArray && %s.Arr != nil {", f.withVar, f.withVar)
-			c.openf("for _, %s := range %s.Arr.Pairs() {", p, f.withVar)
+			c.openf("if %s.Kind() == runtime.KArray && %s.AsArray() != nil {", f.withVar, f.withVar)
+			c.openf("for _, %s := range %s.AsArray().Pairs() {", p, f.withVar)
 			s := c.tmp("qs")
 			c.linef("%s, _ := runtime.ToText(%s.Key)", s, p)
 			c.linef("%s.SetStr(%s, runtime.ShareValue(%s.Val))", arr, s, p)

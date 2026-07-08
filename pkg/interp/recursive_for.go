@@ -132,13 +132,13 @@ func (in *interp) callRecursiveLoop(n *ast.Node, ctx *runtime.Scope) (runtime.Va
 			"loop() expects exactly one children argument, got %d", len(args)))
 	}
 	child := args[0]
-	if child.Kind != runtime.KArray || child.Arr == nil {
+	if child.Kind() != runtime.KArray || child.AsArray() == nil {
 		if in.escape != "" {
 			return runtime.Safe(""), nil
 		}
 		return runtime.Str(""), nil
 	}
-	pairs := child.Arr.Pairs()
+	pairs := child.AsArray().Pairs()
 
 	// The next level's depth0 is the enclosing element's depth0 plus one; read it
 	// from the loop mapping in scope so a re-entry deepens correctly.
@@ -146,8 +146,8 @@ func (in *interp) callRecursiveLoop(n *ast.Node, ctx *runtime.Scope) (runtime.Va
 	if lv, ok := ctx.Get("loop"); ok {
 		// Read the enclosing level's depth0 through the generic attribute path so
 		// the loop value's representation stays private to loopvalue.go.
-		if d, err := runtime.GetAttribute(lv, runtime.Str("depth0"), runtime.AccessDot, true); err == nil && d.Kind == runtime.KInt {
-			depth0 = int(d.I) + 1
+		if d, err := runtime.GetAttribute(lv, runtime.Str("depth0"), runtime.AccessDot, true); err == nil && d.Kind() == runtime.KInt {
+			depth0 = int(d.AsInt()) + 1
 		}
 	}
 

@@ -62,10 +62,10 @@ type equalObj struct {
 }
 
 func (o *equalObj) Equal(other Value) bool {
-	if other.Kind != KObject {
+	if other.Kind() != KObject {
 		return false
 	}
-	e, ok := other.Obj.(*equalObj)
+	e, ok := other.AsObject().(*equalObj)
 	return ok && e.id == o.id
 }
 
@@ -78,9 +78,9 @@ type fieldMatchObj struct {
 }
 
 func (o *fieldMatchObj) Equal(other Value) bool {
-	if other.Kind != KObject {
+	if other.Kind() != KObject {
 		return false
 	}
-	c, ok := other.Obj.(ClassNamed)
+	c, ok := other.AsObject().(ClassNamed)
 	return ok && c.ClassName() == o.wantClass
 }

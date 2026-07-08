@@ -24,19 +24,19 @@ func TestStdlibStringFilters(t *testing.T) {
 		got  string
 		want string
 	}{
-		{"capitalize", callFilter(t, "capitalize", runtime.Str("hELLO wORLD")).S, "Hello world"},
-		{"capitalize empty", callFilter(t, "capitalize", runtime.Str("")).S, ""},
-		{"title", callFilter(t, "title", runtime.Str("hello world-foo")).S, "Hello World-Foo"},
-		{"ucfirst", callFilter(t, "ucfirst", runtime.Str("hELLO")).S, "HELLO"},
-		{"ucfirst keeps rest", callFilter(t, "ucfirst", runtime.Str("camelCase")).S, "CamelCase"},
-		{"nl2br", callFilter(t, "nl2br", runtime.Str("a\nb")).S, "a<br />\nb"},
-		{"nl2br escapes", callFilter(t, "nl2br", runtime.Str("<x>\ny")).S, "&lt;x&gt;<br />\ny"},
-		{"spaceless", callFilter(t, "spaceless", runtime.Str("<a>  <b>")).S, "<a><b>"},
-		{"striptags all", callFilter(t, "striptags", runtime.Str("<b>hi</b>")).S, "hi"},
-		{"striptags allowed", callFilter(t, "striptags", runtime.Str("<b>hi</b><i>x</i>"), runtime.Str("<b>")).S, "<b>hi</b>x"},
-		{"format verbs", callFilter(t, "format", runtime.Str("%s=%d"), runtime.Str("n"), runtime.Int(3)).S, "n=3"},
-		{"format quote", callFilter(t, "format", runtime.Str("%q"), runtime.Str("x")).S, `"x"`},
-		{"convert_encoding utf8", callFilter(t, "convert_encoding", runtime.Str("ok"), runtime.Str("UTF-8")).S, "ok"},
+		{"capitalize", callFilter(t, "capitalize", runtime.Str("hELLO wORLD")).AsStr(), "Hello world"},
+		{"capitalize empty", callFilter(t, "capitalize", runtime.Str("")).AsStr(), ""},
+		{"title", callFilter(t, "title", runtime.Str("hello world-foo")).AsStr(), "Hello World-Foo"},
+		{"ucfirst", callFilter(t, "ucfirst", runtime.Str("hELLO")).AsStr(), "HELLO"},
+		{"ucfirst keeps rest", callFilter(t, "ucfirst", runtime.Str("camelCase")).AsStr(), "CamelCase"},
+		{"nl2br", callFilter(t, "nl2br", runtime.Str("a\nb")).AsStr(), "a<br />\nb"},
+		{"nl2br escapes", callFilter(t, "nl2br", runtime.Str("<x>\ny")).AsStr(), "&lt;x&gt;<br />\ny"},
+		{"spaceless", callFilter(t, "spaceless", runtime.Str("<a>  <b>")).AsStr(), "<a><b>"},
+		{"striptags all", callFilter(t, "striptags", runtime.Str("<b>hi</b>")).AsStr(), "hi"},
+		{"striptags allowed", callFilter(t, "striptags", runtime.Str("<b>hi</b><i>x</i>"), runtime.Str("<b>")).AsStr(), "<b>hi</b>x"},
+		{"format verbs", callFilter(t, "format", runtime.Str("%s=%d"), runtime.Str("n"), runtime.Int(3)).AsStr(), "n=3"},
+		{"format quote", callFilter(t, "format", runtime.Str("%q"), runtime.Str("x")).AsStr(), `"x"`},
+		{"convert_encoding utf8", callFilter(t, "convert_encoding", runtime.Str("ok"), runtime.Str("UTF-8")).AsStr(), "ok"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -52,8 +52,8 @@ func TestStdlibStringFilters(t *testing.T) {
 func TestStdlibSplit(t *testing.T) {
 	joined := func(v runtime.Value) string {
 		var parts []string
-		for _, p := range v.Arr.Pairs() {
-			parts = append(parts, p.Val.S)
+		for _, p := range v.AsArray().Pairs() {
+			parts = append(parts, p.Val.AsStr())
 		}
 		return strings.Join(parts, "|")
 	}
@@ -78,59 +78,59 @@ func TestStdlibCollectionFilters(t *testing.T) {
 	// batch into chunks of 2 with fill.
 	src := list(runtime.Int(1), runtime.Int(2), runtime.Int(3))
 	batched := callFilter(t, "batch", src, runtime.Int(2), runtime.Int(0))
-	if batched.Arr.Len() != 2 {
-		t.Fatalf("batch chunks = %d, want 2", batched.Arr.Len())
+	if batched.AsArray().Len() != 2 {
+		t.Fatalf("batch chunks = %d, want 2", batched.AsArray().Len())
 	}
-	last := batched.Arr.Pairs()[1].Val
-	if last.Arr.Len() != 2 || last.Arr.Pairs()[1].Val.I != 0 {
-		t.Errorf("batch fill = %+v", last.Arr.Pairs())
+	last := batched.AsArray().Pairs()[1].Val
+	if last.AsArray().Len() != 2 || last.AsArray().Pairs()[1].Val.AsInt() != 0 {
+		t.Errorf("batch fill = %+v", last.AsArray().Pairs())
 	}
 
 	// column extracts a key from each row.
 	row := func(id int64) runtime.Value { return mapOf([2]runtime.Value{runtime.Str("id"), runtime.Int(id)}) }
 	rows := list(row(1), row(2))
 	col := callFilter(t, "column", rows, runtime.Str("id"))
-	if col.Arr.Len() != 2 || col.Arr.Pairs()[0].Val.I != 1 || col.Arr.Pairs()[1].Val.I != 2 {
-		t.Errorf("column = %+v", col.Arr.Pairs())
+	if col.AsArray().Len() != 2 || col.AsArray().Pairs()[0].Val.AsInt() != 1 || col.AsArray().Pairs()[1].Val.AsInt() != 2 {
+		t.Errorf("column = %+v", col.AsArray().Pairs())
 	}
 
 	// shuffle with a fixed seed is deterministic.
 	a := callFilter(t, "shuffle", list(runtime.Int(1), runtime.Int(2), runtime.Int(3), runtime.Int(4)), runtime.Int(42))
 	b := callFilter(t, "shuffle", list(runtime.Int(1), runtime.Int(2), runtime.Int(3), runtime.Int(4)), runtime.Int(42))
 	if !runtime.Equal(a, b) {
-		t.Errorf("seeded shuffle not deterministic: %+v vs %+v", a.Arr.Pairs(), b.Arr.Pairs())
+		t.Errorf("seeded shuffle not deterministic: %+v vs %+v", a.AsArray().Pairs(), b.AsArray().Pairs())
 	}
 }
 
 // TestStdlibMathFilters covers abs, round (modes and negative precision), and
 // format_number (spec 03 Sections 2.1, 2.3).
 func TestStdlibMathFilters(t *testing.T) {
-	if got := callFilter(t, "abs", runtime.Int(-5)); got.Kind != runtime.KInt || got.I != 5 {
+	if got := callFilter(t, "abs", runtime.Int(-5)); got.Kind() != runtime.KInt || got.AsInt() != 5 {
 		t.Errorf("abs int = %+v", got)
 	}
-	if got := callFilter(t, "abs", runtime.Float(-2.5)); got.Kind != runtime.KFloat || got.F != 2.5 {
+	if got := callFilter(t, "abs", runtime.Float(-2.5)); got.Kind() != runtime.KFloat || got.AsFloat() != 2.5 {
 		t.Errorf("abs float = %+v", got)
 	}
-	if got := callFilter(t, "round", runtime.Float(2.5)); got.F != 3 {
-		t.Errorf("round common = %v", got.F)
+	if got := callFilter(t, "round", runtime.Float(2.5)); got.AsFloat() != 3 {
+		t.Errorf("round common = %v", got.AsFloat())
 	}
-	if got := callFilter(t, "round", runtime.Float(2.1), runtime.Int(0), runtime.Str("ceil")); got.F != 3 {
-		t.Errorf("round ceil = %v", got.F)
+	if got := callFilter(t, "round", runtime.Float(2.1), runtime.Int(0), runtime.Str("ceil")); got.AsFloat() != 3 {
+		t.Errorf("round ceil = %v", got.AsFloat())
 	}
-	if got := callFilter(t, "round", runtime.Float(2.9), runtime.Int(0), runtime.Str("floor")); got.F != 2 {
-		t.Errorf("round floor = %v", got.F)
+	if got := callFilter(t, "round", runtime.Float(2.9), runtime.Int(0), runtime.Str("floor")); got.AsFloat() != 2 {
+		t.Errorf("round floor = %v", got.AsFloat())
 	}
-	if got := callFilter(t, "round", runtime.Float(123.0), runtime.Int(-2)); got.F != 100 {
-		t.Errorf("round neg precision = %v", got.F)
+	if got := callFilter(t, "round", runtime.Float(123.0), runtime.Int(-2)); got.AsFloat() != 100 {
+		t.Errorf("round neg precision = %v", got.AsFloat())
 	}
-	if got := callFilter(t, "format_number", runtime.Int(1234567)); got.S != "1,234,567" {
-		t.Errorf("format_number = %q", got.S)
+	if got := callFilter(t, "format_number", runtime.Int(1234567)); got.AsStr() != "1,234,567" {
+		t.Errorf("format_number = %q", got.AsStr())
 	}
-	if got := callFilter(t, "number_format", runtime.Float(1234.5), runtime.Int(2), runtime.Str("."), runtime.Str(" ")); got.S != "1 234.50" {
-		t.Errorf("number_format = %q", got.S)
+	if got := callFilter(t, "number_format", runtime.Float(1234.5), runtime.Int(2), runtime.Str("."), runtime.Str(" ")); got.AsStr() != "1 234.50" {
+		t.Errorf("number_format = %q", got.AsStr())
 	}
-	if got := callFilter(t, "format_number", runtime.Float(-12.5), runtime.Int(1)); got.S != "-12.5" {
-		t.Errorf("format_number neg = %q", got.S)
+	if got := callFilter(t, "format_number", runtime.Float(-12.5), runtime.Int(1)); got.AsStr() != "-12.5" {
+		t.Errorf("format_number neg = %q", got.AsStr())
 	}
 }
 
@@ -141,16 +141,16 @@ func TestStdlibJSON(t *testing.T) {
 		[2]runtime.Value{runtime.Str("b"), runtime.Int(1)},
 		[2]runtime.Value{runtime.Str("a"), runtime.Str("</x>")},
 	)
-	got := callFilter(t, "json", m).S
+	got := callFilter(t, "json", m).AsStr()
 	want := `{"b":1,"a":"</x>"}`
 	if got != want {
 		t.Errorf("json = %q, want %q", got, want)
 	}
 	arr := list(runtime.Int(1), runtime.Int(2))
-	if got := callFilter(t, "json", arr).S; got != "[1,2]" {
+	if got := callFilter(t, "json", arr).AsStr(); got != "[1,2]" {
 		t.Errorf("json list = %q", got)
 	}
-	pretty := callFilter(t, "json", arr, runtime.Bool(true)).S
+	pretty := callFilter(t, "json", arr, runtime.Bool(true)).AsStr()
 	if !strings.Contains(pretty, "\n") {
 		t.Errorf("pretty json missing newlines: %q", pretty)
 	}
@@ -186,14 +186,14 @@ func TestStdlibEscapeStrategies(t *testing.T) {
 // TestStdlibURLEncode covers the url_encode filter on a string and on a mapping
 // (spec 03 Section 2.4).
 func TestStdlibURLEncode(t *testing.T) {
-	if got := callFilter(t, "url_encode", runtime.Str("a b")).S; got != "a%20b" {
+	if got := callFilter(t, "url_encode", runtime.Str("a b")).AsStr(); got != "a%20b" {
 		t.Errorf("url_encode string = %q", got)
 	}
 	q := mapOf(
 		[2]runtime.Value{runtime.Str("k1"), runtime.Str("v 1")},
 		[2]runtime.Value{runtime.Str("k2"), runtime.Int(2)},
 	)
-	if got := callFilter(t, "url_encode", q).S; got != "k1=v%201&k2=2" {
+	if got := callFilter(t, "url_encode", q).AsStr(); got != "k1=v%201&k2=2" {
 		t.Errorf("url_encode map = %q", got)
 	}
 }
@@ -202,29 +202,29 @@ func TestStdlibURLEncode(t *testing.T) {
 // tab level is DefaultTabWidth (4) spaces; the engine's WithTabWidth override is
 // exercised through the facade.
 func TestStdlibSourceFilters(t *testing.T) {
-	if got := callFilter(t, "tab", runtime.Int(2)).S; got != "        " {
+	if got := callFilter(t, "tab", runtime.Int(2)).AsStr(); got != "        " {
 		t.Errorf("tab standalone = %q", got)
 	}
-	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(1)).S; got != "    a\n    b" {
+	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(1)).AsStr(); got != "    a\n    b" {
 		t.Errorf("tab lines = %q", got)
 	}
 	// A blank line is not indented.
-	if got := callFilter(t, "tab", runtime.Str("a\n\nb"), runtime.Int(1)).S; got != "    a\n\n    b" {
+	if got := callFilter(t, "tab", runtime.Str("a\n\nb"), runtime.Int(1)).AsStr(); got != "    a\n\n    b" {
 		t.Errorf("tab blank line = %q", got)
 	}
 	// A negative level (e.g. a computed depth-1 yielding -1) clamps to zero
 	// levels, leaving the string unindented rather than panicking.
-	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(-1)).S; got != "a\nb" {
+	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(-1)).AsStr(); got != "a\nb" {
 		t.Errorf("tab negative level = %q", got)
 	}
 	// Level 0 is a no-op.
-	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(0)).S; got != "a\nb" {
+	if got := callFilter(t, "tab", runtime.Str("a\nb"), runtime.Int(0)).AsStr(); got != "a\nb" {
 		t.Errorf("tab zero level = %q", got)
 	}
-	if got := callFilter(t, "indent", runtime.Str("x\ny"), runtime.Int(2)).S; got != "        x\n        y" {
+	if got := callFilter(t, "indent", runtime.Str("x\ny"), runtime.Int(2)).AsStr(); got != "        x\n        y" {
 		t.Errorf("indent = %q", got)
 	}
-	if got := callFilter(t, "indent", runtime.Str("x"), runtime.Int(1), runtime.Str("--")).S; got != "--x" {
+	if got := callFilter(t, "indent", runtime.Str("x"), runtime.Int(1), runtime.Str("--")).AsStr(); got != "--x" {
 		t.Errorf("indent unit = %q", got)
 	}
 }
@@ -233,34 +233,34 @@ func TestStdlibSourceFilters(t *testing.T) {
 // Section 3.2). constant/enum are covered in TestStdlibRegistry.
 func TestStdlibFunctions(t *testing.T) {
 	vals := list(runtime.Str("a"), runtime.Str("b"), runtime.Str("c"))
-	if got := callFn(t, "cycle", vals, runtime.Int(4)).S; got != "b" {
+	if got := callFn(t, "cycle", vals, runtime.Int(4)).AsStr(); got != "b" {
 		t.Errorf("cycle = %q", got)
 	}
-	if got := callFn(t, "cycle", vals, runtime.Int(-1)).S; got != "c" {
+	if got := callFn(t, "cycle", vals, runtime.Int(-1)).AsStr(); got != "c" {
 		t.Errorf("cycle negative = %q", got)
 	}
 	// random(values, max): arg1 is the inclusive upper bound, not a seed (spec 03
 	// Section 3.2). random(n) draws in [0, n]; random(lo, hi) draws in [lo, hi].
 	for i := 0; i < 200; i++ {
 		r := callFn(t, "random", runtime.Int(5))
-		if r.I < 0 || r.I > 5 {
-			t.Fatalf("random(5) out of [0,5]: %d", r.I)
+		if r.AsInt() < 0 || r.AsInt() > 5 {
+			t.Fatalf("random(5) out of [0,5]: %d", r.AsInt())
 		}
 		r2 := callFn(t, "random", runtime.Int(10), runtime.Int(20))
-		if r2.I < 10 || r2.I > 20 {
-			t.Fatalf("random(10,20) out of [10,20]: %d", r2.I)
+		if r2.AsInt() < 10 || r2.AsInt() > 20 {
+			t.Fatalf("random(10,20) out of [10,20]: %d", r2.AsInt())
 		}
 	}
 	// RandomWith against a fixed source is deterministic, the engine's seed hook.
 	src := func() *rand.Rand { return rand.New(rand.NewSource(7)) }
 	a, _ := RandomWith(src(), []runtime.Value{runtime.Null(), runtime.Int(1000)})
 	b, _ := RandomWith(src(), []runtime.Value{runtime.Null(), runtime.Int(1000)})
-	if a.I != b.I {
-		t.Errorf("seeded RandomWith not deterministic: %d vs %d", a.I, b.I)
+	if a.AsInt() != b.AsInt() {
+		t.Errorf("seeded RandomWith not deterministic: %d vs %d", a.AsInt(), b.AsInt())
 	}
 	// attribute reads a map member dynamically.
 	m := mapOf([2]runtime.Value{runtime.Str("name"), runtime.Str("quill")})
-	if got := callFn(t, "attribute", m, runtime.Str("name")).S; got != "quill" {
+	if got := callFn(t, "attribute", m, runtime.Str("name")).AsStr(); got != "quill" {
 		t.Errorf("attribute = %q", got)
 	}
 }
@@ -274,22 +274,22 @@ func TestStdlibRegistry(t *testing.T) {
 
 	cst, _ := s.Function("constant")
 	v, err := cst.Fn([]runtime.Value{runtime.Str("PI")})
-	if err != nil || v.F != 3.14 {
+	if err != nil || v.AsFloat() != 3.14 {
 		t.Errorf("constant PI = %+v, err=%v", v, err)
 	}
 	check, err := cst.Fn([]runtime.Value{runtime.Str("MISSING"), runtime.Null(), runtime.Bool(true)})
-	if err != nil || check.Kind != runtime.KBool || check.B {
+	if err != nil || check.Kind() != runtime.KBool || check.AsBool() {
 		t.Errorf("constant check_defined missing = %+v, err=%v", check, err)
 	}
 
 	en, _ := s.Function("enum")
 	first, err := en.Fn([]runtime.Value{runtime.Str("Color")})
-	if err != nil || first.S != "red" {
+	if err != nil || first.AsStr() != "red" {
 		t.Errorf("enum first = %+v, err=%v", first, err)
 	}
 	cases, _ := s.Function("enum_cases")
 	all, err := cases.Fn([]runtime.Value{runtime.Str("Color")})
-	if err != nil || all.Arr.Len() != 3 {
+	if err != nil || all.AsArray().Len() != 3 {
 		t.Errorf("enum_cases = %+v, err=%v", all, err)
 	}
 
@@ -348,13 +348,13 @@ func TestStdlibDate(t *testing.T) {
 	}
 	dateFilt, _ := s.Filter("date")
 	out, err := dateFilt.Fn([]runtime.Value{d, runtime.Str("2006-01-02")})
-	if err != nil || out.S != "1970-01-01" {
-		t.Errorf("date filter = %q, err=%v", out.S, err)
+	if err != nil || out.AsStr() != "1970-01-01" {
+		t.Errorf("date filter = %q, err=%v", out.AsStr(), err)
 	}
 	// date filter coerces a string directly.
 	out, err = dateFilt.Fn([]runtime.Value{runtime.Str("2021-03-04"), runtime.Str("01/02/2006")})
-	if err != nil || out.S != "03/04/2021" {
-		t.Errorf("date filter string = %q, err=%v", out.S, err)
+	if err != nil || out.AsStr() != "03/04/2021" {
+		t.Errorf("date filter string = %q, err=%v", out.AsStr(), err)
 	}
 	// date_modify adds a day.
 	mod, _ := s.Filter("date_modify")
@@ -363,8 +363,8 @@ func TestStdlibDate(t *testing.T) {
 		t.Fatalf("date_modify: %v", err)
 	}
 	out, _ = dateFilt.Fn([]runtime.Value{dm, runtime.Str("2006-01-02")})
-	if out.S != "2021-03-05" {
-		t.Errorf("date_modify +1 day = %q", out.S)
+	if out.AsStr() != "2021-03-05" {
+		t.Errorf("date_modify +1 day = %q", out.AsStr())
 	}
 }
 

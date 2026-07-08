@@ -491,8 +491,8 @@ func (in *interp) renderInclude(n *ast.Node, ctx *runtime.Scope) (string, error)
 		if err != nil {
 			return "", err
 		}
-		if wv.Kind == runtime.KArray && wv.Arr != nil {
-			for _, p := range wv.Arr.Pairs() {
+		if wv.Kind() == runtime.KArray && wv.AsArray() != nil {
+			for _, p := range wv.AsArray().Pairs() {
 				key, err := runtime.ToText(p.Key)
 				if err != nil {
 					return "", err
@@ -533,8 +533,8 @@ func (in *interp) resolveCandidates(srcExpr *ast.Node, ctx *runtime.Scope) (name
 	if err != nil {
 		return "", false, err
 	}
-	if v.Kind == runtime.KArray && v.Arr != nil {
-		for _, p := range v.Arr.Pairs() {
+	if v.Kind() == runtime.KArray && v.AsArray() != nil {
+		for _, p := range v.AsArray().Pairs() {
 			cand, err := runtime.ToText(p.Val)
 			if err != nil {
 				return "", false, err
@@ -601,8 +601,8 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Scope) error {
 		if err != nil {
 			return err
 		}
-		if wv.Kind == runtime.KArray && wv.Arr != nil {
-			for _, p := range wv.Arr.Pairs() {
+		if wv.Kind() == runtime.KArray && wv.AsArray() != nil {
+			for _, p := range wv.AsArray().Pairs() {
 				key, _ := runtime.ToText(p.Key)
 				childCtx.Set(key, p.Val)
 			}

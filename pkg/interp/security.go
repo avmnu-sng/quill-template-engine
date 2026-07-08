@@ -51,13 +51,13 @@ func (in *interp) checkSecurity(u usedCallables) error {
 // the policy and the type-graph speak the same names; an unnamed object matches
 // only the literal "object".
 func (in *interp) checkMethodAllowed(recv runtime.Value, method string) error {
-	if !in.sandboxOn || recv.Kind != runtime.KObject {
+	if !in.sandboxOn || recv.Kind() != runtime.KObject {
 		return nil
 	}
-	if isTrustedShim(recv.Obj) {
+	if isTrustedShim(recv.AsObject()) {
 		return nil
 	}
-	typeName := className(recv.Obj)
+	typeName := className(recv.AsObject())
 	pol := in.eng.Policy()
 	if !pol.AllowsMethod(typeName, method) {
 		if pol.Strict() && !pol.Knows(typeName) {
@@ -74,13 +74,13 @@ func (in *interp) checkMethodAllowed(recv runtime.Value, method string) error {
 // read site, the method path is the fallback) -- the documented property-then-
 // method precedence. Trusted shims bypass (B14).
 func (in *interp) checkPropertyAllowed(recv runtime.Value, prop string) error {
-	if !in.sandboxOn || recv.Kind != runtime.KObject {
+	if !in.sandboxOn || recv.Kind() != runtime.KObject {
 		return nil
 	}
-	if isTrustedShim(recv.Obj) {
+	if isTrustedShim(recv.AsObject()) {
 		return nil
 	}
-	typeName := className(recv.Obj)
+	typeName := className(recv.AsObject())
 	pol := in.eng.Policy()
 	if !pol.AllowsProperty(typeName, prop) {
 		if pol.Strict() && !pol.Knows(typeName) {
@@ -98,13 +98,13 @@ func (in *interp) checkPropertyAllowed(recv runtime.Value, prop string) error {
 // method allowlist through the type-graph. A Safe
 // value, a non-object, and a trusted shim are not gated (B14).
 func (in *interp) checkStringifyAllowed(v runtime.Value) error {
-	if !in.sandboxOn || v.Kind != runtime.KObject {
+	if !in.sandboxOn || v.Kind() != runtime.KObject {
 		return nil
 	}
-	if isTrustedShim(v.Obj) {
+	if isTrustedShim(v.AsObject()) {
 		return nil
 	}
-	typeName := className(v.Obj)
+	typeName := className(v.AsObject())
 	pol := in.eng.Policy()
 	if !pol.AllowsMethod(typeName, "Stringify") {
 		if pol.Strict() && !pol.Knows(typeName) {
@@ -163,17 +163,17 @@ func (in *interp) checkStringifyArg(filter string, a runtime.Value) error {
 // through ToText. A callable Object is skipped: it is not a coercion target and
 // is governed by the arrow-gating rule, not the stringify gate.
 func (in *interp) checkStringifyDeep(v runtime.Value) error {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KObject:
 		if runtime.IsCallable(v) {
 			return nil
 		}
 		return in.checkStringifyAllowed(v)
 	case runtime.KArray:
-		if v.Arr == nil {
+		if v.AsArray() == nil {
 			return nil
 		}
-		for _, p := range v.Arr.Pairs() {
+		for _, p := range v.AsArray().Pairs() {
 			if err := in.checkStringifyDeep(p.Key); err != nil {
 				return err
 			}
@@ -254,10 +254,10 @@ func (in *interp) checkArrowArg(n *ast.Node, a runtime.Value) error {
 	if !in.sandboxOn {
 		return nil
 	}
-	if a.Kind != runtime.KObject || !runtime.IsCallable(a) {
+	if a.Kind() != runtime.KObject || !runtime.IsCallable(a) {
 		return nil
 	}
-	if _, ok := a.Obj.(*arrowClosure); !ok {
+	if _, ok := a.AsObject().(*arrowClosure); !ok {
 		return posErr(n, errors.SecurityFunction("(non-template callable)"))
 	}
 	return nil

@@ -66,7 +66,7 @@ func qemit(q *qWriter, strategy string, v runtime.Value) error {
 	if err != nil {
 		return err
 	}
-	if strategy != "" && v.Kind != runtime.KSafe {
+	if strategy != "" && v.Kind() != runtime.KSafe {
 		text, err = ext.Escape(strategy, text)
 		if err != nil {
 			return err
@@ -84,7 +84,7 @@ func qemitw(w io.Writer, strategy string, v runtime.Value) error {
 	if err != nil {
 		return err
 	}
-	if strategy != "" && v.Kind != runtime.KSafe {
+	if strategy != "" && v.Kind() != runtime.KSafe {
 		text, err = ext.Escape(strategy, text)
 		if err != nil {
 			return err
@@ -155,8 +155,8 @@ func qaddName(names []string, name string) []string {
 // qwithNames lists a with-map's binding names in insertion order.
 func qwithNames(with runtime.Value) []string {
 	var out []string
-	if with.Kind == runtime.KArray && with.Arr != nil {
-		for _, p := range with.Arr.Pairs() {
+	if with.Kind() == runtime.KArray && with.AsArray() != nil {
+		for _, p := range with.AsArray().Pairs() {
 			s, err := runtime.ToText(p.Key)
 			if err == nil {
 				out = append(out, s)
@@ -168,10 +168,10 @@ func qwithNames(with runtime.Value) []string {
 
 // qwithHas reports whether a with-map binds the given name.
 func qwithHas(with runtime.Value, name string) bool {
-	if with.Kind != runtime.KArray || with.Arr == nil {
+	if with.Kind() != runtime.KArray || with.AsArray() == nil {
 		return false
 	}
-	_, ok := with.Arr.GetStr(name)
+	_, ok := with.AsArray().GetStr(name)
 	return ok
 }
 
@@ -223,7 +223,7 @@ func qinject(env runtime.Value, needsEnv, needsCtx, needsCharset bool, ctx *runt
 
 // qkeyOf coerces a computed key to the access layer's Int-or-Str key model.
 func qkeyOf(v runtime.Value) runtime.Value {
-	if v.Kind == runtime.KInt {
+	if v.Kind() == runtime.KInt {
 		return v
 	}
 	s, err := runtime.ToText(v)
@@ -236,11 +236,11 @@ func qkeyOf(v runtime.Value) runtime.Value {
 // qtoi coerces a number value to int64 (0 for non-numbers), used to translate
 // slice bounds into the slice filter's start/length form.
 func qtoi(v runtime.Value) int64 {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KInt:
-		return v.I
+		return v.AsInt()
 	case runtime.KFloat:
-		return int64(v.F)
+		return int64(v.AsFloat())
 	default:
 		return 0
 	}
@@ -248,19 +248,19 @@ func qtoi(v runtime.Value) int64 {
 
 // qtabLevels coerces a @tab level value to a non-negative level count.
 func qtabLevels(v runtime.Value) (int, error) {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KInt:
-		if v.I < 0 {
+		if v.AsInt() < 0 {
 			return 0, nil
 		}
-		return int(v.I), nil
+		return int(v.AsInt()), nil
 	case runtime.KFloat:
-		if v.F < 0 {
+		if v.AsFloat() < 0 {
 			return 0, nil
 		}
-		return int(v.F), nil
+		return int(v.AsFloat()), nil
 	default:
-		return 0, qerrors.New(qerrors.KindRuntime, "@tab level must be a number, got %s", v.Kind)
+		return 0, qerrors.New(qerrors.KindRuntime, "@tab level must be a number, got %s", v.Kind())
 	}
 }
 
@@ -361,14 +361,14 @@ func qpowInt64(a, e int64) (int64, bool) {
 }
 
 func qisNum(v runtime.Value) bool {
-	return v.Kind == runtime.KInt || v.Kind == runtime.KFloat
+	return v.Kind() == runtime.KInt || v.Kind() == runtime.KFloat
 }
 
 func qasF(v runtime.Value) float64 {
-	if v.Kind == runtime.KInt {
-		return float64(v.I)
+	if v.Kind() == runtime.KInt {
+		return float64(v.AsInt())
 	}
-	return v.F
+	return v.AsFloat()
 }
 
 // qfinite lifts a computed float, rejecting non-finite results at the
@@ -386,33 +386,33 @@ func qfinite(f float64) (runtime.Value, error) {
 func qarith(op string, l, r runtime.Value) (runtime.Value, error) {
 	if !qisNum(l) || !qisNum(r) {
 		return runtime.Null(), qerrors.New(qerrors.KindArithmetic,
-			"operator %q expects numbers, got %s and %s", op, l.Kind, r.Kind)
+			"operator %q expects numbers, got %s and %s", op, l.Kind(), r.Kind())
 	}
-	bothInt := l.Kind == runtime.KInt && r.Kind == runtime.KInt
+	bothInt := l.Kind() == runtime.KInt && r.Kind() == runtime.KInt
 	switch op {
 	case "+":
 		if bothInt {
-			s, ok := qaddInt64(l.I, r.I)
+			s, ok := qaddInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), qoverflow(op, l.I, r.I)
+				return runtime.Null(), qoverflow(op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(s), nil
 		}
 		return qfinite(qasF(l) + qasF(r))
 	case "-":
 		if bothInt {
-			d, ok := qsubInt64(l.I, r.I)
+			d, ok := qsubInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), qoverflow(op, l.I, r.I)
+				return runtime.Null(), qoverflow(op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(d), nil
 		}
 		return qfinite(qasF(l) - qasF(r))
 	case "*":
 		if bothInt {
-			p, ok := qmulInt64(l.I, r.I)
+			p, ok := qmulInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), qoverflow(op, l.I, r.I)
+				return runtime.Null(), qoverflow(op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(p), nil
 		}
@@ -421,10 +421,10 @@ func qarith(op string, l, r runtime.Value) (runtime.Value, error) {
 		if qasF(r) == 0 {
 			return runtime.Null(), qerrors.New(qerrors.KindArithmetic, "division by zero")
 		}
-		if bothInt && l.I%r.I == 0 {
-			q, ok := qdivInt64(l.I, r.I)
+		if bothInt && l.AsInt()%r.AsInt() == 0 {
+			q, ok := qdivInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), qoverflow(op, l.I, r.I)
+				return runtime.Null(), qoverflow(op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(q), nil
 		}
@@ -434,19 +434,19 @@ func qarith(op string, l, r runtime.Value) (runtime.Value, error) {
 			return runtime.Null(), qerrors.New(qerrors.KindArithmetic, "floor division by zero")
 		}
 		if bothInt {
-			q, ok := qfloorDivInt64(l.I, r.I)
+			q, ok := qfloorDivInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), qoverflow(op, l.I, r.I)
+				return runtime.Null(), qoverflow(op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(q), nil
 		}
 		return qfinite(math.Floor(qasF(l) / qasF(r)))
 	case "%":
 		if bothInt {
-			if r.I == 0 {
+			if r.AsInt() == 0 {
 				return runtime.Null(), qerrors.New(qerrors.KindArithmetic, "modulo by zero")
 			}
-			return runtime.Int(l.I % r.I), nil
+			return runtime.Int(l.AsInt() % r.AsInt()), nil
 		}
 		if qasF(r) == 0 {
 			return runtime.Null(), qerrors.New(qerrors.KindArithmetic, "modulo by zero")
@@ -479,17 +479,17 @@ func qcompare(op string, l, r runtime.Value) (runtime.Value, error) {
 
 // qbitwise implements b_or / b_and / b_xor over integers only.
 func qbitwise(op string, l, r runtime.Value) (runtime.Value, error) {
-	if l.Kind != runtime.KInt || r.Kind != runtime.KInt {
+	if l.Kind() != runtime.KInt || r.Kind() != runtime.KInt {
 		return runtime.Null(), qerrors.New(qerrors.KindArithmetic,
 			"bitwise operator %q expects integers", op)
 	}
 	switch op {
 	case "b_or":
-		return runtime.Int(l.I | r.I), nil
+		return runtime.Int(l.AsInt() | r.AsInt()), nil
 	case "b_and":
-		return runtime.Int(l.I & r.I), nil
+		return runtime.Int(l.AsInt() & r.AsInt()), nil
 	case "b_xor":
-		return runtime.Int(l.I ^ r.I), nil
+		return runtime.Int(l.AsInt() ^ r.AsInt()), nil
 	}
 	return runtime.Null(), nil
 }
@@ -499,12 +499,12 @@ func qbitwise(op string, l, r runtime.Value) (runtime.Value, error) {
 func qpow(base, exp runtime.Value) (runtime.Value, error) {
 	if !qisNum(base) || !qisNum(exp) {
 		return runtime.Null(), qerrors.New(qerrors.KindArithmetic,
-			"** expects numbers, got %s and %s", base.Kind, exp.Kind)
+			"** expects numbers, got %s and %s", base.Kind(), exp.Kind())
 	}
-	if base.Kind == runtime.KInt && exp.Kind == runtime.KInt && exp.I >= 0 {
-		p, ok := qpowInt64(base.I, exp.I)
+	if base.Kind() == runtime.KInt && exp.Kind() == runtime.KInt && exp.AsInt() >= 0 {
+		p, ok := qpowInt64(base.AsInt(), exp.AsInt())
 		if !ok {
-			return runtime.Null(), qoverflow("**", base.I, exp.I)
+			return runtime.Null(), qoverflow("**", base.AsInt(), exp.AsInt())
 		}
 		return runtime.Int(p), nil
 	}
@@ -543,42 +543,42 @@ func qaffix(l, r runtime.Value, prefix bool) (runtime.Value, error) {
 
 // qneg implements unary minus over numbers.
 func qneg(v runtime.Value) (runtime.Value, error) {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KInt:
-		return runtime.Int(-v.I), nil
+		return runtime.Int(-v.AsInt()), nil
 	case runtime.KFloat:
-		return runtime.Float(-v.F), nil
+		return runtime.Float(-v.AsFloat()), nil
 	default:
 		return runtime.Null(), qerrors.New(qerrors.KindArithmetic,
-			"unary - expects a number, got %s", v.Kind)
+			"unary - expects a number, got %s", v.Kind())
 	}
 }
 
 // qplus implements unary plus: a number passes through unchanged.
 func qplus(v runtime.Value) (runtime.Value, error) {
-	if v.Kind == runtime.KInt || v.Kind == runtime.KFloat {
+	if v.Kind() == runtime.KInt || v.Kind() == runtime.KFloat {
 		return v, nil
 	}
 	return runtime.Null(), qerrors.New(qerrors.KindArithmetic,
-		"unary + expects a number, got %s", v.Kind)
+		"unary + expects a number, got %s", v.Kind())
 }
 
 // qmatches implements the regex membership operator over the RE2 dialect.
 func qmatches(subject, pattern runtime.Value) (runtime.Value, error) {
-	if subject.Kind != runtime.KStr && subject.Kind != runtime.KSafe {
+	if subject.Kind() != runtime.KStr && subject.Kind() != runtime.KSafe {
 		return runtime.Null(), qerrors.New(qerrors.KindRuntime,
-			"the %q operator expects a string subject, got %s", "matches", subject.Kind)
+			"the %q operator expects a string subject, got %s", "matches", subject.Kind())
 	}
-	if pattern.Kind != runtime.KStr && pattern.Kind != runtime.KSafe {
+	if pattern.Kind() != runtime.KStr && pattern.Kind() != runtime.KSafe {
 		return runtime.Null(), qerrors.New(qerrors.KindRuntime,
-			"the %q operator expects a string pattern, got %s", "matches", pattern.Kind)
+			"the %q operator expects a string pattern, got %s", "matches", pattern.Kind())
 	}
-	re, err := regexp.Compile(pattern.S)
+	re, err := regexp.Compile(pattern.AsStr())
 	if err != nil {
 		return runtime.Null(), qerrors.New(qerrors.KindRuntime,
-			"invalid RE2 pattern %q: %v", pattern.S, err)
+			"invalid RE2 pattern %q: %v", pattern.AsStr(), err)
 	}
-	return runtime.Bool(re.MatchString(subject.S)), nil
+	return runtime.Bool(re.MatchString(subject.AsStr())), nil
 }
 
 // qquantify implements has some / has every by applying the arrow predicate
@@ -644,11 +644,11 @@ const cacheSupport = `// qcacheTags coerces an @cache tags value to a list of ta
 // like interp evalCacheTags: an array yields its members' text in order, and a
 // non-array value yields no tags.
 func qcacheTags(v runtime.Value) ([]string, error) {
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return nil, nil
 	}
 	var tags []string
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		t, err := runtime.ToText(p.Val)
 		if err != nil {
 			return nil, err

@@ -56,18 +56,45 @@ func (k Kind) String() string {
 
 // Value is Quill's tagged-union runtime value. It is a small, copyable struct;
 // the only reference-typed payloads are *Array (shared by pointer, value-copied
-// at boundaries by callers) and Obj (a host interface). The exported fields are
-// only meaningful for the active Kind; use the accessors and the operation
-// functions rather than reading fields by kind directly.
+// at boundaries by callers) and the host Object (an interface). The payload
+// fields are unexported so the union stays sealed: read them through Kind and
+// the typed AsBool/AsInt/AsFloat/AsStr/AsArray/AsObject accessors (each a plain
+// field return the compiler inlines), and use the operation functions rather
+// than switching on the tag by hand. A given field is only meaningful for the
+// matching Kind; an accessor called on the wrong kind returns that field's zero
+// value, so callers must gate on Kind first.
 type Value struct {
-	Kind Kind
-	B    bool    // KBool
-	I    int64   // KInt
-	F    float64 // KFloat
-	S    string  // KStr, and the wrapped content when KSafe
-	Arr  *Array  // KArray
-	Obj  Object  // KObject
+	kind Kind
+	b    bool    // KBool
+	i    int64   // KInt
+	f    float64 // KFloat
+	s    string  // KStr, and the wrapped content when KSafe
+	arr  *Array  // KArray
+	obj  Object  // KObject
 }
+
+// Kind returns the tag identifying which payload of v is live.
+func (v Value) Kind() Kind { return v.kind }
+
+// AsBool returns the bool payload; meaningful only when Kind is KBool.
+func (v Value) AsBool() bool { return v.b }
+
+// AsInt returns the int64 payload; meaningful only when Kind is KInt.
+func (v Value) AsInt() int64 { return v.i }
+
+// AsFloat returns the float64 payload; meaningful only when Kind is KFloat.
+func (v Value) AsFloat() float64 { return v.f }
+
+// AsStr returns the string payload; meaningful when Kind is KStr, and also
+// carries the wrapped content when Kind is KSafe.
+func (v Value) AsStr() string { return v.s }
+
+// AsArray returns the *Array payload; meaningful only when Kind is KArray.
+func (v Value) AsArray() *Array { return v.arr }
+
+// AsObject returns the host Object payload; meaningful only when Kind is
+// KObject.
+func (v Value) AsObject() Object { return v.obj }
 
 // Object is the host value protocol (spec 04 Section 2.1). A host type
 // implements the subset it supports; the runtime probes capabilities through
@@ -129,13 +156,13 @@ type Pair struct {
 // ---- Constructors ----------------------------------------------------------
 
 // Null is the singleton-shaped absence value.
-func Null() Value { return Value{Kind: KNull} }
+func Null() Value { return Value{kind: KNull} }
 
 // Bool wraps a Go bool.
-func Bool(b bool) Value { return Value{Kind: KBool, B: b} }
+func Bool(b bool) Value { return Value{kind: KBool, b: b} }
 
 // Int wraps an int64.
-func Int(i int64) Value { return Value{Kind: KInt, I: i} }
+func Int(i int64) Value { return Value{kind: KInt, i: i} }
 
 // Float wraps a float64. Callers must reject non-finite floats at the value
 // boundary (spec 04 Section 2.1); this constructor does not validate so that
@@ -149,33 +176,33 @@ func Int(i int64) Value { return Value{Kind: KInt, I: i} }
 // over those constructed values (Equal(Float(NaN),Float(NaN)) is false). The
 // reflexivity/totality invariant the compare.go comments cite holds only once
 // that boundary is wired; reviewers should not assume it is enforced yet.
-func Float(f float64) Value { return Value{Kind: KFloat, F: f} }
+func Float(f float64) Value { return Value{kind: KFloat, f: f} }
 
 // Str wraps a byte string.
-func Str(s string) Value { return Value{Kind: KStr, S: s} }
+func Str(s string) Value { return Value{kind: KStr, s: s} }
 
 // Arr wraps an *Array.
-func Arr(a *Array) Value { return Value{Kind: KArray, Arr: a} }
+func Arr(a *Array) Value { return Value{kind: KArray, arr: a} }
 
 // Obj wraps a host Object.
-func Obj(o Object) Value { return Value{Kind: KObject, Obj: o} }
+func Obj(o Object) Value { return Value{kind: KObject, obj: o} }
 
 // Safe wraps already-safe content. Under escaping-off (the default) it is an
 // inert passthrough indistinguishable from Str for compare and render (spec 04
 // Section 8.2); the value layer only needs Safe to unwrap under ToText and to
 // normalize before compare.
-func Safe(s string) Value { return Value{Kind: KSafe, S: s} }
+func Safe(s string) Value { return Value{kind: KSafe, s: s} }
 
 // ---- Predicates and small accessors ----------------------------------------
 
 // IsNull reports whether v is the Null value.
-func (v Value) IsNull() bool { return v.Kind == KNull }
+func (v Value) IsNull() bool { return v.kind == KNull }
 
 // IsScalar reports whether v is one of the scalar kinds (Null, Bool, Int,
 // Float, Str). Used by the gradual checker's shallow boundary cast (spec 04
 // Section 1.1): a scalar that crossed the any-boundary is trusted.
 func (v Value) IsScalar() bool {
-	switch v.Kind {
+	switch v.kind {
 	case KNull, KBool, KInt, KFloat, KStr:
 		return true
 	default:
@@ -187,8 +214,8 @@ func (v Value) IsScalar() bool {
 // unchanged. Equal, Order, membership, and the structural *Array recursion all
 // normalize through this so Safe is transparent (spec 04 Section 4.1).
 func normalizeSafe(v Value) Value {
-	if v.Kind == KSafe {
-		return Value{Kind: KStr, S: v.S}
+	if v.kind == KSafe {
+		return Value{kind: KStr, s: v.s}
 	}
 	return v
 }

@@ -63,8 +63,8 @@ func DecodeMap(data []byte) (map[string]runtime.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[string]runtime.Value, obj.Arr.Len())
-	for _, p := range obj.Arr.Pairs() {
+	out := make(map[string]runtime.Value, obj.AsArray().Len())
+	for _, p := range obj.AsArray().Pairs() {
 		// Keys are object member names; render the (possibly canonicalized) key
 		// back to its text form for the variable name.
 		name, err := runtime.ToText(p.Key)

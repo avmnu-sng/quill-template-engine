@@ -647,8 +647,8 @@ func decodeVars(data string) (map[string]runtime.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[string]runtime.Value, obj.Arr.Len())
-	for _, p := range obj.Arr.Pairs() {
+	out := make(map[string]runtime.Value, obj.AsArray().Len())
+	for _, p := range obj.AsArray().Pairs() {
 		name, err := runtime.ToText(p.Key)
 		if err != nil {
 			return nil, err

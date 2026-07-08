@@ -23,34 +23,34 @@ func Equal(a, b Value) bool {
 	b = normalizeSafe(b)
 
 	// The two cross-kind bridges live here; everything else requires same kind.
-	if a.Kind != b.Kind {
+	if a.kind != b.kind {
 		if isNumeric(a) && isNumeric(b) {
 			return numericEqual(a, b)
 		}
 		return false
 	}
 
-	switch a.Kind {
+	switch a.kind {
 	case KNull:
 		return true
 	case KBool:
-		return a.B == b.B
+		return a.b == b.b
 	case KInt:
-		return a.I == b.I
+		return a.i == b.i
 	case KFloat:
-		return a.F == b.F
+		return a.f == b.f
 	case KStr:
-		return a.S == b.S
+		return a.s == b.s
 	case KArray:
-		return arrayEqual(a.Arr, b.Arr)
+		return arrayEqual(a.arr, b.arr)
 	case KObject:
-		return objectEqual(a.Obj, b)
+		return objectEqual(a.obj, b)
 	default:
 		return false
 	}
 }
 
-func isNumeric(v Value) bool { return v.Kind == KInt || v.Kind == KFloat }
+func isNumeric(v Value) bool { return v.kind == KInt || v.kind == KFloat }
 
 // numericEqual compares an Int/Float pair within the one number tower. Because
 // non-finite floats never circulate (spec 04 Section 2.1), this is reflexive
@@ -60,10 +60,10 @@ func numericEqual(a, b Value) bool {
 }
 
 func toFloat(v Value) float64 {
-	if v.Kind == KInt {
-		return float64(v.I)
+	if v.kind == KInt {
+		return float64(v.i)
 	}
-	return v.F
+	return v.f
 }
 
 func arrayEqual(a, b *Array) bool {
@@ -94,10 +94,10 @@ func objectEqual(o Object, other Value) bool {
 	}
 	// Identity: the same host instance. Two distinct values both wrapping the
 	// same Object pointer are equal; different instances are not.
-	if other.Kind != KObject {
+	if other.kind != KObject {
 		return false
 	}
-	return o == other.Obj
+	return o == other.obj
 }
 
 // Same is raw reference/kind identity, the `same(a, b)` builtin and the
@@ -105,24 +105,24 @@ func objectEqual(o Object, other Value) bool {
 // Safe and does NOT bridge Int/Float: it answers "is this literally the same
 // value", kind-for-kind.
 func Same(a, b Value) bool {
-	if a.Kind != b.Kind {
+	if a.kind != b.kind {
 		return false
 	}
-	switch a.Kind {
+	switch a.kind {
 	case KNull:
 		return true
 	case KBool:
-		return a.B == b.B
+		return a.b == b.b
 	case KInt:
-		return a.I == b.I
+		return a.i == b.i
 	case KFloat:
-		return a.F == b.F
+		return a.f == b.f
 	case KStr, KSafe:
-		return a.S == b.S
+		return a.s == b.s
 	case KArray:
-		return a.Arr == b.Arr // pointer identity
+		return a.arr == b.arr // pointer identity
 	case KObject:
-		return a.Obj == b.Obj // pointer identity
+		return a.obj == b.obj // pointer identity
 	default:
 		return false
 	}
@@ -149,18 +149,18 @@ func Order(a, b Value) (int, error) {
 			return 0, nil
 		}
 	}
-	if a.Kind == KStr && b.Kind == KStr {
+	if a.kind == KStr && b.kind == KStr {
 		switch {
-		case a.S < b.S:
+		case a.s < b.s:
 			return -1, nil
-		case a.S > b.S:
+		case a.s > b.s:
 			return 1, nil
 		default:
 			return 0, nil
 		}
 	}
 	return 0, errors.New(errors.KindComparison,
-		"cannot order %s against %s", a.Kind, b.Kind)
+		"cannot order %s against %s", a.kind, b.kind)
 }
 
 // In is the membership operator `in` / `not in` (spec 04 Section 4.3). For an
@@ -170,13 +170,13 @@ func Order(a, b Value) (int, error) {
 // KindComparison error.
 func In(x, haystack Value) (bool, error) {
 	haystack = normalizeSafe(haystack)
-	switch haystack.Kind {
+	switch haystack.kind {
 	case KArray:
-		if haystack.Arr == nil {
+		if haystack.arr == nil {
 			return false, nil
 		}
-		for _, enc := range haystack.Arr.keys {
-			if Equal(x, haystack.Arr.vals[enc]) {
+		for _, enc := range haystack.arr.keys {
+			if Equal(x, haystack.arr.vals[enc]) {
 				return true, nil
 			}
 		}
@@ -186,10 +186,10 @@ func In(x, haystack Value) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		return containsString(haystack.S, needle), nil
+		return containsString(haystack.s, needle), nil
 	default:
 		return false, errors.New(errors.KindComparison,
-			"cannot test membership in %s", haystack.Kind)
+			"cannot test membership in %s", haystack.kind)
 	}
 }
 

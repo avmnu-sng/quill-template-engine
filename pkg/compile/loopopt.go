@@ -1248,10 +1248,10 @@ func (c *compiler) emitLoopParent(top int) string {
 		}
 		switch f.kind {
 		case frameWith, frameWithOnly:
-			c.openf("if !%s && %s.Kind == runtime.KArray && %s.Arr != nil {", found, f.withVar, f.withVar)
+			c.openf("if !%s && %s.Kind() == runtime.KArray && %s.AsArray() != nil {", found, f.withVar, f.withVar)
 			inner := c.tmp("qt")
 			ok := c.tmp("qk")
-			c.openf("if %s, %s := %s.Arr.GetStr(%s); %s {", inner, ok, f.withVar, q("loop"), ok)
+			c.openf("if %s, %s := %s.AsArray().GetStr(%s); %s {", inner, ok, f.withVar, q("loop"), ok)
 			c.linef("%s = runtime.ShareValue(%s)", val, inner)
 			c.linef("%s = true", found)
 			c.closeb()

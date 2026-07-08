@@ -10,23 +10,23 @@ package runtime
 // and any Object is truthy regardless of its internal state. A Safe value takes
 // the truthiness of its wrapped content, so Safe("") is falsy.
 func Truthy(v Value) bool {
-	switch v.Kind {
+	switch v.kind {
 	case KNull:
 		return false
 	case KBool:
-		return v.B
+		return v.b
 	case KInt:
-		return v.I != 0
+		return v.i != 0
 	case KFloat:
-		return v.F != 0
+		return v.f != 0
 	case KStr:
-		return len(v.S) != 0
+		return len(v.s) != 0
 	case KArray:
-		return v.Arr != nil && v.Arr.Len() != 0
+		return v.arr != nil && v.arr.Len() != 0
 	case KObject:
 		return true
 	case KSafe:
-		return len(v.S) != 0
+		return len(v.s) != 0
 	default:
 		return false
 	}
@@ -46,15 +46,15 @@ func Truthy(v Value) bool {
 // Consequence: 0 is falsy but NOT empty and IS defined, so 0 | default("y")
 // keeps 0.
 func Empty(v Value) bool {
-	switch v.Kind {
+	switch v.kind {
 	case KNull:
 		return true
 	case KStr:
-		return len(v.S) == 0
+		return len(v.s) == 0
 	case KArray:
-		return v.Arr == nil || v.Arr.Len() == 0
+		return v.arr == nil || v.arr.Len() == 0
 	case KSafe:
-		return len(v.S) == 0
+		return len(v.s) == 0
 	case KInt, KFloat, KBool, KObject:
 		return false
 	default:

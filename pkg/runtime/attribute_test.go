@@ -13,7 +13,7 @@ func TestGetAttributeDotArray(t *testing.T) {
 
 	// present string key
 	got, err := GetAttribute(recv, Str("name"), AccessDot, false)
-	if err != nil || got.S != "ada" {
+	if err != nil || got.AsStr() != "ada" {
 		t.Fatalf("u.name = %v, %v; want ada", got, err)
 	}
 	// absent under strict -> undefined error
@@ -32,7 +32,7 @@ func TestGetAttributeDotObject(t *testing.T) {
 	o := newFieldObj("User", map[string]Value{"name": Str("grace")})
 	recv := Obj(o)
 	got, err := GetAttribute(recv, Str("name"), AccessDot, false)
-	if err != nil || got.S != "grace" {
+	if err != nil || got.AsStr() != "grace" {
 		t.Fatalf("obj.name = %v, %v", got, err)
 	}
 	_, err = GetAttribute(recv, Str("missing"), AccessDot, false)
@@ -60,14 +60,14 @@ func TestGetAttributeIndexArray(t *testing.T) {
 	a.SetStr("key", Str("val"))
 	recv := Arr(a)
 
-	if got, err := GetAttribute(recv, Int(0), AccessIndex, false); err != nil || got.S != "zero" {
+	if got, err := GetAttribute(recv, Int(0), AccessIndex, false); err != nil || got.AsStr() != "zero" {
 		t.Fatalf("a[0] = %v, %v", got, err)
 	}
-	if got, err := GetAttribute(recv, Str("key"), AccessIndex, false); err != nil || got.S != "val" {
+	if got, err := GetAttribute(recv, Str("key"), AccessIndex, false); err != nil || got.AsStr() != "val" {
 		t.Fatalf(`a["key"] = %v, %v`, got, err)
 	}
 	// "0" canonicalizes to the integer-0 slot
-	if got, err := GetAttribute(recv, Str("0"), AccessIndex, false); err != nil || got.S != "zero" {
+	if got, err := GetAttribute(recv, Str("0"), AccessIndex, false); err != nil || got.AsStr() != "zero" {
 		t.Fatalf(`a["0"] = %v, %v`, got, err)
 	}
 }
@@ -77,11 +77,11 @@ func TestGetAttributeIndexBadKeyKinds(t *testing.T) {
 	for _, key := range []Value{Bool(true), Float(2.7), Null()} {
 		_, err := GetAttribute(recv, key, AccessIndex, false)
 		if errors.KindOf(err) != errors.KindKey {
-			t.Fatalf("subscript with %s: kind = %v, want key", key.Kind, errors.KindOf(err))
+			t.Fatalf("subscript with %s: kind = %v, want key", key.Kind(), errors.KindOf(err))
 		}
 		// Even suppression does not turn a bad key KIND into a Null.
 		if _, err := GetAttribute(recv, key, AccessIndex, true); err == nil {
-			t.Fatalf("bad key kind %s should error under suppression too", key.Kind)
+			t.Fatalf("bad key kind %s should error under suppression too", key.Kind())
 		}
 	}
 }
@@ -92,7 +92,7 @@ func TestGetAttributeIndexObject(t *testing.T) {
 		byKey:    map[string]Value{"timeout": Int(30)},
 	}
 	recv := Obj(o)
-	if got, err := GetAttribute(recv, Str("timeout"), AccessIndex, false); err != nil || got.I != 30 {
+	if got, err := GetAttribute(recv, Str("timeout"), AccessIndex, false); err != nil || got.AsInt() != 30 {
 		t.Fatalf(`obj["timeout"] = %v, %v`, got, err)
 	}
 	_, err := GetAttribute(recv, Str("absent"), AccessIndex, false)
@@ -106,12 +106,12 @@ func TestGetAttributeIndexObject(t *testing.T) {
 	}
 }
 
-// TestGetAttributeNilArray pins the BLOCKING fix: a Value{Kind:KArray,Arr:nil}
+// TestGetAttributeNilArray pins the BLOCKING fix: an Arr(nil) KArray value
 // is a benign empty collection (like the Arr == nil guards in truthy/iterate/
 // compare), so dotted/index access must return a clean strict-undefined miss
 // (or Null under suppression), never panic.
 func TestGetAttributeNilArray(t *testing.T) {
-	nilArr := Value{Kind: KArray, Arr: nil}
+	nilArr := Arr(nil)
 	cases := []struct {
 		name string
 		key  Value
@@ -140,7 +140,7 @@ func TestGetAttributeNilArray(t *testing.T) {
 // TestIsDefinedAttributeNilArray pins that presence on a nil *Array is false
 // without dereferencing.
 func TestIsDefinedAttributeNilArray(t *testing.T) {
-	nilArr := Value{Kind: KArray, Arr: nil}
+	nilArr := Arr(nil)
 	if IsDefinedAttribute(nilArr, Str("x"), AccessDot) {
 		t.Fatal("nil-array dot is defined should be false")
 	}

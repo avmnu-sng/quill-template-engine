@@ -120,7 +120,7 @@ func filterNl2br(args []runtime.Value) (runtime.Value, error) {
 	if err != nil {
 		return runtime.Null(), err
 	}
-	if v.Kind != runtime.KSafe {
+	if v.Kind() != runtime.KSafe {
 		s = EscapeHTML(s)
 	}
 	s = strings.ReplaceAll(s, "\r\n", "\n")
@@ -300,7 +300,7 @@ func registerCollectionFilters(s *Set) {
 // with fill when supplied (spec 03 Section 2.2).
 func filterBatch(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "batch expects a collection")
 	}
 	size := int(toInt(arg(args, 1)))
@@ -309,7 +309,7 @@ func filterBatch(args []runtime.Value) (runtime.Value, error) {
 	}
 	hasFill := len(args) > 2 && !args[2].IsNull()
 	fill := arg(args, 2)
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	out := runtime.NewArray()
 	chunkIdx := int64(0)
 	for i := 0; i < len(ps); i += size {
@@ -340,7 +340,7 @@ func filterBatch(args []runtime.Value) (runtime.Value, error) {
 // giving a rectangular grid. n must be >= 1.
 func filterColumns(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "columns expects a collection")
 	}
 	n := int(toInt(arg(args, 1)))
@@ -349,7 +349,7 @@ func filterColumns(args []runtime.Value) (runtime.Value, error) {
 	}
 	hasFill := len(args) > 2 && !args[2].IsNull()
 	fill := arg(args, 2)
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	cols := make([]*runtime.Array, n)
 	for c := 0; c < n; c++ {
 		cols[c] = runtime.NewArray()
@@ -378,12 +378,12 @@ func filterColumns(args []runtime.Value) (runtime.Value, error) {
 // yields its integer keys paired with their values the same way.
 func filterEntries(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "entries expects a mapping")
 	}
 	out := runtime.NewArray()
 	idx := int64(0)
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		pair := runtime.NewArray()
 		pair.SetInt(0, p.Key)
 		pair.SetInt(1, p.Val)
@@ -399,7 +399,7 @@ func filterEntries(args []runtime.Value) (runtime.Value, error) {
 // equal on the chosen component keep their original insertion order.
 func filterSortMap(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "sort_map expects a mapping")
 	}
 	by := "key"
@@ -414,7 +414,7 @@ func filterSortMap(args []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"sort_map by must be \"key\" or \"value\", got %q", by)
 	}
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	var sortErr error
 	sort.SliceStable(ps, func(i, j int) bool {
 		var a, b runtime.Value
@@ -444,13 +444,13 @@ func filterSortMap(args []runtime.Value) (runtime.Value, error) {
 // Section 2.2). A row missing the key contributes nothing.
 func filterColumn(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "column expects a collection")
 	}
 	key := arg(args, 1)
 	out := runtime.NewArray()
 	idx := int64(0)
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		got, err := runtime.GetAttribute(p.Val, normalizeKey(key), runtime.AccessIndex, true)
 		if err != nil {
 			return runtime.Null(), err
@@ -471,13 +471,13 @@ func filterColumn(args []runtime.Value) (runtime.Value, error) {
 func filterMap(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	fn := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "map expects a collection")
 	}
 	byAttr := isPathArg(fn)
 	if !byAttr && !runtime.IsCallable(fn) {
 		return runtime.Null(), errors.New(errors.KindRuntime,
-			"map expects a callable or a string attribute path, got %s", fn.Kind)
+			"map expects a callable or a string attribute path, got %s", fn.Kind())
 	}
 	var path []runtime.Value
 	if byAttr {
@@ -488,7 +488,7 @@ func filterMap(args []runtime.Value) (runtime.Value, error) {
 		path = p
 	}
 	out := runtime.NewArray()
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		var res runtime.Value
 		var err error
 		if byAttr {
@@ -507,7 +507,7 @@ func filterMap(args []runtime.Value) (runtime.Value, error) {
 // isPathArg reports whether v is a string value usable as an attribute path,
 // distinguishing the map/group_by attribute form from an arrow argument.
 func isPathArg(v runtime.Value) bool {
-	return v.Kind == runtime.KStr || v.Kind == runtime.KSafe
+	return v.Kind() == runtime.KStr || v.Kind() == runtime.KSafe
 }
 
 // parsePath splits a dotted-path string ("a.b.c") into its segment keys, used by
@@ -547,11 +547,11 @@ func pluck(v runtime.Value, path []runtime.Value) (runtime.Value, error) {
 func filterFilter(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	fn := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "filter expects a collection")
 	}
 	out := runtime.NewArray()
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		res, err := runtime.Call(fn, []runtime.Value{p.Val, p.Key})
 		if err != nil {
 			return runtime.Null(), err
@@ -568,11 +568,11 @@ func filterFilter(args []runtime.Value) (runtime.Value, error) {
 func filterReduce(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	fn := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "reduce expects a collection")
 	}
 	acc := arg(args, 2)
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		res, err := runtime.Call(fn, []runtime.Value{acc, p.Val, p.Key})
 		if err != nil {
 			return runtime.Null(), err
@@ -587,10 +587,10 @@ func filterReduce(args []runtime.Value) (runtime.Value, error) {
 func filterFind(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	fn := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "find expects a collection")
 	}
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		res, err := runtime.Call(fn, []runtime.Value{p.Val, p.Key})
 		if err != nil {
 			return runtime.Null(), err
@@ -608,7 +608,7 @@ func filterFind(args []runtime.Value) (runtime.Value, error) {
 // Float. An empty collection sums to Int 0.
 func filterSum(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "sum expects a collection")
 	}
 	var path []runtime.Value
@@ -622,7 +622,7 @@ func filterSum(args []runtime.Value) (runtime.Value, error) {
 	var isum int64
 	var fsum float64
 	anyFloat := false
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		val := p.Val
 		if path != nil {
 			got, err := pluck(val, path)
@@ -631,16 +631,16 @@ func filterSum(args []runtime.Value) (runtime.Value, error) {
 			}
 			val = got
 		}
-		switch val.Kind {
+		switch val.Kind() {
 		case runtime.KInt:
-			isum += val.I
-			fsum += float64(val.I)
+			isum += val.AsInt()
+			fsum += float64(val.AsInt())
 		case runtime.KFloat:
 			anyFloat = true
-			fsum += val.F
+			fsum += val.AsFloat()
 		default:
 			return runtime.Null(), errors.New(errors.KindRuntime,
-				"sum expects numbers, got %s", val.Kind)
+				"sum expects numbers, got %s", val.Kind())
 		}
 	}
 	if anyFloat {
@@ -655,7 +655,7 @@ func filterSum(args []runtime.Value) (runtime.Value, error) {
 // the whole value; the first element carrying each distinct key is kept.
 func filterUnique(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "unique expects a collection")
 	}
 	var path []runtime.Value
@@ -669,7 +669,7 @@ func filterUnique(args []runtime.Value) (runtime.Value, error) {
 	var seen []runtime.Value
 	out := runtime.NewArray()
 	idx := int64(0)
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		key := p.Val
 		if path != nil {
 			got, err := pluck(p.Val, path)
@@ -706,13 +706,13 @@ func filterUnique(args []runtime.Value) (runtime.Value, error) {
 func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	by := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "group_by expects a collection")
 	}
 	byArrow := runtime.IsCallable(by)
 	if !byArrow && !isPathArg(by) {
 		return runtime.Null(), errors.New(errors.KindRuntime,
-			"group_by expects a string path or an arrow, got %s", by.Kind)
+			"group_by expects a string path or an arrow, got %s", by.Kind())
 	}
 	var path []runtime.Value
 	if !byArrow {
@@ -724,7 +724,7 @@ func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
 	}
 	var keys []runtime.Value   // group keys in first-appearance order
 	var items []*runtime.Array // parallel accumulators, one per group key
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		var gk runtime.Value
 		var err error
 		if byArrow {
@@ -765,7 +765,7 @@ func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
 // test after the element value.
 func filterSelect(s *Set, args []runtime.Value, keep bool) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "select/reject expects a collection")
 	}
 	name, err := wantString(arg(args, 1))
@@ -781,7 +781,7 @@ func filterSelect(s *Set, args []runtime.Value, keep bool) (runtime.Value, error
 		extra = args[2:]
 	}
 	out := runtime.NewArray()
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		testArgs := append([]runtime.Value{p.Val}, extra...)
 		pass, err := t.Fn(testArgs)
 		if err != nil {
@@ -804,7 +804,7 @@ func filterSelect(s *Set, args []runtime.Value, keep bool) (runtime.Value, error
 // with the extra arguments after it. Both are key-preserving on a mapping source.
 func filterSelectAttr(s *Set, args []runtime.Value, keep bool) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "selectattr/rejectattr expects a collection")
 	}
 	path, err := parsePath(arg(args, 1))
@@ -815,7 +815,7 @@ func filterSelectAttr(s *Set, args []runtime.Value, keep bool) (runtime.Value, e
 	// One-arg form (no test name): filter by the truthiness of the projected value.
 	if len(args) < 3 || args[2].IsNull() {
 		out := runtime.NewArray()
-		for _, p := range v.Arr.Pairs() {
+		for _, p := range v.AsArray().Pairs() {
 			attr, err := pluck(p.Val, path)
 			if err != nil {
 				return runtime.Null(), err
@@ -840,7 +840,7 @@ func filterSelectAttr(s *Set, args []runtime.Value, keep bool) (runtime.Value, e
 		extra = args[3:]
 	}
 	out := runtime.NewArray()
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		attr, err := pluck(p.Val, path)
 		if err != nil {
 			return runtime.Null(), err
@@ -875,13 +875,13 @@ func filterShuffle(args []runtime.Value) (runtime.Value, error) {
 // engine's source (a host seed or time) is used.
 func ShuffleWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "shuffle expects a collection")
 	}
 	if len(args) > 1 && !args[1].IsNull() {
 		rng = rand.New(rand.NewSource(toInt(args[1])))
 	}
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	vals := make([]runtime.Value, len(ps))
 	for i, p := range ps {
 		vals[i] = p.Val
@@ -899,11 +899,11 @@ func ShuffleWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 // 2.2). It replaces the core filterSort to add comparator support.
 func filterSortArrow(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime,
-			"sort expects a collection, got %s", v.Kind)
+			"sort expects a collection, got %s", v.Kind())
 	}
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	hasCmp := len(args) > 1 && runtime.IsCallable(args[1])
 	cmp := arg(args, 1)
 	var sortErr error
@@ -946,16 +946,16 @@ func registerMathFilters(s *Set) {
 // 2.3).
 func filterAbs(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KInt:
-		if v.I < 0 {
-			return runtime.Int(-v.I), nil
+		if v.AsInt() < 0 {
+			return runtime.Int(-v.AsInt()), nil
 		}
 		return v, nil
 	case runtime.KFloat:
-		return runtime.Float(math.Abs(v.F)), nil
+		return runtime.Float(math.Abs(v.AsFloat())), nil
 	default:
-		return runtime.Null(), errors.New(errors.KindRuntime, "abs expects a number, got %s", v.Kind)
+		return runtime.Null(), errors.New(errors.KindRuntime, "abs expects a number, got %s", v.Kind())
 	}
 }
 
@@ -963,8 +963,8 @@ func filterAbs(args []runtime.Value) (runtime.Value, error) {
 // precision rounds to tens/hundreds; result is a Float (spec 03 Section 2.3).
 func filterRound(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KInt && v.Kind != runtime.KFloat {
-		return runtime.Null(), errors.New(errors.KindRuntime, "round expects a number, got %s", v.Kind)
+	if v.Kind() != runtime.KInt && v.Kind() != runtime.KFloat {
+		return runtime.Null(), errors.New(errors.KindRuntime, "round expects a number, got %s", v.Kind())
 	}
 	f := asFloat(v)
 	precision := 0
@@ -1000,9 +1000,9 @@ func filterRound(args []runtime.Value) (runtime.Value, error) {
 // separators (spec 03 Section 2.1). decimals defaults to 0, point ".", sep ",".
 func filterFormatNumber(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KInt && v.Kind != runtime.KFloat {
+	if v.Kind() != runtime.KInt && v.Kind() != runtime.KFloat {
 		return runtime.Null(), errors.New(errors.KindRuntime,
-			"format_number expects a number, got %s", v.Kind)
+			"format_number expects a number, got %s", v.Kind())
 	}
 	decimals := 0
 	if len(args) > 1 {
@@ -1104,9 +1104,9 @@ func filterJSON(args []runtime.Value) (runtime.Value, error) {
 // mapping (key=value joined by &), spec 03 Section 2.4.
 func filterURLEncode(args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind == runtime.KArray && v.Arr != nil {
+	if v.Kind() == runtime.KArray && v.AsArray() != nil {
 		var parts []string
-		for _, p := range v.Arr.Pairs() {
+		for _, p := range v.AsArray().Pairs() {
 			k, err := runtime.ToText(p.Key)
 			if err != nil {
 				return runtime.Null(), err
@@ -1174,7 +1174,7 @@ func tabWithWidth(width int, args []runtime.Value) (runtime.Value, error) {
 	piped := arg(args, 0)
 	unit := strings.Repeat(" ", width)
 	// Standalone form: a number piped with no string body -> n levels of indent.
-	if piped.Kind == runtime.KInt || piped.Kind == runtime.KFloat {
+	if piped.Kind() == runtime.KInt || piped.Kind() == runtime.KFloat {
 		n := int(toInt(piped))
 		if n < 0 {
 			n = 0
@@ -1311,13 +1311,13 @@ func fnAttribute(args []runtime.Value) (runtime.Value, error) {
 	name := arg(args, 1)
 	if len(args) > 2 && !args[2].IsNull() {
 		callArgs := args[2]
-		if recv.Kind != runtime.KObject {
+		if recv.Kind() != runtime.KObject {
 			return runtime.Null(), errors.New(errors.KindAttribute,
-				"attribute() can only call a method on an object, got %s", recv.Kind)
+				"attribute() can only call a method on an object, got %s", recv.Kind())
 		}
 		var ca []runtime.Value
-		if callArgs.Kind == runtime.KArray && callArgs.Arr != nil {
-			for _, p := range callArgs.Arr.Pairs() {
+		if callArgs.Kind() == runtime.KArray && callArgs.AsArray() != nil {
+			for _, p := range callArgs.AsArray().Pairs() {
 				ca = append(ca, p.Val)
 			}
 		}
@@ -1325,7 +1325,7 @@ func fnAttribute(args []runtime.Value) (runtime.Value, error) {
 		if err != nil {
 			return runtime.Null(), err
 		}
-		return recv.Obj.CallMethod(nm, ca)
+		return recv.AsObject().CallMethod(nm, ca)
 	}
 	return runtime.GetAttribute(recv, normalizeKey(name), runtime.AccessDot, true)
 }
@@ -1333,11 +1333,11 @@ func fnAttribute(args []runtime.Value) (runtime.Value, error) {
 // fnCycle returns values[position % length], wrapping (spec 03 Section 3.2).
 func fnCycle(args []runtime.Value) (runtime.Value, error) {
 	values := arg(args, 0)
-	if values.Kind != runtime.KArray || values.Arr == nil || values.Arr.Len() == 0 {
+	if values.Kind() != runtime.KArray || values.AsArray() == nil || values.AsArray().Len() == 0 {
 		return runtime.Null(), errors.New(errors.KindRuntime, "cycle expects a non-empty collection")
 	}
 	pos := toInt(arg(args, 1))
-	ps := values.Arr.Pairs()
+	ps := values.AsArray().Pairs()
 	n := int64(len(ps))
 	idx := ((pos % n) + n) % n
 	return ps[idx].Val, nil
@@ -1366,7 +1366,7 @@ func fnRandom(args []runtime.Value) (runtime.Value, error) {
 func RandomWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	hasMax := len(args) > 1 && !args[1].IsNull()
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KNull:
 		if hasMax {
 			return randIntInRange(rng, 0, toInt(args[1]))
@@ -1374,23 +1374,23 @@ func RandomWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 		return runtime.Int(rng.Int63()), nil
 	case runtime.KInt:
 		if hasMax {
-			return randIntInRange(rng, v.I, toInt(args[1]))
+			return randIntInRange(rng, v.AsInt(), toInt(args[1]))
 		}
-		return randIntInRange(rng, 0, v.I)
+		return randIntInRange(rng, 0, v.AsInt())
 	case runtime.KArray:
-		if v.Arr == nil || v.Arr.Len() == 0 {
+		if v.AsArray() == nil || v.AsArray().Len() == 0 {
 			return runtime.Null(), nil
 		}
-		ps := v.Arr.Pairs()
+		ps := v.AsArray().Pairs()
 		return ps[rng.Intn(len(ps))].Val, nil
 	case runtime.KStr, runtime.KSafe:
-		r := []rune(v.S)
+		r := []rune(v.AsStr())
 		if len(r) == 0 {
 			return runtime.Str(""), nil
 		}
 		return runtime.Str(string(r[rng.Intn(len(r))])), nil
 	default:
-		return runtime.Null(), errors.New(errors.KindRuntime, "random cannot operate on %s", v.Kind)
+		return runtime.Null(), errors.New(errors.KindRuntime, "random cannot operate on %s", v.Kind())
 	}
 }
 
@@ -1532,13 +1532,13 @@ func orderTest(args []runtime.Value, pred func(int) bool) (bool, error) {
 func testDivisibleBy(args []runtime.Value) (bool, error) {
 	x := arg(args, 0)
 	n := arg(args, 1)
-	if x.Kind != runtime.KInt || n.Kind != runtime.KInt {
+	if x.Kind() != runtime.KInt || n.Kind() != runtime.KInt {
 		return false, errors.New(errors.KindRuntime, "divisible_by expects integers")
 	}
-	if n.I == 0 {
+	if n.AsInt() == 0 {
 		return false, errors.New(errors.KindArithmetic, "divisible_by zero")
 	}
-	return x.I%n.I == 0, nil
+	return x.AsInt()%n.AsInt() == 0, nil
 }
 
 // testSequence reports a list-shaped *Array; an empty array IS a sequence (spec
@@ -1553,11 +1553,11 @@ func testMapping(args []runtime.Value) (bool, error) { return runtime.IsMapping(
 // Section 4.
 func testTrue(args []runtime.Value) (bool, error) {
 	v := arg(args, 0)
-	if v.Kind == runtime.KSafe {
+	if v.Kind() == runtime.KSafe {
 		// A Safe never carries a bool payload; it is not the Bool true value.
 		return false, nil
 	}
-	return v.Kind == runtime.KBool && v.B, nil
+	return v.Kind() == runtime.KBool && v.AsBool(), nil
 }
 
 // testConstant reports whether x equals the named host constant (spec 03 Section
@@ -1578,32 +1578,32 @@ func testConstant(s *Set, args []runtime.Value) (bool, error) {
 // testString reports whether the value is a string. A Safe carries string
 // content, so it counts as a string too (spec 03 Section 4).
 func testString(args []runtime.Value) (bool, error) {
-	k := arg(args, 0).Kind
+	k := arg(args, 0).Kind()
 	return k == runtime.KStr || k == runtime.KSafe, nil
 }
 
 // testNumber reports whether the value is numeric: an int OR a float (spec 03
 // Section 4). It is the union of the int and float kind tests.
 func testNumber(args []runtime.Value) (bool, error) {
-	k := arg(args, 0).Kind
+	k := arg(args, 0).Kind()
 	return k == runtime.KInt || k == runtime.KFloat, nil
 }
 
 // testInt reports whether the value is an integer (spec 03 Section 4).
 func testInt(args []runtime.Value) (bool, error) {
-	return arg(args, 0).Kind == runtime.KInt, nil
+	return arg(args, 0).Kind() == runtime.KInt, nil
 }
 
 // testFloat reports whether the value is a float (spec 03 Section 4).
 func testFloat(args []runtime.Value) (bool, error) {
-	return arg(args, 0).Kind == runtime.KFloat, nil
+	return arg(args, 0).Kind() == runtime.KFloat, nil
 }
 
 // testBool reports whether the value is a boolean (spec 03 Section 4). It is a
 // kind predicate: both true and false satisfy it, unlike `is true` which asks
 // specifically for the Bool true value.
 func testBool(args []runtime.Value) (bool, error) {
-	return arg(args, 0).Kind == runtime.KBool, nil
+	return arg(args, 0).Kind() == runtime.KBool, nil
 }
 
 // testCallable reports whether the value can be invoked with arguments: an arrow
@@ -1618,7 +1618,7 @@ func testCallable(args []runtime.Value) (bool, error) {
 
 // normalizeKey coerces a value into an Int or Str key for attribute access.
 func normalizeKey(v runtime.Value) runtime.Value {
-	if v.Kind == runtime.KInt {
+	if v.Kind() == runtime.KInt {
 		return v
 	}
 	s, err := runtime.ToText(v)
@@ -1629,8 +1629,8 @@ func normalizeKey(v runtime.Value) runtime.Value {
 }
 
 func asFloat(v runtime.Value) float64 {
-	if v.Kind == runtime.KInt {
-		return float64(v.I)
+	if v.Kind() == runtime.KInt {
+		return float64(v.AsInt())
 	}
-	return v.F
+	return v.AsFloat()
 }

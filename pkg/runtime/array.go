@@ -200,11 +200,11 @@ func (a *Array) SetStr(k string, v Value) {
 // error here; the access layer rejects bool/float/null subscripts before this
 // point (spec 04 Section 6.2), so SetKey treats any non-Int as its Str form.
 func (a *Array) SetKey(key, v Value) {
-	switch key.Kind {
+	switch key.kind {
 	case KInt:
-		a.SetInt(key.I, v)
+		a.SetInt(key.i, v)
 	default:
-		a.SetStr(key.S, v)
+		a.SetStr(key.s, v)
 	}
 }
 
@@ -230,11 +230,11 @@ func (a *Array) GetStr(k string) (Value, bool) {
 
 // Get reads using a key Value (Int or Str).
 func (a *Array) Get(key Value) (Value, bool) {
-	switch key.Kind {
+	switch key.kind {
 	case KInt:
-		return a.GetInt(key.I)
+		return a.GetInt(key.i)
 	default:
-		return a.GetStr(key.S)
+		return a.GetStr(key.s)
 	}
 }
 
@@ -340,8 +340,8 @@ func (a *Array) Clone() *Array {
 // retained for callers that need a fully independent tree up front; the render
 // path uses the lazy copy-on-write pair ShareValue / Own instead.
 func CopyValue(v Value) Value {
-	if v.Kind == KArray && v.Arr != nil {
-		return Arr(v.Arr.Clone())
+	if v.kind == KArray && v.arr != nil {
+		return Arr(v.arr.Clone())
 	}
 	return v
 }
@@ -358,8 +358,8 @@ func CopyValue(v Value) Value {
 // and skipping the redundant store keeps those hot reads from dirtying the
 // array's cache line.
 func ShareValue(v Value) Value {
-	if v.Kind == KArray && v.Arr != nil && !v.Arr.shared {
-		v.Arr.shared = true
+	if v.kind == KArray && v.arr != nil && !v.arr.shared {
+		v.arr.shared = true
 	}
 	return v
 }
@@ -370,8 +370,8 @@ func ShareValue(v Value) Value {
 // unchanged. The bool reports whether a clone was made, so a caller walking an
 // assignment path knows to rebind the fresh array under its name or parent slot.
 func Own(v Value) (Value, bool) {
-	if v.Kind == KArray && v.Arr != nil && v.Arr.shared {
-		return Arr(v.Arr.cloneShallowCOW()), true
+	if v.kind == KArray && v.arr != nil && v.arr.shared {
+		return Arr(v.arr.cloneShallowCOW()), true
 	}
 	return v, false
 }
@@ -387,8 +387,8 @@ func (a *Array) cloneShallowCOW() *Array {
 		vals: make(map[string]Value, len(a.vals)),
 	}
 	for k, v := range a.vals {
-		if v.Kind == KArray && v.Arr != nil {
-			v.Arr.shared = true
+		if v.kind == KArray && v.arr != nil {
+			v.arr.shared = true
 		}
 		cp.vals[k] = v
 	}

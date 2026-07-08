@@ -19,7 +19,7 @@ func TestNewFilterScalarMarshaling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
-	if out.Kind != runtime.KStr || out.S != "HI!" {
+	if out.Kind() != runtime.KStr || out.AsStr() != "HI!" {
 		t.Errorf("got %+v", out)
 	}
 }
@@ -38,7 +38,7 @@ func TestNewFunctionMultiArgWithError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
-	if out.Kind != runtime.KInt || out.I != 5 {
+	if out.Kind() != runtime.KInt || out.AsInt() != 5 {
 		t.Errorf("got %+v", out)
 	}
 
@@ -87,8 +87,8 @@ func TestNewFilterVariadic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
-	if out.S != "a-b-c" {
-		t.Errorf("got %q", out.S)
+	if out.AsStr() != "a-b-c" {
+		t.Errorf("got %q", out.AsStr())
 	}
 
 	// Zero variadic args is allowed.
@@ -96,8 +96,8 @@ func TestNewFilterVariadic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call zero-variadic: %v", err)
 	}
-	if out.S != "" {
-		t.Errorf("got %q", out.S)
+	if out.AsStr() != "" {
+		t.Errorf("got %q", out.AsStr())
 	}
 
 	// Fewer than the fixed count is an arity error.
@@ -121,11 +121,11 @@ func TestNewFilterSliceMarshaling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
-	if out.Kind != runtime.KArray || out.Arr.Len() != 3 {
+	if out.Kind() != runtime.KArray || out.AsArray().Len() != 3 {
 		t.Fatalf("got %+v", out)
 	}
-	got := out.Arr.Pairs()
-	if got[0].Val.I != 2 || got[1].Val.I != 4 || got[2].Val.I != 6 {
+	got := out.AsArray().Pairs()
+	if got[0].Val.AsInt() != 2 || got[1].Val.AsInt() != 4 || got[2].Val.AsInt() != 6 {
 		t.Errorf("wrong slice result: %+v", got)
 	}
 }
@@ -139,7 +139,7 @@ func TestNewFunctionValuePassthrough(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
-	if out.Kind != runtime.KArray || out.Arr != in.Arr {
+	if out.Kind() != runtime.KArray || out.AsArray() != in.AsArray() {
 		t.Errorf("passthrough altered value: %+v", out)
 	}
 }
@@ -152,7 +152,7 @@ func TestNewFunctionFloatFromInt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
-	if out.Kind != runtime.KFloat || out.F != 2.5 {
+	if out.Kind() != runtime.KFloat || out.AsFloat() != 2.5 {
 		t.Errorf("got %+v", out)
 	}
 }

@@ -24,17 +24,17 @@ var tagNameRe = regexp.MustCompile(`</?\s*([a-zA-Z0-9]+)`)
 // ToText so %s/%q/%v see the canonical Quill text spelling rather than the Go
 // struct dump (spec 03 Section 2.6, the Go-fmt-dialect format filter).
 func goArg(v runtime.Value) interface{} {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KInt:
-		return v.I
+		return v.AsInt()
 	case runtime.KFloat:
-		return v.F
+		return v.AsFloat()
 	case runtime.KBool:
-		return v.B
+		return v.AsBool()
 	default:
 		s, err := runtime.ToText(v)
 		if err != nil {
-			return fmt.Sprintf("<%s>", v.Kind)
+			return fmt.Sprintf("<%s>", v.Kind())
 		}
 		return s
 	}

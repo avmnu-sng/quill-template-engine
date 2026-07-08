@@ -166,33 +166,33 @@ func (in *interp) compare(n *ast.Node, op string, l, r runtime.Value) (runtime.V
 func (in *interp) arith(n *ast.Node, op string, l, r runtime.Value) (runtime.Value, error) {
 	if !isNum(l) || !isNum(r) {
 		return runtime.Null(), posErr(n, errors.New(errors.KindArithmetic,
-			"operator %q expects numbers, got %s and %s", op, l.Kind, r.Kind))
+			"operator %q expects numbers, got %s and %s", op, l.Kind(), r.Kind()))
 	}
-	bothInt := l.Kind == runtime.KInt && r.Kind == runtime.KInt
+	bothInt := l.Kind() == runtime.KInt && r.Kind() == runtime.KInt
 	switch op {
 	case "+":
 		if bothInt {
-			s, ok := addInt64(l.I, r.I)
+			s, ok := addInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+				return runtime.Null(), overflowErr(n, op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(s), nil
 		}
 		return finite(n, asF(l)+asF(r))
 	case "-":
 		if bothInt {
-			d, ok := subInt64(l.I, r.I)
+			d, ok := subInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+				return runtime.Null(), overflowErr(n, op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(d), nil
 		}
 		return finite(n, asF(l)-asF(r))
 	case "*":
 		if bothInt {
-			p, ok := mulInt64(l.I, r.I)
+			p, ok := mulInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+				return runtime.Null(), overflowErr(n, op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(p), nil
 		}
@@ -203,10 +203,10 @@ func (in *interp) arith(n *ast.Node, op string, l, r runtime.Value) (runtime.Val
 		}
 		// "/" yields an int when both are ints and the division is exact, else a
 		// float, keeping integer arithmetic integral where it can (spec 04 Section 2).
-		if bothInt && l.I%r.I == 0 {
-			q, ok := divInt64(l.I, r.I)
+		if bothInt && l.AsInt()%r.AsInt() == 0 {
+			q, ok := divInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+				return runtime.Null(), overflowErr(n, op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(q), nil
 		}
@@ -220,19 +220,19 @@ func (in *interp) arith(n *ast.Node, op string, l, r runtime.Value) (runtime.Val
 		// Int-only context (bitwise ops, exact-kind equality). Only MinInt64/-1
 		// overflows int64 division.
 		if bothInt {
-			q, ok := floorDivInt64(l.I, r.I)
+			q, ok := floorDivInt64(l.AsInt(), r.AsInt())
 			if !ok {
-				return runtime.Null(), overflowErr(n, op, l.I, r.I)
+				return runtime.Null(), overflowErr(n, op, l.AsInt(), r.AsInt())
 			}
 			return runtime.Int(q), nil
 		}
 		return finite(n, math.Floor(asF(l)/asF(r)))
 	case "%":
 		if bothInt {
-			if r.I == 0 {
+			if r.AsInt() == 0 {
 				return runtime.Null(), posErr(n, errors.New(errors.KindArithmetic, "modulo by zero"))
 			}
-			return runtime.Int(l.I % r.I), nil
+			return runtime.Int(l.AsInt() % r.AsInt()), nil
 		}
 		if asF(r) == 0 {
 			return runtime.Null(), posErr(n, errors.New(errors.KindArithmetic, "modulo by zero"))
@@ -243,17 +243,17 @@ func (in *interp) arith(n *ast.Node, op string, l, r runtime.Value) (runtime.Val
 }
 
 func (in *interp) bitwise(n *ast.Node, op string, l, r runtime.Value) (runtime.Value, error) {
-	if l.Kind != runtime.KInt || r.Kind != runtime.KInt {
+	if l.Kind() != runtime.KInt || r.Kind() != runtime.KInt {
 		return runtime.Null(), posErr(n, errors.New(errors.KindArithmetic,
 			"bitwise operator %q expects integers", op))
 	}
 	switch op {
 	case "b_or":
-		return runtime.Int(l.I | r.I), nil
+		return runtime.Int(l.AsInt() | r.AsInt()), nil
 	case "b_and":
-		return runtime.Int(l.I & r.I), nil
+		return runtime.Int(l.AsInt() & r.AsInt()), nil
 	case "b_xor":
-		return runtime.Int(l.I ^ r.I), nil
+		return runtime.Int(l.AsInt() ^ r.AsInt()), nil
 	}
 	return runtime.Null(), nil
 }
@@ -303,16 +303,16 @@ func (in *interp) evalPower(n *ast.Node, ctx *runtime.Scope) (runtime.Value, err
 	}
 	if !isNum(base) || !isNum(exp) {
 		return runtime.Null(), posErr(n, errors.New(errors.KindArithmetic,
-			"** expects numbers, got %s and %s", base.Kind, exp.Kind))
+			"** expects numbers, got %s and %s", base.Kind(), exp.Kind()))
 	}
 	// An Int base with a NON-NEGATIVE Int exponent yields an Int; the power is
 	// computed in int64 (NOT via math.Pow, which loses precision above 2^53 and
 	// saturates on int64 conversion) and an overflow is an ERROR, never a float
 	// promotion or a silently-truncated literal (spec 04 Section 2.1 ** row).
-	if base.Kind == runtime.KInt && exp.Kind == runtime.KInt && exp.I >= 0 {
-		p, ok := powInt64(base.I, exp.I)
+	if base.Kind() == runtime.KInt && exp.Kind() == runtime.KInt && exp.AsInt() >= 0 {
+		p, ok := powInt64(base.AsInt(), exp.AsInt())
 		if !ok {
-			return runtime.Null(), overflowErr(n, "**", base.I, exp.I)
+			return runtime.Null(), overflowErr(n, "**", base.AsInt(), exp.AsInt())
 		}
 		return runtime.Int(p), nil
 	}
@@ -416,13 +416,13 @@ func (in *interp) affix(n *ast.Node, l, r runtime.Value, prefix bool) (runtime.V
 // number/array is a programming mistake, not a silent coercion); an invalid or
 // PCRE-only pattern is a clear runtime error rather than a panic.
 func (in *interp) matches(n *ast.Node, subject, pattern runtime.Value) (runtime.Value, error) {
-	if subject.Kind != runtime.KStr && subject.Kind != runtime.KSafe {
+	if subject.Kind() != runtime.KStr && subject.Kind() != runtime.KSafe {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
-			"the %q operator expects a string subject, got %s", "matches", subject.Kind))
+			"the %q operator expects a string subject, got %s", "matches", subject.Kind()))
 	}
-	if pattern.Kind != runtime.KStr && pattern.Kind != runtime.KSafe {
+	if pattern.Kind() != runtime.KStr && pattern.Kind() != runtime.KSafe {
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
-			"the %q operator expects a string pattern, got %s", "matches", pattern.Kind))
+			"the %q operator expects a string pattern, got %s", "matches", pattern.Kind()))
 	}
 	// A literal pattern was already validated and compiled during Prepare (spec
 	// 01 Section 3, "validated at compile time"); reuse that *regexp.Regexp so a
@@ -431,35 +431,35 @@ func (in *interp) matches(n *ast.Node, subject, pattern runtime.Value) (runtime.
 	re := in.regexps[n]
 	if re == nil {
 		var err error
-		re, err = regexp.Compile(pattern.S)
+		re, err = regexp.Compile(pattern.AsStr())
 		if err != nil {
 			return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
-				"invalid RE2 pattern %q: %v", pattern.S, err))
+				"invalid RE2 pattern %q: %v", pattern.AsStr(), err))
 		}
 	}
-	return runtime.Bool(re.MatchString(subject.S)), nil
+	return runtime.Bool(re.MatchString(subject.AsStr())), nil
 }
 
-func isNum(v runtime.Value) bool { return v.Kind == runtime.KInt || v.Kind == runtime.KFloat }
+func isNum(v runtime.Value) bool { return v.Kind() == runtime.KInt || v.Kind() == runtime.KFloat }
 
 // toInt coerces a number value to int64 (0 for non-numbers), used to translate
 // slice bounds into the slice filter's (start, length) form.
 func toInt(v runtime.Value) int64 {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KInt:
-		return v.I
+		return v.AsInt()
 	case runtime.KFloat:
-		return int64(v.F)
+		return int64(v.AsFloat())
 	default:
 		return 0
 	}
 }
 
 func asF(v runtime.Value) float64 {
-	if v.Kind == runtime.KInt {
-		return float64(v.I)
+	if v.Kind() == runtime.KInt {
+		return float64(v.AsInt())
 	}
-	return v.F
+	return v.AsFloat()
 }
 
 // finite lifts a computed float into a Float value, rejecting non-finite results

@@ -122,20 +122,20 @@ func filterDateModify(args []runtime.Value) (runtime.Value, error) {
 // integer is a Unix timestamp, and a string is parsed against RFC3339 then the
 // default layout then a date-only layout. Null is "now".
 func coerceTime(v runtime.Value, loc *time.Location) (time.Time, error) {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KNull:
 		return time.Now().In(loc), nil
 	case runtime.KObject:
-		if d, ok := v.Obj.(*dateValue); ok {
+		if d, ok := v.AsObject().(*dateValue); ok {
 			return d.t, nil
 		}
 		return time.Time{}, errors.New(errors.KindRuntime, "value is not a date")
 	case runtime.KInt:
-		return time.Unix(v.I, 0).In(loc), nil
+		return time.Unix(v.AsInt(), 0).In(loc), nil
 	case runtime.KFloat:
-		return time.Unix(int64(v.F), 0).In(loc), nil
+		return time.Unix(int64(v.AsFloat()), 0).In(loc), nil
 	case runtime.KStr, runtime.KSafe:
-		s := strings.TrimSpace(v.S)
+		s := strings.TrimSpace(v.AsStr())
 		if s == "" || s == "now" {
 			return time.Now().In(loc), nil
 		}
@@ -149,7 +149,7 @@ func coerceTime(v runtime.Value, loc *time.Location) (time.Time, error) {
 		}
 		return time.Time{}, errors.New(errors.KindRuntime, "cannot parse %q as a date", s)
 	default:
-		return time.Time{}, errors.New(errors.KindRuntime, "cannot interpret %s as a date", v.Kind)
+		return time.Time{}, errors.New(errors.KindRuntime, "cannot interpret %s as a date", v.Kind())
 	}
 }
 

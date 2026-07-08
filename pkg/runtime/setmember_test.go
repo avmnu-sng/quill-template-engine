@@ -23,12 +23,12 @@ func (m *mutBox) SetField(name string, v Value) error {
 }
 
 func (m *mutBox) GetIndex(key Value) (Value, bool) {
-	v, ok := m.fields[key.S]
+	v, ok := m.fields[key.AsStr()]
 	return v, ok
 }
 
 func (m *mutBox) SetIndex(key, v Value) error {
-	m.fields[key.S] = v
+	m.fields[key.AsStr()] = v
 	return nil
 }
 
@@ -45,7 +45,7 @@ func TestSetMemberArray(t *testing.T) {
 		t.Fatalf("SetMember: %v", err)
 	}
 	got, ok := a.GetStr("name")
-	if !ok || got.S != "ada" {
+	if !ok || got.AsStr() != "ada" {
 		t.Fatalf("array member after set = %v (ok %v), want ada", got, ok)
 	}
 	// Overwrite in place.
@@ -53,7 +53,7 @@ func TestSetMemberArray(t *testing.T) {
 		t.Fatalf("SetMember overwrite: %v", err)
 	}
 	got, _ = a.GetStr("name")
-	if got.S != "bob" {
+	if got.AsStr() != "bob" {
 		t.Fatalf("array member after overwrite = %v, want bob", got)
 	}
 }
@@ -65,7 +65,7 @@ func TestSetMemberObject(t *testing.T) {
 		t.Fatalf("SetMember: %v", err)
 	}
 	got, _ := GetAttribute(recv, Str("x"), AccessDot, false)
-	if got.I != 7 {
+	if got.AsInt() != 7 {
 		t.Fatalf("object member after set = %v, want 7", got)
 	}
 }
@@ -94,10 +94,10 @@ func TestSetIndexArray(t *testing.T) {
 	if err := SetIndex(recv, Str("k"), Str("v")); err != nil {
 		t.Fatalf("SetIndex str: %v", err)
 	}
-	if got, _ := a.GetInt(0); got.S != "zero" {
+	if got, _ := a.GetInt(0); got.AsStr() != "zero" {
 		t.Fatalf("array[0] = %v, want zero", got)
 	}
-	if got, _ := a.GetStr("k"); got.S != "v" {
+	if got, _ := a.GetStr("k"); got.AsStr() != "v" {
 		t.Fatalf("array[k] = %v, want v", got)
 	}
 }
@@ -107,7 +107,7 @@ func TestSetIndexObject(t *testing.T) {
 	if err := SetIndex(Obj(box), Str("k"), Int(3)); err != nil {
 		t.Fatalf("SetIndex: %v", err)
 	}
-	if got, _ := box.GetField("k"); got.I != 3 {
+	if got, _ := box.GetField("k"); got.AsInt() != 3 {
 		t.Fatalf("object[k] = %v, want 3", got)
 	}
 }

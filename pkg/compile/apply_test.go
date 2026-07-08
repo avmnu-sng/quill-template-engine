@@ -304,19 +304,19 @@ import (
 // text of scalar entries) then the piped value, so any drift in the context
 // names, order, or values between the two engines changes the output bytes.
 func ctxkeys(args []runtime.Value) (runtime.Value, error) {
-	if len(args) < 2 || args[0].Kind != runtime.KArray || args[0].Arr == nil {
+	if len(args) < 2 || args[0].Kind() != runtime.KArray || args[0].AsArray() == nil {
 		return runtime.Null(), fmt.Errorf("ctxkeys: no context injected (got %%d args)", len(args))
 	}
 	var b strings.Builder
-	for _, p := range args[0].Arr.Pairs() {
+	for _, p := range args[0].AsArray().Pairs() {
 		k, err := runtime.ToText(p.Key)
 		if err != nil {
 			return runtime.Null(), err
 		}
 		b.WriteString(k)
 		b.WriteByte('=')
-		fmt.Fprintf(&b, "%%s", p.Val.Kind)
-		if p.Val.Kind == runtime.KInt || p.Val.Kind == runtime.KStr {
+		fmt.Fprintf(&b, "%%s", p.Val.Kind())
+		if p.Val.Kind() == runtime.KInt || p.Val.Kind() == runtime.KStr {
 			s, err := runtime.ToText(p.Val)
 			if err != nil {
 				return runtime.Null(), err

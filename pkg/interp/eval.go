@@ -124,8 +124,8 @@ func (in *interp) evalList(n *ast.Node, ctx *runtime.Scope) (runtime.Value, erro
 			if err != nil {
 				return runtime.Null(), err
 			}
-			if src.Kind == runtime.KArray && src.Arr != nil {
-				for _, p := range src.Arr.Pairs() {
+			if src.Kind() == runtime.KArray && src.AsArray() != nil {
+				for _, p := range src.AsArray().Pairs() {
 					out.SetInt(idx, p.Val)
 					idx++
 				}
@@ -176,8 +176,8 @@ func (in *interp) evalMap(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error
 			if err != nil {
 				return runtime.Null(), err
 			}
-			if src.Kind == runtime.KArray && src.Arr != nil {
-				for _, p := range src.Arr.Pairs() {
+			if src.Kind() == runtime.KArray && src.AsArray() != nil {
+				for _, p := range src.AsArray().Pairs() {
 					out.SetKey(p.Key, p.Val)
 				}
 			}
@@ -189,7 +189,7 @@ func (in *interp) evalMap(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error
 // keyOf coerces a computed map key to an Int or Str key value. A non-int scalar
 // becomes its ToText form; this is the access layer's key model (spec 04 6.2).
 func keyOf(v runtime.Value) runtime.Value {
-	if v.Kind == runtime.KInt {
+	if v.Kind() == runtime.KInt {
 		return v
 	}
 	s, err := runtime.ToText(v)
@@ -296,11 +296,11 @@ func (in *interp) evalUnary(n *ast.Node, ctx *runtime.Scope) (runtime.Value, err
 	case "-":
 		return negate(n, v)
 	case "+":
-		if v.Kind == runtime.KInt || v.Kind == runtime.KFloat {
+		if v.Kind() == runtime.KInt || v.Kind() == runtime.KFloat {
 			return v, nil
 		}
 		return runtime.Null(), posErr(n, errors.New(errors.KindArithmetic,
-			"unary + expects a number, got %s", v.Kind))
+			"unary + expects a number, got %s", v.Kind()))
 	default:
 		return runtime.Null(), posErr(n, errors.New(errors.KindRuntime,
 			"unknown unary operator %q", n.Str))
@@ -308,14 +308,14 @@ func (in *interp) evalUnary(n *ast.Node, ctx *runtime.Scope) (runtime.Value, err
 }
 
 func negate(n *ast.Node, v runtime.Value) (runtime.Value, error) {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KInt:
-		return runtime.Int(-v.I), nil
+		return runtime.Int(-v.AsInt()), nil
 	case runtime.KFloat:
-		return runtime.Float(-v.F), nil
+		return runtime.Float(-v.AsFloat()), nil
 	default:
 		return runtime.Null(), posErr(n, errors.New(errors.KindArithmetic,
-			"unary - expects a number, got %s", v.Kind))
+			"unary - expects a number, got %s", v.Kind()))
 	}
 }
 

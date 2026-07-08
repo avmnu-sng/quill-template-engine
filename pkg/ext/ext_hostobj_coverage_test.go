@@ -15,21 +15,21 @@ import (
 func TestDateHostObjectProtocol(t *testing.T) {
 	// date(0) is the Unix epoch in UTC -> 1970-01-01 00:00:00 in the default layout.
 	d := callFn(t, "date", runtime.Int(0))
-	if d.Kind != runtime.KObject {
-		t.Fatalf("date() = kind %s, want an object", d.Kind)
+	if d.Kind() != runtime.KObject {
+		t.Fatalf("date() = kind %s, want an object", d.Kind())
 	}
 
 	// GetField: a date exposes no attributes, so any name is absent and null.
-	got, ok := d.Obj.GetField("year")
+	got, ok := d.AsObject().GetField("year")
 	if ok {
 		t.Errorf("date GetField(year) ok=true, want false (a date has no fields)")
 	}
-	if got.Kind != runtime.KNull {
-		t.Errorf("date GetField absent value = %s, want null", got.Kind)
+	if got.Kind() != runtime.KNull {
+		t.Errorf("date GetField absent value = %s, want null", got.Kind())
 	}
 
 	// CallMethod: a date has no callable methods; every invocation is a runtime error.
-	res, err := d.Obj.CallMethod("format", []runtime.Value{runtime.Str("x")})
+	res, err := d.AsObject().CallMethod("format", []runtime.Value{runtime.Str("x")})
 	if err == nil {
 		t.Fatalf("date CallMethod should error, got %v", res)
 	}
@@ -39,8 +39,8 @@ func TestDateHostObjectProtocol(t *testing.T) {
 	if errors.KindOf(err) != errors.KindRuntime {
 		t.Errorf("date CallMethod error kind = %s, want KindRuntime", errors.KindOf(err))
 	}
-	if res.Kind != runtime.KNull {
-		t.Errorf("date CallMethod result = %s, want null", res.Kind)
+	if res.Kind() != runtime.KNull {
+		t.Errorf("date CallMethod result = %s, want null", res.Kind())
 	}
 
 	// Stringify: reached through the public ToText hook, renders the default layout.
@@ -53,7 +53,7 @@ func TestDateHostObjectProtocol(t *testing.T) {
 	}
 
 	// ClassName: reported through the ClassNamed capability interface.
-	cn, ok := d.Obj.(runtime.ClassNamed)
+	cn, ok := d.AsObject().(runtime.ClassNamed)
 	if !ok {
 		t.Fatal("date value should implement runtime.ClassNamed")
 	}
@@ -69,13 +69,13 @@ func TestSeparatorHostObjectProtocol(t *testing.T) {
 	sep := callFn(t, "separator", runtime.Str("; "))
 
 	// GetField: a separator is used only by calling it, so it has no members.
-	got, ok := sep.Obj.GetField("sep")
-	if ok || got.Kind != runtime.KNull {
-		t.Errorf("separator GetField(sep) = (%s, %v), want (null, false)", got.Kind, ok)
+	got, ok := sep.AsObject().GetField("sep")
+	if ok || got.Kind() != runtime.KNull {
+		t.Errorf("separator GetField(sep) = (%s, %v), want (null, false)", got.Kind(), ok)
 	}
 
 	// CallMethod: a separator is invoked directly, never through a named method.
-	res, err := sep.Obj.CallMethod("reset", nil)
+	res, err := sep.AsObject().CallMethod("reset", nil)
 	if err == nil {
 		t.Fatalf("separator CallMethod should error, got %v", res)
 	}
@@ -87,7 +87,7 @@ func TestSeparatorHostObjectProtocol(t *testing.T) {
 	}
 
 	// ClassName.
-	cn, _ := sep.Obj.(runtime.ClassNamed)
+	cn, _ := sep.AsObject().(runtime.ClassNamed)
 	if cn == nil || cn.ClassName() != "Separator" {
 		t.Errorf("separator ClassName = %q, want %q", cn.ClassName(), "Separator")
 	}
@@ -100,19 +100,19 @@ func TestCellHostObjectProtocolMembers(t *testing.T) {
 	c := callFn(t, "cell", runtime.Str("seed"))
 
 	// GetField hit path: `value` yields the held value.
-	got, ok := c.Obj.GetField("value")
-	if !ok || got.Kind != runtime.KStr || got.S != "seed" {
+	got, ok := c.AsObject().GetField("value")
+	if !ok || got.Kind() != runtime.KStr || got.AsStr() != "seed" {
 		t.Errorf("cell GetField(value) = (%v, %v), want (\"seed\", true)", got, ok)
 	}
 
 	// GetField miss path: any other member is absent and null.
-	got, ok = c.Obj.GetField("missing")
-	if ok || got.Kind != runtime.KNull {
-		t.Errorf("cell GetField(missing) = (%s, %v), want (null, false)", got.Kind, ok)
+	got, ok = c.AsObject().GetField("missing")
+	if ok || got.Kind() != runtime.KNull {
+		t.Errorf("cell GetField(missing) = (%s, %v), want (null, false)", got.Kind(), ok)
 	}
 
 	// CallMethod: a cell is read/written through `value`, never through a method.
-	res, err := c.Obj.CallMethod("get", nil)
+	res, err := c.AsObject().CallMethod("get", nil)
 	if err == nil {
 		t.Fatalf("cell CallMethod should error, got %v", res)
 	}
@@ -124,7 +124,7 @@ func TestCellHostObjectProtocolMembers(t *testing.T) {
 	}
 
 	// ClassName.
-	cn, _ := c.Obj.(runtime.ClassNamed)
+	cn, _ := c.AsObject().(runtime.ClassNamed)
 	if cn == nil || cn.ClassName() != "Cell" {
 		t.Errorf("cell ClassName = %q, want %q", cn.ClassName(), "Cell")
 	}
@@ -209,10 +209,10 @@ func TestRegistryCloneIndependence(t *testing.T) {
 	if !cp.HasFilter("f") || !cp.HasFunction("fn") || !cp.HasTest("t") {
 		t.Error("Clone dropped a callable family")
 	}
-	if v, ok := cp.Constant("K"); !ok || v.S != "base-k" {
+	if v, ok := cp.Constant("K"); !ok || v.AsStr() != "base-k" {
 		t.Errorf("Clone constant K = %+v ok=%v, want base-k", v, ok)
 	}
-	if cases, ok := cp.Enum("E"); !ok || len(cases) != 2 || cases[0].S != "a" {
+	if cases, ok := cp.Enum("E"); !ok || len(cases) != 2 || cases[0].AsStr() != "a" {
 		t.Errorf("Clone enum E = %+v ok=%v", cases, ok)
 	}
 
@@ -223,8 +223,8 @@ func TestRegistryCloneIndependence(t *testing.T) {
 		t.Error("Clone should share the callable pointer, not deep-copy it")
 	}
 	got, _ := clone.Fn(nil)
-	if got.S != "base-f" {
-		t.Errorf("cloned filter f = %q, want base-f", got.S)
+	if got.AsStr() != "base-f" {
+		t.Errorf("cloned filter f = %q, want base-f", got.AsStr())
 	}
 
 	// Independent maps: adding to the clone does not touch the base, and vice versa.

@@ -522,7 +522,7 @@ func (in *interp) emit(v runtime.Value) error {
 	// text as UTF-8 and return a charset error naming the strategy and byte offset
 	// on an invalid byte (spec 04 Section 8.2); that error is surfaced here rather
 	// than emitting a silent replacement character.
-	if in.escape != "" && v.Kind != runtime.KSafe {
+	if in.escape != "" && v.Kind() != runtime.KSafe {
 		text, err = ext.Escape(in.escape, text)
 		if err != nil {
 			return err

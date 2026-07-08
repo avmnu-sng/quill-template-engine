@@ -81,10 +81,10 @@ func TestFn1NeedsFlagsDisableFastCall(t *testing.T) {
 	set.AddFilter(&ext.Filter{
 		Name: "upper",
 		Fn: func(args []runtime.Value) (runtime.Value, error) {
-			if len(args) != 2 || args[0].Kind != runtime.KArray {
+			if len(args) != 2 || args[0].Kind() != runtime.KArray {
 				return runtime.Null(), fmt.Errorf("context injection missing: %d args", len(args))
 			}
-			got, ok := args[0].Arr.GetStr("who")
+			got, ok := args[0].AsArray().GetStr("who")
 			if !ok {
 				return runtime.Null(), fmt.Errorf("injected context lacks the in-scope binding")
 			}

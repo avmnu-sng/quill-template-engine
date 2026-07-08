@@ -19,25 +19,25 @@ import (
 // JSON object with string keys. An Object with a Stringify hook encodes as its
 // string; an Object without one is a render error, mirroring ToText.
 func encodeJSON(b *strings.Builder, v runtime.Value, pretty bool, indent, prefix string) error {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KNull:
 		b.WriteString("null")
 	case runtime.KBool:
-		if v.B {
+		if v.AsBool() {
 			b.WriteString("true")
 		} else {
 			b.WriteString("false")
 		}
 	case runtime.KInt:
-		b.WriteString(strconv.FormatInt(v.I, 10))
+		b.WriteString(strconv.FormatInt(v.AsInt(), 10))
 	case runtime.KFloat:
-		b.WriteString(strconv.FormatFloat(v.F, 'g', -1, 64))
+		b.WriteString(strconv.FormatFloat(v.AsFloat(), 'g', -1, 64))
 	case runtime.KStr:
-		b.WriteString(encodeJSONString(v.S))
+		b.WriteString(encodeJSONString(v.AsStr()))
 	case runtime.KSafe:
-		b.WriteString(encodeJSONString(v.S))
+		b.WriteString(encodeJSONString(v.AsStr()))
 	case runtime.KArray:
-		return encodeJSONArray(b, v.Arr, pretty, indent, prefix)
+		return encodeJSONArray(b, v.AsArray(), pretty, indent, prefix)
 	case runtime.KObject:
 		s, err := runtime.ToText(v)
 		if err != nil {

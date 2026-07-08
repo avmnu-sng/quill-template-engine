@@ -30,7 +30,7 @@ func TestArrayKeyCanonicalization(t *testing.T) {
 			if len(keys) != 1 {
 				t.Fatalf("want 1 key, got %d", len(keys))
 			}
-			gotInt := keys[0].Kind == KInt
+			gotInt := keys[0].Kind() == KInt
 			if gotInt != tt.wantInt {
 				t.Fatalf("key %q: int=%v, want int=%v", tt.strKey, gotInt, tt.wantInt)
 			}
@@ -39,8 +39,8 @@ func TestArrayKeyCanonicalization(t *testing.T) {
 				if _, ok := a.GetInt(tt.sameAsInt); !ok {
 					t.Fatalf("GetInt(%d) missed slot set via %q", tt.sameAsInt, tt.strKey)
 				}
-				if keys[0].I != tt.sameAsInt {
-					t.Fatalf("canon key = %d, want %d", keys[0].I, tt.sameAsInt)
+				if keys[0].AsInt() != tt.sameAsInt {
+					t.Fatalf("canon key = %d, want %d", keys[0].AsInt(), tt.sameAsInt)
 				}
 			}
 		})
@@ -50,14 +50,14 @@ func TestArrayKeyCanonicalization(t *testing.T) {
 func TestArrayStringIntSameSlot(t *testing.T) {
 	a := NewArray()
 	a.SetInt(1, Str("by-int"))
-	if v, ok := a.GetStr("1"); !ok || v.S != "by-int" {
+	if v, ok := a.GetStr("1"); !ok || v.AsStr() != "by-int" {
 		t.Fatalf(`GetStr("1") = %v, %v; want by-int`, v, ok)
 	}
 	a.SetStr("1", Str("by-str"))
 	if a.Len() != 1 {
 		t.Fatalf("string 1 created a second slot; len=%d", a.Len())
 	}
-	if v, _ := a.GetInt(1); v.S != "by-str" {
+	if v, _ := a.GetInt(1); v.AsStr() != "by-str" {
 		t.Fatalf("GetInt(1) = %v; want by-str", v)
 	}
 	// "01" is a distinct string slot.
@@ -81,16 +81,16 @@ func TestArrayInsertionOrder(t *testing.T) {
 		t.Fatalf("len=%d, want 4", len(keys))
 	}
 	for i, k := range keys {
-		if k.Kind != wantKinds[i] {
-			t.Errorf("key %d kind=%v, want %v", i, k.Kind, wantKinds[i])
+		if k.Kind() != wantKinds[i] {
+			t.Errorf("key %d kind=%v, want %v", i, k.Kind(), wantKinds[i])
 		}
 		got, _ := ToText(k)
 		if got != wantText[i] {
 			t.Errorf("key %d text=%q, want %q", i, got, wantText[i])
 		}
 	}
-	if v, _ := a.GetStr("b"); v.I != 99 {
-		t.Errorf("updated b = %d, want 99", v.I)
+	if v, _ := a.GetStr("b"); v.AsInt() != 99 {
+		t.Errorf("updated b = %d, want 99", v.AsInt())
 	}
 }
 
@@ -147,7 +147,7 @@ func TestArrayPairAt(t *testing.T) {
 	pairs := a.Pairs()
 	for i := range pairs {
 		k, v := a.PairAt(i)
-		if !Equal(k, pairs[i].Key) || k.Kind != pairs[i].Key.Kind {
+		if !Equal(k, pairs[i].Key) || k.Kind() != pairs[i].Key.Kind() {
 			t.Errorf("PairAt(%d) key = %v, want %v", i, k, pairs[i].Key)
 		}
 		if !Equal(v, pairs[i].Val) {
@@ -187,7 +187,7 @@ func TestArrayPairsInto(t *testing.T) {
 		t.Fatalf("PairsInto(nil) length = %d, want %d", len(got), len(want))
 	}
 	for i := range want {
-		if !Equal(got[i].Key, want[i].Key) || got[i].Key.Kind != want[i].Key.Kind || !Equal(got[i].Val, want[i].Val) {
+		if !Equal(got[i].Key, want[i].Key) || got[i].Key.Kind() != want[i].Key.Kind() || !Equal(got[i].Val, want[i].Val) {
 			t.Errorf("PairsInto(nil)[%d] = %v, want %v", i, got[i], want[i])
 		}
 	}
@@ -214,7 +214,7 @@ func TestArrayPairsInto(t *testing.T) {
 	// length; the tail beyond len is stale but out of range.
 	small := NewList(Str("x"), Str("y"))
 	buf = small.PairsInto(buf)
-	if len(buf) != 2 || buf[0].Val.S != "x" || buf[1].Val.S != "y" {
+	if len(buf) != 2 || buf[0].Val.AsStr() != "x" || buf[1].Val.AsStr() != "y" {
 		t.Fatalf("PairsInto did not shrink to the smaller array: %v", buf)
 	}
 }
@@ -228,10 +228,10 @@ func TestArrayCloneIsDeepValueCopy(t *testing.T) {
 	clone := outer.Clone()
 	// Mutating the clone's nested array must not touch the original.
 	cv, _ := clone.GetStr("nested")
-	cv.Arr.SetInt(0, Int(999))
+	cv.AsArray().SetInt(0, Int(999))
 
 	ov, _ := outer.GetStr("nested")
-	if first, _ := ov.Arr.GetInt(0); first.I != 1 {
-		t.Fatalf("clone mutation leaked into original: got %d, want 1", first.I)
+	if first, _ := ov.AsArray().GetInt(0); first.AsInt() != 1 {
+		t.Fatalf("clone mutation leaked into original: got %d, want 1", first.AsInt())
 	}
 }

@@ -155,8 +155,8 @@ func (li *loopInfo) CallMethod(name string, _ []Value) (Value, error) {
 // matches dotted access. Only a string subscript names a field; any other key is
 // absent.
 func (li *loopInfo) GetIndex(key Value) (Value, bool) {
-	if key.Kind == KStr {
-		return li.GetField(key.S)
+	if key.kind == KStr {
+		return li.GetField(key.s)
 	}
 	return Null(), false
 }
