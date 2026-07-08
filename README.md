@@ -1,35 +1,28 @@
 # Quill
 
-A general-purpose, gradually-typed, fast template engine for Go.
+Fast, gradually-typed, general-purpose template engine for Go.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/avmnu-sng/quill-template-engine.svg)](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine)
+[![Release](https://img.shields.io/github/v/release/avmnu-sng/quill-template-engine?sort=semver)](https://github.com/avmnu-sng/quill-template-engine/releases/latest)
 [![CI](https://github.com/avmnu-sng/quill-template-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/avmnu-sng/quill-template-engine/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/avmnu-sng/quill-template-engine/branch/main/graph/badge.svg)](https://codecov.io/gh/avmnu-sng/quill-template-engine)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-quill-blue)](https://avmnu-sng.github.io/quill-template-engine/)
 
-Quill is a template engine for Go that pairs Twig-class composition with things
-nothing else in the Go template space combines: a gradual type system, a
-compile-to-Go backend, native branch-aware coverage, a sandbox, streaming, and
-byte-exact whitespace control. Use it for HTML pages, config files, emails,
-source, or any other text -- no use case is privileged.
+Quill gives Go everything `text/template` leaves out: a **gradual type system**
+that catches undefined names, bad calls, and type mismatches at load time --
+before a byte renders; a **compile-to-Go backend** for the hot path; **native
+branch-aware coverage** (`quill cover`, the analogue of `go tool cover`, for your
+templates); and a **policy sandbox** for untrusted templates. On top of that,
+Twig-class composition -- inheritance, blocks, macros, embeds, traits -- plus
+streaming and byte-exact whitespace control, in one engine for HTML, config,
+emails, program source, or any other text.
 
-**Full docs:** <https://avmnu-sng.github.io/quill-template-engine/> &middot;
-**API reference:** <https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine>
+> **v1.0.0** -- the exported API is stable under [semantic versioning](https://semver.org).
+> Coming from v0.3.0? See the [migration guide](https://avmnu-sng.github.io/quill-template-engine/migration/).
 
-## Contents
-
-- [Why Quill](#why-quill)
-- [Install](#install)
-- [30-second example](#30-second-example)
-- [Passing Go data](#passing-go-data)
-- [Escaping](#escaping)
-- [Use cases](#use-cases)
-- [Coming from Jinja, Twig, or Go text/template](#coming-from-jinja-twig-or-go-texttemplate)
-- [Editor support](#editor-support)
-- [Documentation](#documentation)
-- [Development](#development)
-- [License](#license)
+**Docs:** <https://avmnu-sng.github.io/quill-template-engine/> &middot;
+**API:** <https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine>
 
 ## Why Quill
 
@@ -64,13 +57,13 @@ Add the library to a module:
 go get github.com/avmnu-sng/quill-template-engine
 ```
 
-Install the command-line tool (renders templates and reports coverage):
+Install the command-line tool (renders templates with JSON data, reports coverage, and compiles templates to Go):
 
 ```
 go install github.com/avmnu-sng/quill-template-engine/cmd/quill@latest
 ```
 
-Quill requires Go 1.26 or newer and depends on nothing outside the Go standard
+Quill requires Go 1.23 or newer and depends on nothing outside the Go standard
 library.
 
 ## 30-second example
@@ -81,6 +74,7 @@ Build an `Environment` over a loader and render by name.
 package main
 
 import (
+	"context"
 	"fmt"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
@@ -88,10 +82,10 @@ import (
 )
 
 func main() {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
-	out, err := env.Render("greet.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "greet.quill", map[string]runtime.Value{
 		"name": runtime.Str("ada"),
 		"loud": runtime.Bool(true),
 	})
@@ -128,7 +122,7 @@ type User struct {
 	Tags  []string `quill:"tags"`
 }
 
-out, _ := env.RenderValues("greet.quill", map[string]any{
+out, _ := env.RenderValues(context.Background(), "greet.quill", map[string]any{
 	"user":  User{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
 	"count": 3,
 })
