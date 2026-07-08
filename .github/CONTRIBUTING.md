@@ -5,9 +5,11 @@ change must pass, and the conventions the codebase follows.
 
 ## Development environment
 
-Quill requires Go 1.26 or newer (the version is pinned in `.go-version`); the
-language floor in `go.mod` is kept conservative. The engine itself is
-standard-library only; the linters and scanners below are dev tooling.
+The library's minimum is Go 1.23 (the `go` line in `go.mod`, kept conservative
+for broad compatibility). Development uses a newer Go -- the test and benchmark
+suites rely on `b.Loop` (Go 1.24+) -- so pin a recent toolchain locally (for
+example with `goenv`). The engine itself is standard-library only; the linters
+and scanners below are dev tooling.
 
 Quill uses [go-task](https://taskfile.dev) as its build tool:
 

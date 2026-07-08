@@ -2,14 +2,14 @@
 
 ## Supported versions
 
-Quill is at an early stage (0.x). Security fixes are made against the latest
-released minor version and `main`. Until a 1.0 release, older 0.x versions are
-not separately patched -- upgrade to the latest release to receive fixes.
+Security fixes are made against the latest released version and `main`. With the
+v1.x line current, fixes land in the newest v1 release; upgrade to the latest
+release to receive them. The pre-1.0 `0.x` releases are no longer patched.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+| 1.x     | :white_check_mark: |
+| 0.x     | :x:                |
 
 ## Reporting a vulnerability
 

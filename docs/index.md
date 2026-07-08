@@ -56,7 +56,7 @@ compiles templates to Go):
 go install github.com/avmnu-sng/quill-template-engine/cmd/quill@latest
 ```
 
-Quill requires Go 1.26 or newer and depends on nothing outside the Go standard
+Quill requires Go 1.23 or newer and depends on nothing outside the Go standard
 library.
 
 ## 30-second example
