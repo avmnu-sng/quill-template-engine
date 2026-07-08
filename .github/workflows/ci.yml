@@ -23,11 +23,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
-        # "1.23" pins the go.mod floor so the minimum supported Go stays green;
-        # oldstable and stable track the two newest releases (covering the range
-        # up to the latest). Quote the version so YAML does not read a value like
-        # 1.20 as the float 1.2.
-        go: [ "1.23", oldstable, stable ]
+        # Every Go minor from the go.mod floor to the latest. "1.23" (the floor)
+        # and "1.24" are pinned; oldstable and stable track the two newest
+        # releases (1.25 and 1.26 today), so the range stays contiguous with no
+        # gap. As newer Go ships, pin any minor that drops out of the
+        # oldstable/stable window here to keep it contiguous. Quote versions so
+        # YAML does not read a value like 1.20 as the float 1.2.
+        go: [ "1.23", "1.24", oldstable, stable ]
     # Force bash on every OS so the test command's arguments parse identically;
     # the Windows default shell (PowerShell) mangles the go test flag list.
     defaults:
