@@ -54,7 +54,16 @@ func compareGolden(t *testing.T, name string, got []byte) {
 // templates are named relatively (page.ql), reports carry relative names, and the
 // generated source embeds only the template's own text.
 func normalizePath(s, dir string) string {
-	return strings.ReplaceAll(s, dir, "<ROOT>")
+	// Absolute temp dir -> stable placeholder, in both its native and
+	// forward-slash spellings (an OS error quotes the path in native form).
+	s = strings.ReplaceAll(s, dir, "<ROOT>")
+	s = strings.ReplaceAll(s, filepath.ToSlash(dir), "<ROOT>")
+	// Windows quotes the path with backslash separators and reports a missing
+	// file with a different message than Unix; fold both to the Unix forms the
+	// goldens record so a path-quoting error golden stays machine-independent.
+	s = strings.ReplaceAll(s, `<ROOT>\`, "<ROOT>/")
+	s = strings.ReplaceAll(s, "The system cannot find the file specified.", "no such file or directory")
+	return s
 }
 
 // representativeTemplate exercises the compilable subset broadly enough to pin a

@@ -1336,15 +1336,19 @@ func (in *interp) execTabBlock(n *ast.Node, ctx *runtime.Scope) error {
 func tabLevels(v runtime.Value) (int, error) {
 	switch v.Kind() {
 	case runtime.KInt:
-		if v.AsInt() < 0 {
+		// Read the payload once into a local so the range check provably covers
+		// the exact value converted below; static analysis does not assume the
+		// accessor returns the same value across calls.
+		n := v.AsInt()
+		if n < 0 {
 			return 0, nil
 		}
 		// int is 32-bit on some targets; clamp so a level past the platform int
 		// range cannot wrap negative (which would later panic strings.Repeat).
-		if v.AsInt() > math.MaxInt {
+		if n > math.MaxInt {
 			return math.MaxInt, nil
 		}
-		return int(v.AsInt()), nil
+		return int(n), nil
 	case runtime.KFloat:
 		if v.AsFloat() < 0 {
 			return 0, nil
