@@ -17,7 +17,7 @@ import (
 
 // registerShapingFilters installs the text-shaping filters onto s. It is called
 // from registerStdlib alongside the other filter families.
-func registerShapingFilters(s *ExtensionSet) {
+func registerShapingFilters(s *Set) {
 	s.AddFilter(&Filter{Name: "wrap", Fn: filterWrap})
 	s.AddFilter(&Filter{Name: "truncate", Fn: filterTruncate})
 	s.AddFilter(&Filter{Name: "center", Fn: filterCenter})

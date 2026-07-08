@@ -38,7 +38,7 @@ import (
 // (used by inheritance, includes, and imports).
 type Engine interface {
 	// Extensions returns the callable registry (core plus host).
-	Extensions() *ext.ExtensionSet
+	Extensions() *ext.Set
 	// StrictVariables reports whether an undefined read is an error (the default)
 	// or a silent Null (lenient migration mode), spec 04 Section 6.
 	StrictVariables() bool

@@ -141,7 +141,7 @@ func (e *NotCompilableError) Is(target error) bool {
 // Module compiles a parsed template module to one Go source file containing a
 // render function with the signature
 //
-//	func <FuncName>(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc compiled.RenderCache) error
+//	func <FuncName>(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error
 //
 // alongside an exported <FuncName>Manifest value (package compiled) describing
 // the unit to the Environment's by-name dispatch: quill.WithCompiled installs
@@ -412,7 +412,7 @@ func (c *compiler) assemble() []byte {
 	if c.usesSlots {
 		c.assembleSlotHeader(&b)
 	} else {
-		fmt.Fprintf(&b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc compiled.RenderCache) error {\n", c.opts.FuncName)
+		fmt.Fprintf(&b, "func %s(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error {\n", c.opts.FuncName)
 		if !c.tabFree {
 			b.WriteString("\tqw := &qWriter{w: w, atLineStart: true}\n")
 			b.WriteString("\t_ = qw\n")
@@ -502,7 +502,7 @@ func (c *compiler) assemble() []byte {
 // unresolved buffer, matching renderBuffered's error shape (the partial buffer
 // the interpreter returns alongside the error).
 func (c *compiler) assembleSlotHeader(b *bytes.Buffer) {
-	fmt.Fprintf(b, "func %s(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc compiled.RenderCache) (qErr error) {\n", c.opts.FuncName)
+	fmt.Fprintf(b, "func %s(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) (qErr error) {\n", c.opts.FuncName)
 	b.WriteString("\tvar qout strings.Builder\n")
 	if !c.tabFree {
 		b.WriteString("\tqw := &qWriter{w: &qout, atLineStart: true}\n")

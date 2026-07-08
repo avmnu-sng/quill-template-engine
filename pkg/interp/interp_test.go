@@ -19,7 +19,7 @@ import (
 // (which would be a cycle) so the interpreter is testable in isolation.
 type stubEngine struct {
 	tmpls   map[string]string
-	exts    *ext.ExtensionSet
+	exts    *ext.Set
 	strict  bool
 	autoht  bool
 	seed    int64
@@ -38,9 +38,9 @@ func newStub(tmpls map[string]string) *stubEngine {
 	return &stubEngine{tmpls: tmpls, exts: ext.Core(), strict: true, tabWidth: 4}
 }
 
-func (s *stubEngine) Extensions() *ext.ExtensionSet { return s.exts }
-func (s *stubEngine) StrictVariables() bool         { return s.strict }
-func (s *stubEngine) AutoescapeHTML() bool          { return s.autoht }
+func (s *stubEngine) Extensions() *ext.Set  { return s.exts }
+func (s *stubEngine) StrictVariables() bool { return s.strict }
+func (s *stubEngine) AutoescapeHTML() bool  { return s.autoht }
 func (s *stubEngine) TemplateExists(name string) bool {
 	_, ok := s.tmpls[name]
 	return ok

@@ -16,7 +16,7 @@ import (
 // keeps the engine on the general path for a core-audited name.
 func TestFn1HostFilterGetsFreshArgSlice(t *testing.T) {
 	var retained []runtime.Value
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(&ext.Filter{
 		Name: "upper",
 		Fn: func(args []runtime.Value) (runtime.Value, error) {
@@ -51,7 +51,7 @@ func TestFn1HostFilterGetsFreshArgSlice(t *testing.T) {
 // the general path: its Fn observes the standard one-element argument slice.
 func TestFn1ShadowedFilterWithoutFn1TakesGeneralPath(t *testing.T) {
 	argLens := []int{}
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(&ext.Filter{
 		Name: "upper",
 		Fn: func(args []runtime.Value) (runtime.Value, error) {
@@ -77,7 +77,7 @@ func TestFn1ShadowedFilterWithoutFn1TakesGeneralPath(t *testing.T) {
 // general path, so Fn sees the injected context mapping ahead of the piped
 // value and the trap never fires.
 func TestFn1NeedsFlagsDisableFastCall(t *testing.T) {
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(&ext.Filter{
 		Name: "upper",
 		Fn: func(args []runtime.Value) (runtime.Value, error) {
@@ -138,7 +138,7 @@ func probeFilter(name string, calls *[]string) *ext.Filter {
 // because the fast call must never depend on runtime argument data.
 func TestFn1SpreadArgKeepsGeneralPath(t *testing.T) {
 	var calls []string
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(probeFilter("probe1", &calls))
 	e := NewFromMap(nil, WithExtensions(set))
 

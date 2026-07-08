@@ -10,7 +10,7 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/pkg/sandbox"
 )
 
-// mathExt is a sample Extension bundle: it embeds ext.BaseExtension and ships a
+// mathExt is a sample Bundle bundle: it embeds ext.BaseExtension and ships a
 // function and a filter built with the typed helpers.
 type mathExt struct{ ext.BaseExtension }
 
@@ -35,7 +35,7 @@ func (mathExt) Filters() []*ext.Filter {
 // TestCustomCallableStructForm renders with a filter registered via the struct
 // form (&ext.Filter{Name, Fn}), the full-control path that stays supported.
 func TestCustomCallableStructForm(t *testing.T) {
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(&ext.Filter{
 		Name: "reverse_str",
 		Fn: func(args []runtime.Value) (runtime.Value, error) {
@@ -60,7 +60,7 @@ func TestCustomCallableStructForm(t *testing.T) {
 // TestCustomCallableTypedHelper renders with a filter and a function registered
 // via the typed helpers, end to end.
 func TestCustomCallableTypedHelper(t *testing.T) {
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(ext.NewFilter("times", func(x, n int64) int64 { return x * n }))
 	set.AddFunction(ext.NewFunction("clamp", func(x, lo, hi int64) int64 {
 		switch {
@@ -86,7 +86,7 @@ func TestCustomCallableTypedHelper(t *testing.T) {
 }
 
 // TestExtensionBundleEndToEnd renders using a bundle registered via
-// WithExtension, proving the Extension interface path works end to end.
+// WithExtension, proving the Bundle interface path works end to end.
 func TestExtensionBundleEndToEnd(t *testing.T) {
 	e := NewFromMap(nil, WithExtension(mathExt{}))
 	out, err := e.RenderString("m", `{{ 5 | times(3) }} {{ clamp(99, 0, 10) }}`, nil)
@@ -101,11 +101,11 @@ func TestExtensionBundleEndToEnd(t *testing.T) {
 // TestComposeShadowOrder composes two sets via WithExtensions and confirms the
 // later set shadows the earlier one, and both shadow core.
 func TestComposeShadowOrder(t *testing.T) {
-	lower := ext.NewExtensionSet()
+	lower := ext.NewSet()
 	lower.AddFilter(&ext.Filter{Name: "tag", Fn: func([]runtime.Value) (runtime.Value, error) {
 		return runtime.Str("lower"), nil
 	}})
-	upper := ext.NewExtensionSet()
+	upper := ext.NewSet()
 	upper.AddFilter(&ext.Filter{Name: "tag", Fn: func([]runtime.Value) (runtime.Value, error) {
 		return runtime.Str("upper"), nil
 	}})
@@ -127,7 +127,7 @@ func TestComposeShadowOrder(t *testing.T) {
 // TestComposeInterleavedSetsAndBundles confirms WithExtensions and WithExtension
 // interleave in option order, so a later bundle shadows an earlier set.
 func TestComposeInterleavedSetsAndBundles(t *testing.T) {
-	early := ext.NewExtensionSet()
+	early := ext.NewSet()
 	early.AddFilter(&ext.Filter{Name: "times", Fn: func([]runtime.Value) (runtime.Value, error) {
 		return runtime.Str("early"), nil
 	}})
@@ -146,7 +146,7 @@ func TestComposeInterleavedSetsAndBundles(t *testing.T) {
 // signature falls to the dynamic (any) floor in the gradual checker: an
 // annotated template using it loads and renders without a type error.
 func TestCustomCallableUnderTypeChecker(t *testing.T) {
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFunction(ext.NewFunction("clamp", func(x, lo, hi int64) int64 {
 		if x < lo {
 			return lo
@@ -173,7 +173,7 @@ func TestCustomCallableUnderTypeChecker(t *testing.T) {
 // TestCustomCallableSandboxAllow confirms a composed custom filter passes the
 // sandbox when the policy allowlists it by name.
 func TestCustomCallableSandboxAllow(t *testing.T) {
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(ext.NewFilter("times", func(x, n int64) int64 { return x * n }))
 
 	pol := sandbox.NewPolicy(
@@ -193,7 +193,7 @@ func TestCustomCallableSandboxAllow(t *testing.T) {
 // TestCustomCallableSandboxDeny confirms a composed custom filter is denied by
 // name when the active sandbox policy does not allowlist it.
 func TestCustomCallableSandboxDeny(t *testing.T) {
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(ext.NewFilter("times", func(x, n int64) int64 { return x * n }))
 
 	pol := sandbox.NewPolicy( // times NOT allowlisted

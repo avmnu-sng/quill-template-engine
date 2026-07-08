@@ -171,7 +171,7 @@ func TestCompiledCacheSharesWarmCacheUnderConcurrency(t *testing.T) {
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": src},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, rc compiled.RenderCache) error {
+		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, rc compiled.RenderCache) error {
 			// The generated @cache shape over the shared handle: namespace the key
 			// by the entry template, replay a hit, or render the body once and
 			// store it on a miss. A nil handle would always miss; the dispatch

@@ -47,7 +47,7 @@ type RenderCache interface {
 // template's output to w, resolves callables through exts, reads top-level
 // variables from vars, and memoizes @cache regions through rc (nil when the
 // engine exposes no store), returning the first render error.
-type RenderFunc func(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc RenderCache) error
+type RenderFunc func(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc RenderCache) error
 
 // Fingerprint captures the compile options that shape a generated unit's
 // rendered bytes. The Environment dispatches to a compiled unit only when the

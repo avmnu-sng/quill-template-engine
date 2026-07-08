@@ -22,7 +22,7 @@ func TestCompileSubcommandWritesGeneratedSource(t *testing.T) {
 	src := out.String()
 	for _, want := range []string{
 		"package mytpl",
-		"func RenderHello(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc compiled.RenderCache) error {",
+		"func RenderHello(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error {",
 		"var RenderHelloManifest = compiled.NewManifest(compiled.ManifestParams{",
 		"Fingerprint: compiled.NewFingerprint(compiled.FingerprintParams{AutoescapeHTML: false, LenientVariables: false, TabWidth: 4, RandomSeed: 0, RandomSeedSet: false}),",
 	} {

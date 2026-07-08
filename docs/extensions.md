@@ -64,7 +64,7 @@ The struct form is the right tool when you need to inspect argument kinds, accep
 a variable shape, or build the result value by hand:
 
 ```go
-set := ext.NewExtensionSet()
+set := ext.NewSet()
 set.AddFilter(&ext.Filter{
 	Name: "reverse_str",
 	Fn: func(args []runtime.Value) (runtime.Value, error) {
@@ -120,7 +120,7 @@ in the `[]runtime.Value`-based `Fn` the engine calls, so you never touch a
 `runtime.Value` in the body:
 
 ```go
-set := ext.NewExtensionSet()
+set := ext.NewSet()
 set.AddFilter(ext.NewFilter("repeat", func(s string, n int64) string {
 	return strings.Repeat(s, int(n))
 }))
@@ -179,19 +179,19 @@ result type, too many results, a second result that is not `error`, or a test
 that does not return a bool.
 
 The struct form (Section 1) and the typed helpers interoperate freely -- a single
-`ExtensionSet` can hold both -- so reach for the helper by default and drop to the
+`Set` can hold both -- so reach for the helper by default and drop to the
 struct form only where you need the raw slice.
 
 --------------------------------------------------------------------------------
 
-## 3. The ExtensionSet registry
+## 3. The Set registry
 
-An `ExtensionSet` is the callable registry: name-keyed maps for filters,
+A `Set` is the callable registry: name-keyed maps for filters,
 functions, and tests, plus the host constant and enumeration tables. Build one
-with `NewExtensionSet` and add to it:
+with `NewSet` and add to it:
 
 ```go
-set := ext.NewExtensionSet()
+set := ext.NewSet()
 set.AddFilter(f)        // register or shadow a filter by name
 set.AddFunction(fn)     // ... a function
 set.AddTest(t)          // ... a test
@@ -202,7 +202,7 @@ set.AddEnum("Color", []runtime.Value{runtime.Str("red"), runtime.Str("green")})
 Adding a name that already exists **shadows** the earlier entry -- this is exactly
 how a host overrides a built-in of the same kind and name. All filter, function,
 and test registration must complete before rendering begins: renders read the
-registry without synchronization, so mutating an `ExtensionSet` mid-render is
+registry without synchronization, so mutating a `Set` mid-render is
 unsupported. Lookups
 (`Filter`/`Function`/`Test`) and existence checks (`HasFilter`/`HasFunction`/
 `HasTest`, which back the `@guard` statement) are by exact name. `Clone` returns a
@@ -215,13 +215,13 @@ Constants back the `constant()` function and the `is constant` test; enumeration
 
 --------------------------------------------------------------------------------
 
-## 4. Extension bundles
+## 4. Bundles
 
-An `Extension` is a cohesive bundle of callables and host tables a third party
+A `Bundle` is a cohesive collection of callables and host tables a third party
 ships as a single unit:
 
 ```go
-type Extension interface {
+type Bundle interface {
 	Filters() []*Filter
 	Functions() []*Function
 	Tests() []*Test
@@ -257,7 +257,7 @@ func (MathExt) Filters() []*ext.Filter {
 }
 ```
 
-`ExtensionSet.Register(bundle)` folds a bundle in: each filter, function, and test
+`Set.Register(bundle)` folds a bundle in: each filter, function, and test
 is added by name (later wins), and every constant and enumeration is merged into
 the set's host tables. `Register` returns the receiver so calls chain.
 
@@ -267,10 +267,10 @@ the set's host tables. `Register` returns the receiver so calls chain.
 
 Two primitives compose registries, both following the uniform **later wins** rule:
 
-- `ExtensionSet.Merge(other)` folds another set's callables and tables into the
+- `Set.Merge(other)` folds another set's callables and tables into the
   receiver, with `other` shadowing the receiver on every name collision. A nil
   `other` is a no-op.
-- `ExtensionSet.Register(bundle)` folds a bundle in with the same rule.
+- `Set.Register(bundle)` folds a bundle in with the same rule.
 
 When you build an `Environment`, the registry is layered bottom-up:
 
@@ -281,8 +281,8 @@ When you build an `Environment`, the registry is layered bottom-up:
 
 So a later host layer shadows an earlier one, and every host layer shadows core --
 a host can override any built-in without editing the engine. `WithExtensions`
-takes one or more `*ExtensionSet` layers; `WithExtension` takes one or more
-`Extension` bundles; multiple options accumulate, and sets and bundles interleave
+takes one or more `*Set` layers; `WithExtension` takes one or more
+`Bundle` values; multiple options accumulate, and sets and bundles interleave
 in option order.
 
 ```go
@@ -381,8 +381,8 @@ registers a custom filter and function with the typed helpers, layers them over 
 `WithExtensions`, and renders a template that uses both:
 
 ```go
-func callables() *ext.ExtensionSet {
-	set := ext.NewExtensionSet()
+func callables() *ext.Set {
+	set := ext.NewSet()
 	set.AddFilter(ext.NewFilter("repeat", func(s string, n int64) string {
 		return strings.Repeat(s, int(n))
 	}))

@@ -21,7 +21,7 @@ import (
 
 // registerRefFunctions installs separator() and cell() onto s. It is called from
 // registerStdlibFunctions.
-func registerRefFunctions(s *ExtensionSet) {
+func registerRefFunctions(s *Set) {
 	s.AddFunction(&Function{Name: "separator", Fn: fnSeparator})
 	s.AddFunction(&Function{Name: "cell", Fn: fnCell})
 }

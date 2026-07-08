@@ -87,7 +87,7 @@ func ExampleWithAutoescapeHTML() {
 // Register a host filter and function through the ext package and render with
 // them.
 func ExampleWithExtensions() {
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFunction(ext.NewFunction("clamp", func(x, lo, hi int64) int64 {
 		switch {
 		case x < lo:

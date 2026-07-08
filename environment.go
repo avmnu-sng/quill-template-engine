@@ -33,7 +33,7 @@ type Environment struct {
 	loader      loader.Loader
 	cache       *cache.Cache
 	renderCache *cache.RenderCache
-	extensions  *ext.ExtensionSet
+	extensions  *ext.Set
 
 	// prepared memoizes the prepared *interp.Template per template name so a warm
 	// LoadTemplate skips re-running interp.PrepareChecked over an already-indexed
@@ -175,8 +175,8 @@ func WithRandomSeed(seed int64) Option {
 // is non-nil. New folds each layer into the registry in slice order, so a single
 // list captures the interleaving of WithExtensions and WithExtension options.
 type hostLayer struct {
-	set    *ext.ExtensionSet
-	bundle ext.Extension
+	set    *ext.Set
+	bundle ext.Bundle
 }
 
 // WithExtensions layers one or more host callable sets over the core stdlib.
@@ -185,7 +185,7 @@ type hostLayer struct {
 // one and every host set shadows core (host shadows core, spec 03 Section 1).
 // Multiple WithExtensions options accumulate in call order. Passing several sets
 // in one call is equivalent to passing them across several options.
-func WithExtensions(sets ...*ext.ExtensionSet) Option {
+func WithExtensions(sets ...*ext.Set) Option {
 	return func(e *Environment) {
 		for _, s := range sets {
 			e.hostLayers = append(e.hostLayers, hostLayer{set: s})
@@ -193,12 +193,12 @@ func WithExtensions(sets ...*ext.ExtensionSet) Option {
 	}
 }
 
-// WithExtension layers one or more Extension bundles over the core stdlib. Each
+// WithExtension layers one or more Bundle values over the core stdlib. Each
 // bundle is registered (its filters, functions, tests, constants, and enums
 // folded in) in New, interleaved with WithExtensions layers in the order the
 // options were passed, so shadow order is uniform across sets and bundles: later
 // shadows earlier, and every host layer shadows core.
-func WithExtension(exts ...ext.Extension) Option {
+func WithExtension(exts ...ext.Bundle) Option {
 	return func(e *Environment) {
 		for _, x := range exts {
 			e.hostLayers = append(e.hostLayers, hostLayer{bundle: x})
@@ -371,7 +371,7 @@ func NewFromMap(templates map[string]string, opts ...Option) *Environment {
 }
 
 // Extensions returns the callable registry (interp.Engine).
-func (e *Environment) Extensions() *ext.ExtensionSet { return e.extensions }
+func (e *Environment) Extensions() *ext.Set { return e.extensions }
 
 // StrictVariables reports the undefined-handling policy (interp.Engine).
 func (e *Environment) StrictVariables() bool { return e.strictVariables }

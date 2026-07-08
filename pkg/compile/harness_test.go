@@ -164,7 +164,7 @@ func pkgName(name string) string {
 // runCompiled builds ONE scratch Go module containing every case's generated
 // package plus a main that renders each case with framed output, runs it
 // once, and returns the per-case results. Registry parity with the facade
-// comes from building the ExtensionSet through quill.NewFromMap in the
+// comes from building the Set through quill.NewFromMap in the
 // scratch process.
 func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile.Result) map[string]caseResult {
 	t.Helper()
@@ -297,7 +297,7 @@ func parseFramed(t *testing.T, out string) map[string]caseResult {
 // mainSupport is the scratch main's shared code: the order-preserving JSON
 // decoder mirroring internal/jsonval (which a module outside the engine
 // cannot import) and the framed case runner.
-const mainSupport = `func runCase(name string, exts *ext.ExtensionSet, varsJSON string, fn func(io.Writer, *ext.ExtensionSet, map[string]runtime.Value, compiled.RenderCache) error) {
+const mainSupport = `func runCase(name string, exts *ext.Set, varsJSON string, fn func(io.Writer, *ext.Set, map[string]runtime.Value, compiled.RenderCache) error) {
 	vars, err := decodeVars(varsJSON)
 	if err != nil {
 		emit(name, true, "vars decode: "+err.Error())
@@ -407,7 +407,7 @@ func envOpts(fp compiled.Fingerprint) []quill.Option {
 func tracerManifest(m *compiled.Manifest) *compiled.Manifest {
 	return compiled.NewManifest(compiled.ManifestParams{
 		Entry: m.Entry(), Sources: m.Sources(), Fingerprint: m.Fingerprint(), UsesLog: m.UsesLog(),
-		Render: func(w io.Writer, _ *ext.ExtensionSet, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, "\x02TRACER\x02")
 			return err
 		},

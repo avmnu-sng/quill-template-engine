@@ -26,7 +26,7 @@ import (
 // registerStdlib installs the full catalogue onto s. Some callables close over s
 // itself (constant/enum read the host registry on s), so they are registered
 // here rather than as bare package functions.
-func registerStdlib(s *ExtensionSet) {
+func registerStdlib(s *Set) {
 	registerStringFilters(s)
 	registerShapingFilters(s)
 	registerCollectionFilters(s)
@@ -39,7 +39,7 @@ func registerStdlib(s *ExtensionSet) {
 
 // --- string filters ---------------------------------------------------------
 
-func registerStringFilters(s *ExtensionSet) {
+func registerStringFilters(s *Set) {
 	addFilterFast1(s, NewFilter1("capitalize", filterCapitalize1))
 	addFilterFast1(s, NewFilter1("title", filterTitle1))
 	s.AddFilter(&Filter{Name: "ucfirst", Fn: filterUcfirst})
@@ -265,7 +265,7 @@ func isUTF8Name(name string) bool {
 
 // --- collection filters -----------------------------------------------------
 
-func registerCollectionFilters(s *ExtensionSet) {
+func registerCollectionFilters(s *Set) {
 	s.AddFilter(&Filter{Name: "batch", Fn: filterBatch})
 	s.AddFilter(&Filter{Name: "columns", Fn: filterColumns})
 	s.AddFilter(&Filter{Name: "column", Fn: filterColumn})
@@ -763,7 +763,7 @@ func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
 // named test passes, key-preserving on a mapping source (spec 03 Section 2.2).
 // The test name is the first argument; any further arguments are passed to the
 // test after the element value.
-func filterSelect(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Value, error) {
+func filterSelect(s *Set, args []runtime.Value, keep bool) (runtime.Value, error) {
 	v := arg(args, 0)
 	if v.Kind != runtime.KArray || v.Arr == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "select/reject expects a collection")
@@ -802,7 +802,7 @@ func filterSelect(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Val
 // set. The three-or-more-argument form selectattr(path, test, extra...) plucks
 // the path from each element and applies the named test to the projected value
 // with the extra arguments after it. Both are key-preserving on a mapping source.
-func filterSelectAttr(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Value, error) {
+func filterSelectAttr(s *Set, args []runtime.Value, keep bool) (runtime.Value, error) {
 	v := arg(args, 0)
 	if v.Kind != runtime.KArray || v.Arr == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "selectattr/rejectattr expects a collection")
@@ -935,7 +935,7 @@ func filterSortArrow(args []runtime.Value) (runtime.Value, error) {
 
 // --- math filters -----------------------------------------------------------
 
-func registerMathFilters(s *ExtensionSet) {
+func registerMathFilters(s *Set) {
 	s.AddFilter(&Filter{Name: "abs", Fn: filterAbs})
 	s.AddFilter(&Filter{Name: "round", Fn: filterRound})
 	s.AddFilter(&Filter{Name: "format_number", Fn: filterFormatNumber})
@@ -1070,7 +1070,7 @@ func groupThousands(digits, sep string) string {
 
 // --- encoding, serialization, date, utility filters -------------------------
 
-func registerEncodingFilters(s *ExtensionSet) {
+func registerEncodingFilters(s *Set) {
 	s.AddFilter(&Filter{Name: "json", Fn: filterJSON})
 	s.AddFilter(&Filter{Name: "json_encode", Fn: filterJSON}) // alias
 	s.AddFilter(&Filter{Name: "url_encode", Fn: filterURLEncode})
@@ -1139,7 +1139,7 @@ func filterInvoke(args []runtime.Value) (runtime.Value, error) {
 
 // --- indentation filters -----------------------------------------------------
 
-func registerSourceFilters(s *ExtensionSet) {
+func registerSourceFilters(s *Set) {
 	s.AddFilter(&Filter{Name: "tab", Fn: filterTab})
 	s.AddFilter(&Filter{Name: "indent", Fn: filterIndent})
 }
@@ -1273,7 +1273,7 @@ func indentLines(s, prefix string) string {
 
 // --- functions --------------------------------------------------------------
 
-func registerStdlibFunctions(s *ExtensionSet) {
+func registerStdlibFunctions(s *Set) {
 	s.AddFunction(&Function{Name: "attribute", Fn: fnAttribute})
 	registerRefFunctions(s)
 	s.AddFunction(&Function{Name: "cycle", Fn: fnCycle})
@@ -1407,7 +1407,7 @@ func randIntInRange(rng *rand.Rand, lo, hi int64) (runtime.Value, error) {
 // returns whether the constant exists rather than its value (spec 03 Section
 // 3.2). The obj argument (a class scope) is accepted but unused in this engine,
 // which has a single flat constant namespace.
-func fnConstant(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
+func fnConstant(s *Set, args []runtime.Value) (runtime.Value, error) {
 	name, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -1424,7 +1424,7 @@ func fnConstant(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
 }
 
 // fnEnum returns the first case of a named host enumeration (spec 03 Section 3.2).
-func fnEnum(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
+func fnEnum(s *Set, args []runtime.Value) (runtime.Value, error) {
 	name, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -1438,7 +1438,7 @@ func fnEnum(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
 
 // fnEnumCases returns all cases of a named host enumeration in declaration order
 // (spec 03 Section 3.2).
-func fnEnumCases(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
+func fnEnumCases(s *Set, args []runtime.Value) (runtime.Value, error) {
 	name, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -1456,7 +1456,7 @@ func fnEnumCases(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
 
 // --- tests ------------------------------------------------------------------
 
-func registerStdlibTests(s *ExtensionSet) {
+func registerStdlibTests(s *Set) {
 	s.AddTest(&Test{Name: "divisible_by", Fn: testDivisibleBy})
 	s.AddTest(&Test{Name: "divisible by", Fn: testDivisibleBy}) // spaced-spelling alias
 	s.AddTest(&Test{Name: "sequence", Fn: testSequence})
@@ -1562,7 +1562,7 @@ func testTrue(args []runtime.Value) (bool, error) {
 
 // testConstant reports whether x equals the named host constant (spec 03 Section
 // 4). The constant name is the test's argument.
-func testConstant(s *ExtensionSet, args []runtime.Value) (bool, error) {
+func testConstant(s *Set, args []runtime.Value) (bool, error) {
 	x := arg(args, 0)
 	name, err := wantString(arg(args, 1))
 	if err != nil {

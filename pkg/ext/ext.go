@@ -1,5 +1,5 @@
 // Package ext is Quill's extension surface: the value objects for the three
-// callable kinds (Filter, Function, Test) and the ExtensionSet registry that
+// callable kinds (Filter, Function, Test) and the Set registry that
 // holds them. A name resolves to at most one filter, one function, and one test;
 // the syntactic position (a pipe, a call, an `is`) selects which family is
 // consulted (spec 03 Section 1). Host-registered callables shadow core ones of
@@ -115,13 +115,13 @@ func EngineConfigFromValue(v runtime.Value) (EngineConfig, bool) {
 	return nil, false
 }
 
-// ExtensionSet is the callable registry: three name-keyed maps, one per kind,
+// Set is the callable registry: three name-keyed maps, one per kind,
 // plus the host-supplied constant and enumeration tables the constant/enum
 // callables read (spec 03 Sections 3.2, 4). Lookups are by exact name; the
 // parser already resolved two-word spellings and aliases to a canonical single
 // name where it could, and the registry also holds explicit alias entries the
 // stdlib installs.
-type ExtensionSet struct {
+type Set struct {
 	filters   map[string]*Filter
 	functions map[string]*Function
 	tests     map[string]*Test
@@ -133,9 +133,9 @@ type ExtensionSet struct {
 	enums     map[string][]runtime.Value
 }
 
-// NewExtensionSet returns an empty registry.
-func NewExtensionSet() *ExtensionSet {
-	return &ExtensionSet{
+// NewSet returns an empty registry.
+func NewSet() *Set {
+	return &Set{
 		filters:   map[string]*Filter{},
 		functions: map[string]*Function{},
 		tests:     map[string]*Test{},
@@ -146,50 +146,50 @@ func NewExtensionSet() *ExtensionSet {
 
 // AddConstant registers a named constant the constant() function and the
 // `is constant` test resolve (spec 03 Section 3.2).
-func (s *ExtensionSet) AddConstant(name string, v runtime.Value) { s.constants[name] = v }
+func (s *Set) AddConstant(name string, v runtime.Value) { s.constants[name] = v }
 
 // Constant looks up a registered constant by name.
-func (s *ExtensionSet) Constant(name string) (runtime.Value, bool) {
+func (s *Set) Constant(name string) (runtime.Value, bool) {
 	v, ok := s.constants[name]
 	return v, ok
 }
 
 // AddEnum registers a named host enumeration as its ordered case list, backing
 // enum() (first case) and enum_cases() (all cases), spec 03 Section 3.2.
-func (s *ExtensionSet) AddEnum(name string, cases []runtime.Value) {
+func (s *Set) AddEnum(name string, cases []runtime.Value) {
 	s.enums[name] = append([]runtime.Value(nil), cases...)
 }
 
 // Enum looks up a registered enumeration's case list by name.
-func (s *ExtensionSet) Enum(name string) ([]runtime.Value, bool) {
+func (s *Set) Enum(name string) ([]runtime.Value, bool) {
 	c, ok := s.enums[name]
 	return c, ok
 }
 
 // AddFilter registers (or shadows) a filter by name. A later registration of the
 // same name wins, which is exactly how a host overrides a core filter.
-func (s *ExtensionSet) AddFilter(f *Filter) { s.filters[f.Name] = f }
+func (s *Set) AddFilter(f *Filter) { s.filters[f.Name] = f }
 
 // AddFunction registers (or shadows) a function by name.
-func (s *ExtensionSet) AddFunction(f *Function) { s.functions[f.Name] = f }
+func (s *Set) AddFunction(f *Function) { s.functions[f.Name] = f }
 
 // AddTest registers (or shadows) a test by name.
-func (s *ExtensionSet) AddTest(t *Test) { s.tests[t.Name] = t }
+func (s *Set) AddTest(t *Test) { s.tests[t.Name] = t }
 
 // Filter looks up a filter by name.
-func (s *ExtensionSet) Filter(name string) (*Filter, bool) {
+func (s *Set) Filter(name string) (*Filter, bool) {
 	f, ok := s.filters[name]
 	return f, ok
 }
 
 // Function looks up a function by name.
-func (s *ExtensionSet) Function(name string) (*Function, bool) {
+func (s *Set) Function(name string) (*Function, bool) {
 	f, ok := s.functions[name]
 	return f, ok
 }
 
 // Test looks up a test by name.
-func (s *ExtensionSet) Test(name string) (*Test, bool) {
+func (s *Set) Test(name string) (*Test, bool) {
 	t, ok := s.tests[name]
 	return t, ok
 }
@@ -197,23 +197,23 @@ func (s *ExtensionSet) Test(name string) (*Test, bool) {
 // HasFilter reports whether a filter with the given name is registered. It backs
 // the @guard statement's existence check (spec 01 Section 4.6), selecting a branch
 // on registration without evaluating the callable.
-func (s *ExtensionSet) HasFilter(name string) bool { _, ok := s.filters[name]; return ok }
+func (s *Set) HasFilter(name string) bool { _, ok := s.filters[name]; return ok }
 
 // HasFunction reports whether a function with the given name is registered. It
 // backs the @guard statement's existence check (spec 01 Section 4.6), selecting a
 // branch on registration without evaluating the callable.
-func (s *ExtensionSet) HasFunction(name string) bool { _, ok := s.functions[name]; return ok }
+func (s *Set) HasFunction(name string) bool { _, ok := s.functions[name]; return ok }
 
 // HasTest reports whether a test with the given name is registered. It backs the
 // @guard statement's existence check (spec 01 Section 4.6), selecting a branch on
 // registration without evaluating the callable.
-func (s *ExtensionSet) HasTest(name string) bool { _, ok := s.tests[name]; return ok }
+func (s *Set) HasTest(name string) bool { _, ok := s.tests[name]; return ok }
 
 // Clone returns a shallow copy of the registry sharing the callable values but
 // with independent maps, so a host can layer additions over a base set without
 // mutating it.
-func (s *ExtensionSet) Clone() *ExtensionSet {
-	cp := NewExtensionSet()
+func (s *Set) Clone() *Set {
+	cp := NewSet()
 	for k, v := range s.filters {
 		cp.filters[k] = v
 	}

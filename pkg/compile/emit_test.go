@@ -174,7 +174,7 @@ func TestTabFreeEmitSplit(t *testing.T) {
 // a host filter that requests context injection: the compiled render must
 // hand the filter the same _context mapping (names, order, and values) the
 // interpreter builds, per iteration, from inside a loop frame. The filter is
-// registered on the shared ExtensionSet both engines resolve through, exactly
+// registered on the shared Set both engines resolve through, exactly
 // as a host would.
 func TestNeedsContextFilterInjectParity(t *testing.T) {
 	cs := compiledCase{

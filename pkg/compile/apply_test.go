@@ -282,7 +282,7 @@ func TestApplyNeedsContextFilterParity(t *testing.T) {
 }
 
 // applyCtxMain builds the scratch main that renders the @apply case through the
-// interpreter and the compiled function with a shared ExtensionSet carrying a
+// interpreter and the compiled function with a shared Set carrying a
 // host NeedsContext filter, then byte-compares the two renders. The filter
 // serializes the injected context, so a drift in what the compiled @apply hands
 // it fails the comparison.

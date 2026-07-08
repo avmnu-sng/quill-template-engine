@@ -69,12 +69,12 @@ func TestAddFilterFast1PanicsOnChokePoint(t *testing.T) {
 				t.Error("addFilterFast1 accepted Fn1 on choke-point name join")
 			}
 		}()
-		addFilterFast1(NewExtensionSet(), &Filter{Name: "join", Fn: fn, Fn1: fn1})
+		addFilterFast1(NewSet(), &Filter{Name: "join", Fn: fn, Fn1: fn1})
 	}()
 
 	// A choke-point name WITHOUT Fn1 and a non-choke name WITH Fn1 both
 	// register fine; the guard keys on the combination only.
-	s := NewExtensionSet()
+	s := NewSet()
 	addFilterFast1(s, &Filter{Name: "sort", Fn: fn})
 	addFilterFast1(s, &Filter{Name: "upper", Fn: fn, Fn1: fn1})
 	if !s.HasFilter("sort") || !s.HasFilter("upper") {

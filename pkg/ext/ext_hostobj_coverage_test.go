@@ -155,7 +155,7 @@ func TestCellStringifyHeldValueKinds(t *testing.T) {
 // TestRegistryHasFunctionAndHasTest covers HasFunction and HasTest on both the
 // present and the absent path, driven through the public registration API.
 func TestRegistryHasFunctionAndHasTest(t *testing.T) {
-	s := NewExtensionSet()
+	s := NewSet()
 
 	// Absent before registration.
 	if s.HasFunction("greet") {
@@ -192,7 +192,7 @@ func TestRegistryHasFunctionAndHasTest(t *testing.T) {
 // callable values, and gives the copy independent maps so a later addition to
 // one set does not leak into the other.
 func TestRegistryCloneIndependence(t *testing.T) {
-	base := NewExtensionSet()
+	base := NewSet()
 	base.AddFilter(&Filter{Name: "f", Fn: func([]runtime.Value) (runtime.Value, error) {
 		return runtime.Str("base-f"), nil
 	}})
@@ -287,7 +287,7 @@ func TestBaseExtensionFiltersNil(t *testing.T) {
 
 	// Registering a do-nothing bundle adds nothing to any family.
 	type emptyExt struct{ BaseExtension }
-	s := NewExtensionSet()
+	s := NewSet()
 	s.Register(emptyExt{})
 	if s.HasFilter("anything") {
 		t.Error("empty bundle should register no filters")

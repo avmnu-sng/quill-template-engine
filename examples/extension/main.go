@@ -33,8 +33,8 @@ func main() {
 // Go func's signature once, at registration, and marshal runtime.Value arguments
 // and results through it -- string<->Str, int64<->Int, and so on -- so the body
 // is plain Go.
-func callables() *ext.ExtensionSet {
-	set := ext.NewExtensionSet()
+func callables() *ext.Set {
+	set := ext.NewSet()
 
 	// repeat is a filter: the piped string is the first parameter, the argument in
 	// repeat(n) is the second. "ab" | repeat(3) is repeat("ab", 3).

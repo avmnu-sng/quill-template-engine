@@ -7,7 +7,7 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
-// Core builds an ExtensionSet holding the full spec-03 standard-library
+// Core builds a Set holding the full spec-03 standard-library
 // catalogue. The core subset (the most-used string/collection/math filters, the
 // aggregate functions, and the basic tests) is registered here directly; the
 // remaining catalogue (the higher-order collection filters, the encoding/date/
@@ -16,8 +16,8 @@ import (
 // template_from_string callables that need the engine handle are registered by
 // the engine facade (they need the environment and loader), so they are NOT
 // installed here.
-func Core() *ExtensionSet {
-	s := NewExtensionSet()
+func Core() *Set {
+	s := NewSet()
 	registerCoreFilters(s)
 	registerCoreFunctions(s)
 	registerCoreTests(s)
@@ -28,7 +28,7 @@ func Core() *ExtensionSet {
 	return s
 }
 
-func registerCoreFilters(s *ExtensionSet) {
+func registerCoreFilters(s *Set) {
 	addFilterFast1(s, NewFilter1("upper", filterUpper1))
 	addFilterFast1(s, NewFilter1("lower", filterLower1))
 	s.AddFilter(&Filter{Name: "default", Fn: filterDefault})
@@ -70,20 +70,20 @@ var sandboxChokeFilters = map[string]bool{
 // panicking when the name collides with a sandbox choke-point filter. Core()
 // runs on every engine construction, so a bad audited registration fails the
 // process immediately rather than silently bypassing a sandbox gate.
-func addFilterFast1(s *ExtensionSet, f *Filter) {
+func addFilterFast1(s *Set, f *Filter) {
 	if f.Fn1 != nil && sandboxChokeFilters[f.Name] {
 		panic("ext: core filter " + f.Name + " is a sandbox choke point and must not carry an Fn1 fast call")
 	}
 	s.AddFilter(f)
 }
 
-func registerCoreFunctions(s *ExtensionSet) {
+func registerCoreFunctions(s *Set) {
 	s.AddFunction(&Function{Name: "range", Fn: fnRange})
 	s.AddFunction(&Function{Name: "max", Fn: fnMax})
 	s.AddFunction(&Function{Name: "min", Fn: fnMin})
 }
 
-func registerCoreTests(s *ExtensionSet) {
+func registerCoreTests(s *Set) {
 	// `is defined` is handled specially by the interpreter (it flips its operand
 	// to existence-check mode and never evaluates it), so there is no Fn here; the
 	// interpreter intercepts the name before any value reaches a Test.

@@ -39,7 +39,7 @@ quill/         facade: Environment, options, the render entry points, engine cal
                to Go source -- a render function plus a dispatch manifest
   compiled/    the manifest contract between generated render functions and the
                Environment's compiled dispatch (a leaf: stdlib + ext + runtime only)
-  ext/         the callable registry: Filter/Function/Test, ExtensionSet, Extension bundles,
+  ext/         the callable registry: Filter/Function/Test, the Set registry, Bundle,
                the typed NewFilter/NewFunction/NewTest helpers, and the core standard library
   loader/      Loader, FilesystemLoader, ArrayLoader, ChainLoader, PrefixLoader, FSLoader, FuncLoader
   cache/       the parse cache and the rendered-body cache backing @cache

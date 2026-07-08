@@ -232,7 +232,7 @@ type changedSite struct {
 	seen string
 }
 
-// callableRef is one pre-resolved registry lookup: the ExtensionSet accessor
+// callableRef is one pre-resolved registry lookup: the Set accessor
 // method, the callable name, and the generated value/ok variable names. A
 // Filter ref also carries the fast-flag variable holding the hoisted "Fn1
 // applies" decision, so per-iteration filter sites branch on one bool instead

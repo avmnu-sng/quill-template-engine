@@ -40,7 +40,7 @@ var qEnvVal = runtime.Obj(&qEnv{tabWidth: 4, seed: 0, seedSet: false})
 // RenderLoop renders template "loop.ql" to w, resolving callables through exts and
 // reading top-level variables from vars. Output and error behavior are
 // byte-identical to the interpreter's for the compiled construct set.
-func RenderLoop(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc compiled.RenderCache) error {
+func RenderLoop(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error {
 	_ = rc
 	qNames := make([]string, 0, len(vars))
 	for qn := range vars {

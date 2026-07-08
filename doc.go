@@ -72,7 +72,7 @@
 //
 // A host adds its own filters, functions, and tests through the ext package and
 // layers them over the core library with WithExtensions (callable sets) or
-// WithExtension (Extension bundles). A later host layer shadows an earlier one and
+// WithExtension (Bundle values). A later host layer shadows an earlier one and
 // every host layer shadows core.
 //
 // # Escaping and the sandbox

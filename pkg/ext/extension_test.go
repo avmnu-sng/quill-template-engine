@@ -7,7 +7,7 @@ import (
 )
 
 // greetExt is a bundle that ships one function, one filter, one test, a
-// constant, and an enum, exercising every Extension family through an embedded
+// constant, and an enum, exercising every Bundle family through an embedded
 // BaseExtension (so it need not implement the families it does not add -- here
 // it happens to add all five, but the embed makes the pattern uniform).
 type greetExt struct{ BaseExtension }
@@ -41,7 +41,7 @@ func (partialExt) Filters() []*Filter {
 }
 
 func TestRegisterFoldsEveryFamily(t *testing.T) {
-	s := NewExtensionSet()
+	s := NewSet()
 	s.Register(greetExt{})
 
 	if _, ok := s.Function("greet"); !ok {
@@ -62,7 +62,7 @@ func TestRegisterFoldsEveryFamily(t *testing.T) {
 }
 
 func TestRegisterPartialBundle(t *testing.T) {
-	s := NewExtensionSet()
+	s := NewSet()
 	s.Register(partialExt{})
 	if _, ok := s.Filter("shout"); !ok {
 		t.Error("filter shout not registered")
@@ -75,13 +75,13 @@ func TestRegisterPartialBundle(t *testing.T) {
 // TestMergeShadowOrder folds two sets and confirms the later set shadows the
 // earlier one on a name collision, across every family.
 func TestMergeShadowOrder(t *testing.T) {
-	base := NewExtensionSet()
+	base := NewSet()
 	base.AddFilter(&Filter{Name: "who", Fn: func([]runtime.Value) (runtime.Value, error) {
 		return runtime.Str("base"), nil
 	}})
 	base.AddConstant("K", runtime.Str("base"))
 
-	over := NewExtensionSet()
+	over := NewSet()
 	over.AddFilter(&Filter{Name: "who", Fn: func([]runtime.Value) (runtime.Value, error) {
 		return runtime.Str("over"), nil
 	}})
@@ -107,7 +107,7 @@ func TestMergeShadowOrder(t *testing.T) {
 
 // TestMergeNil confirms merging a nil set is a no-op and returns the receiver.
 func TestMergeNil(t *testing.T) {
-	s := NewExtensionSet()
+	s := NewSet()
 	s.AddFilter(&Filter{Name: "a", Fn: func([]runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), nil
 	}})
@@ -122,10 +122,10 @@ func TestMergeNil(t *testing.T) {
 // TestMergeEnumsAreCopied confirms Merge copies the source's enum case list, so a
 // later mutation of the source's stored slice does not leak into the merged set.
 func TestMergeEnumsAreCopied(t *testing.T) {
-	src := NewExtensionSet()
+	src := NewSet()
 	src.AddEnum("E", []runtime.Value{runtime.Str("a"), runtime.Str("b")})
 
-	dst := NewExtensionSet()
+	dst := NewSet()
 	dst.Merge(src)
 
 	// Enum returns the internal slice, so this mutates src's stored copy. If Merge
@@ -141,7 +141,7 @@ func TestMergeEnumsAreCopied(t *testing.T) {
 
 // TestRegisterReturnsReceiver confirms Register chains.
 func TestRegisterReturnsReceiver(t *testing.T) {
-	s := NewExtensionSet()
+	s := NewSet()
 	if s.Register(partialExt{}) != s {
 		t.Error("Register should return receiver")
 	}

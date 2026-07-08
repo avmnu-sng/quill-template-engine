@@ -20,7 +20,7 @@ site is the narrative layer.
   `Loader`, `NewFilesystemLoader`, `NewArrayLoader`, `NewChainLoader`,
   `NewPrefixLoader`, `NewFSLoader`, `NewFuncLoader`.
 - **Extensions** -- [`ext`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/ext):
-  `Filter`, `Function`, `Test`, `ExtensionSet`, `Extension`, `BaseExtension`, and
+  `Filter`, `Function`, `Test`, `Set`, `Bundle`, `BaseExtension`, and
   the typed helpers `NewFilter`, `NewFunction`, `NewTest`, `NewFilter1`.
 - **Coverage** -- [`cover`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/cover):
   `Collector`, `Report`, the writers, and `MergeReports`.
