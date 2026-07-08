@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
 	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
 	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 )
 
 // cacheCase is one @cache parity contract: the template, the pinned single-render

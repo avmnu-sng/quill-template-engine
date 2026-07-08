@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 )
 
 // slotCase is one deferred-slot parity contract: the template, the pinned

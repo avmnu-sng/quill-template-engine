@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
 	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
 )

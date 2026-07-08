@@ -3,7 +3,7 @@ package compile_test
 import (
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 )
 
 // batteryCase is one value-semantics contract: the template, the pinned

@@ -107,10 +107,21 @@ type Result struct {
 	LineMap []LineMapEntry
 }
 
+// notCompilableSentinel is the concrete type of ErrNotCompilable. It is an
+// unexported, immutable value type with no exported fields, so an importer that
+// holds ErrNotCompilable cannot mutate shared state through it the way a pointer
+// to a struct with exported fields would allow. Its Error text is fixed.
+type notCompilableSentinel struct{}
+
+func (notCompilableSentinel) Error() string {
+	return "not compilable: construct outside the compilable subset"
+}
+
 // ErrNotCompilable is the sentinel every *NotCompilableError matches through
 // errors.Is, so callers can classify a compilation failure without inspecting
-// the concrete type.
-var ErrNotCompilable = &NotCompilableError{Construct: "construct outside the compilable subset"}
+// the concrete type. It is an immutable value, not a pointer to a mutable
+// struct, so it cannot be corrupted by a caller that classifies against it.
+var ErrNotCompilable error = notCompilableSentinel{}
 
 // NotCompilableError reports a template construct outside the compilable
 // subset. It names the construct and the template line it appears on.
@@ -131,9 +142,13 @@ func (e *NotCompilableError) Error() string {
 	return fmt.Sprintf("not compilable: %s", e.Construct)
 }
 
-// Is matches the ErrNotCompilable sentinel so errors.Is classification works
-// on any construct instance.
+// Is reports whether target is the ErrNotCompilable sentinel or any
+// *NotCompilableError, so errors.Is classification works on every construct
+// instance and against the immutable sentinel alike.
 func (e *NotCompilableError) Is(target error) bool {
+	if _, ok := target.(notCompilableSentinel); ok {
+		return true
+	}
 	_, ok := target.(*NotCompilableError)
 	return ok
 }

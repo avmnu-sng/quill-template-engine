@@ -6,15 +6,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
-	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
-	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )
 
 // realGeneratedHeader is the generated-file header genloop.go prepends to the
@@ -30,26 +29,37 @@ const realGeneratedHeader = "// Code emitted by the Quill compile backend and co
 	"//go:generate go run genloop.go\n\n"
 
 // generateCompiledLoop lowers the loop benchmark template through the real
-// compile backend on the same code path genloop.go uses and returns the exact
-// bytes the committed compiled_loop_gen.go must contain: the generated-file
-// header followed by the compile.Module output. It is driven by const quillLoop
-// so a divergence between the committed generator template and the benchmark
-// template surfaces as a staleness-guard failure.
+// compile backend on the same code path genloop.go uses -- the quill CLI's
+// compile subcommand -- and returns the exact bytes the committed
+// compiled_loop_gen.go must contain: the generated-file header followed by the
+// CLI's generated source. It is driven by const quillLoop so a divergence
+// between the committed generator template and the benchmark template surfaces
+// as a staleness-guard failure.
 func generateCompiledLoop() ([]byte, error) {
-	mod, err := parse.Parse(source.New("loop.ql", quillLoop))
+	dir, err := os.MkdirTemp("", "quill-genloop-")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create temp dir: %w", err)
 	}
-	res, err := compile.Module("loop.ql", mod, compile.Options{
-		PackageName: "quillbench",
-		FuncName:    "RenderLoop",
-	})
-	if err != nil {
-		return nil, err
+	defer os.RemoveAll(dir)
+
+	if err := os.WriteFile(filepath.Join(dir, "loop.ql"), []byte(quillLoop), 0o644); err != nil {
+		return nil, fmt.Errorf("write loop template: %w", err)
 	}
-	out := make([]byte, 0, len(realGeneratedHeader)+len(res.Source))
+
+	cmd := exec.Command(
+		"go", "run", "github.com/avmnu-sng/quill-template-engine/cmd/quill",
+		"compile", "-root", dir, "-pkg", "quillbench", "-func", "RenderLoop", "loop.ql",
+	)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("quill compile: %w\n%s", err, stderr.String())
+	}
+
+	out := make([]byte, 0, len(realGeneratedHeader)+stdout.Len())
 	out = append(out, realGeneratedHeader...)
-	out = append(out, res.Source...)
+	out = append(out, stdout.Bytes()...)
 	return out, nil
 }
 

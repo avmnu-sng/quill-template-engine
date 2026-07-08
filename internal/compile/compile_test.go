@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 	"github.com/avmnu-sng/quill-template-engine/internal/jsonval"
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
 	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 	"github.com/avmnu-sng/quill-template-engine/pkg/source"

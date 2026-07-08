@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
 	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
 	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )
@@ -90,7 +90,7 @@ type caseResult struct {
 }
 
 // repoRoot locates the engine repository root by walking up from this package
-// (pkg/compile/) until it finds the module's go.mod.
+// (internal/compile/) until it finds the module's go.mod.
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := filepath.Abs(".")

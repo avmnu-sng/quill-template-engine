@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 )
 
 // embedBattery pins the compiled static-@embed contracts: the embed target is

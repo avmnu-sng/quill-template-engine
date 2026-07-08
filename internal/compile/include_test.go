@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 )
 
 // includeCase is one static-@include parity contract: the entry template, its

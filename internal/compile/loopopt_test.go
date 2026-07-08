@@ -3,7 +3,7 @@ package compile_test
 import (
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 )
 
 // loopOptCases is the capture-centered battery for the compiled loop

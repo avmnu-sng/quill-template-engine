@@ -3,7 +3,7 @@ package compile_test
 import (
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 )
 
 // fn1Cases is the differential battery for the arity-known filter fast call:

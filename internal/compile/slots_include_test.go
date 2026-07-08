@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/compile"
+	"github.com/avmnu-sng/quill-template-engine/internal/compile"
 )
 
 // slotsIncludeBattery pins the cross-template slot-sharing contracts: a static
