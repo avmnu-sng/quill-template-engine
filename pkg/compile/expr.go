@@ -313,7 +313,7 @@ func (c *compiler) exprSlice(n *ast.Node) (string, error) {
 	}
 	v := c.tmp("qt")
 	e := c.tmp("qe")
-	c.linef("%s, %s := %s.Fn(%s)", v, e, fv, args)
+	c.linef("%s, %s := %s.Fn(ctx, %s)", v, e, fv, args)
 	c.checkErr(e, n.Line)
 	return v, nil
 }
@@ -420,7 +420,7 @@ func (c *compiler) exprRange(n *ast.Node, l, r string) (string, error) {
 	c.closeb()
 	v := c.tmp("qt")
 	e := c.tmp("qe")
-	c.linef("%s, %s := %s.Fn([]runtime.Value{%s, %s})", v, e, fv, l, r)
+	c.linef("%s, %s := %s.Fn(ctx, []runtime.Value{%s, %s})", v, e, fv, l, r)
 	c.openf("if %s != nil {", e)
 	c.linef(c.ret(e))
 	c.closeb()

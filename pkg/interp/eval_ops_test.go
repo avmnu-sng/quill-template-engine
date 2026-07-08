@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -73,7 +74,7 @@ func TestEvalUnaryErrors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse %q: %v", body, err)
 		}
-		_, err = Render(eng, Prepare("t", mod), map[string]runtime.Value{"s": runtime.Str("x")})
+		_, err = Render(context.Background(), eng, Prepare("t", mod), map[string]runtime.Value{"s": runtime.Str("x")})
 		if err == nil {
 			t.Fatalf("%q: expected an arithmetic error", body)
 		}
@@ -157,7 +158,7 @@ func TestQuantifierNonCallable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = Render(eng, Prepare("t", mod), nil)
+	_, err = Render(context.Background(), eng, Prepare("t", mod), nil)
 	if err == nil || !strings.Contains(err.Error(), "arrow predicate") {
 		t.Fatalf("expected arrow-predicate error, got %v", err)
 	}

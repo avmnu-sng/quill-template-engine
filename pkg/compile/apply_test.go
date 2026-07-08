@@ -290,6 +290,7 @@ func applyCtxMain(pkg, tmplName, tmpl, fn string) string {
 	const tmt = `package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -303,7 +304,7 @@ import (
 // ctxkeys renders the injected _context mapping as name=kind pairs (with the
 // text of scalar entries) then the piped value, so any drift in the context
 // names, order, or values between the two engines changes the output bytes.
-func ctxkeys(args []runtime.Value) (runtime.Value, error) {
+func ctxkeys(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) < 2 || args[0].Kind() != runtime.KArray || args[0].AsArray() == nil {
 		return runtime.Null(), fmt.Errorf("ctxkeys: no context injected (got %%d args)", len(args))
 	}
@@ -338,9 +339,9 @@ func main() {
 	env := quill.NewFromMap(map[string]string{%q: %q})
 	env.Extensions().AddFilter(&ext.Filter{Name: "ctxkeys", NeedsContext: true, Fn: ctxkeys})
 
-	want, werr := env.Render(%q, map[string]runtime.Value{})
+	want, werr := env.Render(context.Background(), %q, map[string]runtime.Value{})
 	var b strings.Builder
-	cerr := gen.%s(&b, env.Extensions(), map[string]runtime.Value{}, env.RenderCache())
+	cerr := gen.%s(context.Background(), &b, env.Extensions(), map[string]runtime.Value{}, env.RenderCache())
 
 	switch {
 	case (cerr != nil) != (werr != nil):

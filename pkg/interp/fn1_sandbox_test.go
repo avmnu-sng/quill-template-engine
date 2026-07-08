@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
@@ -30,7 +31,7 @@ func TestFn1SandboxArrowGateOnPipedValue(t *testing.T) {
 // filter runs.
 func TestFn1SandboxStringifyGateShadowedJoin(t *testing.T) {
 	eng := sandboxStub(nil, sandbox.NewPolicy(sandbox.AllowFilters("join")))
-	joinLike := func(v runtime.Value) (runtime.Value, error) {
+	joinLike := func(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 		out := ""
 		if v.Kind() == runtime.KArray && v.AsArray() != nil {
 			for _, p := range v.AsArray().Pairs() {

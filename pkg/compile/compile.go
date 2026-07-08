@@ -141,7 +141,7 @@ func (e *NotCompilableError) Is(target error) bool {
 // Module compiles a parsed template module to one Go source file containing a
 // render function with the signature
 //
-//	func <FuncName>(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error
+//	func <FuncName>(ctx context.Context, w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error
 //
 // alongside an exported <FuncName>Manifest value (package compiled) describing
 // the unit to the Environment's by-name dispatch: quill.WithCompiled installs
@@ -367,6 +367,7 @@ func (c *compiler) assemble() []byte {
 	b.WriteString("//\n// Lines marked \"//q:l N\" map the statements that follow to template line N.\n")
 	fmt.Fprintf(&b, "package %s\n\n", c.opts.PackageName)
 	b.WriteString("import (\n")
+	b.WriteString("\t\"context\"\n")
 	b.WriteString("\tstderrors \"errors\"\n")
 	b.WriteString("\t\"io\"\n")
 	b.WriteString("\t\"math\"\n")
@@ -412,12 +413,16 @@ func (c *compiler) assemble() []byte {
 	if c.usesSlots {
 		c.assembleSlotHeader(&b)
 	} else {
-		fmt.Fprintf(&b, "func %s(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error {\n", c.opts.FuncName)
+		fmt.Fprintf(&b, "func %s(ctx context.Context, w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error {\n", c.opts.FuncName)
 		if !c.tabFree {
 			b.WriteString("\tqw := &qWriter{w: w, atLineStart: true}\n")
 			b.WriteString("\t_ = qw\n")
 		}
 	}
+	// The render context threads to every ext callable this unit invokes; a unit
+	// with no callable never reads it, so silence the unused parameter once here
+	// exactly as the store handle is silenced below.
+	b.WriteString("\t_ = ctx\n")
 	if !c.usesCache {
 		// A unit with no @cache region never reads the store handle, so silence
 		// the unused parameter once here rather than at every render shape.
@@ -502,7 +507,7 @@ func (c *compiler) assemble() []byte {
 // unresolved buffer, matching renderBuffered's error shape (the partial buffer
 // the interpreter returns alongside the error).
 func (c *compiler) assembleSlotHeader(b *bytes.Buffer) {
-	fmt.Fprintf(b, "func %s(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) (qErr error) {\n", c.opts.FuncName)
+	fmt.Fprintf(b, "func %s(ctx context.Context, w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) (qErr error) {\n", c.opts.FuncName)
 	b.WriteString("\tvar qout strings.Builder\n")
 	if !c.tabFree {
 		b.WriteString("\tqw := &qWriter{w: &qout, atLineStart: true}\n")

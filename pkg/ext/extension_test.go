@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
@@ -76,24 +77,24 @@ func TestRegisterPartialBundle(t *testing.T) {
 // earlier one on a name collision, across every family.
 func TestMergeShadowOrder(t *testing.T) {
 	base := NewSet()
-	base.AddFilter(&Filter{Name: "who", Fn: func([]runtime.Value) (runtime.Value, error) {
+	base.AddFilter(&Filter{Name: "who", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("base"), nil
 	}})
 	base.AddConstant("K", runtime.Str("base"))
 
 	over := NewSet()
-	over.AddFilter(&Filter{Name: "who", Fn: func([]runtime.Value) (runtime.Value, error) {
+	over.AddFilter(&Filter{Name: "who", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("over"), nil
 	}})
 	over.AddConstant("K", runtime.Str("over"))
-	over.AddFilter(&Filter{Name: "only_over", Fn: func([]runtime.Value) (runtime.Value, error) {
+	over.AddFilter(&Filter{Name: "only_over", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("x"), nil
 	}})
 
 	base.Merge(over)
 
 	f, _ := base.Filter("who")
-	got, _ := f.Fn(nil)
+	got, _ := f.Fn(context.Background(), nil)
 	if got.AsStr() != "over" {
 		t.Errorf("shadow: who = %q, want over", got.AsStr())
 	}
@@ -108,7 +109,7 @@ func TestMergeShadowOrder(t *testing.T) {
 // TestMergeNil confirms merging a nil set is a no-op and returns the receiver.
 func TestMergeNil(t *testing.T) {
 	s := NewSet()
-	s.AddFilter(&Filter{Name: "a", Fn: func([]runtime.Value) (runtime.Value, error) {
+	s.AddFilter(&Filter{Name: "a", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), nil
 	}})
 	if s.Merge(nil) != s {

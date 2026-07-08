@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"io"
 	"log"
 	"sort"
@@ -410,7 +411,7 @@ func (e *Environment) Logger() *log.Logger { return e.logger }
 // therefore returns the SAME *Template pointer across calls for an unchanged
 // template; a Template is immutable after prepare and safe to share across
 // concurrent renders. CompileString and the RenderString family stay uncached.
-func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
+func (e *Environment) LoadTemplate(ctx context.Context, name string) (*interp.Template, error) {
 	mod, err := e.loadModule(name)
 	if err != nil {
 		return nil, err
@@ -492,7 +493,7 @@ func (e *Environment) RawSource(name string) (string, bool) {
 // CompileString parses and prepares an ad-hoc template body, backing
 // template_from_string (interp.Engine, spec 03 Section 3.3). The body is not
 // added to the loader; inheritance/include targets in it still resolve by name.
-func (e *Environment) CompileString(name, body string) (*interp.Template, error) {
+func (e *Environment) CompileString(ctx context.Context, name, body string) (*interp.Template, error) {
 	mod, err := parse.Parse(source.New(name, body))
 	if err != nil {
 		return nil, err
@@ -600,10 +601,10 @@ func (e *Environment) unitCoherent(u *compiledUnit) bool {
 // contract: binding marks argument arrays shared and every template mutation
 // privatizes first (copy-on-write), so the first render cannot change what
 // the second reads.
-func (e *Environment) renderShadowed(m *compiled.Manifest, tmpl *interp.Template, vars map[string]runtime.Value) (string, error) {
-	interpOut, interpErr := interp.Render(e, tmpl, vars)
+func (e *Environment) renderShadowed(ctx context.Context, m *compiled.Manifest, tmpl *interp.Template, vars map[string]runtime.Value) (string, error) {
+	interpOut, interpErr := interp.Render(ctx, e, tmpl, vars)
 	var b strings.Builder
-	compErr := m.Render()(&b, e.extensions, vars, e.renderCache)
+	compErr := m.Render()(ctx, &b, e.extensions, vars, e.renderCache)
 	if b.String() != interpOut || !sameErrorText(compErr, interpErr) {
 		e.compiledVerify(compiled.Divergence{
 			Template:       m.Entry(),
@@ -631,14 +632,14 @@ func sameErrorText(a, b error) bool {
 // output. When an installed compiled unit (WithCompiled) passes the dispatch
 // gate the render runs through the generated function with identical output
 // and error bytes, including the partial output an errored render returns.
-func (e *Environment) Render(name string, vars map[string]runtime.Value) (string, error) {
-	tmpl, err := e.LoadTemplate(name)
+func (e *Environment) Render(ctx context.Context, name string, vars map[string]runtime.Value) (string, error) {
+	tmpl, err := e.LoadTemplate(ctx, name)
 	if err != nil {
 		return "", err
 	}
 	if m := e.compiledFor(name); m != nil {
 		if e.compiledVerify != nil {
-			return e.renderShadowed(m, tmpl, vars)
+			return e.renderShadowed(ctx, m, tmpl, vars)
 		}
 		// The compiled path shares the interpreter's warm-render Builder
 		// sizing: pre-grow from the Template's remembered output length and
@@ -649,19 +650,19 @@ func (e *Environment) Render(name string, vars map[string]runtime.Value) (string
 		if hint := tmpl.OutGrowHint(); hint > 0 {
 			b.Grow(hint)
 		}
-		err := m.Render()(&b, e.extensions, vars, e.renderCache)
+		err := m.Render()(ctx, &b, e.extensions, vars, e.renderCache)
 		if err == nil {
 			tmpl.RecordOutSize(b.Len())
 		}
 		return b.String(), err
 	}
-	return interp.Render(e, tmpl, vars)
+	return interp.Render(ctx, e, tmpl, vars)
 }
 
 // RenderString parses an ad-hoc template body (not added to the loader) and
 // renders it. Inheritance/include/import targets in the body still resolve
 // through the loader by name.
-func (e *Environment) RenderString(name, body string, vars map[string]runtime.Value) (string, error) {
+func (e *Environment) RenderString(ctx context.Context, name, body string, vars map[string]runtime.Value) (string, error) {
 	mod, err := parse.Parse(source.New(name, body))
 	if err != nil {
 		return "", err
@@ -673,7 +674,7 @@ func (e *Environment) RenderString(name, body string, vars map[string]runtime.Va
 	if err != nil {
 		return "", err
 	}
-	return interp.Render(e, tmpl, vars)
+	return interp.Render(ctx, e, tmpl, vars)
 }
 
 // RenderTo loads the named template and renders it directly to w. When the
@@ -695,8 +696,8 @@ func (e *Environment) RenderString(name, body string, vars map[string]runtime.Va
 // interpreter's bytes: for a slot-free unit that includes an errored render's
 // partial output (matching the streaming path), and for a slots unit it writes
 // nothing on error (matching the buffered path).
-func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime.Value) error {
-	tmpl, err := e.LoadTemplate(name)
+func (e *Environment) RenderTo(ctx context.Context, w io.Writer, name string, vars map[string]runtime.Value) error {
+	tmpl, err := e.LoadTemplate(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -709,7 +710,7 @@ func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime
 			// writes nothing on error, so its placeholder-bearing partial is
 			// withheld. The render error outranks a write error because it is the
 			// authoritative result the comparison above already served.
-			out, rerr := e.renderShadowed(m, tmpl, vars)
+			out, rerr := e.renderShadowed(ctx, m, tmpl, vars)
 			if rerr != nil && m.UsesSlots() {
 				return rerr
 			}
@@ -726,33 +727,33 @@ func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime
 			// off the caller's writer, mirroring the interpreter's buffered-slots
 			// branch which writes nothing when the render fails.
 			var b strings.Builder
-			if rerr := m.Render()(&b, e.extensions, vars, e.renderCache); rerr != nil {
+			if rerr := m.Render()(ctx, &b, e.extensions, vars, e.renderCache); rerr != nil {
 				return rerr
 			}
 			_, werr := io.WriteString(w, b.String())
 			return werr
 		}
-		return m.Render()(w, e.extensions, vars, e.renderCache)
+		return m.Render()(ctx, w, e.extensions, vars, e.renderCache)
 	}
-	return interp.RenderTo(e, tmpl, vars, w)
+	return interp.RenderTo(ctx, e, tmpl, vars, w)
 }
 
 // RenderToValues renders the named template directly to w like RenderTo, but
 // from native Go bindings: each value in vars is marshaled through
 // runtime.FromGo exactly as RenderValues does.
-func (e *Environment) RenderToValues(w io.Writer, name string, vars map[string]any) error {
+func (e *Environment) RenderToValues(ctx context.Context, w io.Writer, name string, vars map[string]any) error {
 	rv, err := fromGoVars(vars)
 	if err != nil {
 		return err
 	}
-	return e.RenderTo(w, name, rv)
+	return e.RenderTo(ctx, w, name, rv)
 }
 
 // RenderStringTo parses an ad-hoc template body (not added to the loader) and
 // renders it directly to w with RenderTo's streaming-vs-buffered behavior.
 // Inheritance/include/import targets in the body still resolve through the
 // loader by name.
-func (e *Environment) RenderStringTo(w io.Writer, name, body string, vars map[string]runtime.Value) error {
+func (e *Environment) RenderStringTo(ctx context.Context, w io.Writer, name, body string, vars map[string]runtime.Value) error {
 	mod, err := parse.Parse(source.New(name, body))
 	if err != nil {
 		return err
@@ -764,7 +765,7 @@ func (e *Environment) RenderStringTo(w io.Writer, name, body string, vars map[st
 	if err != nil {
 		return err
 	}
-	return interp.RenderTo(e, tmpl, vars, w)
+	return interp.RenderTo(ctx, e, tmpl, vars, w)
 }
 
 // RenderValues renders the named template from native Go bindings: each value in
@@ -774,24 +775,24 @@ func (e *Environment) RenderStringTo(w io.Writer, name, body string, vars map[st
 // through unchanged, so hand-built and native bindings mix freely. An
 // unsupported Go kind (a channel, a bare function, a complex number) returns the
 // typed marshaling error and renders nothing.
-func (e *Environment) RenderValues(name string, vars map[string]any) (string, error) {
+func (e *Environment) RenderValues(ctx context.Context, name string, vars map[string]any) (string, error) {
 	rv, err := fromGoVars(vars)
 	if err != nil {
 		return "", err
 	}
-	return e.Render(name, rv)
+	return e.Render(ctx, name, rv)
 }
 
 // RenderStringValues parses an ad-hoc template body (not added to the loader)
 // and renders it from native Go bindings, marshaling each value through
 // runtime.FromGo exactly as RenderValues does. Inheritance/include/import
 // targets in the body still resolve through the loader by name.
-func (e *Environment) RenderStringValues(name, body string, vars map[string]any) (string, error) {
+func (e *Environment) RenderStringValues(ctx context.Context, name, body string, vars map[string]any) (string, error) {
 	rv, err := fromGoVars(vars)
 	if err != nil {
 		return "", err
 	}
-	return e.RenderString(name, body, rv)
+	return e.RenderString(ctx, name, body, rv)
 }
 
 // fromGoVars marshals a native binding map into the runtime.Value map the render

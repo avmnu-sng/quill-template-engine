@@ -29,6 +29,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -110,7 +111,7 @@ func run(args []string, out io.Writer, stdin io.Reader) error {
 		quill.WithStrictVariables(*strict),
 	)
 
-	rendered, err := env.Render(name, vars)
+	rendered, err := env.Render(context.Background(), name, vars)
 	if err != nil {
 		return err
 	}

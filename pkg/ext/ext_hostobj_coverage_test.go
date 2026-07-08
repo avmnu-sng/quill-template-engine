@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -165,10 +166,10 @@ func TestRegistryHasFunctionAndHasTest(t *testing.T) {
 		t.Error("HasTest(blank) = true on empty set, want false")
 	}
 
-	s.AddFunction(&Function{Name: "greet", Fn: func([]runtime.Value) (runtime.Value, error) {
+	s.AddFunction(&Function{Name: "greet", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("hi"), nil
 	}})
-	s.AddTest(&Test{Name: "blank", Fn: func([]runtime.Value) (bool, error) {
+	s.AddTest(&Test{Name: "blank", Fn: func(context.Context, []runtime.Value) (bool, error) {
 		return true, nil
 	}})
 
@@ -193,13 +194,13 @@ func TestRegistryHasFunctionAndHasTest(t *testing.T) {
 // one set does not leak into the other.
 func TestRegistryCloneIndependence(t *testing.T) {
 	base := NewSet()
-	base.AddFilter(&Filter{Name: "f", Fn: func([]runtime.Value) (runtime.Value, error) {
+	base.AddFilter(&Filter{Name: "f", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("base-f"), nil
 	}})
-	base.AddFunction(&Function{Name: "fn", Fn: func([]runtime.Value) (runtime.Value, error) {
+	base.AddFunction(&Function{Name: "fn", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("base-fn"), nil
 	}})
-	base.AddTest(&Test{Name: "t", Fn: func([]runtime.Value) (bool, error) { return true, nil }})
+	base.AddTest(&Test{Name: "t", Fn: func(context.Context, []runtime.Value) (bool, error) { return true, nil }})
 	base.AddConstant("K", runtime.Str("base-k"))
 	base.AddEnum("E", []runtime.Value{runtime.Str("a"), runtime.Str("b")})
 
@@ -222,7 +223,7 @@ func TestRegistryCloneIndependence(t *testing.T) {
 	if orig != clone {
 		t.Error("Clone should share the callable pointer, not deep-copy it")
 	}
-	got, _ := clone.Fn(nil)
+	got, _ := clone.Fn(context.Background(), nil)
 	if got.AsStr() != "base-f" {
 		t.Errorf("cloned filter f = %q, want base-f", got.AsStr())
 	}
@@ -230,13 +231,13 @@ func TestRegistryCloneIndependence(t *testing.T) {
 	// Independent maps: adding to the clone does not touch the base, and vice versa.
 	// Exercise every one of the five maps Clone copies, not just filters/functions,
 	// so a future Clone that forgets to fork one map (constants or enums) is caught.
-	cp.AddFilter(&Filter{Name: "clone_only", Fn: func([]runtime.Value) (runtime.Value, error) {
+	cp.AddFilter(&Filter{Name: "clone_only", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), nil
 	}})
 	if base.HasFilter("clone_only") {
 		t.Error("adding a filter to the clone leaked into the base set")
 	}
-	cp.AddTest(&Test{Name: "clone_t", Fn: func([]runtime.Value) (bool, error) { return true, nil }})
+	cp.AddTest(&Test{Name: "clone_t", Fn: func(context.Context, []runtime.Value) (bool, error) { return true, nil }})
 	if base.HasTest("clone_t") {
 		t.Error("adding a test to the clone leaked into the base set")
 	}
@@ -249,7 +250,7 @@ func TestRegistryCloneIndependence(t *testing.T) {
 		t.Error("adding an enum to the clone leaked into the base set")
 	}
 
-	base.AddFunction(&Function{Name: "base_only", Fn: func([]runtime.Value) (runtime.Value, error) {
+	base.AddFunction(&Function{Name: "base_only", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), nil
 	}})
 	if cp.HasFunction("base_only") {

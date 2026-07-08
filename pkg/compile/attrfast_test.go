@@ -145,6 +145,7 @@ func TestAttrFastNilArrParity(t *testing.T) {
 	mainSrc := fmt.Sprintf(`package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -157,10 +158,10 @@ import (
 func main() {
 	exts := quill.NewFromMap(map[string]string{}).Extensions()
 	var b strings.Builder
-	cerr := gen.%s(&b, exts, map[string]runtime.Value{"x": runtime.Arr(nil)}, nil)
+	cerr := gen.%s(context.Background(), &b, exts, map[string]runtime.Value{"x": runtime.Arr(nil)}, nil)
 
 	env := quill.NewFromMap(map[string]string{%q: %q})
-	want, werr := env.Render(%q, map[string]runtime.Value{"x": runtime.Arr(nil)})
+	want, werr := env.Render(context.Background(), %q, map[string]runtime.Value{"x": runtime.Arr(nil)})
 
 	switch {
 	case (cerr != nil) != (werr != nil):

@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"testing"
@@ -34,7 +35,7 @@ func renderPooled(t *testing.T, eng *stubEngine, body string, vars map[string]ru
 		t.Fatalf("parse error: %v", err)
 	}
 	poolLoopSnapshots = true
-	return Render(eng, Prepare("test", mod), vars)
+	return Render(context.Background(), eng, Prepare("test", mod), vars)
 }
 
 // renderUnpooled renders body against eng with loop snapshot pooling OFF, the
@@ -46,7 +47,7 @@ func renderUnpooled(t *testing.T, eng *stubEngine, body string, vars map[string]
 		t.Fatalf("parse error: %v", err)
 	}
 	poolLoopSnapshots = false
-	out, err := Render(eng, Prepare("test", mod), vars)
+	out, err := Render(context.Background(), eng, Prepare("test", mod), vars)
 	poolLoopSnapshots = true
 	return out, err
 }
@@ -434,7 +435,7 @@ func TestPoolLoopInsideBlockIsPoolSafe(t *testing.T) {
 		"base.ql": "@block items {\n(none)\n@}\n",
 		"page.ql": "@extends \"base.ql\"\n@block items {\n@for it in items {\n- {{ it }}:{{ loop.index }}\n@}\n@}\n",
 	})
-	tmpl, err := eng.LoadTemplate("page.ql")
+	tmpl, err := eng.LoadTemplate(context.Background(), "page.ql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -450,9 +451,9 @@ func TestPoolLoopInsideBlockIsPoolSafe(t *testing.T) {
 	items := runtime.Arr(runtime.NewList(runtime.Str("a"), runtime.Str("b"), runtime.Str("c")))
 	vars := map[string]runtime.Value{"items": items}
 	poolLoopSnapshots = true
-	gotPool, errPool := Render(eng, tmpl, vars)
+	gotPool, errPool := Render(context.Background(), eng, tmpl, vars)
 	poolLoopSnapshots = false
-	gotFresh, errFresh := Render(eng, tmpl, vars)
+	gotFresh, errFresh := Render(context.Background(), eng, tmpl, vars)
 	poolLoopSnapshots = true
 	if errPool != nil || errFresh != nil {
 		t.Fatalf("render errors: pooled=%v unpooled=%v", errPool, errFresh)
@@ -512,7 +513,7 @@ func TestPoolConcurrentRendersRaceClean(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 50; i++ {
-				out, err := Render(eng, tmpl, nil)
+				out, err := Render(context.Background(), eng, tmpl, nil)
 				if err != nil {
 					t.Errorf("render error: %v", err)
 					return

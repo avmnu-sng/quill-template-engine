@@ -15,6 +15,7 @@
 package compiled
 
 import (
+	"context"
 	"io"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
@@ -43,11 +44,12 @@ type RenderCache interface {
 	Put(key string, body string, tags []string)
 }
 
-// RenderFunc is the signature of a generated render function: it writes the
-// template's output to w, resolves callables through exts, reads top-level
-// variables from vars, and memoizes @cache regions through rc (nil when the
-// engine exposes no store), returning the first render error.
-type RenderFunc func(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc RenderCache) error
+// RenderFunc is the signature of a generated render function: it honors the
+// cancellation and deadline of ctx, writes the template's output to w, resolves
+// callables through exts, reads top-level variables from vars, and memoizes
+// @cache regions through rc (nil when the engine exposes no store), returning
+// the first render error.
+type RenderFunc func(ctx context.Context, w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc RenderCache) error
 
 // Fingerprint captures the compile options that shape a generated unit's
 // rendered bytes. The Environment dispatches to a compiled unit only when the

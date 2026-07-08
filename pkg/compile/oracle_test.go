@@ -1,6 +1,7 @@
 package compile_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -310,5 +311,5 @@ func renderFixtureInterp(t *testing.T, tmpls map[string]string, main, varsJSON s
 		t.Fatalf("decode fixture data: %v", err)
 	}
 	env := quill.New(loader.NewArrayLoader(tmpls), opts...)
-	return env.Render(main, vars)
+	return env.Render(context.Background(), main, vars)
 }

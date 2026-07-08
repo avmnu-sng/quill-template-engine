@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
@@ -52,8 +53,8 @@ func NewFunction(name string, fn any) *Function {
 func NewTest(name string, fn any) *Test {
 	call := build(name, "test", fn)
 	return &Test{
-		Fn: func(args []runtime.Value) (bool, error) {
-			out, err := call(args)
+		Fn: func(ctx context.Context, args []runtime.Value) (bool, error) {
+			out, err := call(ctx, args)
 			if err != nil {
 				return false, err
 			}
@@ -83,8 +84,10 @@ type signature struct {
 }
 
 // build validates fn at registration time and returns the []runtime.Value-based
-// closure the engine calls. It panics on an unsupported func shape.
-func build(name, kind string, fn any) func([]runtime.Value) (runtime.Value, error) {
+// closure the engine calls. The closure accepts the render context to satisfy
+// the ext callable signature; a natural Go func takes no context, so invoke
+// ignores it. It panics on an unsupported func shape.
+func build(name, kind string, fn any) func(context.Context, []runtime.Value) (runtime.Value, error) {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
 	if ft.Kind() != reflect.Func {
@@ -111,7 +114,7 @@ func build(name, kind string, fn any) func([]runtime.Value) (runtime.Value, erro
 
 	buildResults(sig, ft, kind)
 
-	return func(args []runtime.Value) (runtime.Value, error) { return sig.invoke(args) }
+	return func(_ context.Context, args []runtime.Value) (runtime.Value, error) { return sig.invoke(args) }
 }
 
 // buildResults validates the result shape and resolves the result converter.

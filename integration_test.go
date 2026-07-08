@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -22,7 +23,7 @@ func mkList(vals ...runtime.Value) runtime.Value { return runtime.Arr(runtime.Ne
 func render(t *testing.T, body string, vars map[string]runtime.Value) string {
 	t.Helper()
 	e := NewFromMap(nil)
-	out, err := e.RenderString("test", body, vars)
+	out, err := e.RenderString(context.Background(), "test", body, vars)
 	if err != nil {
 		t.Fatalf("render error: %v\ntemplate:\n%s", err, body)
 	}
@@ -41,7 +42,7 @@ func TestAnchor(t *testing.T) {
 		mkMap("name", runtime.Str("ada"), "isAdmin", runtime.Bool(true)),
 		mkMap("name", runtime.Str("bob"), "isAdmin", runtime.Bool(false)),
 	)
-	out, err := e.Render("anchor.ql", map[string]runtime.Value{"users": users})
+	out, err := e.Render(context.Background(), "anchor.ql", map[string]runtime.Value{"users": users})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +119,7 @@ func TestControlFlow(t *testing.T) {
 // non-iterable is a runtime error, NOT a silent empty loop (spec 01 Section 4.2).
 func TestForNonIterableStrict(t *testing.T) {
 	e := NewFromMap(nil)
-	_, err := e.RenderString("t", "@for x in n {\n{{ x }}\n@}\n",
+	_, err := e.RenderString(context.Background(), "t", "@for x in n {\n{{ x }}\n@}\n",
 		map[string]runtime.Value{"n": runtime.Int(5)})
 	if err == nil {
 		t.Fatal("expected an iteration error over a non-iterable")
@@ -155,7 +156,7 @@ func TestWithAndApply(t *testing.T) {
 
 func TestStrictUndefined(t *testing.T) {
 	e := NewFromMap(nil)
-	_, err := e.RenderString("t", "{{ missing }}", nil)
+	_, err := e.RenderString(context.Background(), "t", "{{ missing }}", nil)
 	if err == nil {
 		t.Fatal("expected a strict-undefined error")
 	}
@@ -165,7 +166,7 @@ func TestStrictUndefined(t *testing.T) {
 	}
 	// lenient mode yields empty.
 	le := NewFromMap(nil, WithStrictVariables(false))
-	out, err := le.RenderString("t", "[{{ missing }}]", nil)
+	out, err := le.RenderString(context.Background(), "t", "[{{ missing }}]", nil)
 	if err != nil || out != "[]" {
 		t.Errorf("lenient: out=%q err=%v", out, err)
 	}
@@ -177,7 +178,7 @@ func TestInheritanceParent(t *testing.T) {
 		"child.ql": "@extends \"base.ql\"\n@block title {\n{{ parent() }}+CHILD\n@}\n",
 	}
 	e := NewFromMap(tmpls)
-	out, err := e.Render("child.ql", nil)
+	out, err := e.Render(context.Background(), "child.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +207,7 @@ func TestMacroRecursionAndImport(t *testing.T) {
 		"page.ql":  "@from \"forms.ql\" import input\n{{ input(\"x\") }}",
 	}
 	e := NewFromMap(tmpls)
-	out, err := e.Render("page.ql", nil)
+	out, err := e.Render(context.Background(), "page.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +221,7 @@ func TestMacroRecursionAndImport(t *testing.T) {
 		"page.ql":  "@import \"forms.ql\" as forms\n{{ forms.input(\"y\") }}",
 	}
 	e2 := NewFromMap(tmpls2)
-	out2, err := e2.Render("page.ql", nil)
+	out2, err := e2.Render(context.Background(), "page.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +247,7 @@ func TestInclude(t *testing.T) {
 		"page.ql": "@include \"row.ql\" with { user: \"ada\" }\n@include \"missing.ql\" ignore missing\nEND",
 	}
 	e := NewFromMap(tmpls)
-	out, err := e.Render("page.ql", nil)
+	out, err := e.Render(context.Background(), "page.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +260,7 @@ func TestInclude(t *testing.T) {
 		"cand.ql": "@include [\"nope.ql\", \"row.ql\"] with { user: \"z\" }",
 	}
 	e2 := NewFromMap(tmpls2)
-	out, err = e2.Render("cand.ql", nil)
+	out, err = e2.Render(context.Background(), "cand.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +275,7 @@ func TestIncludeOnly(t *testing.T) {
 		"page.ql": "@include \"row.ql\" with { user: \"a\" } only",
 	}
 	e := NewFromMap(tmpls)
-	out, err := e.Render("page.ql", map[string]runtime.Value{"outer": runtime.Str("O")})
+	out, err := e.Render(context.Background(), "page.ql", map[string]runtime.Value{"outer": runtime.Str("O")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +324,7 @@ func TestEscapingOffByDefault(t *testing.T) {
 // raw/Safe value stays verbatim (spec 04 Section 8).
 func TestEscapingHTMLOn(t *testing.T) {
 	e := NewFromMap(nil, WithAutoescapeHTML(true))
-	out, err := e.RenderString("t", "{{ v }}", map[string]runtime.Value{"v": runtime.Str("<b>&")})
+	out, err := e.RenderString(context.Background(), "t", "{{ v }}", map[string]runtime.Value{"v": runtime.Str("<b>&")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +332,7 @@ func TestEscapingHTMLOn(t *testing.T) {
 		t.Errorf("html escape: %q", out)
 	}
 	// raw cancels escaping at a single site.
-	out, err = e.RenderString("t", "{{ v | raw }}", map[string]runtime.Value{"v": runtime.Str("<b>")})
+	out, err = e.RenderString(context.Background(), "t", "{{ v | raw }}", map[string]runtime.Value{"v": runtime.Str("<b>")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +340,7 @@ func TestEscapingHTMLOn(t *testing.T) {
 		t.Errorf("raw under html-on: %q", out)
 	}
 	// @escape off region under an html-on environment.
-	out, err = e.RenderString("t", "@escape off {\n{{ v }}\n@}\n", map[string]runtime.Value{"v": runtime.Str("<b>")})
+	out, err = e.RenderString(context.Background(), "t", "@escape off {\n{{ v }}\n@}\n", map[string]runtime.Value{"v": runtime.Str("<b>")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +348,7 @@ func TestEscapingHTMLOn(t *testing.T) {
 		t.Errorf("@escape off: %q", out)
 	}
 	// Template TEXT is never escaped, only values.
-	out, err = e.RenderString("t", "<div>{{ v }}</div>", map[string]runtime.Value{"v": runtime.Str("&")})
+	out, err = e.RenderString(context.Background(), "t", "<div>{{ v }}</div>", map[string]runtime.Value{"v": runtime.Str("&")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,8 +378,8 @@ func TestGuard(t *testing.T) {
 
 func TestParseCaching(t *testing.T) {
 	e := NewFromMap(map[string]string{"x.ql": "{{ 1 + 1 }}"})
-	out1, _ := e.Render("x.ql", nil)
-	out2, _ := e.Render("x.ql", nil) // second render hits the cache
+	out1, _ := e.Render(context.Background(), "x.ql", nil)
+	out2, _ := e.Render(context.Background(), "x.ql", nil) // second render hits the cache
 	if out1 != "2" || out2 != "2" {
 		t.Errorf("cached render: %q %q", out1, out2)
 	}

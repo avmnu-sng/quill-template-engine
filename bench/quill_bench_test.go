@@ -1,6 +1,7 @@
 package quillbench
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -82,7 +83,7 @@ func BenchmarkQuill_Tiny_Load(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		env := quill.NewFromMap(map[string]string{"tiny.ql": quillTiny})
-		if _, err := env.LoadTemplate("tiny.ql"); err != nil {
+		if _, err := env.LoadTemplate(context.Background(), "tiny.ql"); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -93,19 +94,19 @@ func BenchmarkQuill_Tiny_Load(b *testing.B) {
 // MB/s) and to keep the result reachable via sink against dead-code elimination.
 func BenchmarkQuill_Tiny_Render(b *testing.B) {
 	env := quill.NewFromMap(map[string]string{"tiny.ql": quillTiny})
-	tmpl, err := env.LoadTemplate("tiny.ql")
+	tmpl, err := env.LoadTemplate(context.Background(), "tiny.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
 	vars := map[string]runtime.Value{"name": runtime.Str("ada")}
-	out, err := interp.Render(env, tmpl, vars)
+	out, err := interp.Render(context.Background(), env, tmpl, vars)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if sink, err = interp.Render(env, tmpl, vars); err != nil {
+		if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -117,7 +118,7 @@ func BenchmarkQuill_Loop_Load(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
-		if _, err := env.LoadTemplate("loop.ql"); err != nil {
+		if _, err := env.LoadTemplate(context.Background(), "loop.ql"); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -128,21 +129,21 @@ func BenchmarkQuill_Loop_Load(b *testing.B) {
 // pins the result to sink against dead-code elimination.
 func BenchmarkQuill_Loop_Render(b *testing.B) {
 	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
-	tmpl, err := env.LoadTemplate("loop.ql")
+	tmpl, err := env.LoadTemplate(context.Background(), "loop.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for _, n := range loopSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := map[string]runtime.Value{"users": quillUsersN(n)}
-			out, err := interp.Render(env, tmpl, vars)
+			out, err := interp.Render(context.Background(), env, tmpl, vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = interp.Render(env, tmpl, vars); err != nil {
+				if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -169,19 +170,19 @@ func BenchmarkQuill_LoopInclude_Render(b *testing.B) {
 		"loopinc.ql": quillLoopInclude,
 		"row.ql":     quillLoopIncludeRow,
 	})
-	tmpl, err := env.LoadTemplate("loopinc.ql")
+	tmpl, err := env.LoadTemplate(context.Background(), "loopinc.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
 	vars := map[string]runtime.Value{"users": quillUsers()}
-	out, err := interp.Render(env, tmpl, vars)
+	out, err := interp.Render(context.Background(), env, tmpl, vars)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if sink, err = interp.Render(env, tmpl, vars); err != nil {
+		if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -197,7 +198,7 @@ func BenchmarkQuill_Compose_Load(b *testing.B) {
 			"page.ql": quillPage,
 		})
 		// Load the child; @extends causes the parent to load through the engine.
-		if _, err := env.LoadTemplate("page.ql"); err != nil {
+		if _, err := env.LoadTemplate(context.Background(), "page.ql"); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -208,7 +209,7 @@ func BenchmarkQuill_Compose_Render(b *testing.B) {
 		"base.ql": quillBase,
 		"page.ql": quillPage,
 	})
-	tmpl, err := env.LoadTemplate("page.ql")
+	tmpl, err := env.LoadTemplate(context.Background(), "page.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -216,14 +217,14 @@ func BenchmarkQuill_Compose_Render(b *testing.B) {
 		"title": runtime.Str("Daily Report"),
 		"items": quillItems(),
 	}
-	out, err := interp.Render(env, tmpl, vars)
+	out, err := interp.Render(context.Background(), env, tmpl, vars)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if sink, err = interp.Render(env, tmpl, vars); err != nil {
+		if sink, err = interp.Render(context.Background(), env, tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}

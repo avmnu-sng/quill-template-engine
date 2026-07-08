@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"io"
 	"strings"
 	"sync"
@@ -24,11 +25,11 @@ func TestCacheRegionWithYieldRendersFreshEveryTime(t *testing.T) {
 			"@provide syms {\nSYM\n@}\ntail\n",
 	}
 	env := New(loader.NewArrayLoader(tmpls))
-	first, err := env.Render("main.ql", nil)
+	first, err := env.Render(context.Background(), "main.ql", nil)
 	if err != nil {
 		t.Fatalf("first render: %v", err)
 	}
-	second, err := env.Render("main.ql", nil)
+	second, err := env.Render(context.Background(), "main.ql", nil)
 	if err != nil {
 		t.Fatalf("second render: %v", err)
 	}
@@ -49,11 +50,11 @@ func TestCacheRegionWithProvideKeepsAccumulating(t *testing.T) {
 			"got:\n@yield syms\n",
 	}
 	env := New(loader.NewArrayLoader(tmpls))
-	first, err := env.Render("main.ql", nil)
+	first, err := env.Render(context.Background(), "main.ql", nil)
 	if err != nil {
 		t.Fatalf("first render: %v", err)
 	}
-	second, err := env.Render("main.ql", nil)
+	second, err := env.Render(context.Background(), "main.ql", nil)
 	if err != nil {
 		t.Fatalf("second render: %v", err)
 	}
@@ -75,11 +76,11 @@ func TestCacheRegionWithIncludedProvideKeepsAccumulating(t *testing.T) {
 		"part.ql": "partbody\n@provide syms {\nSYM\n@}\n",
 	}
 	env := New(loader.NewArrayLoader(tmpls))
-	first, err := env.Render("main.ql", nil)
+	first, err := env.Render(context.Background(), "main.ql", nil)
 	if err != nil {
 		t.Fatalf("first render: %v", err)
 	}
-	second, err := env.Render("main.ql", nil)
+	second, err := env.Render(context.Background(), "main.ql", nil)
 	if err != nil {
 		t.Fatalf("second render: %v", err)
 	}
@@ -102,14 +103,14 @@ func TestCacheRegionWithoutSlotsIsServedFromStore(t *testing.T) {
 		"plain.ql": "@cache key=\"p\" {\nbody\n@}\n",
 	}
 	env := New(loader.NewArrayLoader(tmpls))
-	if _, err := env.Render("plain.ql", nil); err != nil {
+	if _, err := env.Render(context.Background(), "plain.ql", nil); err != nil {
 		t.Fatalf("first render: %v", err)
 	}
 	if _, ok := env.RenderCache().Get("plain.ql\x00p"); !ok {
 		t.Fatal("slot-free cache region was not memoized")
 	}
 	env.RenderCache().Put("plain.ql\x00p", "SENTINEL\n", nil)
-	second, err := env.Render("plain.ql", nil)
+	second, err := env.Render(context.Background(), "plain.ql", nil)
 	if err != nil {
 		t.Fatalf("second render: %v", err)
 	}
@@ -131,14 +132,14 @@ func TestCacheRegionSlotFreeAmidSlotActivity(t *testing.T) {
 	}
 	env := New(loader.NewArrayLoader(tmpls))
 	for _, name := range []string{"pre.ql", "post.ql"} {
-		first, err := env.Render(name, nil)
+		first, err := env.Render(context.Background(), name, nil)
 		if err != nil {
 			t.Fatalf("%s first render: %v", name, err)
 		}
 		if _, ok := env.RenderCache().Get(name + "\x00side"); !ok {
 			t.Fatalf("%s: slot-free cache region amid slot activity was not memoized", name)
 		}
-		second, err := env.Render(name, nil)
+		second, err := env.Render(context.Background(), name, nil)
 		if err != nil {
 			t.Fatalf("%s second render: %v", name, err)
 		}
@@ -171,7 +172,7 @@ func TestCompiledCacheSharesWarmCacheUnderConcurrency(t *testing.T) {
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": src},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, rc compiled.RenderCache) error {
+		Render: func(ctx context.Context, w io.Writer, _ *ext.Set, _ map[string]runtime.Value, rc compiled.RenderCache) error {
 			// The generated @cache shape over the shared handle: namespace the key
 			// by the entry template, replay a hit, or render the body once and
 			// store it on a miss. A nil handle would always miss; the dispatch
@@ -198,12 +199,12 @@ func TestCompiledCacheSharesWarmCacheUnderConcurrency(t *testing.T) {
 	// so the concurrent loop measures the compiled shared-cache path.
 	tracer := markerManifest("t.ql", src, defaultFingerprint(), false)
 	tenv := NewFromMap(tmpls, WithCompiled(tracer))
-	if out, err := tenv.Render("t.ql", nil); err != nil || out != dispatchMarker {
+	if out, err := tenv.Render(context.Background(), "t.ql", nil); err != nil || out != dispatchMarker {
 		t.Fatalf("dispatch gate did not serve the compiled unit: out=%q err=%v", out, err)
 	}
 
 	interp := NewFromMap(tmpls)
-	if out, err := interp.Render("t.ql", nil); err != nil || out != want {
+	if out, err := interp.Render(context.Background(), "t.ql", nil); err != nil || out != want {
 		t.Fatalf("interpreter render drifted from the pinned contract: out=%q err=%v", out, err)
 	}
 
@@ -216,7 +217,7 @@ func TestCompiledCacheSharesWarmCacheUnderConcurrency(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for r := 0; r < rounds; r++ {
-				out, err := env.Render("t.ql", nil)
+				out, err := env.Render(context.Background(), "t.ql", nil)
 				if err != nil {
 					errs <- err
 					return
@@ -247,13 +248,13 @@ func TestCacheRegionSlotGating(t *testing.T) {
 		"slotty.ql": "@cache key=\"s\" {\nhead:\n@yield x\n@}\n@provide x {\nX\n@}\n",
 	}
 	env := New(loader.NewArrayLoader(tmpls))
-	if _, err := env.Render("plain.ql", nil); err != nil {
+	if _, err := env.Render(context.Background(), "plain.ql", nil); err != nil {
 		t.Fatalf("plain render: %v", err)
 	}
 	if _, ok := env.RenderCache().Get("plain.ql\x00p"); !ok {
 		t.Fatal("slot-free cache region was not memoized")
 	}
-	if _, err := env.Render("slotty.ql", nil); err != nil {
+	if _, err := env.Render(context.Background(), "slotty.ql", nil); err != nil {
 		t.Fatalf("slotty render: %v", err)
 	}
 	if _, ok := env.RenderCache().Get("slotty.ql\x00s"); ok {

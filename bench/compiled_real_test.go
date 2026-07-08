@@ -2,6 +2,7 @@ package quillbench
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -74,12 +75,12 @@ func TestCompiledLoopGenIsCurrent(t *testing.T) {
 // so BenchmarkCompiledReal_Loop_Render measures equivalent work.
 func TestCompiledRealMatchesInterp(t *testing.T) {
 	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
-	want, err := env.Render("loop.ql", map[string]runtime.Value{"users": quillUsers()})
+	want, err := env.Render(context.Background(), "loop.ql", map[string]runtime.Value{"users": quillUsers()})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var b strings.Builder
-	if err := RenderLoop(&b, ext.Core(), map[string]runtime.Value{"users": quillUsers()}, nil); err != nil {
+	if err := RenderLoop(context.Background(), &b, ext.Core(), map[string]runtime.Value{"users": quillUsers()}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if b.String() != want {
@@ -98,13 +99,13 @@ func BenchmarkCompiledReal_Loop_Render(b *testing.B) {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := map[string]runtime.Value{"users": quillUsersN(n)}
 			var buf bytes.Buffer
-			if err := RenderLoop(&buf, exts, vars, nil); err != nil {
+			if err := RenderLoop(context.Background(), &buf, exts, vars, nil); err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(buf.Len()))
 			b.ReportAllocs()
 			for b.Loop() {
-				if err := RenderLoop(io.Discard, exts, vars, nil); err != nil {
+				if err := RenderLoop(context.Background(), io.Discard, exts, vars, nil); err != nil {
 					b.Fatal(err)
 				}
 			}

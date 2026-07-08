@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strings"
 	"unicode"
 
@@ -31,7 +32,7 @@ func registerShapingFilters(s *Set) {
 // pre-formatted block keeps its own line breaks. A single word longer than the
 // width is emitted whole on its own line rather than being cut. Width is counted
 // in runes, so multi-byte text wraps by visible characters.
-func filterWrap(args []runtime.Value) (runtime.Value, error) {
+func filterWrap(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -95,7 +96,7 @@ func wrapParagraph(para string, width int) []string {
 // word is not split. A string already within the length is returned unchanged.
 // Distinct from slice, which is a pure window with no marker. Length is counted
 // in runes.
-func filterTruncate(args []runtime.Value) (runtime.Value, error) {
+func filterTruncate(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -150,7 +151,7 @@ func lastSpace(r []rune) int {
 // amount of padding puts the extra unit on the right, matching the common
 // str.center convention. A string already at or over the width is returned
 // unchanged. Width and the padding are counted in runes.
-func filterCenter(args []runtime.Value) (runtime.Value, error) {
+func filterCenter(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -194,7 +195,7 @@ func padRunes(fill string, n int) string {
 // separated by whitespace (spec 03 Section 2.1). Leading, trailing, and repeated
 // whitespace do not inflate the count; an empty or all-whitespace string counts
 // zero words.
-func filterWordcount(args []runtime.Value) (runtime.Value, error) {
+func filterWordcount(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err

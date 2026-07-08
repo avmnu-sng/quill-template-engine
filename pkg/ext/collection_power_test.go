@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -85,7 +86,7 @@ func TestSum(t *testing.T) {
 func TestSumNonNumber(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("sum")
-	if _, err := f.Fn([]runtime.Value{list(runtime.Str("x"))}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Str("x"))}); err == nil {
 		t.Fatal("sum of a non-number should error")
 	}
 }
@@ -143,7 +144,7 @@ func TestComparisonTests(t *testing.T) {
 func TestComparisonTestsCrossKind(t *testing.T) {
 	s := Core()
 	tst, _ := s.Test("lt")
-	if _, err := tst.Fn([]runtime.Value{runtime.Int(1), runtime.Str("x")}); err == nil {
+	if _, err := tst.Fn(context.Background(), []runtime.Value{runtime.Int(1), runtime.Str("x")}); err == nil {
 		t.Fatal("lt across unlike kinds should error")
 	}
 }
@@ -200,7 +201,7 @@ func TestSelectAttr(t *testing.T) {
 func TestMapRejectsNonCallableNonString(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("map")
-	if _, err := f.Fn([]runtime.Value{list(runtime.Int(1)), runtime.Int(3)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Int(1)), runtime.Int(3)}); err == nil {
 		t.Fatal("map with an int argument should error")
 	}
 }
@@ -210,7 +211,7 @@ func TestMapRejectsNonCallableNonString(t *testing.T) {
 func TestGroupByRejectsNonCallableNonString(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("group_by")
-	if _, err := f.Fn([]runtime.Value{list(runtime.Int(1)), runtime.Int(3)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Int(1)), runtime.Int(3)}); err == nil {
 		t.Fatal("group_by with an int argument should error")
 	}
 }

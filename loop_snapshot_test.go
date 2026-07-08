@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -23,7 +24,7 @@ func TestLoopValueIsFrozenSnapshot(t *testing.T) {
 		"@set snap = loop\n" +
 		"@}"
 	env := NewFromMap(map[string]string{"t.ql": src})
-	out, err := env.Render("t.ql", map[string]runtime.Value{})
+	out, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +51,7 @@ func TestLoopParentCapturedInsideInnerIterations(t *testing.T) {
 		"@}\n" +
 		"post: {{ keep.index }}/{{ keep.last }}\n"
 	env := NewFromMap(map[string]string{"t.ql": src})
-	out, err := env.Render("t.ql", map[string]runtime.Value{})
+	out, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +78,7 @@ func TestLoopParentChainCapturedAcrossNesting(t *testing.T) {
 		"@}\n" +
 		"{{ snap.index }}/{{ snap.parent.index }}\n"
 	env := NewFromMap(map[string]string{"t.ql": src})
-	out, err := env.Render("t.ql", map[string]runtime.Value{})
+	out, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +110,7 @@ func TestCapturedLoopValuesStayEqualAndIndependent(t *testing.T) {
 		"{{ second.index }}/{{ second.prev }}/{{ second.next }} " +
 		"{{ first.parent.index }}/{{ second.parent.index }}\n"
 	env := NewFromMap(map[string]string{"t.ql": src})
-	out, err := env.Render("t.ql", map[string]runtime.Value{})
+	out, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +148,7 @@ func TestRecursiveLoopDepthSurface(t *testing.T) {
 	top := runtime.NewArray()
 	top.SetInt(0, node("a", node("b", leaf("c"), leaf("d"))))
 	env := NewFromMap(map[string]string{"t.ql": src})
-	out, err := env.Render("t.ql", map[string]runtime.Value{"tree": runtime.Arr(top)})
+	out, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{"tree": runtime.Arr(top)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +170,7 @@ func TestLoopValueFieldSurface(t *testing.T) {
 	}
 	for _, c := range cases {
 		env := NewFromMap(map[string]string{"t.ql": c.src})
-		out, err := env.Render("t.ql", map[string]runtime.Value{})
+		out, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{})
 		if err != nil {
 			t.Errorf("%s: %v", c.name, err)
 			continue

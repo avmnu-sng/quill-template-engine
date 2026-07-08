@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"testing"
@@ -27,13 +28,13 @@ func newCachingStub(tmpls map[string]string) *cachingStub {
 }
 
 // LoadTemplate returns the pinned Template for name, preparing it on first use.
-func (c *cachingStub) LoadTemplate(name string) (*Template, error) {
+func (c *cachingStub) LoadTemplate(ctx context.Context, name string) (*Template, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if t, ok := c.loaded[name]; ok {
 		return t, nil
 	}
-	t, err := c.stubEngine.LoadTemplate(name)
+	t, err := c.stubEngine.LoadTemplate(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +45,7 @@ func (c *cachingStub) LoadTemplate(name string) (*Template, error) {
 // loadPinned loads name through the caching stub, failing the test on error.
 func loadPinned(t *testing.T, c *cachingStub, name string) *Template {
 	t.Helper()
-	tmpl, err := c.LoadTemplate(name)
+	tmpl, err := c.LoadTemplate(context.Background(), name)
 	if err != nil {
 		t.Fatalf("load %q: %v", name, err)
 	}
@@ -54,7 +55,7 @@ func loadPinned(t *testing.T, c *cachingStub, name string) *Template {
 // renderPinned renders an already-loaded Template, failing the test on error.
 func renderPinned(t *testing.T, eng Engine, tmpl *Template, vars map[string]runtime.Value) string {
 	t.Helper()
-	out, err := Render(eng, tmpl, vars)
+	out, err := Render(context.Background(), eng, tmpl, vars)
 	if err != nil {
 		t.Fatalf("render %q: %v", tmpl.Name, err)
 	}
@@ -334,7 +335,7 @@ func TestStaticCompositionMemoConcurrentRenders(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				for i := 0; i < rounds; i++ {
-					got, err := Render(eng, tmpl, vars())
+					got, err := Render(context.Background(), eng, tmpl, vars())
 					if err != nil {
 						errs <- "render error: " + err.Error()
 						return
@@ -385,7 +386,7 @@ func TestSandboxPhaseOneRunsOnMemoizedChain(t *testing.T) {
 		t.Fatal("page.ql did not memoize")
 	}
 	eng.sandboxOn = true
-	_, warmErr := Render(eng, tmpl, nil)
+	_, warmErr := Render(context.Background(), eng, tmpl, nil)
 	if warmErr == nil {
 		t.Fatal("sandboxed warm render of a @for-using chain succeeded")
 	}
@@ -393,7 +394,7 @@ func TestSandboxPhaseOneRunsOnMemoizedChain(t *testing.T) {
 	cold := newCachingStub(fixtures)
 	cold.policy = pol
 	cold.sandboxOn = true
-	_, coldErr := Render(cold, loadPinned(t, cold, "page.ql"), nil)
+	_, coldErr := Render(context.Background(), cold, loadPinned(t, cold, "page.ql"), nil)
 	if coldErr == nil {
 		t.Fatal("sandboxed cold render of a @for-using chain succeeded")
 	}

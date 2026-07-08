@@ -98,6 +98,12 @@ func (in *interp) renderRecursiveLevel(frame *recursiveLoop, pairs []runtime.Pai
 	loopCtx := outer.Child()
 	parentPtr := probeLoopParent(outer)
 	for i, p := range pairs {
+		// Cancellation checkpoint at the recursive-descent iteration boundary,
+		// mirroring the plain @for loop so a deep or wide recursive walk honors the
+		// context between elements.
+		if err := in.checkCancelled(); err != nil {
+			return err
+		}
 		if frame.twoTgt {
 			loopCtx.Set(frame.target1, p.Key)
 			loopCtx.Set(frame.target2, p.Val)

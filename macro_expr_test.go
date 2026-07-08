@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -85,7 +86,7 @@ func TestMacroKwargsSymmetry(t *testing.T) {
 	e := NewFromMap(nil)
 
 	// No kwargs tail: an unknown named argument is rejected.
-	_, err := e.RenderString("t", "@macro f(name) {\n{{ name }}\n@}\n{{ f(\"a\", extra: 1) }}", nil)
+	_, err := e.RenderString(context.Background(), "t", "@macro f(name) {\n{{ name }}\n@}\n{{ f(\"a\", extra: 1) }}", nil)
 	if err == nil {
 		t.Fatal("expected an unknown-parameter error without a kwargs tail")
 	}
@@ -104,7 +105,7 @@ func TestMacroKwargsSymmetry(t *testing.T) {
 // tail, matching the duplicate-named-argument rule for ordinary parameters.
 func TestMacroKwargsDuplicate(t *testing.T) {
 	e := NewFromMap(nil)
-	_, err := e.RenderString("t",
+	_, err := e.RenderString(context.Background(), "t",
 		"@macro f(**opts) {\n{{ opts.k }}\n@}\n{{ f(k: 1, k: 2) }}", nil)
 	if err == nil {
 		t.Fatal("expected a duplicate-named-argument error")
@@ -129,7 +130,7 @@ func TestMacroTailNotLast(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			e := NewFromMap(nil)
-			_, err := e.RenderString("t", tc.tmpl, nil)
+			_, err := e.RenderString(context.Background(), "t", tc.tmpl, nil)
 			if err == nil {
 				t.Fatalf("expected a parse error for %q", tc.tmpl)
 			}
@@ -192,12 +193,12 @@ func TestInlineRegistryTestHostShadow(t *testing.T) {
 	set := ext.Core()
 	set.AddTest(&ext.Test{
 		Name: "filter",
-		Fn:   func(args []runtime.Value) (bool, error) { return true, nil },
+		Fn:   func(ctx context.Context, args []runtime.Value) (bool, error) { return true, nil },
 	})
 	e := NewFromMap(nil, WithExtensions(set))
 	// "nope" is not a registered filter, but the host "filter" test always
 	// returns true, proving the host shadow wins over the built-in predicate.
-	out, err := e.RenderString("t", "{{ \"nope\" is filter }}", nil)
+	out, err := e.RenderString(context.Background(), "t", "{{ \"nope\" is filter }}", nil)
 	if err != nil {
 		t.Fatalf("render error: %v", err)
 	}

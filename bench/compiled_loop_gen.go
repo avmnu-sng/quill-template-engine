@@ -14,6 +14,7 @@
 package quillbench
 
 import (
+	"context"
 	stderrors "errors"
 	"io"
 	"math"
@@ -40,7 +41,8 @@ var qEnvVal = runtime.Obj(&qEnv{tabWidth: 4, seed: 0, seedSet: false})
 // RenderLoop renders template "loop.ql" to w, resolving callables through exts and
 // reading top-level variables from vars. Output and error behavior are
 // byte-identical to the interpreter's for the compiled construct set.
-func RenderLoop(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error {
+func RenderLoop(ctx context.Context, w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error {
+	_ = ctx
 	_ = rc
 	qNames := make([]string, 0, len(vars))
 	for qn := range vars {
@@ -143,7 +145,7 @@ func RenderLoop(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc co
 					var qt22 runtime.Value
 					var qe23 error
 					if qfltfast0 {
-						qt22, qe23 = qflt0.Fn1(qt18)
+						qt22, qe23 = qflt0.Fn1(ctx, qt18)
 					} else {
 						qa24 := []runtime.Value{qt18}
 						if qfltinj0 {
@@ -171,7 +173,7 @@ func RenderLoop(w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc co
 							}
 							qa24 = qinject(qEnvVal, qflt0.NeedsEnvironment, qflt0.NeedsContext, qflt0.NeedsCharset, qca25, qa24)
 						}
-						qt22, qe23 = qflt0.Fn(qa24)
+						qt22, qe23 = qflt0.Fn(ctx, qa24)
 					}
 					if qe23 != nil {
 						return qpos(qe23, qSrc, 2)

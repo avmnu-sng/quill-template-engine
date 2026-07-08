@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"math/rand"
 	"strings"
 	"testing"
@@ -273,28 +274,28 @@ func TestStdlibRegistry(t *testing.T) {
 	s.AddEnum("Color", []runtime.Value{runtime.Str("red"), runtime.Str("green"), runtime.Str("blue")})
 
 	cst, _ := s.Function("constant")
-	v, err := cst.Fn([]runtime.Value{runtime.Str("PI")})
+	v, err := cst.Fn(context.Background(), []runtime.Value{runtime.Str("PI")})
 	if err != nil || v.AsFloat() != 3.14 {
 		t.Errorf("constant PI = %+v, err=%v", v, err)
 	}
-	check, err := cst.Fn([]runtime.Value{runtime.Str("MISSING"), runtime.Null(), runtime.Bool(true)})
+	check, err := cst.Fn(context.Background(), []runtime.Value{runtime.Str("MISSING"), runtime.Null(), runtime.Bool(true)})
 	if err != nil || check.Kind() != runtime.KBool || check.AsBool() {
 		t.Errorf("constant check_defined missing = %+v, err=%v", check, err)
 	}
 
 	en, _ := s.Function("enum")
-	first, err := en.Fn([]runtime.Value{runtime.Str("Color")})
+	first, err := en.Fn(context.Background(), []runtime.Value{runtime.Str("Color")})
 	if err != nil || first.AsStr() != "red" {
 		t.Errorf("enum first = %+v, err=%v", first, err)
 	}
 	cases, _ := s.Function("enum_cases")
-	all, err := cases.Fn([]runtime.Value{runtime.Str("Color")})
+	all, err := cases.Fn(context.Background(), []runtime.Value{runtime.Str("Color")})
 	if err != nil || all.AsArray().Len() != 3 {
 		t.Errorf("enum_cases = %+v, err=%v", all, err)
 	}
 
 	tst, _ := s.Test("constant")
-	ok, err := tst.Fn([]runtime.Value{runtime.Float(3.14), runtime.Str("PI")})
+	ok, err := tst.Fn(context.Background(), []runtime.Value{runtime.Float(3.14), runtime.Str("PI")})
 	if err != nil || !ok {
 		t.Errorf("is constant PI = %v, err=%v", ok, err)
 	}
@@ -331,7 +332,7 @@ func TestStdlibTests(t *testing.T) {
 func TestStdlibInvoke(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("invoke")
-	if _, err := f.Fn([]runtime.Value{runtime.Int(3)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Int(3)}); err == nil {
 		t.Error("invoke on a non-callable should error")
 	}
 }
@@ -342,27 +343,27 @@ func TestStdlibDate(t *testing.T) {
 	s := Core()
 	// date function from a Unix timestamp (UTC), then format with a Go layout.
 	dateFn, _ := s.Function("date")
-	d, err := dateFn.Fn([]runtime.Value{runtime.Int(0)}) // 1970-01-01T00:00:00Z
+	d, err := dateFn.Fn(context.Background(), []runtime.Value{runtime.Int(0)}) // 1970-01-01T00:00:00Z
 	if err != nil {
 		t.Fatalf("date(): %v", err)
 	}
 	dateFilt, _ := s.Filter("date")
-	out, err := dateFilt.Fn([]runtime.Value{d, runtime.Str("2006-01-02")})
+	out, err := dateFilt.Fn(context.Background(), []runtime.Value{d, runtime.Str("2006-01-02")})
 	if err != nil || out.AsStr() != "1970-01-01" {
 		t.Errorf("date filter = %q, err=%v", out.AsStr(), err)
 	}
 	// date filter coerces a string directly.
-	out, err = dateFilt.Fn([]runtime.Value{runtime.Str("2021-03-04"), runtime.Str("01/02/2006")})
+	out, err = dateFilt.Fn(context.Background(), []runtime.Value{runtime.Str("2021-03-04"), runtime.Str("01/02/2006")})
 	if err != nil || out.AsStr() != "03/04/2021" {
 		t.Errorf("date filter string = %q, err=%v", out.AsStr(), err)
 	}
 	// date_modify adds a day.
 	mod, _ := s.Filter("date_modify")
-	dm, err := mod.Fn([]runtime.Value{runtime.Str("2021-03-04"), runtime.Str("+1 day")})
+	dm, err := mod.Fn(context.Background(), []runtime.Value{runtime.Str("2021-03-04"), runtime.Str("+1 day")})
 	if err != nil {
 		t.Fatalf("date_modify: %v", err)
 	}
-	out, _ = dateFilt.Fn([]runtime.Value{dm, runtime.Str("2006-01-02")})
+	out, _ = dateFilt.Fn(context.Background(), []runtime.Value{dm, runtime.Str("2006-01-02")})
 	if out.AsStr() != "2021-03-05" {
 		t.Errorf("date_modify +1 day = %q", out.AsStr())
 	}

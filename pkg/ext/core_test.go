@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
@@ -14,7 +15,7 @@ func callFilter(t *testing.T, name string, args ...runtime.Value) runtime.Value 
 	if !ok {
 		t.Fatalf("filter %q not registered", name)
 	}
-	v, err := f.Fn(args)
+	v, err := f.Fn(context.Background(), args)
 	if err != nil {
 		t.Fatalf("filter %q error: %v", name, err)
 	}
@@ -28,7 +29,7 @@ func callFn(t *testing.T, name string, args ...runtime.Value) runtime.Value {
 	if !ok {
 		t.Fatalf("function %q not registered", name)
 	}
-	v, err := f.Fn(args)
+	v, err := f.Fn(context.Background(), args)
 	if err != nil {
 		t.Fatalf("function %q error: %v", name, err)
 	}
@@ -42,7 +43,7 @@ func callTest(t *testing.T, name string, args ...runtime.Value) bool {
 	if !ok {
 		t.Fatalf("test %q not registered", name)
 	}
-	b, err := tst.Fn(args)
+	b, err := tst.Fn(context.Background(), args)
 	if err != nil {
 		t.Fatalf("test %q error: %v", name, err)
 	}
@@ -234,11 +235,11 @@ func TestTests(t *testing.T) {
 // the same name and kind (spec 03 Section 1).
 func TestHostShadowsCore(t *testing.T) {
 	s := Core()
-	s.AddFilter(&Filter{Name: "upper", Fn: func(a []runtime.Value) (runtime.Value, error) {
+	s.AddFilter(&Filter{Name: "upper", Fn: func(ctx context.Context, a []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("SHADOWED"), nil
 	}})
 	f, _ := s.Filter("upper")
-	got, _ := f.Fn([]runtime.Value{runtime.Str("hi")})
+	got, _ := f.Fn(context.Background(), []runtime.Value{runtime.Str("hi")})
 	if got.AsStr() != "SHADOWED" {
 		t.Errorf("host did not shadow core: %q", got.AsStr())
 	}

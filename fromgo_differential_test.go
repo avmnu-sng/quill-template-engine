@@ -9,6 +9,7 @@ package quill
 // equality has historically been too weak a bar for value-territory changes.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -453,8 +454,8 @@ func TestFromGoDifferentialConformanceVars(t *testing.T) {
 
 			oldEnv := New(loader.NewArrayLoader(tmpls), opts...)
 			newEnv := New(loader.NewArrayLoader(tmpls), opts...)
-			oldOut, oldErr := oldEnv.Render(main, oldVars)
-			newOut, newErr := newEnv.Render(main, newVars)
+			oldOut, oldErr := oldEnv.Render(context.Background(), main, oldVars)
+			newOut, newErr := newEnv.Render(context.Background(), main, newVars)
 			if (oldErr == nil) != (newErr == nil) {
 				t.Fatalf("render error divergence:\n oracle: %v\n new:    %v", oldErr, newErr)
 			}

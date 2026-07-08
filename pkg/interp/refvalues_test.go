@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -87,7 +88,7 @@ func TestMemberSetImmutableErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if _, err := Render(eng, Prepare("t", mod), map[string]runtime.Value{"n": runtime.Int(1)}); err == nil {
+	if _, err := Render(context.Background(), eng, Prepare("t", mod), map[string]runtime.Value{"n": runtime.Int(1)}); err == nil {
 		t.Fatal("expected an error assigning a member of an int")
 	}
 }

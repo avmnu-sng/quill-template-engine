@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
@@ -48,7 +49,7 @@ func TestArrayValueSemantics(t *testing.T) {
 	}
 	for _, c := range cases {
 		env := NewFromMap(map[string]string{"t.ql": c.src})
-		out, err := env.Render("t.ql", map[string]runtime.Value{})
+		out, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{})
 		if err != nil {
 			t.Errorf("%s: %v", c.name, err)
 			continue

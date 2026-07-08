@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	stderrors "errors"
 	"reflect"
 	"testing"
@@ -48,7 +49,7 @@ func TestRenderSandboxedAllows(t *testing.T) {
 		t.Fatal("precondition: engine global sandbox must be off")
 	}
 	tmpl := prepSandbox(t, "t", "@for x in 1..2 {\n{{ x | upper }}\n@}\n")
-	got, err := RenderSandboxed(eng, tmpl, nil)
+	got, err := RenderSandboxed(context.Background(), eng, tmpl, nil)
 	if err != nil {
 		t.Fatalf("allowed sandboxed render errored: %v", err)
 	}
@@ -86,7 +87,7 @@ func TestRenderSandboxedDenies(t *testing.T) {
 			)
 			tmpl := prepSandbox(t, "t", tc.body)
 			vars := map[string]runtime.Value{"s": runtime.Str("Hi")}
-			_, err := RenderSandboxed(eng, tmpl, vars)
+			_, err := RenderSandboxed(context.Background(), eng, tmpl, vars)
 			if err == nil {
 				t.Fatalf("disallowed %s must be denied, got nil", tc.name)
 			}
@@ -113,7 +114,7 @@ func TestRenderSandboxedDenies(t *testing.T) {
 func TestRenderSandboxedNilPolicyDeniesAll(t *testing.T) {
 	eng := newStub(nil) // eng.policy is nil.
 	tmpl := prepSandbox(t, "t", "@for x in xs {\n{{ x }}\n@}\n")
-	_, err := RenderSandboxed(eng, tmpl,
+	_, err := RenderSandboxed(context.Background(), eng, tmpl,
 		map[string]runtime.Value{"xs": runtime.Arr(runtime.NewList(runtime.Int(1)))})
 	if err == nil {
 		t.Fatal("nil policy under a forced sandbox must deny everything")

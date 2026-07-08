@@ -497,7 +497,7 @@ func (c *compiler) applyFilter(f *ast.Node, v string) error {
 		c.linef("var %s runtime.Value", res)
 		c.linef("var %s error", e)
 		c.openf("if %s {", ffast)
-		c.linef("%s, %s = %s.Fn1(%s)", res, e, fv, v)
+		c.linef("%s, %s = %s.Fn1(ctx, %s)", res, e, fv, v)
 		c.ind--
 		c.linef("} else {")
 		c.ind++
@@ -506,7 +506,7 @@ func (c *compiler) applyFilter(f *ast.Node, v string) error {
 			return err
 		}
 		c.emitInject(fv, c.callableInject("Filter", f.Str), args)
-		c.linef("%s, %s = %s.Fn(%s)", res, e, fv, args)
+		c.linef("%s, %s = %s.Fn(ctx, %s)", res, e, fv, args)
 		c.closeb()
 		c.checkErr(e, f.Line)
 		c.linef("%s = %s", v, res)
@@ -517,7 +517,7 @@ func (c *compiler) applyFilter(f *ast.Node, v string) error {
 		return err
 	}
 	c.emitInject(fv, c.callableInject("Filter", f.Str), args)
-	c.linef("%s, %s := %s.Fn(%s)", res, e, fv, args)
+	c.linef("%s, %s := %s.Fn(ctx, %s)", res, e, fv, args)
 	c.checkErr(e, f.Line)
 	c.linef("%s = %s", v, res)
 	return nil

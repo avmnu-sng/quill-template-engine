@@ -8,6 +8,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -65,7 +66,7 @@ func render() error {
 	counts := runtime.Arr(runtime.NewList(
 		runtime.Int(5), runtime.Int(-3), runtime.Int(42),
 	))
-	out, err := env.Render("demo.quill", map[string]runtime.Value{"counts": counts})
+	out, err := env.Render(context.Background(), "demo.quill", map[string]runtime.Value{"counts": counts})
 	if err != nil {
 		return err
 	}

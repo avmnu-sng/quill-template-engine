@@ -2,6 +2,7 @@ package compile_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"go/format"
 	"os"
@@ -281,10 +282,10 @@ func renderInterp(t *testing.T, cs compiledCase) (string, error) {
 	}
 	if cs.templates != nil {
 		env := quill.NewFromMap(cs.templates, opts...)
-		return env.Render(cs.entry, vars)
+		return env.Render(context.Background(), cs.entry, vars)
 	}
 	env := quill.NewFromMap(map[string]string{cs.name + ".ql": cs.template}, opts...)
-	return env.Render(cs.name+".ql", vars)
+	return env.Render(context.Background(), cs.name+".ql", vars)
 }
 
 func orEmptyObject(s string) string {
@@ -374,7 +375,7 @@ func TestLoadGateParity(t *testing.T) {
 				t.Fatal("Module compiled a template the facade rejects at load")
 			}
 			env := quill.NewFromMap(map[string]string{tc.name + ".ql": tc.template})
-			_, ferr := env.Render(tc.name+".ql", map[string]runtime.Value{})
+			_, ferr := env.Render(context.Background(), tc.name+".ql", map[string]runtime.Value{})
 			if ferr == nil {
 				t.Fatalf("facade unexpectedly rendered; Module error was %v", cerr)
 			}

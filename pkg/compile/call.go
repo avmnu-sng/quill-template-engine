@@ -132,7 +132,7 @@ func (c *compiler) exprFilter(n *ast.Node) (string, error) {
 		c.linef("var %s runtime.Value", v)
 		c.linef("var %s error", e)
 		c.openf("if %s {", ffast)
-		c.linef("%s, %s = %s.Fn1(%s)", v, e, fv, piped)
+		c.linef("%s, %s = %s.Fn1(ctx, %s)", v, e, fv, piped)
 		c.ind--
 		c.linef("} else {")
 		c.ind++
@@ -141,7 +141,7 @@ func (c *compiler) exprFilter(n *ast.Node) (string, error) {
 			return "", err
 		}
 		c.emitInject(fv, c.callableInject("Filter", n.Str), args)
-		c.linef("%s, %s = %s.Fn(%s)", v, e, fv, args)
+		c.linef("%s, %s = %s.Fn(ctx, %s)", v, e, fv, args)
 		c.closeb()
 		c.checkErr(e, n.Line)
 		return v, nil
@@ -151,7 +151,7 @@ func (c *compiler) exprFilter(n *ast.Node) (string, error) {
 		return "", err
 	}
 	c.emitInject(fv, c.callableInject("Filter", n.Str), args)
-	c.linef("%s, %s := %s.Fn(%s)", v, e, fv, args)
+	c.linef("%s, %s := %s.Fn(ctx, %s)", v, e, fv, args)
 	c.checkErr(e, n.Line)
 	return v, nil
 }
@@ -225,7 +225,7 @@ func (c *compiler) exprNameCall(n *ast.Node, name string) (string, error) {
 	c.emitInject(fv, c.callableInject("Function", name), args)
 	v := c.tmp("qt")
 	e := c.tmp("qe")
-	c.linef("%s, %s := %s.Fn(%s)", v, e, fv, args)
+	c.linef("%s, %s := %s.Fn(ctx, %s)", v, e, fv, args)
 	c.checkErr(e, n.Line)
 	c.linef("%s = %s", res, v)
 	c.condDepth--
@@ -385,7 +385,7 @@ func (c *compiler) exprTest(n *ast.Node) (string, error) {
 		}
 		b := c.tmp("qk")
 		e := c.tmp("qe")
-		c.linef("%s, %s := %s.Fn(%s)", b, e, tv, args)
+		c.linef("%s, %s := %s.Fn(ctx, %s)", b, e, tv, args)
 		c.checkErr(e, n.Line)
 		if n.Bool {
 			c.linef("%s = runtime.Bool(!%s)", res, b)

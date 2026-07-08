@@ -18,6 +18,7 @@
 package interp
 
 import (
+	"context"
 	"io"
 	"log"
 	"regexp"
@@ -47,7 +48,10 @@ type Engine interface {
 	AutoescapeHTML() bool
 	// LoadTemplate parses and prepares the named template, returning its Template
 	// (with block and macro tables built). Misses are loader not-found errors.
-	LoadTemplate(name string) (*Template, error)
+	// ctx is the active render context, threaded so a load triggered mid-render
+	// (a parent, include, import, or trait resolution) shares the render's
+	// cancellation and deadline.
+	LoadTemplate(ctx context.Context, name string) (*Template, error)
 	// TemplateExists reports whether the named template can be loaded, for
 	// candidate lists and ignore-missing.
 	TemplateExists(name string) bool
@@ -56,8 +60,9 @@ type Engine interface {
 	RawSource(name string) (string, bool)
 	// CompileString parses and prepares an ad-hoc template body under the given
 	// name, backing template_from_string (spec 03 Section 3.3). The body is not
-	// added to the loader.
-	CompileString(name, body string) (*Template, error)
+	// added to the loader. ctx is the active render context, threaded so a
+	// template_from_string compiled mid-render shares its cancellation.
+	CompileString(ctx context.Context, name, body string) (*Template, error)
 	// RandomSeed returns the host-configured RNG seed and whether one was set.
 	// When set, the seedable randomness functions (random, shuffle) become
 	// deterministic, backing test reproducibility (spec 03 Section 3.2, X15).
@@ -98,9 +103,11 @@ type Sink interface {
 
 // Render renders tmpl with the given top-level variables and returns the output
 // string. It is the entry the facade calls; it resolves the inheritance chain,
-// builds the merged block table, and walks the root (or the topmost parent).
-func Render(eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, error) {
-	return renderBuffered(eng, tmpl, vars, false)
+// builds the merged block table, and walks the root (or the topmost parent). It
+// honors ctx: a cancelled or expired context aborts the render at the next loop
+// or include boundary with a KindRuntime error wrapping ctx.Err().
+func Render(rctx context.Context, eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, error) {
+	return renderBuffered(rctx, eng, tmpl, vars, false)
 }
 
 // outHintCap bounds the pre-Grow renderBuffered takes from a Template's
@@ -137,12 +144,12 @@ func outGrowHint(last int64) int {
 // content, a failed render leaves the hint untouched, and the store is
 // last-write-wins by design: concurrent renders of one shared Template each
 // record a size that was recently true.
-func renderBuffered(eng Engine, tmpl *Template, vars map[string]runtime.Value, sandboxed bool) (string, error) {
+func renderBuffered(rctx context.Context, eng Engine, tmpl *Template, vars map[string]runtime.Value, sandboxed bool) (string, error) {
 	var b strings.Builder
 	if hint := outGrowHint(tmpl.lastOut.Load()); hint > 0 {
 		b.Grow(hint)
 	}
-	in := newInterp(eng, tmpl, &b)
+	in := newInterp(rctx, eng, tmpl, &b)
 	if sandboxed {
 		in.sandboxOn = true
 	}
@@ -168,9 +175,9 @@ func renderBuffered(eng Engine, tmpl *Template, vars map[string]runtime.Value, s
 // Render's returned string. RenderTo neither wraps nor flushes w; a caller
 // wanting buffered throughput passes a bufio.Writer and flushes it afterward
 // (a @flush statement flushes such a writer mid-render).
-func RenderTo(eng Engine, tmpl *Template, vars map[string]runtime.Value, w io.Writer) error {
-	if renderClosureUsesSlots(eng, tmpl) {
-		out, err := renderBuffered(eng, tmpl, vars, false)
+func RenderTo(rctx context.Context, eng Engine, tmpl *Template, vars map[string]runtime.Value, w io.Writer) error {
+	if renderClosureUsesSlots(rctx, eng, tmpl) {
+		out, err := renderBuffered(rctx, eng, tmpl, vars, false)
 		if err != nil {
 			return err
 		}
@@ -178,7 +185,7 @@ func RenderTo(eng Engine, tmpl *Template, vars map[string]runtime.Value, w io.Wr
 		return werr
 	}
 	sink := newWriterSink(w)
-	in := newInterp(eng, tmpl, sink)
+	in := newInterp(rctx, eng, tmpl, sink)
 	ctx := runtime.NewScopeSized(len(vars))
 	for k, v := range vars {
 		ctx.Set(k, v)
@@ -202,7 +209,7 @@ func RenderTo(eng Engine, tmpl *Template, vars map[string]runtime.Value, w io.Wr
 // render-time include loads the loader's version, so the walk must too. The
 // walk assumes the loader is stable between it and the render; a loader that
 // mutates in that window can defeat the classification.
-func renderClosureUsesSlots(eng Engine, tmpl *Template) bool {
+func renderClosureUsesSlots(rctx context.Context, eng Engine, tmpl *Template) bool {
 	visited := map[string]bool{}
 	var walk func(t *Template) bool
 	walk = func(t *Template) bool {
@@ -214,7 +221,7 @@ func renderClosureUsesSlots(eng Engine, tmpl *Template) bool {
 				continue
 			}
 			visited[name] = true
-			ref, err := eng.LoadTemplate(name)
+			ref, err := eng.LoadTemplate(rctx, name)
 			if err != nil {
 				if !eng.TemplateExists(name) {
 					continue
@@ -235,6 +242,15 @@ func renderClosureUsesSlots(eng Engine, tmpl *Template) bool {
 // render (an include) gets its own interp with a fresh sink, then splices the
 // captured output back as a value.
 type interp struct {
+	// ctx is the render's context, threaded from the Render/RenderTo entry and
+	// inherited by nested renders (includes, embeds). It is checked at strategic
+	// hot points -- each loop iteration boundary and each include/render entry --
+	// so a cancelled or expired context aborts the render with a KindRuntime
+	// error wrapping ctx.Err(); it is also handed to every ext callable the
+	// dispatch invokes (Filter.Fn/Function.Fn/Test.Fn). It is never nil: the
+	// entry points require a caller-supplied context.
+	ctx context.Context
+
 	eng  Engine
 	out  Sink
 	root *Template // the template that started this render (for _self, macros)
@@ -423,12 +439,13 @@ type macroEntry struct {
 // state all start nil and materialize on first use, so a render that never
 // touches a feature never allocates its scaffolding; only the fields with
 // non-zero defaults are set here.
-func newInterp(eng Engine, root *Template, out Sink) *interp {
+func newInterp(rctx context.Context, eng Engine, root *Template, out Sink) *interp {
 	autoesc := ""
 	if eng.AutoescapeHTML() {
 		autoesc = "html"
 	}
 	in := &interp{
+		ctx:         rctx,
 		eng:         eng,
 		out:         out,
 		root:        root,
@@ -589,6 +606,21 @@ func (in *interp) writeIndented(s string) error {
 		} else {
 			in.atLineStart = false
 		}
+	}
+	return nil
+}
+
+// checkCancelled reports the render context's cancellation or deadline as a
+// KindRuntime error wrapping ctx.Err(), or nil when the context is still live.
+// It is called at the strategic hot points -- the render/include entry and each
+// for-loop iteration boundary -- rather than per node, so an uncancelled render
+// pays one cheap channel-free ctx.Err() check per loop step and produces
+// byte-identical output to before. Wrapping in a KindRuntime *errors.Error lets
+// a host classify the abort through errors.KindOf while errors.Is still reaches
+// the underlying context.Canceled / context.DeadlineExceeded sentinel.
+func (in *interp) checkCancelled() error {
+	if err := in.ctx.Err(); err != nil {
+		return errors.Wrap(errors.KindRuntime, err, "render cancelled: %s", err.Error())
 	}
 	return nil
 }

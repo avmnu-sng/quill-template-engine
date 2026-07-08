@@ -1,6 +1,7 @@
 package quillbench
 
 import (
+	"context"
 	"testing"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
@@ -48,18 +49,18 @@ func BenchmarkQuill_FromGo_Marshal(b *testing.B) {
 // through FromGo and renders the Loop workload from the result.
 func BenchmarkQuill_RenderValues_Loop(b *testing.B) {
 	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
-	if _, err := env.LoadTemplate("loop.ql"); err != nil {
+	if _, err := env.LoadTemplate(context.Background(), "loop.ql"); err != nil {
 		b.Fatal(err)
 	}
 	vars := map[string]any{"users": hostRecords()}
-	out, err := env.RenderValues("loop.ql", vars)
+	out, err := env.RenderValues(context.Background(), "loop.ql", vars)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if sink, err = env.RenderValues("loop.ql", vars); err != nil {
+		if sink, err = env.RenderValues(context.Background(), "loop.ql", vars); err != nil {
 			b.Fatal(err)
 		}
 	}

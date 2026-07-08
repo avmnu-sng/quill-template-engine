@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -17,7 +18,7 @@ func renderStubResult(t *testing.T, eng *stubEngine, body string) (string, error
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	return Render(eng, Prepare("test", mod), nil)
+	return Render(context.Background(), eng, Prepare("test", mod), nil)
 }
 
 // TestArithIntOverflow covers the uniform int64-overflow rule for + - * (spec 04

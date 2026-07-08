@@ -11,6 +11,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -50,7 +51,7 @@ func render(out *os.File) error {
 		{"admin": runtime.Bool(false), "name": runtime.Str("bob")},
 	}
 	for _, vars := range cases {
-		if _, err := env.Render("greet.quill", vars); err != nil {
+		if _, err := env.Render(context.Background(), "greet.quill", vars); err != nil {
 			return err
 		}
 	}

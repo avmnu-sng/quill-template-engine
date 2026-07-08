@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -47,7 +48,7 @@ func render() error {
 	names := runtime.Arr(runtime.NewList(
 		runtime.Str("cleo"), runtime.Str("ada"), runtime.Str("bob"),
 	))
-	out, err := env.Render("roster.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "roster.quill", map[string]runtime.Value{
 		"users": users,
 		"names": names,
 	})

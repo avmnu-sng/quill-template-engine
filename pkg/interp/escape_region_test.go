@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -16,7 +17,7 @@ func renderStubErr(t *testing.T, eng *stubEngine, body string, vars map[string]r
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	return Render(eng, Prepare("test", mod), vars)
+	return Render(context.Background(), eng, Prepare("test", mod), vars)
 }
 
 // TestEscapeRegionStrategies checks that an @escape region applies each of the

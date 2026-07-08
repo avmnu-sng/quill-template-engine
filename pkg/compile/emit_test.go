@@ -209,6 +209,7 @@ func TestNeedsContextFilterInjectParity(t *testing.T) {
 	mainSrc := fmt.Sprintf(`package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -222,7 +223,7 @@ import (
 // ctxkeys renders the injected _context mapping as name=kind pairs (with the
 // text of scalar entries), then the piped value, so any drift in the context
 // names, order, or values between the two engines changes the output bytes.
-func ctxkeys(args []runtime.Value) (runtime.Value, error) {
+func ctxkeys(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) < 2 || args[0].Kind() != runtime.KArray || args[0].AsArray() == nil {
 		return runtime.Null(), fmt.Errorf("ctxkeys: no context injected (got %%d args)", len(args))
 	}
@@ -253,9 +254,9 @@ func main() {
 	env := quill.NewFromMap(map[string]string{%q: %q})
 	env.Extensions().AddFilter(&ext.Filter{Name: "ctxkeys", NeedsContext: true, Fn: ctxkeys})
 
-	want, werr := env.Render(%q, map[string]runtime.Value{})
+	want, werr := env.Render(context.Background(), %q, map[string]runtime.Value{})
 	var b strings.Builder
-	cerr := gen.%s(&b, env.Extensions(), map[string]runtime.Value{}, env.RenderCache())
+	cerr := gen.%s(context.Background(), &b, env.Extensions(), map[string]runtime.Value{}, env.RenderCache())
 
 	switch {
 	case (cerr != nil) != (werr != nil):
@@ -331,6 +332,7 @@ func TestFailingWriterParity(t *testing.T) {
 	mainSrc := fmt.Sprintf(`package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -359,16 +361,16 @@ func main() {
 	env := quill.NewFromMap(map[string]string{%q: %q})
 	vars := map[string]runtime.Value{"s": runtime.Str("mid")}
 
-	full, err := env.Render(%q, vars)
+	full, err := env.Render(context.Background(), %q, vars)
 	if err != nil {
 		fmt.Printf("MISMATCH: reference render failed: %%v", err)
 		return
 	}
 	for cap := 0; cap <= len(full)+1; cap++ {
 		cw := &capWriter{cap: cap}
-		cerr := gen.%s(cw, env.Extensions(), map[string]runtime.Value{"s": runtime.Str("mid")}, env.RenderCache())
+		cerr := gen.%s(context.Background(), cw, env.Extensions(), map[string]runtime.Value{"s": runtime.Str("mid")}, env.RenderCache())
 		iw := &capWriter{cap: cap}
-		werr := env.RenderTo(iw, %q, map[string]runtime.Value{"s": runtime.Str("mid")})
+		werr := env.RenderTo(context.Background(), iw, %q, map[string]runtime.Value{"s": runtime.Str("mid")})
 		if (cerr != nil) != (werr != nil) {
 			fmt.Printf("MISMATCH at cap %%d: compiled err=%%v interp err=%%v", cap, cerr, werr)
 			return

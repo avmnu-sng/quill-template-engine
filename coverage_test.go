@@ -2,6 +2,7 @@ package quill
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -68,7 +69,7 @@ func TestCoverageIfArms(t *testing.T) {
 	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
 
 	// a=true, b=false: the first clause is taken; b is never evaluated.
-	if _, err := env.Render("t.ql", map[string]runtime.Value{
+	if _, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{
 		"a": runtime.Bool(true), "b": runtime.Bool(false),
 	}); err != nil {
 		t.Fatal(err)
@@ -98,10 +99,10 @@ func TestCoverageIfArmsBothRenders(t *testing.T) {
 	coll := cover.NewCollector()
 	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
 
-	if _, err := env.Render("t.ql", map[string]runtime.Value{"a": runtime.Bool(true)}); err != nil {
+	if _, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{"a": runtime.Bool(true)}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := env.Render("t.ql", map[string]runtime.Value{"a": runtime.Bool(false)}); err != nil {
+	if _, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{"a": runtime.Bool(false)}); err != nil {
 		t.Fatal(err)
 	}
 	r := coll.Report()
@@ -139,7 +140,7 @@ func TestCoverageForArms(t *testing.T) {
 	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
 
 	// Non-empty: body arm.
-	if _, err := env.Render("t.ql", map[string]runtime.Value{
+	if _, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{
 		"xs": runtime.Arr(runtime.NewList(runtime.Int(1), runtime.Int(2))),
 	}); err != nil {
 		t.Fatal(err)
@@ -152,7 +153,7 @@ func TestCoverageForArms(t *testing.T) {
 	assertUncovered(t, r, "t.ql", 4, cover.UnitText) // else body did not
 
 	// Empty: the empty arm fires and the @else body runs.
-	if _, err := env.Render("t.ql", map[string]runtime.Value{
+	if _, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{
 		"xs": runtime.Arr(runtime.NewArray()),
 	}); err != nil {
 		t.Fatal(err)
@@ -169,7 +170,7 @@ func TestCoveragePostfixIf(t *testing.T) {
 	coll := cover.NewCollector()
 	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
 
-	if _, err := env.Render("t.ql", map[string]runtime.Value{
+	if _, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{
 		"x": runtime.Str("Y"), "c": runtime.Bool(true),
 	}); err != nil {
 		t.Fatal(err)
@@ -188,7 +189,7 @@ func TestCoverageCoalesceAndElvis(t *testing.T) {
 	env := NewFromMap(map[string]string{"t.ql": src},
 		WithCoverage(coll), WithStrictVariables(false))
 
-	if _, err := env.Render("t.ql", map[string]runtime.Value{
+	if _, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{
 		// a undefined -> null -> coalesce right; c truthy -> elvis left.
 		"b": runtime.Str("B"), "c": runtime.Str("C"), "d": runtime.Str("D"),
 	}); err != nil {
@@ -212,7 +213,7 @@ func TestCoverageMacroInclude(t *testing.T) {
 		"main.ql": main, "m.ql": macros, "p.ql": partial,
 	}, WithCoverage(coll))
 
-	if _, err := env.Render("main.ql", nil); err != nil {
+	if _, err := env.Render(context.Background(), "main.ql", nil); err != nil {
 		t.Fatal(err)
 	}
 	r := coll.Report()
@@ -233,7 +234,7 @@ func TestCoverageInheritanceBlock(t *testing.T) {
 	coll := cover.NewCollector()
 	env := NewFromMap(map[string]string{"parent.ql": parent, "child.ql": child},
 		WithCoverage(coll))
-	out, err := env.Render("child.ql", nil)
+	out, err := env.Render(context.Background(), "child.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +259,7 @@ func TestCoverageGuardArms(t *testing.T) {
 	src := "@guard filter(\"upper\") {\nyes\n@} else {\nno\n@}\n"
 	coll := cover.NewCollector()
 	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
-	if _, err := env.Render("t.ql", nil); err != nil {
+	if _, err := env.Render(context.Background(), "t.ql", nil); err != nil {
 		t.Fatal(err)
 	}
 	r := coll.Report()
@@ -289,7 +290,7 @@ func TestCoverageUnreachedIncludeIsAbsent(t *testing.T) {
 
 	// on=false: the @if arm is not taken, so the @include statement never runs
 	// and p.ql is never entered or seeded.
-	if _, err := env.Render("main.ql", map[string]runtime.Value{
+	if _, err := env.Render(context.Background(), "main.ql", map[string]runtime.Value{
 		"on": runtime.Bool(false),
 	}); err != nil {
 		t.Fatal(err)
@@ -370,7 +371,7 @@ func TestCoverageMacroHomeTopLevelNotSeeded(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			coll := cover.NewCollector()
 			env := NewFromMap(tc.tmpls, WithCoverage(coll))
-			if _, err := env.Render(tc.root, nil); err != nil {
+			if _, err := env.Render(context.Background(), tc.root, nil); err != nil {
 				t.Fatal(err)
 			}
 			r := coll.Report()
@@ -414,7 +415,7 @@ func TestCoverageWriters(t *testing.T) {
 	src := "@if a {\nA\n@}\n{{ x }}\n"
 	coll := cover.NewCollector()
 	env := NewFromMap(map[string]string{"page.ql": src}, WithCoverage(coll))
-	if _, err := env.Render("page.ql", map[string]runtime.Value{
+	if _, err := env.Render(context.Background(), "page.ql", map[string]runtime.Value{
 		"a": runtime.Bool(true), "x": runtime.Str("hi"),
 	}); err != nil {
 		t.Fatal(err)
@@ -461,13 +462,13 @@ func TestCoverageDoesNotChangeOutput(t *testing.T) {
 	tmpls := map[string]string{"t.ql": src}
 
 	plain := New(loader.NewArrayLoader(tmpls), WithStrictVariables(false))
-	out1, err := plain.Render("t.ql", vars)
+	out1, err := plain.Render(context.Background(), "t.ql", vars)
 	if err != nil {
 		t.Fatal(err)
 	}
 	coll := cover.NewCollector()
 	instr := New(loader.NewArrayLoader(tmpls), WithStrictVariables(false), WithCoverage(coll))
-	out2, err := instr.Render("t.ql", vars)
+	out2, err := instr.Render(context.Background(), "t.ql", vars)
 	if err != nil {
 		t.Fatal(err)
 	}

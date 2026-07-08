@@ -1,6 +1,7 @@
 package quill_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -15,7 +16,7 @@ func Example() {
 	env := quill.NewFromMap(map[string]string{
 		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
-	out, err := env.Render("greet.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "greet.quill", map[string]runtime.Value{
 		"name": runtime.Str("ada"),
 		"loud": runtime.Bool(true),
 	})
@@ -38,7 +39,7 @@ func ExampleEnvironment_RenderValues() {
 	env := quill.NewFromMap(map[string]string{
 		"user.quill": `{{ user.name }} (admin: {{ user.admin }}) tags: {{ user.tags | join(", ") }}`,
 	})
-	out, err := env.RenderValues("user.quill", map[string]any{
+	out, err := env.RenderValues(context.Background(), "user.quill", map[string]any{
 		"user": User{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
 	})
 	if err != nil {
@@ -54,7 +55,7 @@ func ExampleEnvironment_RenderTo() {
 	env := quill.NewFromMap(map[string]string{
 		"list.quill": "@for n in nums {\nitem {{ n }}\n@}",
 	})
-	err := env.RenderTo(os.Stdout, "list.quill", map[string]runtime.Value{
+	err := env.RenderTo(context.Background(), os.Stdout, "list.quill", map[string]runtime.Value{
 		"nums": runtime.Arr(runtime.NewList(
 			runtime.Int(1), runtime.Int(2), runtime.Int(3),
 		)),
@@ -74,7 +75,7 @@ func ExampleWithAutoescapeHTML() {
 		map[string]string{"page.quill": `<p>{{ body }}</p>`},
 		quill.WithAutoescapeHTML(true),
 	)
-	out, err := env.Render("page.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "page.quill", map[string]runtime.Value{
 		"body": runtime.Str("<b>hi</b>"),
 	})
 	if err != nil {
@@ -103,7 +104,7 @@ func ExampleWithExtensions() {
 		map[string]string{"demo.quill": `{{ clamp(42, 0, 10) }}`},
 		quill.WithExtensions(set),
 	)
-	out, err := env.Render("demo.quill", map[string]runtime.Value(nil))
+	out, err := env.Render(context.Background(), "demo.quill", map[string]runtime.Value(nil))
 	if err != nil {
 		panic(err)
 	}

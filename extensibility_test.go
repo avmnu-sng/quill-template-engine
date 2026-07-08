@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -38,7 +39,7 @@ func TestCustomCallableStructForm(t *testing.T) {
 	set := ext.NewSet()
 	set.AddFilter(&ext.Filter{
 		Name: "reverse_str",
-		Fn: func(args []runtime.Value) (runtime.Value, error) {
+		Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 			s, _ := runtime.ToText(args[0])
 			r := []rune(s)
 			for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
@@ -48,7 +49,7 @@ func TestCustomCallableStructForm(t *testing.T) {
 		},
 	})
 	e := NewFromMap(nil, WithExtensions(set))
-	out, err := e.RenderString("m", `{{ "abc" | reverse_str }}`, nil)
+	out, err := e.RenderString(context.Background(), "m", `{{ "abc" | reverse_str }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -75,7 +76,7 @@ func TestCustomCallableTypedHelper(t *testing.T) {
 	set.AddTest(ext.NewTest("positive", func(x int64) bool { return x > 0 }))
 
 	e := NewFromMap(nil, WithExtensions(set))
-	out, err := e.RenderString("m",
+	out, err := e.RenderString(context.Background(), "m",
 		`{{ 3 | times(4) }} {{ clamp(20, 0, 10) }} {{ 5 is positive }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -89,7 +90,7 @@ func TestCustomCallableTypedHelper(t *testing.T) {
 // WithExtension, proving the Bundle interface path works end to end.
 func TestExtensionBundleEndToEnd(t *testing.T) {
 	e := NewFromMap(nil, WithExtension(mathExt{}))
-	out, err := e.RenderString("m", `{{ 5 | times(3) }} {{ clamp(99, 0, 10) }}`, nil)
+	out, err := e.RenderString(context.Background(), "m", `{{ 5 | times(3) }} {{ clamp(99, 0, 10) }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -102,20 +103,20 @@ func TestExtensionBundleEndToEnd(t *testing.T) {
 // later set shadows the earlier one, and both shadow core.
 func TestComposeShadowOrder(t *testing.T) {
 	lower := ext.NewSet()
-	lower.AddFilter(&ext.Filter{Name: "tag", Fn: func([]runtime.Value) (runtime.Value, error) {
+	lower.AddFilter(&ext.Filter{Name: "tag", Fn: func(ctx context.Context, _ []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("lower"), nil
 	}})
 	upper := ext.NewSet()
-	upper.AddFilter(&ext.Filter{Name: "tag", Fn: func([]runtime.Value) (runtime.Value, error) {
+	upper.AddFilter(&ext.Filter{Name: "tag", Fn: func(ctx context.Context, _ []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("upper"), nil
 	}})
 	// A host set that overrides a CORE filter (upper), proving host shadows core.
-	upper.AddFilter(&ext.Filter{Name: "upper", Fn: func([]runtime.Value) (runtime.Value, error) {
+	upper.AddFilter(&ext.Filter{Name: "upper", Fn: func(ctx context.Context, _ []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("SHADOWED"), nil
 	}})
 
 	e := NewFromMap(nil, WithExtensions(lower, upper))
-	out, err := e.RenderString("m", `{{ "x" | tag }} {{ "y" | upper }}`, nil)
+	out, err := e.RenderString(context.Background(), "m", `{{ "x" | tag }} {{ "y" | upper }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -128,12 +129,12 @@ func TestComposeShadowOrder(t *testing.T) {
 // interleave in option order, so a later bundle shadows an earlier set.
 func TestComposeInterleavedSetsAndBundles(t *testing.T) {
 	early := ext.NewSet()
-	early.AddFilter(&ext.Filter{Name: "times", Fn: func([]runtime.Value) (runtime.Value, error) {
+	early.AddFilter(&ext.Filter{Name: "times", Fn: func(ctx context.Context, _ []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("early"), nil
 	}})
 	// mathExt (a bundle) ships a real "times"; passed after `early`, it shadows it.
 	e := NewFromMap(nil, WithExtensions(early), WithExtension(mathExt{}))
-	out, err := e.RenderString("m", `{{ 2 | times(3) }}`, nil)
+	out, err := e.RenderString(context.Background(), "m", `{{ 2 | times(3) }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -160,7 +161,7 @@ func TestCustomCallableUnderTypeChecker(t *testing.T) {
 	// and must type as any (the dynamic fallback host callables already use).
 	reg := check.NewRegistry()
 	e := NewFromMap(nil, WithExtensions(set), WithTypes(reg))
-	out, err := e.RenderString("m",
+	out, err := e.RenderString(context.Background(), "m",
 		`@set n: int = clamp(20, 0, 10)`+"\n"+`{{ n }}`, nil)
 	if err != nil {
 		t.Fatalf("render under checker: %v", err)
@@ -181,7 +182,7 @@ func TestCustomCallableSandboxAllow(t *testing.T) {
 		sandbox.WithTypeGraph(sandbox.NewTypeGraph()),
 	)
 	e := NewFromMap(nil, WithExtensions(set), WithSandboxPolicy(pol), WithSandboxActive(true))
-	out, err := e.RenderString("m", `{{ 4 | times(2) }}`, nil)
+	out, err := e.RenderString(context.Background(), "m", `{{ 4 | times(2) }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -200,7 +201,7 @@ func TestCustomCallableSandboxDeny(t *testing.T) {
 		sandbox.WithTypeGraph(sandbox.NewTypeGraph()),
 	)
 	e := NewFromMap(nil, WithExtensions(set), WithSandboxPolicy(pol), WithSandboxActive(true))
-	_, err := e.RenderString("m", `{{ 4 | times(2) }}`, nil)
+	_, err := e.RenderString(context.Background(), "m", `{{ 4 | times(2) }}`, nil)
 	if err == nil {
 		t.Fatal("expected a sandbox denial")
 	}

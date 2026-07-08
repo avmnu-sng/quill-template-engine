@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
@@ -195,7 +196,7 @@ func TestJSONObjectStringify(t *testing.T) {
 	}
 	// A top-level hook-less object surfaces a KindRender error (encodeJSON's
 	// KObject arm -> ToText with no stringify hook).
-	_, err := f.Fn([]runtime.Value{runtime.Obj(&jsonOpaqueObj{})})
+	_, err := f.Fn(context.Background(), []runtime.Value{runtime.Obj(&jsonOpaqueObj{})})
 	if err == nil {
 		t.Fatal("json of a hook-less object must error")
 	}
@@ -208,7 +209,7 @@ func TestJSONObjectStringify(t *testing.T) {
 	// rather than swallowing it or emitting a partial document. This exercises
 	// the list-value and map-value error arms of encodeJSONArray, which the
 	// top-level case above does not reach.
-	if _, err := f.Fn([]runtime.Value{list(runtime.Obj(&jsonOpaqueObj{}))}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Obj(&jsonOpaqueObj{}))}); err == nil {
 		t.Fatal("json of a list holding a hook-less object must error")
 	} else if errors.KindOf(err) != errors.KindRender {
 		t.Errorf("nested-in-list error kind = %v, want KindRender", errors.KindOf(err))
@@ -216,7 +217,7 @@ func TestJSONObjectStringify(t *testing.T) {
 
 	mapWithObj := runtime.NewArray()
 	mapWithObj.SetStr("bad", runtime.Obj(&jsonOpaqueObj{}))
-	if _, err := f.Fn([]runtime.Value{runtime.Arr(mapWithObj)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Arr(mapWithObj)}); err == nil {
 		t.Fatal("json of a map holding a hook-less object must error")
 	} else if errors.KindOf(err) != errors.KindRender {
 		t.Errorf("nested-in-map error kind = %v, want KindRender", errors.KindOf(err))
@@ -229,7 +230,7 @@ func TestJSONObjectStringify(t *testing.T) {
 func TestJSONInvalidIndentArg(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("json")
-	_, err := f.Fn([]runtime.Value{list(runtime.Int(1)), runtime.Bool(true), runtime.Obj(&jsonOpaqueObj{})})
+	_, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Int(1)), runtime.Bool(true), runtime.Obj(&jsonOpaqueObj{})})
 	if err == nil {
 		t.Fatal("unrenderable indent argument must error")
 	}
@@ -304,7 +305,7 @@ func TestAttributeMethodCall(t *testing.T) {
 func TestAttributeMethodCallOnNonObject(t *testing.T) {
 	s := Core()
 	f, _ := s.Function("attribute")
-	_, err := f.Fn([]runtime.Value{runtime.Str("scalar"), runtime.Str("m"), list(runtime.Int(1))})
+	_, err := f.Fn(context.Background(), []runtime.Value{runtime.Str("scalar"), runtime.Str("m"), list(runtime.Int(1))})
 	if err == nil {
 		t.Fatal("attribute() method call on a non-object must error")
 	}
@@ -318,7 +319,7 @@ func TestAttributeMethodCallOnNonObject(t *testing.T) {
 func TestAttributeMemberOnScalar(t *testing.T) {
 	s := Core()
 	f, _ := s.Function("attribute")
-	_, err := f.Fn([]runtime.Value{runtime.Str("scalar"), runtime.Str("len")})
+	_, err := f.Fn(context.Background(), []runtime.Value{runtime.Str("scalar"), runtime.Str("len")})
 	if err == nil {
 		t.Fatal("attribute() member on a string must error")
 	}

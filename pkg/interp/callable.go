@@ -1,6 +1,8 @@
 package interp
 
 import (
+	"context"
+
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
@@ -183,7 +185,7 @@ func (in *interp) evalFilter(n *ast.Node, ctx *runtime.Scope) (runtime.Value, er
 		if err := in.checkStringifyArg(n.Str, piped); err != nil {
 			return runtime.Null(), posErr(n, err)
 		}
-		res, err := filt.Fn1(piped)
+		res, err := filt.Fn1(in.ctx, piped)
 		if err != nil {
 			return runtime.Null(), posErr(n, err)
 		}
@@ -207,7 +209,7 @@ func (in *interp) evalFilter(n *ast.Node, ctx *runtime.Scope) (runtime.Value, er
 		return runtime.Null(), posErr(n, err)
 	}
 	args = in.injectFilter(filt, ctx, args)
-	res, err := filt.Fn(args)
+	res, err := filt.Fn(in.ctx, args)
 	if err != nil {
 		return runtime.Null(), posErr(n, err)
 	}
@@ -263,7 +265,7 @@ func (in *interp) evalTest(n *ast.Node, ctx *runtime.Scope) (runtime.Value, erro
 		}
 		args = append(args, av)
 	}
-	res, err := t.Fn(args)
+	res, err := t.Fn(in.ctx, args)
 	if err != nil {
 		return runtime.Null(), posErr(n, err)
 	}
@@ -442,7 +444,7 @@ func (in *interp) injectFilter(f *ext.Filter, ctx *runtime.Scope, args []runtime
 
 func (in *interp) invokeFunction(n *ast.Node, f *ext.Function, ctx *runtime.Scope, args []runtime.Value) (runtime.Value, error) {
 	args = in.inject(f.NeedsEnvironment, f.NeedsContext, f.NeedsCharset, ctx, args)
-	res, err := f.Fn(args)
+	res, err := f.Fn(in.ctx, args)
 	if err != nil {
 		return runtime.Null(), posErr(n, err)
 	}
@@ -488,7 +490,7 @@ func callRange(in *interp, low, high runtime.Value) (runtime.Value, error) {
 	if !ok {
 		return runtime.Null(), errors.New(errors.KindRuntime, "range function is not registered")
 	}
-	return fn.Fn([]runtime.Value{low, high})
+	return fn.Fn(in.ctx, []runtime.Value{low, high})
 }
 
 // callSliceFilter invokes the slice filter for the a[start:end] operator.
@@ -497,7 +499,7 @@ func callSliceFilter(in *interp, args []runtime.Value) (runtime.Value, error) {
 	if !ok {
 		return runtime.Null(), errors.New(errors.KindRuntime, "slice filter is not registered")
 	}
-	return f.Fn(args)
+	return f.Fn(in.ctx, args)
 }
 
 // --- host-object shims used to thread engine state through callables ---
@@ -598,6 +600,6 @@ func SandboxActiveFromValue(v runtime.Value) bool {
 // 03 Section 3.2, design/escaping-safety Section 6.6). It is Render with the
 // per-render sandbox turned on regardless of the engine's global setting; the
 // Phase-1 check and runtime gates then enforce the policy for this render.
-func RenderSandboxed(eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, error) {
-	return renderBuffered(eng, tmpl, vars, true)
+func RenderSandboxed(rctx context.Context, eng Engine, tmpl *Template, vars map[string]runtime.Value) (string, error) {
+	return renderBuffered(rctx, eng, tmpl, vars, true)
 }

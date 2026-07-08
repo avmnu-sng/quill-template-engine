@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -35,7 +36,7 @@ func renderReuse(t *testing.T, eng *stubEngine, body string, vars map[string]run
 		t.Fatalf("parse error: %v", err)
 	}
 	reuseLoopInfo = true
-	return Render(eng, Prepare("test", mod), vars)
+	return Render(context.Background(), eng, Prepare("test", mod), vars)
 }
 
 // renderFresh renders body against eng with loop-value reuse OFF, the
@@ -48,7 +49,7 @@ func renderFresh(t *testing.T, eng *stubEngine, body string, vars map[string]run
 		t.Fatalf("parse error: %v", err)
 	}
 	reuseLoopInfo = false
-	out, err := Render(eng, Prepare("test", mod), vars)
+	out, err := Render(context.Background(), eng, Prepare("test", mod), vars)
 	reuseLoopInfo = true
 	return out, err
 }
@@ -327,7 +328,7 @@ func TestReuseBlockLoopIsPoolSafe(t *testing.T) {
 		"base.ql": "@block items {\n(none)\n@}\n",
 		"page.ql": "@extends \"base.ql\"\n@block items {\n@for it in items {\n- {{ it }}:{{ loop.index }}\n@}\n@}\n",
 	})
-	tmpl, err := eng.LoadTemplate("page.ql")
+	tmpl, err := eng.LoadTemplate(context.Background(), "page.ql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,9 +342,9 @@ func TestReuseBlockLoopIsPoolSafe(t *testing.T) {
 	items := runtime.Arr(runtime.NewList(runtime.Str("a"), runtime.Str("b"), runtime.Str("c")))
 	vars := map[string]runtime.Value{"items": items}
 	reuseLoopInfo = true
-	gotReuse, errReuse := Render(eng, tmpl, vars)
+	gotReuse, errReuse := Render(context.Background(), eng, tmpl, vars)
 	reuseLoopInfo = false
-	gotFresh, errFresh := Render(eng, tmpl, vars)
+	gotFresh, errFresh := Render(context.Background(), eng, tmpl, vars)
 	reuseLoopInfo = true
 	if errReuse != nil || errFresh != nil {
 		t.Fatalf("render errors: reuse=%v fresh=%v", errReuse, errFresh)
@@ -373,7 +374,7 @@ func TestReuseConcurrentRendersRaceClean(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 50; i++ {
-				out, err := Render(eng, tmpl, nil)
+				out, err := Render(context.Background(), eng, tmpl, nil)
 				if err != nil {
 					t.Errorf("render error: %v", err)
 					return

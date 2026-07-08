@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
@@ -16,7 +17,7 @@ func TestCoverageProvideYield(t *testing.T) {
 	src := "@provide s {\nx\n@}\n@yield s\n"
 	coll := cover.NewCollector()
 	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
-	if _, err := env.Render("t.ql", nil); err != nil {
+	if _, err := env.Render(context.Background(), "t.ql", nil); err != nil {
 		t.Fatal(err)
 	}
 	r := coll.Report()
@@ -35,7 +36,7 @@ func TestCoverageCallBlock(t *testing.T) {
 	src := "@macro w() {\n{{ caller() }}\n@}\n@call w() {\nbody\n@}\n"
 	coll := cover.NewCollector()
 	env := NewFromMap(map[string]string{"t.ql": src}, WithCoverage(coll))
-	if _, err := env.Render("t.ql", nil); err != nil {
+	if _, err := env.Render(context.Background(), "t.ql", nil); err != nil {
 		t.Fatal(err)
 	}
 	r := coll.Report()
@@ -54,7 +55,7 @@ func TestCoverageRecursiveForArms(t *testing.T) {
 	leaf.SetStr("children", runtime.Arr(runtime.NewArray()))
 	top := runtime.NewArray()
 	top.SetInt(0, runtime.Arr(leaf))
-	if _, err := env.Render("t.ql", map[string]runtime.Value{"tree": runtime.Arr(top)}); err != nil {
+	if _, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{"tree": runtime.Arr(top)}); err != nil {
 		t.Fatal(err)
 	}
 	r := coll.Report()

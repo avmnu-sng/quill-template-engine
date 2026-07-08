@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -15,7 +16,7 @@ func renderNamed(t *testing.T, eng *stubEngine, name, body string, vars map[stri
 	if err != nil {
 		t.Fatalf("parse %q: %v", name, err)
 	}
-	return Render(eng, Prepare(name, mod), vars)
+	return Render(context.Background(), eng, Prepare(name, mod), vars)
 }
 
 // TestIsDefinedTest covers the `is defined` / `is not defined` chain test over a
@@ -81,7 +82,7 @@ func TestUnknownTestErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = Render(eng, Prepare("t", mod), map[string]runtime.Value{"x": runtime.Int(1)})
+	_, err = Render(context.Background(), eng, Prepare("t", mod), map[string]runtime.Value{"x": runtime.Int(1)})
 	if err == nil || !strings.Contains(err.Error(), "unknown test") {
 		t.Fatalf("expected unknown-test error, got %v", err)
 	}
@@ -94,7 +95,7 @@ func TestUndefinedVariableHint(t *testing.T) {
 	// Non-empty context: the hint lists the available name.
 	mod, _ := parse.ParseString("t", `@set present = 1
 {{ missing }}`)
-	_, err := Render(eng, Prepare("t", mod), nil)
+	_, err := Render(context.Background(), eng, Prepare("t", mod), nil)
 	if err == nil || !strings.Contains(err.Error(), "undefined variable") {
 		t.Fatalf("expected undefined error, got %v", err)
 	}
@@ -103,7 +104,7 @@ func TestUndefinedVariableHint(t *testing.T) {
 	}
 	// Empty context: the hint reads (none).
 	mod2, _ := parse.ParseString("t", `{{ missing }}`)
-	_, err = Render(eng, Prepare("t", mod2), nil)
+	_, err = Render(context.Background(), eng, Prepare("t", mod2), nil)
 	if err == nil || !strings.Contains(err.Error(), "(none)") {
 		t.Fatalf("empty-context hint must be (none), got %v", err)
 	}

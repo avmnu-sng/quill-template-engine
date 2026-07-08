@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -116,10 +117,10 @@ func TestColumnsFill(t *testing.T) {
 func TestColumnsErrors(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("columns")
-	if _, err := f.Fn([]runtime.Value{runtime.Int(1), runtime.Int(2)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Int(1), runtime.Int(2)}); err == nil {
 		t.Error("columns on a non-collection should error")
 	}
-	if _, err := f.Fn([]runtime.Value{list(runtime.Int(1)), runtime.Int(0)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Int(1)), runtime.Int(0)}); err == nil {
 		t.Error("columns count 0 should error")
 	}
 }
@@ -151,7 +152,7 @@ func TestEntriesList(t *testing.T) {
 func TestEntriesError(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("entries")
-	if _, err := f.Fn([]runtime.Value{runtime.Int(1)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Int(1)}); err == nil {
 		t.Error("entries on a non-mapping should error")
 	}
 }
@@ -223,10 +224,10 @@ func TestSortMap(t *testing.T) {
 func TestSortMapErrors(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("sort_map")
-	if _, err := f.Fn([]runtime.Value{runtime.Int(1)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Int(1)}); err == nil {
 		t.Error("sort_map on a non-mapping should error")
 	}
-	if _, err := f.Fn([]runtime.Value{mapOf(kv(runtime.Str("a"), runtime.Int(1))), runtime.Str("nope")}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{mapOf(kv(runtime.Str("a"), runtime.Int(1))), runtime.Str("nope")}); err == nil {
 		t.Error("sort_map with an unknown by argument should error")
 	}
 }
@@ -287,7 +288,7 @@ func TestSelectAttrUnknownTest(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("selectattr")
 	people := list(person("ann", 30))
-	if _, err := f.Fn([]runtime.Value{people, runtime.Str("age"), runtime.Str("nope")}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{people, runtime.Str("age"), runtime.Str("nope")}); err == nil {
 		t.Error("selectattr with an unknown test should error")
 	}
 }

@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -15,7 +16,7 @@ func TestNewFilterScalarMarshaling(t *testing.T) {
 	if f.Name != "shout" {
 		t.Fatalf("name = %q", f.Name)
 	}
-	out, err := f.Fn([]runtime.Value{runtime.Str("hi")})
+	out, err := f.Fn(context.Background(), []runtime.Value{runtime.Str("hi")})
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
@@ -34,7 +35,7 @@ func TestNewFunctionMultiArgWithError(t *testing.T) {
 		return a / b, nil
 	})
 
-	out, err := div.Fn([]runtime.Value{runtime.Int(10), runtime.Int(2)})
+	out, err := div.Fn(context.Background(), []runtime.Value{runtime.Int(10), runtime.Int(2)})
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
@@ -42,7 +43,7 @@ func TestNewFunctionMultiArgWithError(t *testing.T) {
 		t.Errorf("got %+v", out)
 	}
 
-	_, err = div.Fn([]runtime.Value{runtime.Int(1), runtime.Int(0)})
+	_, err = div.Fn(context.Background(), []runtime.Value{runtime.Int(1), runtime.Int(0)})
 	if err == nil || !strings.Contains(err.Error(), "divide by zero") {
 		t.Errorf("expected divide-by-zero error, got %v", err)
 	}
@@ -56,7 +57,7 @@ func TestNewFunctionArity(t *testing.T) {
 		{runtime.Int(1)},
 		{runtime.Int(1), runtime.Int(2), runtime.Int(3)},
 	} {
-		if _, err := add.Fn(args); err == nil || !strings.Contains(err.Error(), "expected 2 argument") {
+		if _, err := add.Fn(context.Background(), args); err == nil || !strings.Contains(err.Error(), "expected 2 argument") {
 			t.Errorf("args %d: expected arity error, got %v", len(args), err)
 		}
 	}
@@ -66,7 +67,7 @@ func TestNewFunctionArity(t *testing.T) {
 // runtime kind does not marshal to the declared Go type.
 func TestNewFunctionArgTypeMismatch(t *testing.T) {
 	length := NewFunction("strlen", func(s string) int64 { return int64(len(s)) })
-	_, err := length.Fn([]runtime.Value{runtime.Int(3)})
+	_, err := length.Fn(context.Background(), []runtime.Value{runtime.Int(3)})
 	if err == nil {
 		t.Fatal("expected type error")
 	}
@@ -83,7 +84,7 @@ func TestNewFilterVariadic(t *testing.T) {
 		return strings.Join(parts, sep)
 	})
 
-	out, err := joinAll.Fn([]runtime.Value{runtime.Str("-"), runtime.Str("a"), runtime.Str("b"), runtime.Str("c")})
+	out, err := joinAll.Fn(context.Background(), []runtime.Value{runtime.Str("-"), runtime.Str("a"), runtime.Str("b"), runtime.Str("c")})
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
@@ -92,7 +93,7 @@ func TestNewFilterVariadic(t *testing.T) {
 	}
 
 	// Zero variadic args is allowed.
-	out, err = joinAll.Fn([]runtime.Value{runtime.Str("-")})
+	out, err = joinAll.Fn(context.Background(), []runtime.Value{runtime.Str("-")})
 	if err != nil {
 		t.Fatalf("call zero-variadic: %v", err)
 	}
@@ -101,7 +102,7 @@ func TestNewFilterVariadic(t *testing.T) {
 	}
 
 	// Fewer than the fixed count is an arity error.
-	if _, err := joinAll.Fn(nil); err == nil || !strings.Contains(err.Error(), "at least 1") {
+	if _, err := joinAll.Fn(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "at least 1") {
 		t.Errorf("expected at-least arity error, got %v", err)
 	}
 }
@@ -117,7 +118,7 @@ func TestNewFilterSliceMarshaling(t *testing.T) {
 	})
 
 	in := runtime.Arr(runtime.NewList(runtime.Int(1), runtime.Int(2), runtime.Int(3)))
-	out, err := doubled.Fn([]runtime.Value{in})
+	out, err := doubled.Fn(context.Background(), []runtime.Value{in})
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
@@ -135,7 +136,7 @@ func TestNewFilterSliceMarshaling(t *testing.T) {
 func TestNewFunctionValuePassthrough(t *testing.T) {
 	identity := NewFunction("id", func(v runtime.Value) runtime.Value { return v })
 	in := runtime.Arr(runtime.NewList(runtime.Str("x")))
-	out, err := identity.Fn([]runtime.Value{in})
+	out, err := identity.Fn(context.Background(), []runtime.Value{in})
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
@@ -148,7 +149,7 @@ func TestNewFunctionValuePassthrough(t *testing.T) {
 // parameter, and the Float result marshaling.
 func TestNewFunctionFloatFromInt(t *testing.T) {
 	half := NewFunction("half", func(x float64) float64 { return x / 2 })
-	out, err := half.Fn([]runtime.Value{runtime.Int(5)})
+	out, err := half.Fn(context.Background(), []runtime.Value{runtime.Int(5)})
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
@@ -163,14 +164,14 @@ func TestNewTest(t *testing.T) {
 	if positive.Name != "positive" {
 		t.Fatalf("name = %q", positive.Name)
 	}
-	got, err := positive.Fn([]runtime.Value{runtime.Int(3)})
+	got, err := positive.Fn(context.Background(), []runtime.Value{runtime.Int(3)})
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
 	if !got {
 		t.Error("expected true")
 	}
-	got, err = positive.Fn([]runtime.Value{runtime.Int(-1)})
+	got, err = positive.Fn(context.Background(), []runtime.Value{runtime.Int(-1)})
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
@@ -188,10 +189,10 @@ func TestNewTestWithError(t *testing.T) {
 		}
 		return len(s) > 2, nil
 	})
-	if _, err := tst.Fn([]runtime.Value{runtime.Str("")}); err == nil {
+	if _, err := tst.Fn(context.Background(), []runtime.Value{runtime.Str("")}); err == nil {
 		t.Error("expected error")
 	}
-	ok, err := tst.Fn([]runtime.Value{runtime.Str("abcd")})
+	ok, err := tst.Fn(context.Background(), []runtime.Value{runtime.Str("abcd")})
 	if err != nil || !ok {
 		t.Errorf("got ok=%v err=%v", ok, err)
 	}

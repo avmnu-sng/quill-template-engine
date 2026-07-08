@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -76,7 +77,7 @@ func runCover(args []string, out, errOut io.Writer, stdin io.Reader) error {
 		quill.WithCoverage(coll),
 	)
 	for _, c := range cases {
-		if _, err := env.Render(c.Template, c.Vars); err != nil {
+		if _, err := env.Render(context.Background(), c.Template, c.Vars); err != nil {
 			return fmt.Errorf("render %q: %w", c.Template, err)
 		}
 	}

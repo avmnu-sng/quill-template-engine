@@ -22,6 +22,7 @@
 package quillbench
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -79,14 +80,14 @@ func TestVerifyThirdparty(t *testing.T) {
 
 	// ----- Quill interpreter -----
 	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
-	qInterp, err := env.Render("loop.ql", map[string]runtime.Value{"users": quillUsers()})
+	qInterp, err := env.Render(context.Background(), "loop.ql", map[string]runtime.Value{"users": quillUsers()})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// ----- Quill real compile backend -----
 	var qCompiled strings.Builder
-	if err := RenderLoop(&qCompiled, ext.Core(), map[string]runtime.Value{"users": quillUsers()}, nil); err != nil {
+	if err := RenderLoop(context.Background(), &qCompiled, ext.Core(), map[string]runtime.Value{"users": quillUsers()}, nil); err != nil {
 		t.Fatal(err)
 	}
 

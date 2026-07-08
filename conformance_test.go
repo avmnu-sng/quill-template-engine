@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -205,7 +206,7 @@ func runFixture(t *testing.T, dir string) {
 	tmpls, main, vars, opts, cfg := fixtureSetup(t, dir)
 
 	env := New(loader.NewArrayLoader(tmpls), opts...)
-	got, err := env.Render(main, vars)
+	got, err := env.Render(context.Background(), main, vars)
 
 	// A deny fixture (error_contains set) asserts the render FAILS with a matching
 	// error and ignores expected.out; an allow fixture asserts golden output.
@@ -253,11 +254,11 @@ func TestConformanceCoverageInvariant(t *testing.T) {
 			tmpls, main, vars, opts, _ := fixtureSetup(t, dir)
 
 			plain := New(loader.NewArrayLoader(tmpls), opts...)
-			plainOut, plainErr := plain.Render(main, vars)
+			plainOut, plainErr := plain.Render(context.Background(), main, vars)
 
 			coll := cover.NewCollector()
 			instr := New(loader.NewArrayLoader(tmpls), append(opts, WithCoverage(coll))...)
-			instrOut, instrErr := instr.Render(main, vars)
+			instrOut, instrErr := instr.Render(context.Background(), main, vars)
 
 			// Error behavior must match: a deny fixture stays a deny fixture, an allow
 			// fixture stays an allow fixture, with coverage on.

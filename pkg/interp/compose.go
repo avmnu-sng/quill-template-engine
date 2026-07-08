@@ -114,7 +114,7 @@ func (in *interp) callBlock(n *ast.Node, ctx *runtime.Scope) (runtime.Value, err
 			in.out = saved
 			return runtime.Null(), posErr(n, terr)
 		}
-		tmpl, lerr := in.eng.LoadTemplate(other)
+		tmpl, lerr := in.eng.LoadTemplate(in.ctx, other)
 		if lerr != nil {
 			in.out = saved
 			return runtime.Null(), posErr(n, lerr)
@@ -159,7 +159,7 @@ func (in *interp) loadImport(imp *ast.Node, ctx *runtime.Scope) (nsBind, bool) {
 	if name == "_self" {
 		src = in.root
 	} else {
-		t, err := in.eng.LoadTemplate(name)
+		t, err := in.eng.LoadTemplate(in.ctx, name)
 		if err != nil {
 			return nsBind{}, false
 		}
@@ -470,7 +470,7 @@ func (in *interp) renderInclude(n *ast.Node, ctx *runtime.Scope) (string, error)
 			"included template not found"))
 	}
 
-	tmpl, err := in.eng.LoadTemplate(name)
+	tmpl, err := in.eng.LoadTemplate(in.ctx, name)
 	if err != nil {
 		if flags&ast.IncIgnoreMissing != 0 {
 			return "", nil
@@ -507,7 +507,7 @@ func (in *interp) renderInclude(n *ast.Node, ctx *runtime.Scope) (string, error)
 	// The sandbox gate propagates INTO the include: an include inside an active
 	// sandbox stays sandboxed, and that never turns the gate off for the enclosing
 	// render (B16). The sub-interp then runs its own Phase-1 check.
-	sub := newInterp(in.eng, tmpl, &captureSink{})
+	sub := newInterp(in.ctx, in.eng, tmpl, &captureSink{})
 	sub.escape = in.escape
 	sub.sandboxOn = sub.sandboxOn || in.sandboxOn
 	// Share the parent render's slot state so a @provide in the partial feeds the
@@ -568,7 +568,7 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Scope) error {
 		}
 		return posErr(n, errors.New(errors.KindRuntime, "embedded template not found"))
 	}
-	tmpl, err := in.eng.LoadTemplate(name)
+	tmpl, err := in.eng.LoadTemplate(in.ctx, name)
 	if err != nil {
 		return posErr(n, err)
 	}
@@ -609,7 +609,7 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Scope) error {
 		}
 	}
 
-	sub := newInterp(in.eng, tmpl, in.out)
+	sub := newInterp(in.ctx, in.eng, tmpl, in.out)
 	sub.escape = in.escape
 	sub.sandboxOn = sub.sandboxOn || in.sandboxOn // embed inherits the active gate (B16)
 	// The embedded template writes into the parent sink directly, so share the

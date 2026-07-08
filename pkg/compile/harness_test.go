@@ -184,7 +184,7 @@ func runCompiled(t *testing.T, cases []compiledCase, results map[string]*compile
 
 	var mainB bytes.Buffer
 	mainB.WriteString("package main\n\nimport (\n")
-	mainB.WriteString("\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"io\"\n\t\"os\"\n\t\"strconv\"\n\t\"strings\"\n\n")
+	mainB.WriteString("\t\"bytes\"\n\t\"context\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"io\"\n\t\"os\"\n\t\"strconv\"\n\t\"strings\"\n\n")
 	mainB.WriteString("\tquill \"github.com/avmnu-sng/quill-template-engine\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/pkg/compiled\"\n")
 	mainB.WriteString("\t\"github.com/avmnu-sng/quill-template-engine/pkg/cache\"\n")
@@ -297,14 +297,14 @@ func parseFramed(t *testing.T, out string) map[string]caseResult {
 // mainSupport is the scratch main's shared code: the order-preserving JSON
 // decoder mirroring internal/jsonval (which a module outside the engine
 // cannot import) and the framed case runner.
-const mainSupport = `func runCase(name string, exts *ext.Set, varsJSON string, fn func(io.Writer, *ext.Set, map[string]runtime.Value, compiled.RenderCache) error) {
+const mainSupport = `func runCase(name string, exts *ext.Set, varsJSON string, fn func(context.Context, io.Writer, *ext.Set, map[string]runtime.Value, compiled.RenderCache) error) {
 	vars, err := decodeVars(varsJSON)
 	if err != nil {
 		emit(name, true, "vars decode: "+err.Error())
 		return
 	}
 	var b strings.Builder
-	if err := fn(&b, exts, vars, cache.NewRenderCache()); err != nil {
+	if err := fn(context.Background(), &b, exts, vars, cache.NewRenderCache()); err != nil {
 		emit(name, true, err.Error())
 		return
 	}
@@ -327,7 +327,7 @@ func runEnvCase(base string, m *compiled.Manifest, varsJSON string) {
 	}
 	tmpls := manifestTemplates(m)
 	env := quill.NewFromMap(tmpls, append(envOpts(m.Fingerprint()), quill.WithCompiled(m))...)
-	out, err := env.Render(m.Entry(), vars)
+	out, err := env.Render(context.Background(), m.Entry(), vars)
 	if err != nil {
 		emit(base+"@env", true, err.Error())
 	} else {
@@ -344,7 +344,7 @@ func runEnvCase(base string, m *compiled.Manifest, varsJSON string) {
 	} else {
 		rtenv := quill.NewFromMap(tmpls, append(envOpts(m.Fingerprint()), quill.WithCompiled(m))...)
 		var rw strings.Builder
-		rterr := rtenv.RenderTo(&rw, m.Entry(), rtvars)
+		rterr := rtenv.RenderTo(context.Background(), &rw, m.Entry(), rtvars)
 		switch {
 		case rterr != nil:
 			emit(base+"@renderto-ok", true, "RenderTo errored: "+rterr.Error())
@@ -367,7 +367,7 @@ func runEnvCase(base string, m *compiled.Manifest, varsJSON string) {
 		emit(base+"@tracer", true, err.Error())
 		return
 	}
-	tout, terr := tenv.Render(m.Entry(), tvars)
+	tout, terr := tenv.Render(context.Background(), m.Entry(), tvars)
 	switch {
 	case terr != nil:
 		emit(base+"@tracer", true, terr.Error())
@@ -407,7 +407,7 @@ func envOpts(fp compiled.Fingerprint) []quill.Option {
 func tracerManifest(m *compiled.Manifest) *compiled.Manifest {
 	return compiled.NewManifest(compiled.ManifestParams{
 		Entry: m.Entry(), Sources: m.Sources(), Fingerprint: m.Fingerprint(), UsesLog: m.UsesLog(),
-		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+		Render: func(_ context.Context, w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, "\x02TRACER\x02")
 			return err
 		},
@@ -467,7 +467,7 @@ func runEnvMatrix(base string, m *compiled.Manifest, varsJSON string) {
 			return
 		}
 		ref := quill.NewFromMap(tmpls, envOpts(cfp)...)
-		refOut, refErr := ref.Render(m.Entry(), refVars)
+		refOut, refErr := ref.Render(context.Background(), m.Entry(), refVars)
 
 		mixVars, err := decodeVars(varsJSON)
 		if err != nil {
@@ -475,7 +475,7 @@ func runEnvMatrix(base string, m *compiled.Manifest, varsJSON string) {
 			return
 		}
 		mixed := quill.NewFromMap(tmpls, append(envOpts(cfp), quill.WithCompiled(m))...)
-		mixOut, mixErr := mixed.Render(m.Entry(), mixVars)
+		mixOut, mixErr := mixed.Render(context.Background(), m.Entry(), mixVars)
 		if mixOut != refOut || !sameErrText(mixErr, refErr) {
 			emit(base+"@matrix", true, fmt.Sprintf("%s: mixed render diverged: got %q / %s, want %q / %s",
 				label, mixOut, errText(mixErr), refOut, errText(refErr)))
@@ -488,7 +488,7 @@ func runEnvMatrix(base string, m *compiled.Manifest, varsJSON string) {
 			return
 		}
 		tenv := quill.NewFromMap(tmpls, append(envOpts(cfp), quill.WithCompiled(tracerManifest(m)))...)
-		tout, terr := tenv.Render(m.Entry(), trcVars)
+		tout, terr := tenv.Render(context.Background(), m.Entry(), trcVars)
 		served := terr == nil && tout == "\x02TRACER\x02"
 		if served != (cfp == fp) {
 			emit(base+"@matrix", true, fmt.Sprintf("%s: gate served=%v, want %v", label, served, cfp == fp))
@@ -514,7 +514,7 @@ func runRenderToCase(base string, m *compiled.Manifest, varsJSON string) {
 	}
 	ienv := quill.NewFromMap(tmpls, envOpts(m.Fingerprint())...)
 	var iw strings.Builder
-	ierr := ienv.RenderTo(&iw, m.Entry(), ivars)
+	ierr := ienv.RenderTo(context.Background(), &iw, m.Entry(), ivars)
 	if ierr == nil {
 		emit(base+"@renderto", true, "interp RenderTo did not error")
 		return
@@ -527,7 +527,7 @@ func runRenderToCase(base string, m *compiled.Manifest, varsJSON string) {
 	}
 	cenv := quill.NewFromMap(tmpls, append(envOpts(m.Fingerprint()), quill.WithCompiled(m))...)
 	var cw strings.Builder
-	cerr := cenv.RenderTo(&cw, m.Entry(), cvars)
+	cerr := cenv.RenderTo(context.Background(), &cw, m.Entry(), cvars)
 	if !sameErrText(cerr, ierr) {
 		emit(base+"@renderto", true, fmt.Sprintf("error text drift: compiled %s, interp %s", errText(cerr), errText(ierr)))
 		return
@@ -558,7 +558,7 @@ func runCacheCase(base string, m *compiled.Manifest, varsJSON, varsJSON2 string)
 		if err != nil {
 			return "", err
 		}
-		return env.Render(m.Entry(), vars)
+		return env.Render(context.Background(), m.Entry(), vars)
 	}
 	tmpls := manifestTemplates(m)
 	ienv := quill.NewFromMap(tmpls, envOpts(m.Fingerprint())...)
@@ -598,7 +598,7 @@ func runCacheSharedRootCase(base string, m *compiled.Manifest, varsJSON string, 
 		if err != nil {
 			return "", err
 		}
-		return env.Render(entry, vars)
+		return env.Render(context.Background(), entry, vars)
 	}
 	tmpls := manifestTemplates(m)
 	for n, s := range manifestTemplates(peer) {

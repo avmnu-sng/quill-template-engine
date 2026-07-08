@@ -14,7 +14,11 @@
 // the remaining flags exist so the registration surface is complete.
 package ext
 
-import "github.com/avmnu-sng/quill-template-engine/pkg/runtime"
+import (
+	"context"
+
+	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
+)
 
 // Filter is a callable invoked through the pipe: x | name(args) is name(x, args)
 // (spec 03 Section 1). Fn receives the injected engine values (per the Needs*
@@ -25,7 +29,7 @@ import "github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 // instead).
 type Filter struct {
 	Name string
-	Fn   func(args []runtime.Value) (runtime.Value, error)
+	Fn   func(ctx context.Context, args []runtime.Value) (runtime.Value, error)
 
 	// Fn1 is the optional arity-known fast call: the filter's behavior for a
 	// bare pipe x | name with no explicit arguments. The engine consults it
@@ -38,7 +42,7 @@ type Filter struct {
 	// runs is an engine-internal dispatch choice, never observable. Fn1 makes
 	// unkeyed Filter composite literals position-sensitive; construct Filter
 	// values with keyed literals or NewFilter1.
-	Fn1 func(v runtime.Value) (runtime.Value, error)
+	Fn1 func(ctx context.Context, v runtime.Value) (runtime.Value, error)
 
 	// Injection flags (spec 03 Section 3.6). When set, the interpreter prepends
 	// the named engine value ahead of the piped value and user arguments.
@@ -54,11 +58,11 @@ type Filter struct {
 // injection sets Fn and Fn1 explicitly, sharing a core, and a filter built
 // here must keep its Needs* flags unset because the wrapped Fn reads the
 // piped value at position zero, where an injected engine value would land.
-func NewFilter1(name string, fn func(v runtime.Value) (runtime.Value, error)) *Filter {
+func NewFilter1(name string, fn func(ctx context.Context, v runtime.Value) (runtime.Value, error)) *Filter {
 	return &Filter{
 		Name: name,
-		Fn: func(args []runtime.Value) (runtime.Value, error) {
-			return fn(arg(args, 0))
+		Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+			return fn(ctx, arg(args, 0))
 		},
 		Fn1: fn,
 	}
@@ -71,7 +75,7 @@ func NewFilter1(name string, fn func(v runtime.Value) (runtime.Value, error)) *F
 // and return a new value instead).
 type Function struct {
 	Name string
-	Fn   func(args []runtime.Value) (runtime.Value, error)
+	Fn   func(ctx context.Context, args []runtime.Value) (runtime.Value, error)
 
 	NeedsEnvironment bool
 	NeedsContext     bool
@@ -83,7 +87,7 @@ type Function struct {
 // boolean. A test never injects engine values in this slice.
 type Test struct {
 	Name string
-	Fn   func(args []runtime.Value) (bool, error)
+	Fn   func(ctx context.Context, args []runtime.Value) (bool, error)
 }
 
 // EngineConfig is the read-only engine-configuration surface a

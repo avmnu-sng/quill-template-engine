@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -46,7 +47,7 @@ func render() error {
 		"base.quill": base,
 		"page.quill": page,
 	})
-	out, err := env.Render("page.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "page.quill", map[string]runtime.Value{
 		"title": runtime.Str("Daily Report"),
 		"items": runtime.Arr(runtime.NewList(
 			runtime.Str("ship release"),

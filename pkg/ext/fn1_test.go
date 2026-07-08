@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
@@ -60,8 +61,8 @@ func TestFn1ChokePointsHaveNoFn1(t *testing.T) {
 // core registration that puts Fn1 on a sandbox choke-point name must panic
 // instead of silently opening a gate bypass.
 func TestAddFilterFast1PanicsOnChokePoint(t *testing.T) {
-	fn1 := func(v runtime.Value) (runtime.Value, error) { return v, nil }
-	fn := func(args []runtime.Value) (runtime.Value, error) { return arg(args, 0), nil }
+	fn1 := func(ctx context.Context, v runtime.Value) (runtime.Value, error) { return v, nil }
+	fn := func(ctx context.Context, args []runtime.Value) (runtime.Value, error) { return arg(args, 0), nil }
 
 	func() {
 		defer func() {
@@ -184,8 +185,8 @@ func TestFn1MatchesFnOnBattery(t *testing.T) {
 			t.Fatalf("audited filter %q missing or without Fn1", name)
 		}
 		for i, v := range fn1Battery() {
-			gotFast, errFast := f.Fn1(deepCopyValue(v))
-			gotSlow, errSlow := f.Fn([]runtime.Value{deepCopyValue(v)})
+			gotFast, errFast := f.Fn1(context.Background(), deepCopyValue(v))
+			gotSlow, errSlow := f.Fn(context.Background(), []runtime.Value{deepCopyValue(v)})
 			if (errFast == nil) != (errSlow == nil) {
 				t.Errorf("%s[%d]: error mismatch: fast=%v slow=%v", name, i, errFast, errSlow)
 				continue
@@ -224,7 +225,7 @@ func TestFn1DoesNotAliasOrMutateInput(t *testing.T) {
 		}
 		for i, v := range fn1Battery() {
 			snapshot := deepCopyValue(v)
-			res, err := f.Fn1(v)
+			res, err := f.Fn1(context.Background(), v)
 			if !valuesDeepEqual(v, snapshot) {
 				t.Errorf("%s[%d]: Fn1 mutated its input", name, i)
 			}
@@ -232,7 +233,7 @@ func TestFn1DoesNotAliasOrMutateInput(t *testing.T) {
 				continue
 			}
 			if fn1Selecting[name] {
-				resSlow, errSlow := f.Fn([]runtime.Value{v})
+				resSlow, errSlow := f.Fn(context.Background(), []runtime.Value{v})
 				if errSlow != nil || resSlow.Kind() != runtime.KArray || resSlow.AsArray() != res.AsArray() {
 					t.Errorf("%s[%d]: fast and general routes select different storage", name, i)
 				}

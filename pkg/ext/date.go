@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -43,7 +44,7 @@ func (d *dateValue) ClassName() string { return "Date" }
 // date, in an optional timezone (spec 03 Section 3.2). With no argument it is
 // "now". The Go date model parses RFC3339 and the default layout; a bare integer
 // is a Unix timestamp.
-func fnDate(args []runtime.Value) (runtime.Value, error) {
+func fnDate(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	loc := time.UTC
 	if len(args) > 1 && !args[1].IsNull() {
 		name, err := wantString(args[1])
@@ -66,7 +67,7 @@ func fnDate(args []runtime.Value) (runtime.Value, error) {
 // filterDate formats a date (or a string/timestamp coerced to one) with a Go
 // reference layout (spec 03 Section 2.6 divergence). layout defaults to the
 // engine default; an optional tz reinterprets the instant in that zone.
-func filterDate(args []runtime.Value) (runtime.Value, error) {
+func filterDate(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	layout := defaultDateLayout
 	if len(args) > 1 && !args[1].IsNull() {
@@ -102,7 +103,7 @@ func filterDate(args []runtime.Value) (runtime.Value, error) {
 // (spec 03 Section 2.4), returning a new date value. The accepted units are
 // year(s)/month(s)/day(s)/hour(s)/minute(s)/second(s) and the abbreviation set
 // Go's duration parser does not cover.
-func filterDateModify(args []runtime.Value) (runtime.Value, error) {
+func filterDateModify(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	t, err := coerceTime(arg(args, 0), time.UTC)
 	if err != nil {
 		return runtime.Null(), err

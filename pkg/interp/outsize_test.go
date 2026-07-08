@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -72,7 +73,7 @@ func TestOutputSizeHintDecaysAndKeepsBytesIdentical(t *testing.T) {
 	// always zero: it is the unhinted oracle every hinted render must match.
 	fresh := func(n int) string {
 		t.Helper()
-		out, ferr := Render(eng, Prepare("hint.ql", mod), outsizeVars(n))
+		out, ferr := Render(context.Background(), eng, Prepare("hint.ql", mod), outsizeVars(n))
 		if ferr != nil {
 			t.Fatalf("oracle render of %d items: %v", n, ferr)
 		}
@@ -83,7 +84,7 @@ func TestOutputSizeHintDecaysAndKeepsBytesIdentical(t *testing.T) {
 		t.Fatalf("hint before any render = %d, want 0", got)
 	}
 
-	big, err := Render(eng, tmpl, outsizeVars(500))
+	big, err := Render(context.Background(), eng, tmpl, outsizeVars(500))
 	if err != nil {
 		t.Fatalf("cold render: %v", err)
 	}
@@ -94,7 +95,7 @@ func TestOutputSizeHintDecaysAndKeepsBytesIdentical(t *testing.T) {
 		t.Fatalf("hint after cold render = %d, want %d", got, len(big))
 	}
 
-	warm, err := Render(eng, tmpl, outsizeVars(500))
+	warm, err := Render(context.Background(), eng, tmpl, outsizeVars(500))
 	if err != nil {
 		t.Fatalf("warm render: %v", err)
 	}
@@ -102,7 +103,7 @@ func TestOutputSizeHintDecaysAndKeepsBytesIdentical(t *testing.T) {
 		t.Fatalf("warm render diverged from cold render:\ngot:  %q\nwant: %q", warm, big)
 	}
 
-	small, err := Render(eng, tmpl, outsizeVars(3))
+	small, err := Render(context.Background(), eng, tmpl, outsizeVars(3))
 	if err != nil {
 		t.Fatalf("shrunk render: %v", err)
 	}
@@ -119,7 +120,7 @@ func TestOutputSizeHintDecaysAndKeepsBytesIdentical(t *testing.T) {
 	// A strict-undefined failure aborts the render; the partial buffer's
 	// length is not a completed output and must not overwrite the hint.
 	before := tmpl.lastOut.Load()
-	if _, err := Render(eng, tmpl, nil); err == nil {
+	if _, err := Render(context.Background(), eng, tmpl, nil); err == nil {
 		t.Fatal("render with unbound items unexpectedly succeeded")
 	}
 	if got := tmpl.lastOut.Load(); got != before {
@@ -148,7 +149,7 @@ func TestConcurrentRendersOnSharedTemplateRecordSizesRaceClean(t *testing.T) {
 	sizes := []int{400, 2}
 	want := make([]string, len(sizes))
 	for i, n := range sizes {
-		out, oerr := Render(eng, Prepare("hint.ql", mod), outsizeVars(n))
+		out, oerr := Render(context.Background(), eng, Prepare("hint.ql", mod), outsizeVars(n))
 		if oerr != nil {
 			t.Fatalf("oracle render of %d items: %v", n, oerr)
 		}
@@ -164,7 +165,7 @@ func TestConcurrentRendersOnSharedTemplateRecordSizesRaceClean(t *testing.T) {
 			defer wg.Done()
 			vars := outsizeVars(n)
 			for j := 0; j < iterations; j++ {
-				out, rerr := Render(eng, tmpl, vars)
+				out, rerr := Render(context.Background(), eng, tmpl, vars)
 				if rerr != nil {
 					errCh <- fmt.Errorf("render of %d items: %w", n, rerr)
 					return

@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
@@ -62,7 +63,7 @@ func (s *separatorValue) Invoke([]runtime.Value) (runtime.Value, error) {
 // fnSeparator constructs a separator whose glue is sep (default ",") -- separator()
 // or separator(", "). The returned value is callable: the first call yields "",
 // each later call yields the glue (spec 03 Section 3.2).
-func fnSeparator(args []runtime.Value) (runtime.Value, error) {
+func fnSeparator(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	sep := ","
 	if len(args) > 0 && !args[0].IsNull() {
 		s, err := wantString(args[0])
@@ -119,6 +120,6 @@ func (c *cellValue) ClassName() string { return "Cell" }
 // fnCell constructs a mutable cell holding initial (default null) -- cell() or
 // cell(0). The returned value carries an assignable `value` member that survives
 // a loop body (spec 03 Section 3.2).
-func fnCell(args []runtime.Value) (runtime.Value, error) {
+func fnCell(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	return runtime.Obj(&cellValue{val: arg(args, 0)}), nil
 }

@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strings"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
@@ -115,7 +116,7 @@ func arg(args []runtime.Value, i int) runtime.Value {
 
 // filterUpper1 is the unary upper implementation; the pipe form and the fast
 // call share it, so the two dispatch routes are one function.
-func filterUpper1(v runtime.Value) (runtime.Value, error) {
+func filterUpper1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	s, err := wantString(v)
 	if err != nil {
 		return runtime.Null(), err
@@ -124,7 +125,7 @@ func filterUpper1(v runtime.Value) (runtime.Value, error) {
 }
 
 // filterLower1 is the unary lower implementation shared by both dispatch routes.
-func filterLower1(v runtime.Value) (runtime.Value, error) {
+func filterLower1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	s, err := wantString(v)
 	if err != nil {
 		return runtime.Null(), err
@@ -139,7 +140,7 @@ const defaultTrimMask = " \t\n\r\x00\x0B"
 // filterTrim1 is trim's zero-extra-argument behavior (both sides, the default
 // whitespace mask); filterTrim delegates the argument-less call here so the
 // fast call and the general path cannot drift.
-func filterTrim1(v runtime.Value) (runtime.Value, error) {
+func filterTrim1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	s, err := wantString(v)
 	if err != nil {
 		return runtime.Null(), err
@@ -149,9 +150,9 @@ func filterTrim1(v runtime.Value) (runtime.Value, error) {
 
 // filterTrim covers left, right, and both-side trimming: side in both/left/right
 // (aliases b/l/r), mask defaults to ASCII+Unicode whitespace (spec 03 Section 2.1).
-func filterTrim(args []runtime.Value) (runtime.Value, error) {
+func filterTrim(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) <= 1 {
-		return filterTrim1(arg(args, 0))
+		return filterTrim1(ctx, arg(args, 0))
 	}
 	s, err := wantString(arg(args, 0))
 	if err != nil {
@@ -184,7 +185,7 @@ func filterTrim(args []runtime.Value) (runtime.Value, error) {
 // filterReplace is strtr-style: longest-key-first, non-overlapping, single-pass,
 // byte-level, via strings.Replacer so a replacement is never re-scanned (spec 03
 // Section 2.5). The argument is a map<string,string>.
-func filterReplace(args []runtime.Value) (runtime.Value, error) {
+func filterReplace(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -215,7 +216,7 @@ func filterReplace(args []runtime.Value) (runtime.Value, error) {
 // a passthrough; the interpreter's escape pass leaves a Safe value untouched.
 // Its effect is load-bearing only under an escape-on region (spec 03 Section
 // 5.4). It is the unary implementation both dispatch routes share.
-func filterRaw1(v runtime.Value) (runtime.Value, error) {
+func filterRaw1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	s, err := runtime.ToText(v)
 	if err != nil {
 		return runtime.Null(), err
@@ -227,7 +228,7 @@ func filterRaw1(v runtime.Value) (runtime.Value, error) {
 // value. The six strategies are html, js, css, html_attr, html_attr_relaxed,
 // and url (spec 03 Section 5.5). A value that is already Safe is returned
 // unchanged.
-func filterEscape(args []runtime.Value) (runtime.Value, error) {
+func filterEscape(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	if v.Kind() == runtime.KSafe {
 		return v, nil
@@ -256,7 +257,7 @@ func filterEscape(args []runtime.Value) (runtime.Value, error) {
 // filterDefault yields the fallback when the piped value is Null (which the
 // interpreter also produces for an undefined read under default's suppression);
 // a defined non-null value, including 0 and "", is kept (spec 03 Section 2.7).
-func filterDefault(args []runtime.Value) (runtime.Value, error) {
+func filterDefault(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	if v.IsNull() {
 		return arg(args, 1), nil
@@ -266,7 +267,7 @@ func filterDefault(args []runtime.Value) (runtime.Value, error) {
 
 // filterLength1 returns string runes, collection count, or 1 for a scalar
 // (spec 03 Section 2.2); the unary implementation both dispatch routes share.
-func filterLength1(v runtime.Value) (runtime.Value, error) {
+func filterLength1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	switch v.Kind() {
 	case runtime.KStr, runtime.KSafe:
 		return runtime.Int(int64(len([]rune(v.AsStr())))), nil
@@ -289,7 +290,7 @@ func filterLength1(v runtime.Value) (runtime.Value, error) {
 
 // filterJoin joins a collection with glue, each element rendered by ToText, with
 // an optional distinct glue before the last element (spec 03 Section 2.2).
-func filterJoin(args []runtime.Value) (runtime.Value, error) {
+func filterJoin(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	glue := ""
 	if len(args) > 1 {
@@ -334,13 +335,13 @@ func filterJoin(args []runtime.Value) (runtime.Value, error) {
 
 // filterLength adapts the unary length implementation to the n-ary callable
 // shape, backing the len() function alias (spec 03 Section 3.4).
-func filterLength(args []runtime.Value) (runtime.Value, error) {
-	return filterLength1(arg(args, 0))
+func filterLength(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+	return filterLength1(ctx, arg(args, 0))
 }
 
 // filterKeys1 returns the keys of a collection as a list, in insertion order
 // (spec 03 Section 2.2); the unary implementation both dispatch routes share.
-func filterKeys1(v runtime.Value) (runtime.Value, error) {
+func filterKeys1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Arr(runtime.NewArray()), nil
 	}
@@ -349,13 +350,13 @@ func filterKeys1(v runtime.Value) (runtime.Value, error) {
 
 // filterKeys adapts the unary keys implementation to the n-ary callable shape,
 // backing the keys() function alias (spec 03 Section 3.4).
-func filterKeys(args []runtime.Value) (runtime.Value, error) {
-	return filterKeys1(arg(args, 0))
+func filterKeys(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+	return filterKeys1(ctx, arg(args, 0))
 }
 
 // filterFirst1 returns the first element of a collection or the first rune of
 // a string (spec 03 Section 2.1); the unary implementation both routes share.
-func filterFirst1(v runtime.Value) (runtime.Value, error) {
+func filterFirst1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	switch v.Kind() {
 	case runtime.KArray:
 		if v.AsArray() == nil || v.AsArray().Len() == 0 {
@@ -375,7 +376,7 @@ func filterFirst1(v runtime.Value) (runtime.Value, error) {
 
 // filterLast1 returns the last element / last rune (spec 03 Section 2.1); the
 // unary implementation both dispatch routes share.
-func filterLast1(v runtime.Value) (runtime.Value, error) {
+func filterLast1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	switch v.Kind() {
 	case runtime.KArray:
 		if v.AsArray() == nil || v.AsArray().Len() == 0 {
@@ -397,7 +398,7 @@ func filterLast1(v runtime.Value) (runtime.Value, error) {
 // filterReverse reverses a collection (keys preserved by default) or a string
 // by runes (spec 03 Section 2.2). It parses the optional preserve-keys flag and
 // delegates to the shared core.
-func filterReverse(args []runtime.Value) (runtime.Value, error) {
+func filterReverse(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	preserveKeys := true
 	if len(args) > 1 {
 		preserveKeys = runtime.Truthy(args[1])
@@ -407,7 +408,7 @@ func filterReverse(args []runtime.Value) (runtime.Value, error) {
 
 // filterReverse1 is reverse's zero-extra-argument behavior (keys preserved),
 // routed through the same core as the general path so the two cannot drift.
-func filterReverse1(v runtime.Value) (runtime.Value, error) {
+func filterReverse1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	return reverseCore(v, true)
 }
 
@@ -443,7 +444,7 @@ func reverseCore(v runtime.Value, preserveKeys bool) (runtime.Value, error) {
 
 // filterMerge appends integer-keyed values (reindexed) and overwrites
 // string-keyed values, preserving order (spec 03 Section 2.5).
-func filterMerge(args []runtime.Value) (runtime.Value, error) {
+func filterMerge(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	a := arg(args, 0)
 	b := arg(args, 1)
 	if a.Kind() != runtime.KArray || b.Kind() != runtime.KArray {
@@ -472,7 +473,7 @@ func filterMerge(args []runtime.Value) (runtime.Value, error) {
 
 // filterSlice is the rune/element slice (spec 03 Section 2.1), also backing
 // a[start:end]. start may be negative (from the end); length is optional.
-func filterSlice(args []runtime.Value) (runtime.Value, error) {
+func filterSlice(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	start := int(toInt(arg(args, 1)))
 	hasLen := len(args) > 2 && !args[2].IsNull()
@@ -545,7 +546,7 @@ func toInt(v runtime.Value) int64 {
 
 // fnRange builds an inclusive numeric or single-character range (spec 03 Section
 // 3.1), the engine shared with the `..` operator.
-func fnRange(args []runtime.Value) (runtime.Value, error) {
+func fnRange(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) < 2 {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"range expects at least low and high arguments")
@@ -598,8 +599,12 @@ func fnRange(args []runtime.Value) (runtime.Value, error) {
 
 // fnMax / fnMin reduce by the single total ordering, accepting either a list of
 // scalars or one iterable argument (spec 03 Section 3.2).
-func fnMax(args []runtime.Value) (runtime.Value, error) { return reduceOrder(args, 1) }
-func fnMin(args []runtime.Value) (runtime.Value, error) { return reduceOrder(args, -1) }
+func fnMax(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+	return reduceOrder(args, 1)
+}
+func fnMin(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+	return reduceOrder(args, -1)
+}
 
 // reduceOrder folds args under Order, keeping the value whose comparison against
 // the accumulator equals want (1 for max, -1 for min).
@@ -630,11 +635,15 @@ func reduceOrder(args []runtime.Value, want int) (runtime.Value, error) {
 
 // --- tests ---
 
-func testNull(args []runtime.Value) (bool, error) { return arg(args, 0).IsNull(), nil }
+func testNull(ctx context.Context, args []runtime.Value) (bool, error) {
+	return arg(args, 0).IsNull(), nil
+}
 
-func testEmpty(args []runtime.Value) (bool, error) { return runtime.Empty(arg(args, 0)), nil }
+func testEmpty(ctx context.Context, args []runtime.Value) (bool, error) {
+	return runtime.Empty(arg(args, 0)), nil
+}
 
-func testEven(args []runtime.Value) (bool, error) {
+func testEven(ctx context.Context, args []runtime.Value) (bool, error) {
 	v := arg(args, 0)
 	if v.Kind() != runtime.KInt {
 		return false, errors.New(errors.KindRuntime, "the even test expects an integer")
@@ -642,7 +651,7 @@ func testEven(args []runtime.Value) (bool, error) {
 	return v.AsInt()%2 == 0, nil
 }
 
-func testOdd(args []runtime.Value) (bool, error) {
+func testOdd(ctx context.Context, args []runtime.Value) (bool, error) {
 	v := arg(args, 0)
 	if v.Kind() != runtime.KInt {
 		return false, errors.New(errors.KindRuntime, "the odd test expects an integer")
@@ -652,7 +661,7 @@ func testOdd(args []runtime.Value) (bool, error) {
 
 // testIterable is true for a collection or an iterable object; a STRING is NOT
 // iterable (spec 03 Section 4).
-func testIterable(args []runtime.Value) (bool, error) {
+func testIterable(ctx context.Context, args []runtime.Value) (bool, error) {
 	v := arg(args, 0)
 	switch v.Kind() {
 	case runtime.KArray:
@@ -665,6 +674,6 @@ func testIterable(args []runtime.Value) (bool, error) {
 	}
 }
 
-func testSameAs(args []runtime.Value) (bool, error) {
+func testSameAs(ctx context.Context, args []runtime.Value) (bool, error) {
 	return runtime.Same(arg(args, 0), arg(args, 1)), nil
 }

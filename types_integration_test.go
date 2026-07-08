@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -31,13 +32,13 @@ func TestTypesRenderIdentically(t *testing.T) {
 	vars := map[string]runtime.Value{"users": users}
 
 	plain := NewFromMap(nil)
-	gotUntyped, err := plain.RenderString("u.ql", untyped, vars)
+	gotUntyped, err := plain.RenderString(context.Background(), "u.ql", untyped, vars)
 	if err != nil {
 		t.Fatalf("untyped render: %v", err)
 	}
 
 	withTypes := NewFromMap(nil, WithTypes(reg))
-	gotTyped, err := withTypes.RenderString("t.ql", typed, vars)
+	gotTyped, err := withTypes.RenderString(context.Background(), "t.ql", typed, vars)
 	if err != nil {
 		t.Fatalf("typed render: %v", err)
 	}
@@ -56,7 +57,7 @@ func TestCheckTimeRejection(t *testing.T) {
 	e := NewFromMap(map[string]string{
 		"bad.ql": "@types {\n  s: string\n@}\n{{ s + 1 }}",
 	})
-	out, err := e.Render("bad.ql", map[string]runtime.Value{"s": runtime.Str("x")})
+	out, err := e.Render(context.Background(), "bad.ql", map[string]runtime.Value{"s": runtime.Str("x")})
 	if err == nil {
 		t.Fatalf("expected a type error, got output %q", out)
 	}
@@ -77,7 +78,7 @@ func TestUnannotatedUnaffectedByRegistry(t *testing.T) {
 	reg := check.NewRegistry()
 	reg.AddType(check.NewObjectType("User").WithStringify(true))
 	e := NewFromMap(nil, WithTypes(reg))
-	out, err := e.RenderString("t.ql", "{{ a + b }}", map[string]runtime.Value{
+	out, err := e.RenderString(context.Background(), "t.ql", "{{ a + b }}", map[string]runtime.Value{
 		"a": runtime.Int(2), "b": runtime.Int(3),
 	})
 	if err != nil {

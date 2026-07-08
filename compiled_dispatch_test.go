@@ -2,6 +2,7 @@ package quill
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"log"
@@ -39,7 +40,7 @@ func markerManifest(entry, src string, fp compiled.Fingerprint, usesLog bool) *c
 		Sources:     map[string]string{entry: src},
 		Fingerprint: fp,
 		UsesLog:     usesLog,
-		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+		Render: func(ctx context.Context, w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, dispatchMarker)
 			return err
 		},
@@ -51,7 +52,7 @@ func TestWithCompiledServesInstalledUnit(t *testing.T) {
 		map[string]string{"t.ql": "hi", "other.ql": "bye"},
 		WithCompiled(markerManifest("t.ql", "hi", defaultFingerprint(), false)),
 	)
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,20 +60,20 @@ func TestWithCompiledServesInstalledUnit(t *testing.T) {
 		t.Fatalf("Render did not dispatch compiled: got %q", out)
 	}
 	var b strings.Builder
-	if err := env.RenderTo(&b, "t.ql", nil); err != nil {
+	if err := env.RenderTo(context.Background(), &b, "t.ql", nil); err != nil {
 		t.Fatal(err)
 	}
 	if b.String() != dispatchMarker {
 		t.Fatalf("RenderTo did not dispatch compiled: got %q", b.String())
 	}
 	// A name with no installed unit renders through the interpreter.
-	out, err = env.Render("other.ql", nil)
+	out, err = env.Render(context.Background(), "other.ql", nil)
 	if err != nil || out != "bye" {
 		t.Fatalf("uninstalled name: got %q, %v", out, err)
 	}
 	// An ad-hoc string render never consults the dispatch table, even under a
 	// colliding name.
-	out, err = env.RenderString("t.ql", "adhoc", nil)
+	out, err = env.RenderString(context.Background(), "t.ql", "adhoc", nil)
 	if err != nil || out != "adhoc" {
 		t.Fatalf("RenderString dispatched: got %q, %v", out, err)
 	}
@@ -113,7 +114,7 @@ func TestWithCompiledOptionFlipFallsBack(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			opts := append([]Option{WithCompiled(markerManifest("t.ql", src, tc.fp, false))}, tc.opts...)
 			env := NewFromMap(map[string]string{"t.ql": src}, opts...)
-			out, err := env.Render("t.ql", nil)
+			out, err := env.Render(context.Background(), "t.ql", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -149,7 +150,7 @@ func TestWithCompiledFeatureGatesFallBack(t *testing.T) {
 				WithCompiled(markerManifest("t.ql", src, defaultFingerprint(), false)),
 				tc.opt,
 			)
-			out, err := env.Render("t.ql", nil)
+			out, err := env.Render(context.Background(), "t.ql", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -168,7 +169,7 @@ func TestWithCompiledSourceByteEditFallsBack(t *testing.T) {
 		map[string]string{"t.ql": "hi"},
 		WithCompiled(markerManifest("t.ql", "hi!", defaultFingerprint(), false)),
 	)
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +180,7 @@ func TestWithCompiledSourceByteEditFallsBack(t *testing.T) {
 	m := markerManifest("t.ql", "hi", defaultFingerprint(), false)
 	m.Sources()["missing.ql"] = "gone"
 	env2 := NewFromMap(map[string]string{"t.ql": "hi"}, WithCompiled(m))
-	out, err = env2.Render("t.ql", nil)
+	out, err = env2.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != "hi" {
 		t.Fatalf("unit with unloadable member served: got %q, %v", out, err)
 	}
@@ -198,7 +199,7 @@ func TestWithCompiledAbsentIncludeGate(t *testing.T) {
 		Sources:        map[string]string{"t.ql": "head\n"},
 		Fingerprint:    defaultFingerprint(),
 		AbsentIncludes: []string{"gone.ql"},
-		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+		Render: func(ctx context.Context, w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, dispatchMarker)
 			return err
 		},
@@ -206,7 +207,7 @@ func TestWithCompiledAbsentIncludeGate(t *testing.T) {
 
 	ldr := loader.NewArrayLoader(map[string]string{"t.ql": "head\n"})
 	env := New(ldr, WithCompiled(m))
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != dispatchMarker {
 		t.Fatalf("absent-include unit not served while target missing: got %q, %v", out, err)
 	}
@@ -215,7 +216,7 @@ func TestWithCompiledAbsentIncludeGate(t *testing.T) {
 	// inline its body, so the compiled render-nothing is no longer byte-exact
 	// and the gate must fall back.
 	ldr.Set("gone.ql", "partial")
-	out, err = env.Render("t.ql", nil)
+	out, err = env.Render(context.Background(), "t.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +228,7 @@ func TestWithCompiledAbsentIncludeGate(t *testing.T) {
 	// again: the check runs per render against live loader state, not once at
 	// install, so a target present in one Environment never poisons another.
 	env2 := NewFromMap(map[string]string{"t.ql": "head\n"}, WithCompiled(m))
-	out, err = env2.Render("t.ql", nil)
+	out, err = env2.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != dispatchMarker {
 		t.Fatalf("absent-include unit not served in a fresh loader: got %q, %v", out, err)
 	}
@@ -241,7 +242,7 @@ func TestWithCompiledAbsentIncludeGate(t *testing.T) {
 func TestWithCompiledStaleParseNeverServed(t *testing.T) {
 	ldr := loader.NewArrayLoader(map[string]string{"t.ql": "one"})
 	env := New(ldr, WithCompiled(markerManifest("t.ql", "one", defaultFingerprint(), false)))
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != dispatchMarker {
 		t.Fatalf("fresh unit not served: got %q, %v", out, err)
 	}
@@ -249,7 +250,7 @@ func TestWithCompiledStaleParseNeverServed(t *testing.T) {
 	// The loader changes but the parse cache still serves the old module: the
 	// interpreter path would render "one", so the unit remains coherent.
 	ldr.Set("t.ql", "two")
-	out, err = env.Render("t.ql", nil)
+	out, err = env.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != dispatchMarker {
 		t.Fatalf("pinned-parse render changed: got %q, %v", out, err)
 	}
@@ -257,7 +258,7 @@ func TestWithCompiledStaleParseNeverServed(t *testing.T) {
 	// After eviction the re-parse serves the new text; the witness pointer
 	// mismatch triggers the byte re-check and the unit must fall back.
 	env.cache.Clear()
-	out, err = env.Render("t.ql", nil)
+	out, err = env.Render(context.Background(), "t.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +267,7 @@ func TestWithCompiledStaleParseNeverServed(t *testing.T) {
 	}
 	// The negative verdict is itself memoized against the new module: a warm
 	// repeat stays on the interpreter.
-	out, err = env.Render("t.ql", nil)
+	out, err = env.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != "two" {
 		t.Fatalf("repeat render after fallback: got %q, %v", out, err)
 	}
@@ -280,7 +281,7 @@ func TestWithCompiledLogGate(t *testing.T) {
 	m := func() *compiled.Manifest { return markerManifest("t.ql", src, defaultFingerprint(), true) }
 
 	env := NewFromMap(map[string]string{"t.ql": src}, WithCompiled(m()))
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != dispatchMarker {
 		t.Fatalf("UsesLog unit with discard logger not served: got %q, %v", out, err)
 	}
@@ -288,7 +289,7 @@ func TestWithCompiledLogGate(t *testing.T) {
 	var buf bytes.Buffer
 	env2 := NewFromMap(map[string]string{"t.ql": src},
 		WithCompiled(m()), WithLogger(log.New(&buf, "", 0)))
-	out, err = env2.Render("t.ql", nil)
+	out, err = env2.Render(context.Background(), "t.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +308,7 @@ func TestWithCompiledVerifyServesInterpAndReports(t *testing.T) {
 		WithCompiled(markerManifest("t.ql", "hi", defaultFingerprint(), false)),
 		WithCompiledVerify(func(d compiled.Divergence) { divs = append(divs, d) }),
 	)
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +327,7 @@ func TestWithCompiledVerifyServesInterpAndReports(t *testing.T) {
 	// RenderTo under verification also serves the interpreter's bytes.
 	divs = nil
 	var b strings.Builder
-	if err := env.RenderTo(&b, "t.ql", nil); err != nil {
+	if err := env.RenderTo(context.Background(), &b, "t.ql", nil); err != nil {
 		t.Fatal(err)
 	}
 	if b.String() != "hi" || len(divs) != 1 {
@@ -339,7 +340,7 @@ func TestWithCompiledVerifyCleanUnitReportsNothing(t *testing.T) {
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": "hi"},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+		Render: func(ctx context.Context, w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, "hi")
 			return err
 		},
@@ -348,7 +349,7 @@ func TestWithCompiledVerifyCleanUnitReportsNothing(t *testing.T) {
 	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(clean),
 		WithCompiledVerify(func(compiled.Divergence) { called++ }))
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != "hi" {
 		t.Fatalf("got %q, %v", out, err)
 	}
@@ -362,7 +363,7 @@ func TestWithCompiledVerifyReportsErrorDivergence(t *testing.T) {
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": "hi"},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+		Render: func(ctx context.Context, w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			if _, err := io.WriteString(w, "hi"); err != nil {
 				return err
 			}
@@ -373,7 +374,7 @@ func TestWithCompiledVerifyReportsErrorDivergence(t *testing.T) {
 	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(failing),
 		WithCompiledVerify(func(d compiled.Divergence) { divs = append(divs, d) }))
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != "hi" {
 		t.Fatalf("verify must serve the interpreter result: got %q, %v", out, err)
 	}
@@ -394,7 +395,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 
 	base := NewFromMap(tmpls)
 	var wBase strings.Builder
-	baseErr := base.RenderTo(&wBase, "t.ql", nil)
+	baseErr := base.RenderTo(context.Background(), &wBase, "t.ql", nil)
 	if baseErr == nil {
 		t.Fatal("interp RenderTo did not error under strict variables")
 	}
@@ -408,7 +409,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 		Entry:       "t.ql",
 		Sources:     map[string]string{"t.ql": src},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+		Render: func(ctx context.Context, w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			if _, err := io.WriteString(w, "hi"); err != nil {
 				return err
 			}
@@ -418,7 +419,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 
 	direct := NewFromMap(tmpls, WithCompiled(faithful))
 	var wDirect strings.Builder
-	directErr := direct.RenderTo(&wDirect, "t.ql", nil)
+	directErr := direct.RenderTo(context.Background(), &wDirect, "t.ql", nil)
 	if directErr == nil || directErr.Error() != baseErr.Error() || wDirect.String() != wBase.String() {
 		t.Fatalf("direct dispatch: w=%q err=%v, want w=%q err=%v",
 			wDirect.String(), directErr, wBase.String(), baseErr)
@@ -429,7 +430,7 @@ func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 		WithCompiled(faithful),
 		WithCompiledVerify(func(compiled.Divergence) { divs++ }))
 	var wShadow strings.Builder
-	shadowErr := shadow.RenderTo(&wShadow, "t.ql", nil)
+	shadowErr := shadow.RenderTo(context.Background(), &wShadow, "t.ql", nil)
 	if shadowErr == nil || shadowErr.Error() != baseErr.Error() {
 		t.Fatalf("verify RenderTo error: got %v, want %v", shadowErr, baseErr)
 	}
@@ -458,7 +459,7 @@ const slotsErrorSrc = "@yield s\nvisible output here\n@provide s {\nprovided\n@}
 func faithfulSlotsManifest(t *testing.T, tmpls map[string]string) (*compiled.Manifest, string, error) {
 	t.Helper()
 	interpEnv := NewFromMap(tmpls)
-	partial, rerr := interpEnv.Render("t.ql", nil)
+	partial, rerr := interpEnv.Render(context.Background(), "t.ql", nil)
 	if rerr == nil {
 		t.Fatal("slots template did not error under strict variables")
 	}
@@ -470,7 +471,7 @@ func faithfulSlotsManifest(t *testing.T, tmpls map[string]string) (*compiled.Man
 		Sources:     map[string]string{"t.ql": slotsErrorSrc},
 		Fingerprint: defaultFingerprint(),
 		UsesSlots:   true,
-		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+		Render: func(ctx context.Context, w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			if _, werr := io.WriteString(w, partial); werr != nil {
 				return werr
 			}
@@ -495,7 +496,7 @@ func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
 	// The interpreter's streaming path is the ground truth: nothing on error.
 	interpEnv := NewFromMap(tmpls)
 	var iw strings.Builder
-	iErr := interpEnv.RenderTo(&iw, "t.ql", nil)
+	iErr := interpEnv.RenderTo(context.Background(), &iw, "t.ql", nil)
 	if iErr == nil {
 		t.Fatal("interp RenderTo did not error")
 	}
@@ -510,7 +511,7 @@ func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
 	// preserve Render's own contract.
 	direct := NewFromMap(tmpls, WithCompiled(m))
 	var dw strings.Builder
-	dErr := direct.RenderTo(&dw, "t.ql", nil)
+	dErr := direct.RenderTo(context.Background(), &dw, "t.ql", nil)
 	if dErr == nil || dErr.Error() != rerr.Error() {
 		t.Fatalf("compiled RenderTo error: got %v, want %v", dErr, rerr)
 	}
@@ -520,7 +521,7 @@ func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
 	if strings.Contains(dw.String(), "\x00\x01QUILL_SLOT_") {
 		t.Fatalf("compiled RenderTo leaked a raw placeholder: %q", dw.String())
 	}
-	if out, err := direct.Render("t.ql", nil); err == nil || out != partial {
+	if out, err := direct.Render(context.Background(), "t.ql", nil); err == nil || out != partial {
 		t.Fatalf("compiled Render must keep its partial-buffer contract: got %q, %v", out, err)
 	}
 
@@ -532,7 +533,7 @@ func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
 		WithCompiled(m),
 		WithCompiledVerify(func(compiled.Divergence) { divs++ }))
 	var sw strings.Builder
-	sErr := shadow.RenderTo(&sw, "t.ql", nil)
+	sErr := shadow.RenderTo(context.Background(), &sw, "t.ql", nil)
 	if sErr == nil || sErr.Error() != rerr.Error() {
 		t.Fatalf("verify RenderTo error: got %v, want %v", sErr, rerr)
 	}
@@ -551,7 +552,7 @@ func TestWithCompiledVerifyNilIsDirectDispatch(t *testing.T) {
 	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(markerManifest("t.ql", "hi", defaultFingerprint(), false)),
 		WithCompiledVerify(nil))
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != dispatchMarker {
 		t.Fatalf("got %q, %v", out, err)
 	}
@@ -570,7 +571,7 @@ func TestWithCompiledVerifyDoubleRenderIsolation(t *testing.T) {
 	m.SetStr("x", runtime.Int(1))
 	vars := map[string]runtime.Value{"m": runtime.Arr(m)}
 	for i := 0; i < 2; i++ {
-		out, err := env.Render("t.ql", vars)
+		out, err := env.Render(context.Background(), "t.ql", vars)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -586,10 +587,10 @@ func TestWithCompiledVerifyDoubleRenderIsolation(t *testing.T) {
 func TestWithCompiledRecordsOutSizeHint(t *testing.T) {
 	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(markerManifest("t.ql", "hi", defaultFingerprint(), false)))
-	if _, err := env.Render("t.ql", nil); err != nil {
+	if _, err := env.Render(context.Background(), "t.ql", nil); err != nil {
 		t.Fatal(err)
 	}
-	tmpl, err := env.LoadTemplate("t.ql")
+	tmpl, err := env.LoadTemplate(context.Background(), "t.ql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -604,7 +605,7 @@ func TestWithCompiledMalformedManifestIgnored(t *testing.T) {
 	delete(noEntrySource.Sources(), "t.ql")
 	env := NewFromMap(map[string]string{"t.ql": "hi"},
 		WithCompiled(nil, noRender, noEntrySource))
-	out, err := env.Render("t.ql", nil)
+	out, err := env.Render(context.Background(), "t.ql", nil)
 	if err != nil || out != "hi" {
 		t.Fatalf("got %q, %v", out, err)
 	}
@@ -619,7 +620,7 @@ func TestWithCompiledConcurrentRenders(t *testing.T) {
 		Entry:       "static.ql",
 		Sources:     map[string]string{"static.ql": "Hello\n"},
 		Fingerprint: defaultFingerprint(),
-		Render: func(w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
+		Render: func(ctx context.Context, w io.Writer, _ *ext.Set, _ map[string]runtime.Value, _ compiled.RenderCache) error {
 			_, err := io.WriteString(w, "Hello\n")
 			return err
 		},
@@ -636,22 +637,22 @@ func TestWithCompiledConcurrentRenders(t *testing.T) {
 			defer wg.Done()
 			vars := map[string]runtime.Value{"n": runtime.Int(41)}
 			for i := 0; i < 100; i++ {
-				out, err := direct.Render("static.ql", nil)
+				out, err := direct.Render(context.Background(), "static.ql", nil)
 				if err != nil || out != "Hello\n" {
 					t.Errorf("direct compiled render: %q, %v", out, err)
 					return
 				}
 				var b strings.Builder
-				if err := direct.RenderTo(&b, "static.ql", nil); err != nil || b.String() != "Hello\n" {
+				if err := direct.RenderTo(context.Background(), &b, "static.ql", nil); err != nil || b.String() != "Hello\n" {
 					t.Errorf("direct compiled RenderTo: %q, %v", b.String(), err)
 					return
 				}
-				out, err = direct.Render("dyn.ql", vars)
+				out, err = direct.Render(context.Background(), "dyn.ql", vars)
 				if err != nil || out != "42" {
 					t.Errorf("interp render: %q, %v", out, err)
 					return
 				}
-				out, err = shadow.Render("static.ql", nil)
+				out, err = shadow.Render(context.Background(), "static.ql", nil)
 				if err != nil || out != "Hello\n" {
 					t.Errorf("shadow render: %q, %v", out, err)
 					return

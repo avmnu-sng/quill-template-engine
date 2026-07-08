@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"io"
 	"log"
 	"strings"
@@ -45,7 +46,7 @@ func (s *stubEngine) TemplateExists(name string) bool {
 	_, ok := s.tmpls[name]
 	return ok
 }
-func (s *stubEngine) LoadTemplate(name string) (*Template, error) {
+func (s *stubEngine) LoadTemplate(ctx context.Context, name string) (*Template, error) {
 	body, ok := s.tmpls[name]
 	if !ok {
 		return nil, errNotFound(name)
@@ -61,7 +62,7 @@ func (s *stubEngine) RawSource(name string) (string, bool) {
 	body, ok := s.tmpls[name]
 	return body, ok
 }
-func (s *stubEngine) CompileString(name, body string) (*Template, error) {
+func (s *stubEngine) CompileString(ctx context.Context, name, body string) (*Template, error) {
 	mod, err := parse.ParseString(name, body)
 	if err != nil {
 		return nil, err
@@ -104,7 +105,7 @@ func renderStub(t *testing.T, eng *stubEngine, body string, vars map[string]runt
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	out, err := Render(eng, Prepare("test", mod), vars)
+	out, err := Render(context.Background(), eng, Prepare("test", mod), vars)
 	if err != nil {
 		t.Fatalf("render error: %v", err)
 	}
@@ -164,7 +165,7 @@ func TestHostObjectFieldAndMethod(t *testing.T) {
 func TestArrayRenderIsError(t *testing.T) {
 	eng := newStub(nil)
 	mod, _ := parse.ParseString("t", "{{ xs }}")
-	_, err := Render(eng, Prepare("t", mod), map[string]runtime.Value{
+	_, err := Render(context.Background(), eng, Prepare("t", mod), map[string]runtime.Value{
 		"xs": runtime.Arr(runtime.NewList(runtime.Int(1))),
 	})
 	if err == nil {
@@ -228,7 +229,7 @@ func TestMatchesOperator(t *testing.T) {
 
 	// A non-string subject is a type error, not a silent coercion (render time).
 	mod, _ = parse.ParseString("t", `{{ 42 matches "4" }}`)
-	if _, err := Render(eng, Prepare("t", mod), nil); err == nil {
+	if _, err := Render(context.Background(), eng, Prepare("t", mod), nil); err == nil {
 		t.Error("matches over a non-string subject must error")
 	}
 
@@ -239,7 +240,7 @@ func TestMatchesOperator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dynamic pattern must not be rejected at compile time: %v", err)
 	}
-	if _, err := Render(eng, tmpl, map[string]runtime.Value{"p": runtime.Str("(")}); err == nil {
+	if _, err := Render(context.Background(), eng, tmpl, map[string]runtime.Value{"p": runtime.Str("(")}); err == nil {
 		t.Error("invalid dynamic RE2 pattern must error at render time")
 	}
 }

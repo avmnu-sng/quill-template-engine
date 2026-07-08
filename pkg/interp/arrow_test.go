@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -16,7 +17,7 @@ func renderStubVars(t *testing.T, eng *stubEngine, body string, vars map[string]
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	return Render(eng, Prepare("test", mod), vars)
+	return Render(context.Background(), eng, Prepare("test", mod), vars)
 }
 
 // TestArrowHigherOrder covers arrow evaluation through the higher-order stdlib

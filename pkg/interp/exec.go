@@ -19,6 +19,13 @@ import (
 // seeding and the Phase-1 sandbox check run per render, over the composed
 // chain, whether composeTemplate built it fresh or served it from the memo.
 func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Scope) error {
+	// Cancellation checkpoint at the render/include/embed entry: every top-level
+	// render and every nested render (a sub-interp's include or embed) enters
+	// here, so an already-cancelled context aborts before any composition work or
+	// output byte.
+	if err := in.checkCancelled(); err != nil {
+		return err
+	}
 	chain, err := in.composeTemplate(tmpl, ctx)
 	if err != nil {
 		return err
@@ -111,7 +118,7 @@ func (in *interp) buildChain(tmpl *Template, ctx *runtime.Scope) ([]*Template, e
 		if err != nil {
 			return nil, err
 		}
-		parent, err := in.eng.LoadTemplate(parentName)
+		parent, err := in.eng.LoadTemplate(in.ctx, parentName)
 		if err != nil {
 			return nil, posErr(cur.extendsNode, err)
 		}
@@ -200,7 +207,7 @@ func (in *interp) mergeTraits(t *Template) error {
 			return posErr(use, errors.New(errors.KindRuntime,
 				"a use target must be a constant string"))
 		}
-		trait, err := in.eng.LoadTemplate(traitName)
+		trait, err := in.eng.LoadTemplate(in.ctx, traitName)
 		if err != nil {
 			return posErr(use, err)
 		}
@@ -639,6 +646,12 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 	}
 
 	for i, p := range pairs {
+		// Cancellation checkpoint at the loop iteration boundary: a long or
+		// unbounded @for is where a render spends its time, so honoring the context
+		// here bounds the abort latency to one iteration's work.
+		if err := in.checkCancelled(); err != nil {
+			return posErr(n, err)
+		}
 		loopCtx.Set(target1.Str, p.Val)
 		if target2 != nil {
 			// for k, v: target1 binds the value, target2... per spec the first target
@@ -1244,7 +1257,7 @@ func (in *interp) execApply(n *ast.Node, ctx *runtime.Scope) error {
 			return posErr(f, err)
 		}
 		args = in.injectFilter(filt, ctx, args)
-		v, err = filt.Fn(args)
+		v, err = filt.Fn(in.ctx, args)
 		if err != nil {
 			return posErr(f, err)
 		}

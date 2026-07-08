@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
@@ -43,7 +44,7 @@ func TestShapingWrap(t *testing.T) {
 func TestShapingWrapWidthError(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("wrap")
-	if _, err := f.Fn([]runtime.Value{runtime.Str("x"), runtime.Int(0)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Str("x"), runtime.Int(0)}); err == nil {
 		t.Fatal("expected an error for wrap width 0")
 	}
 }

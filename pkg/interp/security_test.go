@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"context"
 	stderrors "errors"
 	"strings"
 	"testing"
@@ -68,7 +69,7 @@ func renderErr(t *testing.T, eng *stubEngine, name, body string, vars map[string
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	_, rerr := Render(eng, Prepare(name, mod), vars)
+	_, rerr := Render(context.Background(), eng, Prepare(name, mod), vars)
 	return rerr
 }
 
@@ -397,5 +398,5 @@ func renderStubAt(t *testing.T, eng *stubEngine, body string, vars map[string]ru
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	return Render(eng, Prepare("test", mod), vars)
+	return Render(context.Background(), eng, Prepare("test", mod), vars)
 }
