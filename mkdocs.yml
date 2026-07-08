@@ -88,4 +88,5 @@ nav:
   - Internals:
       - Architecture: architecture.md
   - Contributing: contributing.md
+  - Migrating to v1.0.0: migration.md
   - Changelog: changelog.md

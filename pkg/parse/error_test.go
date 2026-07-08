@@ -58,11 +58,11 @@ func TestErrorCarriesLineAndSource(t *testing.T) {
 	if qe.Kind != errors.KindSyntax {
 		t.Fatalf("kind = %v, want syntax", qe.Kind)
 	}
-	if qe.Line != 3 {
-		t.Fatalf("line = %d, want 3", qe.Line)
+	if qe.Line() != 3 {
+		t.Fatalf("line = %d, want 3", qe.Line())
 	}
-	if qe.Src == nil || qe.Src.Name() != "mytemplate" {
-		t.Fatalf("source name not attached: %+v", qe.Src)
+	if qe.Src() == nil || qe.Src().Name() != "mytemplate" {
+		t.Fatalf("source name not attached: %+v", qe.Src())
 	}
 	if !strings.Contains(err.Error(), "mytemplate:3") {
 		t.Fatalf("error text %q lacks template:line", err.Error())

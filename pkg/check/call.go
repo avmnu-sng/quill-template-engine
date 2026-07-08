@@ -50,8 +50,8 @@ func (c *checker) methodCallType(attr *ast.Node, args []*ast.Node, sc *scope) (*
 	if err != nil {
 		return Any, err
 	}
-	if recv != nil && recv.Kind == KObject && c.reg.nominal() {
-		if sig, ok := c.reg.methodSig(recv.Name, attr.Str); ok {
+	if recv != nil && recv.kind == KObject && c.reg.nominal() {
+		if sig, ok := c.reg.methodSig(recv.name, attr.Str); ok {
 			if sig != nil {
 				return c.checkCall(attr, sig, args, sc)
 			}
@@ -206,8 +206,8 @@ func (c *checker) arrowArg(arg *ast.Node, hints []*Type, sc *scope) (*Type, erro
 		if err != nil {
 			return Any, err
 		}
-		if at != nil && at.Kind == KArrow {
-			return at.Ret, nil
+		if at != nil && at.kind == KArrow {
+			return at.ret, nil
 		}
 		return Any, nil
 	}
@@ -265,9 +265,9 @@ func (c *checker) checkArgs(n *ast.Node, sig *Signature, pipedFirst *Type, args 
 		}
 	}
 
-	minArgs := len(sig.Params) - sig.Optional
-	maxArgs := len(sig.Params)
-	if sig.Variadic {
+	minArgs := len(sig.params) - sig.optional
+	maxArgs := len(sig.params)
+	if sig.variadic {
 		maxArgs = -1 // unbounded
 	}
 
@@ -283,10 +283,10 @@ func (c *checker) checkArgs(n *ast.Node, sig *Signature, pipedFirst *Type, args 
 	// Type-check each positional argument against its parameter.
 	for i, at := range posTypes {
 		var pt *Type
-		if i < len(sig.Params) {
-			pt = sig.Params[i]
-		} else if sig.Variadic {
-			pt = sig.VarElem
+		if i < len(sig.params) {
+			pt = sig.params[i]
+		} else if sig.variadic {
+			pt = sig.varElem
 		} else {
 			break
 		}
@@ -304,10 +304,10 @@ func (c *checker) checkArgs(n *ast.Node, sig *Signature, pipedFirst *Type, args 
 
 // sigRet returns the signature's result type, defaulting to any.
 func (c *checker) sigRet(sig *Signature) *Type {
-	if sig.Ret == nil {
+	if sig.ret == nil {
 		return Any
 	}
-	return sig.Ret
+	return sig.ret
 }
 
 // typeArgs types each call/filter argument for embedded errors, ignoring the

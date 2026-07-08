@@ -82,17 +82,22 @@ per-type methods, and per-type properties, so you can run untrusted templates
 under a policy you control.
 
 ```go
-pol := &sandbox.Policy{
-	Filters:   map[string]bool{"upper": true, "lower": true},
-	Functions: map[string]bool{},
-	Tags:      map[string]bool{"if": true, "for": true},
-	Graph:     sandbox.NewTypeGraph(),
-}
+pol := sandbox.NewPolicy(
+	sandbox.AllowTags("if", "for"),
+	sandbox.AllowFilters("upper", "lower"),
+)
 env := quill.New(ldr,
 	quill.WithSandboxPolicy(pol),
 	quill.WithSandboxActive(true),
 )
 ```
+
+A `Policy` is opaque and built with `sandbox.NewPolicy` and its functional
+options -- `AllowTags`, `AllowFilters`, `AllowFunctions`, `AllowMethods`,
+`AllowProperties`, `Strict`, and `WithTypeGraph`. Anything not allowed is denied,
+so the policy above permits only the `if`/`for` tags and the `upper`/`lower`
+filters; every function, method, and property is refused. Build a policy once at
+startup and treat it as read-only afterward.
 
 - **Uniform allowlisting.** Every tag, filter, and function is subject to the same
   allowlist, with none exempt: a host callable is gated exactly like a built-in,
@@ -121,7 +126,7 @@ By default `Render` returns the whole result as a string. `RenderTo` streams
 output to any `io.Writer` without buffering the entire result:
 
 ```go
-err := env.RenderTo(os.Stdout, "page.quill", vars)
+err := env.RenderTo(context.Background(), os.Stdout, "page.quill", vars)
 ```
 
 `RenderStringTo` is the string-keyed variant. A template that uses deferred slots

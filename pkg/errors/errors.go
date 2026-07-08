@@ -8,7 +8,9 @@
 // iteration, key/subscript, security, and a generic runtime bucket. Hosts can
 // branch on Kind (or match with errors.As) to react to a class of failure
 // without string-matching the message. Messages are ASCII and name the symbol
-// or operands at fault, per spec 04 Sections 5, 6, and 8.
+// or operands at fault, per spec 04 Sections 5, 6, and 8. Error message text is
+// NOT part of the compatibility contract; branch on Kind, errors.As, or a
+// sentinel (e.g. loader.ErrNotFound) instead.
 package errors
 
 import (
@@ -82,38 +84,76 @@ func (k Kind) String() string {
 	}
 }
 
-// Error is Quill's structured error. Src, Line, and Col may be unset (nil / 0)
-// when a failure is raised below the layer that knows the source position; a
-// higher layer can fill them in with At or AtPos before re-returning. Col is the
-// 1-based column of the fault; it is 0 when unknown, and the rendered message
-// omits it in that case for backward compatibility.
+// Error is Quill's structured error. Kind is the failure class hosts branch on
+// (read-only: mutating it after construction is undefined). The fault position
+// is read through the Src, Line, and Col methods and may be unset when a failure
+// is raised below the layer that knows it; a higher layer fills it in with At or
+// AtPos before re-returning. Col is the 1-based column; it is 0 when unknown, and
+// the rendered message omits it in that case.
+//
+// A constructed *Error is immutable and safe for concurrent use by multiple
+// goroutines -- At and AtPos return annotated copies rather than mutating the
+// receiver -- so long as callers treat the exported Kind, Msg, and Cause fields
+// as read-only after construction.
 type Error struct {
 	Kind Kind
-	Msg  string
-	Src  *source.Source
-	Line int
-	Col  int
+	// Msg is the human-readable, ASCII fault message. Like Kind it is read-only:
+	// mutating it after construction is undefined, and its exact text is not part
+	// of the compatibility contract (see the package doc).
+	Msg string
 	// Cause is an optional wrapped error, exposed via Unwrap.
 	Cause error
+
+	// src/line/col hold the fault position. They are unexported so position
+	// access is method-based and uniform with *Security (spec 01 Section 1.8),
+	// and are set only through At/AtPos, which return copies.
+	src  *source.Source
+	line int
+	col  int
 }
 
 // Error renders the message with the kind label and, when known, the source
 // name and line, so the text alone locates the fault.
 func (e *Error) Error() string {
 	loc := ""
-	if e.Src != nil {
+	if e.src != nil {
 		switch {
-		case e.Line > 0 && e.Col > 0:
-			loc = fmt.Sprintf(" (%s:%d:%d)", e.Src.Name(), e.Line, e.Col)
-		case e.Line > 0:
-			loc = fmt.Sprintf(" (%s:%d)", e.Src.Name(), e.Line)
+		case e.line > 0 && e.col > 0:
+			loc = fmt.Sprintf(" (%s:%d:%d)", e.src.Name(), e.line, e.col)
+		case e.line > 0:
+			loc = fmt.Sprintf(" (%s:%d)", e.src.Name(), e.line)
 		default:
-			loc = fmt.Sprintf(" (%s)", e.Src.Name())
+			loc = fmt.Sprintf(" (%s)", e.src.Name())
 		}
-	} else if e.Line > 0 {
-		loc = fmt.Sprintf(" (line %d)", e.Line)
+	} else if e.line > 0 {
+		loc = fmt.Sprintf(" (line %d)", e.line)
 	}
 	return fmt.Sprintf("quill %s error: %s%s", e.Kind, e.Msg, loc)
+}
+
+// Src returns the source the fault occurred in, or nil when unknown (or the
+// receiver is nil).
+func (e *Error) Src() *source.Source {
+	if e == nil {
+		return nil
+	}
+	return e.src
+}
+
+// Line returns the 1-based line of the fault, or 0 when unknown.
+func (e *Error) Line() int {
+	if e == nil {
+		return 0
+	}
+	return e.line
+}
+
+// Col returns the 1-based column of the fault, or 0 when unknown.
+func (e *Error) Col() int {
+	if e == nil {
+		return 0
+	}
+	return e.col
 }
 
 // Unwrap exposes the wrapped cause for errors.Is / errors.As chains.
@@ -137,9 +177,9 @@ func (e *Error) AtPos(src *source.Source, line, col int) *Error {
 		return nil
 	}
 	cp := *e
-	cp.Src = src
-	cp.Line = line
-	cp.Col = col
+	cp.src = src
+	cp.line = line
+	cp.col = col
 	return &cp
 }
 
@@ -154,10 +194,10 @@ func Wrap(kind Kind, cause error, format string, args ...any) *Error {
 	return &Error{Kind: kind, Msg: fmt.Sprintf(format, args...), Cause: cause}
 }
 
-// SecurityClass partitions a sandbox violation into the five categories the
-// spec names (spec 04 Section 8.3, design/escaping-safety Section 6.9). It is
-// carried on a *Security error so a host can branch on the exact violation
-// class without string-matching the message.
+// SecurityClass partitions a sandbox violation into the categories the spec
+// names (spec 04 Section 8.3, design/escaping-safety Section 6.9). It is carried
+// on a *Security error so a host can branch on the exact violation class without
+// string-matching the message.
 type SecurityClass uint8
 
 const (
@@ -172,6 +212,12 @@ const (
 	SecMethod
 	// SecProperty is a disallowed host-object property read or column access.
 	SecProperty
+	// SecUnknownType is a member access on a host type the strict-mode policy
+	// does not know at all: it has no method or property allowlist entry and is
+	// absent from the type-graph. It is distinct from SecMethod/SecProperty so a
+	// host can tell an unregistered or mistyped type from a denied-but-known
+	// member (spec 04 Section 8.3, B6).
+	SecUnknownType
 )
 
 // String returns a stable ASCII label for the security violation class.
@@ -187,6 +233,8 @@ func (c SecurityClass) String() string {
 		return "method"
 	case SecProperty:
 		return "property"
+	case SecUnknownType:
+		return "unknown-type"
 	default:
 		return "unknown"
 	}
@@ -196,35 +244,43 @@ func (c SecurityClass) String() string {
 // KindSecurity) so it stays in the engine's error family -- KindOf and
 // errors.As(&Error{}) reach it via Unwrap -- while adding the offending Name,
 // the host Type name for member violations (empty for tag/filter/function), and
-// the violation Class so a host can catch with errors.As(&Security{}) and
-// switch on Class (spec 04 Section 8.3, design/escaping-safety Section 6.9). The
-// wrapped *Error is a named field rather than an embedding because the embedded
-// field name would clash with the Error() interface method.
+// the violation Class so a host can catch with errors.As(&Security{}) and switch
+// on Class (spec 04 Section 8.3, design/escaping-safety Section 6.9). The wrapped
+// *Error is unexported; reach it (and its position) through Unwrap or the Src,
+// Line, and Col methods.
+//
+// A constructed *Security is immutable and safe for concurrent use by multiple
+// goroutines -- At returns an annotated copy rather than mutating the receiver --
+// so long as callers treat the exported Class, Name, and Type fields (and the
+// wrapped *Error) as read-only after construction.
 type Security struct {
-	Err   *Error
+	err   *Error
 	Class SecurityClass
 	Name  string // the offending tag/filter/function/method/property name
 	Type  string // the host type name for member violations; "" otherwise
 }
 
 // Error renders the wrapped *Error's message, making *Security an error.
-func (s *Security) Error() string { return s.Err.Error() }
+func (s *Security) Error() string { return s.err.Error() }
 
 // Unwrap exposes the wrapped *Error so errors.As(&errors.Error{}) and KindOf
 // still reach a *Security.
-func (s *Security) Unwrap() error { return s.Err }
+func (s *Security) Unwrap() error { return s.err }
 
 // Src returns the source the violation occurred in, if known.
-func (s *Security) Src() *source.Source { return s.Err.Src }
+func (s *Security) Src() *source.Source { return s.err.Src() }
 
 // Line returns the 1-based line of the violation, if known.
-func (s *Security) Line() int { return s.Err.Line }
+func (s *Security) Line() int { return s.err.Line() }
+
+// Col returns the 1-based column of the violation, if known.
+func (s *Security) Col() int { return s.err.Col() }
 
 // security builds a *Security of the given class with an ASCII message and no
 // source position; callers attach position later with At.
 func security(class SecurityClass, typeName, name, msg string) *Security {
 	return &Security{
-		Err:   &Error{Kind: KindSecurity, Msg: msg},
+		err:   &Error{Kind: KindSecurity, Msg: msg},
 		Class: class,
 		Name:  name,
 		Type:  typeName,
@@ -264,12 +320,11 @@ func SecurityProperty(typeName, prop string) *Security {
 // policy does not know at all -- it has no method or property allowlist entry
 // and is absent from the type-graph (spec 04 Section 8.3 strict-vs-lenient mode,
 // B6). Lenient mode does not raise this; it falls through to the per-member deny.
-// The class carries the same SecClass as the access (method or property) so a
-// host catches it uniformly, but the message names the unknown type so a strict
-// policy can distinguish a typo or unregistered type from a denied-but-known
-// member.
-func SecurityUnknownType(class SecurityClass, typeName, member string) *Security {
-	return security(class, typeName, member,
+// The violation carries the dedicated SecUnknownType class so a host can
+// distinguish a typo or unregistered type from a denied-but-known member, and
+// the message names the unknown type.
+func SecurityUnknownType(typeName, member string) *Security {
+	return security(SecUnknownType, typeName, member,
 		fmt.Sprintf("type %q is unknown to the sandbox policy (strict mode); access to %q is denied", typeName, member))
 }
 
@@ -281,7 +336,7 @@ func (s *Security) At(src *source.Source, line int) *Security {
 		return nil
 	}
 	cp := *s
-	cp.Err = s.Err.At(src, line)
+	cp.err = s.err.At(src, line)
 	return &cp
 }
 

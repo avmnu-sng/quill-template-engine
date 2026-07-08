@@ -54,8 +54,8 @@ func TestContextSetOwnedDoesNotShareArray(t *testing.T) {
 
 	shared := NewList(Int(1))
 	c.Set("viaSet", Arr(shared))
-	if v, ok := c.Get("viaSet"); !ok || !v.Arr.shared {
-		t.Fatalf("Set must mark the array shared, got ok=%v shared=%v", ok, v.Arr.shared)
+	if v, ok := c.Get("viaSet"); !ok || !v.AsArray().shared {
+		t.Fatalf("Set must mark the array shared, got ok=%v shared=%v", ok, v.AsArray().shared)
 	}
 
 	owned := NewList(Int(1))
@@ -64,7 +64,7 @@ func TestContextSetOwnedDoesNotShareArray(t *testing.T) {
 	if !ok {
 		t.Fatal("SetOwned binding not found")
 	}
-	if v.Arr.shared {
+	if v.AsArray().shared {
 		t.Fatal("SetOwned must NOT mark the array shared")
 	}
 	// The unshared array is owned, so Own is a no-op (no clone) and an in-place
@@ -73,9 +73,9 @@ func TestContextSetOwnedDoesNotShareArray(t *testing.T) {
 	if copied {
 		t.Fatal("Own must not clone an unshared (owned) array")
 	}
-	got.Arr.SetInt(0, Int(42))
-	if first, _ := owned.GetInt(0); first.I != 42 {
-		t.Fatalf("owned mutation did not reach the original array: %d", first.I)
+	got.AsArray().SetInt(0, Int(42))
+	if first, _ := owned.GetInt(0); first.AsInt() != 42 {
+		t.Fatalf("owned mutation did not reach the original array: %d", first.AsInt())
 	}
 }
 
@@ -87,7 +87,7 @@ func TestContextSetOwnedScalarAndRebind(t *testing.T) {
 	c.SetOwned("a", Int(1))
 	c.Set("b", Int(2))
 	c.SetOwned("a", Int(9)) // rebind keeps position
-	if v, ok := c.Get("a"); !ok || v.I != 9 {
+	if v, ok := c.Get("a"); !ok || v.AsInt() != 9 {
 		t.Fatalf("SetOwned rebind = %v, %v; want 9", v, ok)
 	}
 	names := c.Names()
@@ -112,13 +112,13 @@ func TestLoopCursorAtReusesObjectAndRecomputes(t *testing.T) {
 	v0 := cur.At(0)
 	v1 := cur.At(1)
 	// Reuse: both calls hand back the identical boxed Object.
-	if v0.Kind != KObject || v0.Obj != v1.Obj {
-		t.Fatalf("At must return the same reused object, got %p vs %p", v0.Obj, v1.Obj)
+	if v0.Kind() != KObject || v0.AsObject() != v1.AsObject() {
+		t.Fatalf("At must return the same reused object, got %p vs %p", v0.AsObject(), v1.AsObject())
 	}
 
 	field := func(v Value, name string) Value {
 		t.Helper()
-		got, ok := v.Obj.GetField(name)
+		got, ok := v.AsObject().GetField(name)
 		if !ok {
 			t.Fatalf("loop.%s not resolved", name)
 		}
@@ -126,40 +126,40 @@ func TestLoopCursorAtReusesObjectAndRecomputes(t *testing.T) {
 	}
 	for i := range pairs {
 		v := cur.At(i)
-		if got := field(v, "index0"); got.I != int64(i) {
-			t.Fatalf("At(%d).index0 = %d", i, got.I)
+		if got := field(v, "index0"); got.AsInt() != int64(i) {
+			t.Fatalf("At(%d).index0 = %d", i, got.AsInt())
 		}
-		if got := field(v, "index"); got.I != int64(i+1) {
-			t.Fatalf("At(%d).index = %d", i, got.I)
+		if got := field(v, "index"); got.AsInt() != int64(i+1) {
+			t.Fatalf("At(%d).index = %d", i, got.AsInt())
 		}
-		if got := field(v, "length"); got.I != int64(len(pairs)) {
-			t.Fatalf("At(%d).length = %d", i, got.I)
+		if got := field(v, "length"); got.AsInt() != int64(len(pairs)) {
+			t.Fatalf("At(%d).length = %d", i, got.AsInt())
 		}
-		if got := field(v, "first"); got.B != (i == 0) {
-			t.Fatalf("At(%d).first = %v", i, got.B)
+		if got := field(v, "first"); got.AsBool() != (i == 0) {
+			t.Fatalf("At(%d).first = %v", i, got.AsBool())
 		}
-		if got := field(v, "last"); got.B != (i == len(pairs)-1) {
-			t.Fatalf("At(%d).last = %v", i, got.B)
+		if got := field(v, "last"); got.AsBool() != (i == len(pairs)-1) {
+			t.Fatalf("At(%d).last = %v", i, got.AsBool())
 		}
-		if got := field(v, "revindex0"); got.I != int64(len(pairs)-1-i) {
-			t.Fatalf("At(%d).revindex0 = %d", i, got.I)
+		if got := field(v, "revindex0"); got.AsInt() != int64(len(pairs)-1-i) {
+			t.Fatalf("At(%d).revindex0 = %d", i, got.AsInt())
 		}
-		if got := field(v, "revindex"); got.I != int64(len(pairs)-i) {
-			t.Fatalf("At(%d).revindex = %d", i, got.I)
+		if got := field(v, "revindex"); got.AsInt() != int64(len(pairs)-i) {
+			t.Fatalf("At(%d).revindex = %d", i, got.AsInt())
 		}
 	}
 
 	// prev/next read the neighbouring materialized pair at the current index.
-	if got := field(cur.At(0), "prev"); got.Kind != KNull {
+	if got := field(cur.At(0), "prev"); got.Kind() != KNull {
 		t.Fatalf("At(0).prev = %v, want Null", got)
 	}
-	if got := field(cur.At(1), "prev"); got.Kind != KStr || got.S != "a" {
+	if got := field(cur.At(1), "prev"); got.Kind() != KStr || got.AsStr() != "a" {
 		t.Fatalf("At(1).prev = %v, want \"a\"", got)
 	}
-	if got := field(cur.At(1), "next"); got.Kind != KStr || got.S != "c" {
+	if got := field(cur.At(1), "next"); got.Kind() != KStr || got.AsStr() != "c" {
 		t.Fatalf("At(1).next = %v, want \"c\"", got)
 	}
-	if got := field(cur.At(2), "next"); got.Kind != KNull {
+	if got := field(cur.At(2), "next"); got.Kind() != KNull {
 		t.Fatalf("At(2).next = %v, want Null", got)
 	}
 }
@@ -171,14 +171,14 @@ func TestLoopCursorParentPointer(t *testing.T) {
 	top := Null()
 	parent := NewLoopValue(0, []Pair{{Key: Int(0), Val: Str("x")}}, &top)
 	cur := NewLoopCursor([]Pair{{Key: Int(0), Val: Str("a")}}, &parent)
-	got, ok := cur.At(0).Obj.GetField("parent")
-	if !ok || got.Kind != KObject || got.Obj != parent.Obj {
+	got, ok := cur.At(0).AsObject().GetField("parent")
+	if !ok || got.Kind() != KObject || got.AsObject() != parent.AsObject() {
 		t.Fatalf("cursor parent = %v (ok=%v), want the shared probe object", got, ok)
 	}
 
 	nilCur := NewLoopCursor([]Pair{{Key: Int(0), Val: Str("a")}}, nil)
-	gotNil, okNil := nilCur.At(0).Obj.GetField("parent")
-	if !okNil || gotNil.Kind != KNull {
+	gotNil, okNil := nilCur.At(0).AsObject().GetField("parent")
+	if !okNil || gotNil.Kind() != KNull {
 		t.Fatalf("nil-parent cursor parent = %v (ok=%v), want Null", gotNil, okNil)
 	}
 }
@@ -193,16 +193,16 @@ func TestLoopGetIndexMatchesGetField(t *testing.T) {
 		{Key: Int(1), Val: Str("b")},
 	}
 	v := NewLoopValue(1, pairs, nil)
-	idx := v.Obj.(Indexable)
+	idx := v.AsObject().(Indexable)
 
 	got, ok := idx.GetIndex(Str("index"))
-	if !ok || got.Kind != KInt || got.I != 2 {
+	if !ok || got.Kind() != KInt || got.AsInt() != 2 {
 		t.Fatalf("loop[\"index\"] = %v (ok=%v), want Int 2", got, ok)
 	}
 	// Matches dotted access exactly.
-	dot, _ := v.Obj.GetField("index")
-	if dot.I != got.I {
-		t.Fatalf("loop[\"index\"]=%d disagrees with loop.index=%d", got.I, dot.I)
+	dot, _ := v.AsObject().GetField("index")
+	if dot.AsInt() != got.AsInt() {
+		t.Fatalf("loop[\"index\"]=%d disagrees with loop.index=%d", got.AsInt(), dot.AsInt())
 	}
 
 	if _, ok := idx.GetIndex(Str("nope")); ok {
@@ -233,11 +233,11 @@ func TestLoopCallMethodAlwaysErrors(t *testing.T) {
 		{"whatever", nil, "loop has no method \"whatever\""},
 	}
 	for _, tc := range cases {
-		got, err := v.Obj.CallMethod(tc.name, tc.args)
+		got, err := v.AsObject().CallMethod(tc.name, tc.args)
 		if err == nil {
 			t.Fatalf("loop.CallMethod(%q) must error", tc.name)
 		}
-		if got.Kind != KNull {
+		if got.Kind() != KNull {
 			t.Fatalf("errored CallMethod(%q) must return Null, got %v", tc.name, got)
 		}
 		var qe *errors.Error
@@ -254,7 +254,7 @@ func TestLoopCallMethodAlwaysErrors(t *testing.T) {
 // value "loop" rather than a generic object.
 func TestLoopClassNameIsLoop(t *testing.T) {
 	v := NewLoopValue(0, []Pair{{Key: Int(0), Val: Str("a")}}, nil)
-	cn, ok := v.Obj.(ClassNamed)
+	cn, ok := v.AsObject().(ClassNamed)
 	if !ok {
 		t.Fatal("loop value must implement ClassNamed")
 	}

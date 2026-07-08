@@ -2,6 +2,7 @@ package quillbench
 
 import (
 	"bytes"
+	"context"
 	htmltmpl "html/template"
 	"strings"
 	"testing"
@@ -57,11 +58,11 @@ func TestVerifyOutputs(t *testing.T) {
 	want := loopWant(loopN)
 
 	// ----- Quill tiny (sanity on the filter path) -----
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"tiny.ql": quillTiny,
 		"loop.ql": quillLoop,
 	})
-	qTiny, err := env.Render("tiny.ql", map[string]runtime.Value{"name": runtime.Str("ada")})
+	qTiny, err := env.Render(context.Background(), "tiny.ql", map[string]runtime.Value{"name": runtime.Str("ada")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,14 +71,14 @@ func TestVerifyOutputs(t *testing.T) {
 	}
 
 	// ----- Quill interpreter -----
-	qLoop, err := env.Render("loop.ql", map[string]runtime.Value{"users": quillUsers()})
+	qLoop, err := env.Render(context.Background(), "loop.ql", map[string]runtime.Value{"users": quillUsers()})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// ----- Quill real compile backend (the committed RenderLoop) -----
 	var cb strings.Builder
-	if err := RenderLoop(&cb, ext.Core(), map[string]runtime.Value{"users": quillUsers()}, nil); err != nil {
+	if err := RenderLoop(context.Background(), &cb, ext.Core(), map[string]runtime.Value{"users": quillUsers()}, nil); err != nil {
 		t.Fatal(err)
 	}
 

@@ -8,6 +8,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -33,8 +34,8 @@ func main() {
 // Go func's signature once, at registration, and marshal runtime.Value arguments
 // and results through it -- string<->Str, int64<->Int, and so on -- so the body
 // is plain Go.
-func callables() *ext.ExtensionSet {
-	set := ext.NewExtensionSet()
+func callables() *ext.Set {
+	set := ext.NewSet()
 
 	// repeat is a filter: the piped string is the first parameter, the argument in
 	// repeat(n) is the second. "ab" | repeat(3) is repeat("ab", 3).
@@ -58,14 +59,14 @@ func callables() *ext.ExtensionSet {
 }
 
 func render() error {
-	env := quill.NewWithArray(
+	env := quill.NewFromMap(
 		map[string]string{"demo.quill": tmpl},
 		quill.WithExtensions(callables()),
 	)
 	counts := runtime.Arr(runtime.NewList(
 		runtime.Int(5), runtime.Int(-3), runtime.Int(42),
 	))
-	out, err := env.Render("demo.quill", map[string]runtime.Value{"counts": counts})
+	out, err := env.Render(context.Background(), "demo.quill", map[string]runtime.Value{"counts": counts})
 	if err != nil {
 		return err
 	}

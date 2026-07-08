@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -38,9 +39,7 @@ func runCover(args []string, out, errOut io.Writer, stdin io.Reader) error {
 	casesPath := fs.String("cases", "", "JSON file of {template,data} cases; unions coverage across all")
 	format := fs.String("format", "text", "report format: text (default), lcov, or html")
 	outPath := fs.String("o", "", "output file for the report (default stdout)")
-	failUnder := fs.Float64("fail-under", 0, "exit non-zero if total unit coverage percent is below N")
-	// -threshold is an accepted alias for -fail-under.
-	threshold := fs.Float64("threshold", 0, "alias for -fail-under")
+	failUnder := fs.Float64("fail-under", 0, "exit with code 2 if total unit coverage percent is below N")
 	autoescape := fs.String("autoescape", "off", `output escaping strategy: "off" (default) or "html"`)
 	strict := fs.Bool("strict", true, "strict-undefined handling; -strict=false enables lenient mode")
 	fs.Usage = func() {
@@ -76,7 +75,7 @@ func runCover(args []string, out, errOut io.Writer, stdin io.Reader) error {
 		quill.WithCoverage(coll),
 	)
 	for _, c := range cases {
-		if _, err := env.Render(c.Template, c.Vars); err != nil {
+		if _, err := env.Render(context.Background(), c.Template, c.Vars); err != nil {
 			return fmt.Errorf("render %q: %w", c.Template, err)
 		}
 	}
@@ -87,17 +86,14 @@ func runCover(args []string, out, errOut io.Writer, stdin io.Reader) error {
 		return err
 	}
 
-	// -fail-under (or its -threshold alias) gates on total unit coverage. When
-	// below the bar, print the uncovered-region breakdown to stderr so a failing
-	// CI log shows exactly what to cover, then return a non-zero error.
-	gate := *failUnder
-	if *threshold > gate {
-		gate = *threshold
-	}
-	if gate > 0 {
+	// -fail-under gates on total unit coverage. When below the bar, print the
+	// uncovered-region breakdown to stderr so a failing CI log shows exactly what
+	// to cover, then return a coverageGateError so main exits 2 (distinct from a
+	// hard error's 1).
+	if gate := *failUnder; gate > 0 {
 		if got := report.Totals().Units.Percent(); got < gate {
 			_ = report.WriteTextVerbose(errOut)
-			return fmt.Errorf("template unit coverage %.1f%% is below -fail-under %.1f%%", got, gate)
+			return &coverageGateError{got: got, gate: gate}
 		}
 	}
 	return nil

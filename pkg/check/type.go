@@ -31,7 +31,7 @@ import (
 
 // Kind tags a static Type. The scalar kinds mirror the runtime kinds of
 // spec 04 Section 2.1; the structured kinds (list/map/object/arrow/union) carry
-// sub-types; KAny is the gradual top and KNever is the empty type used only
+// sub-types; KAny is the gradual top and kNever is the empty type used only
 // internally as the identity element of a join.
 type Kind uint8
 
@@ -49,58 +49,63 @@ const (
 	KFloat
 	// KString is the string type.
 	KString
-	// KList is a list type; Elem is the element type.
+	// KList is a list type; elem is the element type.
 	KList
-	// KMap is a map type; Key and Val are the key/value types.
+	// KMap is a map type; key and val are the key/value types.
 	KMap
-	// KObject is a host object type; Name is the host type name.
+	// KObject is a host object type; name is the host type name.
 	KObject
-	// KArrow is an arrow type; Params are the parameter types, Ret the result.
+	// KArrow is an arrow type; params are the parameter types, ret the result.
 	KArrow
-	// KUnion is a union type; Union holds two or more alternative arms.
+	// KUnion is a union type; union holds two or more alternative arms.
 	KUnion
-	// KNever is the empty type, the identity of join; it never appears in a
+	// kNever is the empty type, the identity of join; it never appears in a
 	// well-formed annotation and is not renderable.
-	KNever
+	kNever
 )
 
 // Type is the checker's compile-time static type. It is never seen by the
 // interpreter (the checker erases types after the pass) and carries no runtime
 // payload. The zero value is KAny, so a freshly-made Type is the gradual top.
 type Type struct {
-	Kind   Kind
-	Name   string  // KObject host type name
-	Elem   *Type   // KList element type
-	Key    *Type   // KMap key type
-	Val    *Type   // KMap value type
-	Params []*Type // KArrow parameter types
-	Ret    *Type   // KArrow result type
-	Union  []*Type // KUnion arms (each non-union, non-any)
+	kind   Kind
+	name   string  // KObject host type name
+	elem   *Type   // KList element type
+	key    *Type   // KMap key type
+	val    *Type   // KMap value type
+	params []*Type // KArrow parameter types
+	ret    *Type   // KArrow result type
+	union  []*Type // KUnion arms (each non-union, non-any)
 }
 
-// The scalar singletons. Types are immutable once built, so sharing is safe.
+// The scalar singletons. Each *Type is immutable (all fields unexported), so the
+// pointed-to values are safe to share and use concurrently. These package
+// variables are part of the frozen v1 API and MUST NOT be reassigned by a host:
+// the checker uses them internally as canonical return values and constructor
+// arguments, so clobbering a binding (for example check.Int = check.String)
+// silently corrupts inference for every template in the process.
 var (
-	Any    = &Type{Kind: KAny}
-	Null   = &Type{Kind: KNull}
-	Bool   = &Type{Kind: KBool}
-	Int    = &Type{Kind: KInt}
-	Float  = &Type{Kind: KFloat}
-	String = &Type{Kind: KString}
-	Never  = &Type{Kind: KNever}
+	Any    = &Type{kind: KAny}
+	Null   = &Type{kind: KNull}
+	Bool   = &Type{kind: KBool}
+	Int    = &Type{kind: KInt}
+	Float  = &Type{kind: KFloat}
+	String = &Type{kind: KString}
+	never  = &Type{kind: kNever}
 )
 
 // ListOf returns list<elem>.
-func ListOf(elem *Type) *Type { return &Type{Kind: KList, Elem: elem} }
+func ListOf(elem *Type) *Type { return &Type{kind: KList, elem: elem} }
 
 // MapOf returns map<key, val>.
-func MapOf(key, val *Type) *Type { return &Type{Kind: KMap, Key: key, Val: val} }
+func MapOf(key, val *Type) *Type { return &Type{kind: KMap, key: key, val: val} }
 
 // ObjectOf returns Object<"name">.
-func ObjectOf(name string) *Type { return &Type{Kind: KObject, Name: name} }
+func ObjectOf(name string) *Type { return &Type{kind: KObject, name: name} }
 
 // ArrowOf returns (params...) => ret.
 func ArrowOf(ret *Type, params ...*Type) *Type {
-	return &Type{Kind: KArrow, Params: params, Ret: ret}
+	return &Type{kind: KArrow, params: params, ret: ret}
 }
 
 // String renders a Type in the surface annotation syntax, used in error
@@ -109,7 +114,7 @@ func (t *Type) String() string {
 	if t == nil {
 		return "any"
 	}
-	switch t.Kind {
+	switch t.kind {
 	case KAny:
 		return "any"
 	case KNull:
@@ -122,28 +127,28 @@ func (t *Type) String() string {
 		return "float"
 	case KString:
 		return "string"
-	case KNever:
+	case kNever:
 		return "never"
 	case KList:
-		return "list<" + t.Elem.String() + ">"
+		return "list<" + t.elem.String() + ">"
 	case KMap:
-		return "map<" + t.Key.String() + ", " + t.Val.String() + ">"
+		return "map<" + t.key.String() + ", " + t.val.String() + ">"
 	case KObject:
-		return "Object<\"" + t.Name + "\">"
+		return "Object<\"" + t.name + "\">"
 	case KArrow:
-		parts := make([]string, len(t.Params))
-		for i, p := range t.Params {
+		parts := make([]string, len(t.params))
+		for i, p := range t.params {
 			parts[i] = p.String()
 		}
-		return "(" + strings.Join(parts, ", ") + ") => " + t.Ret.String()
+		return "(" + strings.Join(parts, ", ") + ") => " + t.ret.String()
 	case KUnion:
 		// Render `T | null` as the `T?` sugar when that is the exact shape, since
 		// that is how the author most often wrote it.
 		if base, ok := t.asNullable(); ok {
 			return base.String() + "?"
 		}
-		parts := make([]string, len(t.Union))
-		for i, a := range t.Union {
+		parts := make([]string, len(t.union))
+		for i, a := range t.union {
 			parts[i] = a.String()
 		}
 		return strings.Join(parts, " | ")
@@ -154,32 +159,32 @@ func (t *Type) String() string {
 // asNullable reports whether a union is exactly `base | null` for a single
 // non-null base, returning that base.
 func (t *Type) asNullable() (*Type, bool) {
-	if t == nil || t.Kind != KUnion || len(t.Union) != 2 {
+	if t == nil || t.kind != KUnion || len(t.union) != 2 {
 		return nil, false
 	}
 	switch {
-	case t.Union[0].Kind == KNull:
-		return t.Union[1], true
-	case t.Union[1].Kind == KNull:
-		return t.Union[0], true
+	case t.union[0].kind == KNull:
+		return t.union[1], true
+	case t.union[1].kind == KNull:
+		return t.union[0], true
 	}
 	return nil, false
 }
 
 // isAny reports the gradual top (a nil Type is also treated as any, so callers
 // that forget to default are safe).
-func (t *Type) isAny() bool { return t == nil || t.Kind == KAny }
+func (t *Type) isAny() bool { return t == nil || t.kind == KAny }
 
 // hasNull reports whether null is one of the type's inhabitants.
 func (t *Type) hasNull() bool {
 	if t == nil {
 		return false
 	}
-	if t.Kind == KNull {
+	if t.kind == KNull {
 		return true
 	}
-	if t.Kind == KUnion {
-		for _, a := range t.Union {
+	if t.kind == KUnion {
+		for _, a := range t.union {
 			if a.hasNull() {
 				return true
 			}
@@ -191,8 +196,8 @@ func (t *Type) hasNull() bool {
 // arms returns the union arms, or the single type as a one-element slice, so a
 // caller can treat a scalar and a union uniformly.
 func (t *Type) arms() []*Type {
-	if t != nil && t.Kind == KUnion {
-		return t.Union
+	if t != nil && t.kind == KUnion {
+		return t.union
 	}
 	return []*Type{t}
 }
@@ -200,18 +205,18 @@ func (t *Type) arms() []*Type {
 // removeNull drops the null arm from a type, used by the `??`/`?:` coalescing
 // rule and by `is not null` narrowing (design/type-system.md Section 6.5, 8.1).
 func removeNull(t *Type) *Type {
-	if t == nil || t.Kind == KAny {
+	if t == nil || t.kind == KAny {
 		return t
 	}
-	if t.Kind == KNull {
-		return Never
+	if t.kind == KNull {
+		return never
 	}
-	if t.Kind != KUnion {
+	if t.kind != KUnion {
 		return t
 	}
 	var kept []*Type
-	for _, a := range t.Union {
-		if a.Kind != KNull {
+	for _, a := range t.union {
+		if a.kind != KNull {
 			kept = append(kept, a)
 		}
 	}
@@ -228,14 +233,14 @@ func unionOf(parts []*Type) *Type {
 		if p == nil {
 			continue
 		}
-		if p.Kind == KAny {
+		if p.kind == KAny {
 			return Any
 		}
-		if p.Kind == KNever {
+		if p.kind == kNever {
 			continue
 		}
-		if p.Kind == KUnion {
-			flat = append(flat, p.Union...)
+		if p.kind == KUnion {
+			flat = append(flat, p.union...)
 		} else {
 			flat = append(flat, p)
 		}
@@ -255,12 +260,12 @@ func unionOf(parts []*Type) *Type {
 	}
 	switch len(uniq) {
 	case 0:
-		return Never
+		return never
 	case 1:
 		return uniq[0]
 	}
 	sort.SliceStable(uniq, func(i, j int) bool { return uniq[i].String() < uniq[j].String() })
-	return &Type{Kind: KUnion, Union: uniq}
+	return &Type{kind: KUnion, union: uniq}
 }
 
 // equalType reports structural type equality, used for union dedup and the
@@ -269,32 +274,32 @@ func equalType(a, b *Type) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
-	if a.Kind != b.Kind {
+	if a.kind != b.kind {
 		return false
 	}
-	switch a.Kind {
+	switch a.kind {
 	case KObject:
-		return a.Name == b.Name
+		return a.name == b.name
 	case KList:
-		return equalType(a.Elem, b.Elem)
+		return equalType(a.elem, b.elem)
 	case KMap:
-		return equalType(a.Key, b.Key) && equalType(a.Val, b.Val)
+		return equalType(a.key, b.key) && equalType(a.val, b.val)
 	case KArrow:
-		if len(a.Params) != len(b.Params) || !equalType(a.Ret, b.Ret) {
+		if len(a.params) != len(b.params) || !equalType(a.ret, b.ret) {
 			return false
 		}
-		for i := range a.Params {
-			if !equalType(a.Params[i], b.Params[i]) {
+		for i := range a.params {
+			if !equalType(a.params[i], b.params[i]) {
 				return false
 			}
 		}
 		return true
 	case KUnion:
-		if len(a.Union) != len(b.Union) {
+		if len(a.union) != len(b.union) {
 			return false
 		}
-		for i := range a.Union {
-			if !equalType(a.Union[i], b.Union[i]) {
+		for i := range a.union {
+			if !equalType(a.union[i], b.union[i]) {
 				return false
 			}
 		}
@@ -316,13 +321,13 @@ func join(a, b *Type) *Type {
 	if b == nil {
 		b = Any
 	}
-	if a.Kind == KAny || b.Kind == KAny {
+	if a.kind == KAny || b.kind == KAny {
 		return Any
 	}
-	if a.Kind == KNever {
+	if a.kind == kNever {
 		return b
 	}
-	if b.Kind == KNever {
+	if b.kind == kNever {
 		return a
 	}
 	if equalType(a, b) {

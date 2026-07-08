@@ -151,7 +151,7 @@ Coverage lives in a new package `cover`. Its central type is a `Collector`:
     func NewCollector() *Collector
     func (c *Collector) Report() *Report
 
-The interpreter (`package interp`) gains one nullable field, `cov *cover.Collector`. When it
+The internal interpreter (`internal/interp`) gains one nullable coverage field. When it
 is `nil`, coverage is off and every hook is a single nil-check that the compiler and branch
 predictor make free -- this is the zero-overhead-when-disabled guarantee. When it is set, the
 interpreter calls into it at each coverable point:
@@ -168,7 +168,7 @@ interpreter calls into it at each coverable point:
 
 Two-phase design keeps the model complete even for never-rendered code. Before a render, the
 Collector is **seeded** by a static walk of each template's AST (the same walk shape as
-`collectUsed` in `interp/template.go`): every coverable node is registered as a region with a
+`collectUsed` in `internal/interp/template.go`): every coverable node is registered as a region with a
 zero hit count. Rendering then only *increments*. This is why a template line that no test
 ever reaches still appears in the report as `0` rather than being silently absent -- the
 denominator is the whole template, not just what ran. Seeding is idempotent and keyed by
@@ -231,8 +231,9 @@ Coverage is a construction option, mirroring the existing `WithAutoescapeHTML` /
         quill.WithCoverage(coll),
     )
 
-    _, _ = env.Render("page.quill", vars)      // records into coll
-    _, _ = env.Render("page.quill", other)     // unions more hits
+    ctx := context.Background()
+    _, _ = env.Render(ctx, "page.quill", vars)      // records into coll
+    _, _ = env.Render(ctx, "page.quill", other)     // unions more hits
 
     report := coll.Report()
 
@@ -274,7 +275,7 @@ your fixtures through it, then assert a threshold and dump a report artifact.
             quill.WithCoverage(coll))
 
         for _, tc := range fixtures {           // each renders one template + data
-            if _, err := env.Render(tc.Template, tc.Vars); err != nil {
+            if _, err := env.Render(context.Background(), tc.Template, tc.Vars); err != nil {
                 t.Fatalf("%s: %v", tc.Template, err)
             }
         }

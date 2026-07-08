@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -62,7 +63,7 @@ func TestScopeFrameSpillSemantics(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			env := New(loader.NewArrayLoader(map[string]string{"main.ql": tc.tmpl}))
-			got, err := env.Render("main.ql", nil)
+			got, err := env.Render(context.Background(), "main.ql", nil)
 			if err != nil {
 				t.Fatalf("render: %v", err)
 			}
@@ -70,7 +71,7 @@ func TestScopeFrameSpillSemantics(t *testing.T) {
 				t.Fatalf("spill-frame semantics drifted\ngot:  %q\nwant: %q", got, tc.want)
 			}
 			var sb strings.Builder
-			if err := env.RenderTo(&sb, "main.ql", nil); err != nil {
+			if err := env.RenderTo(context.Background(), &sb, "main.ql", nil); err != nil {
 				t.Fatalf("renderto: %v", err)
 			}
 			if sb.String() != tc.want {
@@ -88,7 +89,7 @@ func TestStrictUndefinedHintAcrossSpilledFrame(t *testing.T) {
 	env := New(loader.NewArrayLoader(map[string]string{
 		"main.ql": spillSets("b", 10) + "{{ missing_name }}\n",
 	}))
-	_, err := env.Render("main.ql", nil)
+	_, err := env.Render(context.Background(), "main.ql", nil)
 	if err == nil {
 		t.Fatal("want strict-undefined error, got nil")
 	}
@@ -118,7 +119,7 @@ func TestWideRootFrameStress(t *testing.T) {
 	want := "0 1 4 9 16 25 36 49 64 81 100 121 144 169 196 225 256 289 324 361 " +
 		"400 441 484 529 576 625 676 729 784 841 \nin: [42,2]\nout: [1,2]\n"
 	env := New(loader.NewArrayLoader(map[string]string{"main.ql": tmpl}))
-	got, err := env.Render("main.ql", vars)
+	got, err := env.Render(context.Background(), "main.ql", vars)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -126,7 +127,7 @@ func TestWideRootFrameStress(t *testing.T) {
 		t.Fatalf("wide root frame drifted\ngot:  %q\nwant: %q", got, want)
 	}
 	var sb strings.Builder
-	if err := env.RenderTo(&sb, "main.ql", vars); err != nil {
+	if err := env.RenderTo(context.Background(), &sb, "main.ql", vars); err != nil {
 		t.Fatalf("renderto: %v", err)
 	}
 	if sb.String() != want {

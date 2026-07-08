@@ -21,34 +21,34 @@ func (c *checker) validateType(n *ast.Node, t *Type) error {
 	if t == nil {
 		return nil
 	}
-	switch t.Kind {
+	switch t.kind {
 	case KMap:
-		if !validMapKey(t.Key) {
-			return errAt(n, "map key type must be int or string, found %s", t.Key.String())
+		if !validMapKey(t.key) {
+			return errAt(n, "map key type must be int or string, found %s", t.key.String())
 		}
-		if err := c.validateChildType(n, 0, t.Key); err != nil {
+		if err := c.validateChildType(n, 0, t.key); err != nil {
 			return err
 		}
-		return c.validateChildType(n, 1, t.Val)
+		return c.validateChildType(n, 1, t.val)
 	case KList:
-		return c.validateChildType(n, 0, t.Elem)
+		return c.validateChildType(n, 0, t.elem)
 	case KObject:
-		if t.Name == "" {
+		if t.name == "" {
 			return errAt(n, "Object<...> requires a non-empty type name")
 		}
-		if !c.reg.knowsType(t.Name) {
-			return errAt(n, "unknown host type %s", quoteName(t.Name))
+		if !c.reg.knowsType(t.name) {
+			return errAt(n, "unknown host type %s", quoteName(t.name))
 		}
 		return nil
 	case KArrow:
-		for i, p := range t.Params {
+		for i, p := range t.params {
 			if err := c.validateChildType(n, i, p); err != nil {
 				return err
 			}
 		}
-		return c.validateType(retNode(n), t.Ret)
+		return c.validateType(retNode(n), t.ret)
 	case KUnion:
-		for i, a := range t.Union {
+		for i, a := range t.union {
 			if err := c.validateChildType(n, i, a); err != nil {
 				return err
 			}
@@ -89,11 +89,11 @@ func validMapKey(k *Type) bool {
 	if k == nil {
 		return true
 	}
-	switch k.Kind {
+	switch k.kind {
 	case KAny, KInt, KString:
 		return true
 	case KUnion:
-		for _, a := range k.Union {
+		for _, a := range k.union {
 			if !validMapKey(a) {
 				return false
 			}

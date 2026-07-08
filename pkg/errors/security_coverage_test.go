@@ -28,8 +28,8 @@ func assertSecurity(t *testing.T, s *Security, wantClass SecurityClass, wantType
 	}
 
 	// Error() must render exactly the wrapped *Error's message.
-	if s.Error() != s.Err.Error() {
-		t.Errorf("Error() = %q, want it to equal wrapped Err.Error() %q", s.Error(), s.Err.Error())
+	if s.Error() != s.err.Error() {
+		t.Errorf("Error() = %q, want it to equal wrapped err.Error() %q", s.Error(), s.err.Error())
 	}
 	msg := s.Error()
 	for _, frag := range wantFrags {
@@ -44,7 +44,7 @@ func assertSecurity(t *testing.T, s *Security, wantClass SecurityClass, wantType
 	}
 
 	// Unwrap reaches the wrapped *Error, which is KindSecurity.
-	if s.Unwrap() != error(s.Err) {
+	if s.Unwrap() != error(s.err) {
 		t.Errorf("Unwrap() = %v, want the wrapped *Error", s.Unwrap())
 	}
 	var base *Error
@@ -117,10 +117,10 @@ func TestSecurityMethodBehavior(t *testing.T) {
 }
 
 func TestSecurityUnknownTypeBehavior(t *testing.T) {
-	// The unknown-type variant carries the SAME class as the access it denies
-	// (here SecMethod) while its message names the unregistered type.
-	s := SecurityUnknownType(SecMethod, "Stranger", "run")
-	assertSecurity(t, s, SecMethod, "Stranger", "run",
+	// The unknown-type variant carries the dedicated SecUnknownType class while
+	// its message names the unregistered type.
+	s := SecurityUnknownType("Stranger", "run")
+	assertSecurity(t, s, SecUnknownType, "Stranger", "run",
 		`type "Stranger" is unknown to the sandbox policy (strict mode); access to "run" is denied`)
 }
 
@@ -135,8 +135,8 @@ func TestSecurityAtAttachesPosition(t *testing.T) {
 	positioned := s.At(src, 3)
 
 	// Receiver is untouched (At returns a copy).
-	if s.Err.Src != nil || s.Err.Line != 0 {
-		t.Fatalf("At mutated the receiver: src=%v line=%d", s.Err.Src, s.Err.Line)
+	if s.err.Src() != nil || s.err.Line() != 0 {
+		t.Fatalf("At mutated the receiver: src=%v line=%d", s.err.Src(), s.err.Line())
 	}
 	// The copy carries position and the same identifying fields.
 	if positioned.Src() != src {
@@ -149,8 +149,8 @@ func TestSecurityAtAttachesPosition(t *testing.T) {
 		t.Errorf("class/name lost after At: %v/%q", positioned.Class, positioned.Name)
 	}
 	// .At goes through *Error.At -> AtPos(.., 0), so no column is rendered.
-	if positioned.Err.Col != 0 {
-		t.Errorf("At set a nonzero column: %d", positioned.Err.Col)
+	if positioned.err.Col() != 0 {
+		t.Errorf("At set a nonzero column: %d", positioned.err.Col())
 	}
 	msg := positioned.Error()
 	if !strings.Contains(msg, "policy.ql:3") {
@@ -177,16 +177,16 @@ func TestSecurityAtPosThroughWrappedError(t *testing.T) {
 	s := SecurityProperty("Entity", "salary")
 
 	// AtPos on the wrapped *Error attaches the 1-based column.
-	positioned := s.Err.AtPos(src, 2, 4)
-	if positioned.Line != 2 || positioned.Col != 4 {
-		t.Fatalf("AtPos did not set line/col: line=%d col=%d", positioned.Line, positioned.Col)
+	positioned := s.err.AtPos(src, 2, 4)
+	if positioned.Line() != 2 || positioned.Col() != 4 {
+		t.Fatalf("AtPos did not set line/col: line=%d col=%d", positioned.Line(), positioned.Col())
 	}
 	if !strings.Contains(positioned.Error(), "policy.ql:2:4") {
 		t.Errorf("message %q lacks name:line:col", positioned.Error())
 	}
 	// The original wrapped error is unchanged (AtPos is a copy).
-	if s.Err.Src != nil || s.Err.Col != 0 {
-		t.Fatalf("AtPos mutated the wrapped receiver: src=%v col=%d", s.Err.Src, s.Err.Col)
+	if s.err.Src() != nil || s.err.Col() != 0 {
+		t.Fatalf("AtPos mutated the wrapped receiver: src=%v col=%d", s.err.Src(), s.err.Col())
 	}
 }
 

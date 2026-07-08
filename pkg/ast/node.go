@@ -6,10 +6,17 @@
 // The design follows spec 06-architecture-and-roadmap and design/parser-nodes:
 // "uniform Node with Kind discriminator, ordered children, Lineno/Source." One
 // struct represents a literal, an operator, a statement, and the module root
-// alike; the differences live in Kind, the scalar attributes (Str/Int/Float/Op),
+// alike; the differences live in Kind, the scalar attributes (Str/Int/Float/Bool),
 // and the shape of Children. This keeps tree walks simple (one switch on Kind)
 // at the cost of a few kind-specific accessor conventions, documented per Kind
 // in kind.go.
+//
+// A Node is immutable after parse. Once the parser returns a module, its tree is
+// treated as read-only for the rest of the process: the same *Node is shared by
+// pointer across cache keys and read concurrently by the interpreter, the
+// coverage collector (package cover), and the checker (package check) without
+// synchronization. Nothing downstream of the parser mutates a Node or its
+// Children -- a walk that needs to transform the tree must build new nodes.
 package ast
 
 import (

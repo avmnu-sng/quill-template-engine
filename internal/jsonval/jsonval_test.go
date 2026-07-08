@@ -26,7 +26,7 @@ func TestDecodeScalars(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !runtime.Equal(got, c.want) || got.Kind != c.want.Kind {
+			if !runtime.Equal(got, c.want) || got.Kind() != c.want.Kind() {
 				t.Errorf("got %+v want %+v", got, c.want)
 			}
 		})
@@ -48,8 +48,8 @@ func TestIntVsFloat(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 3.0 has no integer literal form, so it stays a Float and renders "3".
-	if v.Kind != runtime.KFloat {
-		t.Errorf("3.0 should decode to a float, got %s", v.Kind)
+	if v.Kind() != runtime.KFloat {
+		t.Errorf("3.0 should decode to a float, got %s", v.Kind())
 	}
 }
 
@@ -58,15 +58,15 @@ func TestDecodeNested(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Kind != runtime.KArray {
-		t.Fatalf("want array, got %s", v.Kind)
+	if v.Kind() != runtime.KArray {
+		t.Fatalf("want array, got %s", v.Kind())
 	}
-	name, _ := v.Arr.GetStr("name")
-	if name.Kind != runtime.KStr || name.S != "ada" {
+	name, _ := v.AsArray().GetStr("name")
+	if name.Kind() != runtime.KStr || name.AsStr() != "ada" {
 		t.Errorf("name: %+v", name)
 	}
-	tags, _ := v.Arr.GetStr("tags")
-	if tags.Kind != runtime.KArray || tags.Arr.Len() != 2 {
+	tags, _ := v.AsArray().GetStr("tags")
+	if tags.Kind() != runtime.KArray || tags.AsArray().Len() != 2 {
 		t.Errorf("tags: %+v", tags)
 	}
 }
@@ -79,7 +79,7 @@ func TestDecodeMapRequiresObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m["a"].Kind != runtime.KInt || m["b"].S != "two" {
+	if m["a"].Kind() != runtime.KInt || m["b"].AsStr() != "two" {
 		t.Errorf("map: %+v", m)
 	}
 }
@@ -102,8 +102,8 @@ func TestObjectOrderPreserved(t *testing.T) {
 			t.Fatal(err)
 		}
 		var got []string
-		for _, p := range v.Arr.Pairs() {
-			got = append(got, p.Key.S)
+		for _, p := range v.AsArray().Pairs() {
+			got = append(got, p.Key.AsStr())
 		}
 		if len(got) != len(want) {
 			t.Fatalf("len got %d want %d", len(got), len(want))
@@ -126,20 +126,20 @@ func TestObjectNumericKeysCanonicalize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Kind != runtime.KArray {
-		t.Fatalf("want array, got %s", v.Kind)
+	if v.Kind() != runtime.KArray {
+		t.Fatalf("want array, got %s", v.Kind())
 	}
-	keys := v.Arr.Keys()
+	keys := v.AsArray().Keys()
 	if len(keys) != 2 {
 		t.Fatalf("want 2 keys, got %d", len(keys))
 	}
 	for i, k := range keys {
-		if k.Kind != runtime.KInt || k.I != int64(i) {
+		if k.Kind() != runtime.KInt || k.AsInt() != int64(i) {
 			t.Errorf("key %d: got %+v, want Int(%d)", i, k, i)
 		}
 	}
 	// All-integer 0..n-1 keys make the object list-shaped (is sequence true).
-	if !v.Arr.IsList() {
+	if !v.AsArray().IsList() {
 		t.Error("object with keys 0,1 should be list-shaped")
 	}
 
@@ -148,17 +148,17 @@ func TestObjectNumericKeysCanonicalize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys = v.Arr.Keys()
-	if keys[0].Kind != runtime.KInt || keys[0].I != 0 {
+	keys = v.AsArray().Keys()
+	if keys[0].Kind() != runtime.KInt || keys[0].AsInt() != 0 {
 		t.Errorf("key 0: got %+v, want Int(0)", keys[0])
 	}
-	if keys[1].Kind != runtime.KStr || keys[1].S != "01" {
+	if keys[1].Kind() != runtime.KStr || keys[1].AsStr() != "01" {
 		t.Errorf(`key "01": got %+v, want Str("01")`, keys[1])
 	}
-	if keys[2].Kind != runtime.KStr || keys[2].S != "name" {
+	if keys[2].Kind() != runtime.KStr || keys[2].AsStr() != "name" {
 		t.Errorf(`key "name": got %+v, want Str("name")`, keys[2])
 	}
-	if v.Arr.IsList() {
+	if v.AsArray().IsList() {
 		t.Error("object with a non-integer key must not be list-shaped")
 	}
 }

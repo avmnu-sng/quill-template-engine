@@ -1,13 +1,14 @@
 package quill
 
 import (
+	"context"
 	"math/rand"
 	"strings"
 	"time"
 
+	"github.com/avmnu-sng/quill-template-engine/internal/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
-	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
@@ -86,7 +87,7 @@ func engineTabWidth(envRef runtime.Value) int {
 }
 
 // tabFilterFn is the width-aware tab filter: args are [env, piped, levels?].
-func tabFilterFn(args []runtime.Value) (runtime.Value, error) {
+func tabFilterFn(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) == 0 {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"tab did not receive the engine handle")
@@ -95,7 +96,7 @@ func tabFilterFn(args []runtime.Value) (runtime.Value, error) {
 }
 
 // tabFunctionFn is the width-aware tab() function: args are [env, levels?].
-func tabFunctionFn(args []runtime.Value) (runtime.Value, error) {
+func tabFunctionFn(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) == 0 {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"tab() did not receive the engine handle")
@@ -117,7 +118,7 @@ func engineRNG(envRef runtime.Value) *rand.Rand {
 }
 
 // randomFn is the seed-aware random(): args are [env, values?, max?].
-func randomFn(args []runtime.Value) (runtime.Value, error) {
+func randomFn(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) == 0 {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"random() did not receive the engine handle")
@@ -126,7 +127,7 @@ func randomFn(args []runtime.Value) (runtime.Value, error) {
 }
 
 // shuffleFn is the seed-aware shuffle filter: args are [env, collection, seed?].
-func shuffleFn(args []runtime.Value) (runtime.Value, error) {
+func shuffleFn(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) == 0 {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"shuffle did not receive the engine handle")
@@ -137,7 +138,7 @@ func shuffleFn(args []runtime.Value) (runtime.Value, error) {
 // sourceFn returns the raw source of a template; a miss is an error unless
 // ignore_missing is truthy (spec 03 Section 3.2). args are [env, name,
 // ignore_missing?].
-func sourceFn(args []runtime.Value) (runtime.Value, error) {
+func sourceFn(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) < 2 {
 		return runtime.Null(), errors.New(errors.KindRuntime, "source() requires a template name")
 	}
@@ -162,7 +163,7 @@ func sourceFn(args []runtime.Value) (runtime.Value, error) {
 
 // templateFromStringFn compiles the given source and renders it with the live
 // context (spec 03 Section 3.3). args are [env, ctx, source, name?].
-func templateFromStringFn(args []runtime.Value) (runtime.Value, error) {
+func templateFromStringFn(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) < 3 {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"template_from_string() requires a source string")
@@ -183,18 +184,18 @@ func templateFromStringFn(args []runtime.Value) (runtime.Value, error) {
 			name = n
 		}
 	}
-	tmpl, err := eng.CompileString(name, body)
+	tmpl, err := eng.CompileString(ctx, name, body)
 	if err != nil {
 		return runtime.Null(), err
 	}
 	vars := map[string]runtime.Value{}
-	if ctxArr.Kind == runtime.KArray && ctxArr.Arr != nil {
-		for _, p := range ctxArr.Arr.Pairs() {
+	if ctxArr.Kind() == runtime.KArray && ctxArr.AsArray() != nil {
+		for _, p := range ctxArr.AsArray().Pairs() {
 			key, _ := runtime.ToText(p.Key)
 			vars[key] = p.Val
 		}
 	}
-	out, err := interp.Render(eng, tmpl, vars)
+	out, err := interp.Render(ctx, eng, tmpl, vars)
 	if err != nil {
 		return runtime.Null(), err
 	}
@@ -203,7 +204,7 @@ func templateFromStringFn(args []runtime.Value) (runtime.Value, error) {
 
 // dumpFn debug-dumps its arguments (or the whole context if none) in a
 // Go-native structured format (spec 03 Section 3.3). args are [ctx, vars...].
-func dumpFn(args []runtime.Value) (runtime.Value, error) {
+func dumpFn(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) == 0 {
 		return runtime.Str(""), nil
 	}
@@ -227,7 +228,7 @@ func dumpFn(args []runtime.Value) (runtime.Value, error) {
 // ignore_missing?, sandboxed?]. The sandboxed flag forces the included render
 // into the sandbox; a render already inside an active sandbox stays sandboxed
 // regardless of the flag (B16, design/escaping-safety Section 6.6).
-func includeFn(args []runtime.Value) (runtime.Value, error) {
+func includeFn(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	if len(args) < 3 {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"include() requires a template name")
@@ -268,7 +269,7 @@ func includeFn(args []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"included template %q not found", name)
 	}
-	tmpl, err := eng.LoadTemplate(name)
+	tmpl, err := eng.LoadTemplate(ctx, name)
 	if err != nil {
 		if ignoreMissing {
 			return runtime.Str(""), nil
@@ -277,15 +278,15 @@ func includeFn(args []runtime.Value) (runtime.Value, error) {
 	}
 
 	vars := map[string]runtime.Value{}
-	if withContext && ctxArr.Kind == runtime.KArray && ctxArr.Arr != nil {
-		for _, p := range ctxArr.Arr.Pairs() {
+	if withContext && ctxArr.Kind() == runtime.KArray && ctxArr.AsArray() != nil {
+		for _, p := range ctxArr.AsArray().Pairs() {
 			key, _ := runtime.ToText(p.Key)
 			vars[key] = p.Val
 		}
 	}
 	// The explicit vars map (arg 3) overrides context vars.
-	if len(args) > 3 && args[3].Kind == runtime.KArray && args[3].Arr != nil {
-		for _, p := range args[3].Arr.Pairs() {
+	if len(args) > 3 && args[3].Kind() == runtime.KArray && args[3].AsArray() != nil {
+		for _, p := range args[3].AsArray().Pairs() {
 			key, _ := runtime.ToText(p.Key)
 			vars[key] = p.Val
 		}
@@ -293,9 +294,9 @@ func includeFn(args []runtime.Value) (runtime.Value, error) {
 
 	var out string
 	if sandboxed {
-		out, err = interp.RenderSandboxed(eng, tmpl, vars)
+		out, err = interp.RenderSandboxed(ctx, eng, tmpl, vars)
 	} else {
-		out, err = interp.Render(eng, tmpl, vars)
+		out, err = interp.Render(ctx, eng, tmpl, vars)
 	}
 	if err != nil {
 		return runtime.Null(), err

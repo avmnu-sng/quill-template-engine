@@ -22,20 +22,20 @@ type Callable interface {
 // Anything else is a runtime error so a non-callable passed where an arrow is
 // expected fails clearly rather than silently no-op'ing.
 func Call(fn Value, args []Value) (Value, error) {
-	if fn.Kind == KObject {
-		if c, ok := fn.Obj.(Callable); ok {
+	if fn.kind == KObject {
+		if c, ok := fn.obj.(Callable); ok {
 			return c.Invoke(args)
 		}
 	}
 	return Null(), errors.New(errors.KindRuntime,
-		"value of kind %s is not callable; expected an arrow function", fn.Kind)
+		"value of kind %s is not callable; expected an arrow function", fn.kind)
 }
 
 // IsCallable reports whether fn can be invoked by Call.
 func IsCallable(fn Value) bool {
-	if fn.Kind != KObject {
+	if fn.kind != KObject {
 		return false
 	}
-	_, ok := fn.Obj.(Callable)
+	_, ok := fn.obj.(Callable)
 	return ok
 }

@@ -15,12 +15,12 @@ func TestSeparatorValue(t *testing.T) {
 		t.Fatal("separator() should return a callable")
 	}
 	first, err := runtime.Call(sep, nil)
-	if err != nil || first.Kind != runtime.KStr || first.S != "" {
+	if err != nil || first.Kind() != runtime.KStr || first.AsStr() != "" {
 		t.Fatalf("first call = %v (err %v), want empty string", first, err)
 	}
 	for i := 0; i < 3; i++ {
 		v, err := runtime.Call(sep, nil)
-		if err != nil || v.S != ", " {
+		if err != nil || v.AsStr() != ", " {
 			t.Fatalf("later call %d = %v (err %v), want %q", i, v, err, ", ")
 		}
 	}
@@ -28,8 +28,8 @@ func TestSeparatorValue(t *testing.T) {
 	// A second separator has independent state (its first call is still empty).
 	other := callFn(t, "separator", runtime.Str("|"))
 	v, _ := runtime.Call(other, nil)
-	if v.S != "" {
-		t.Fatalf("independent separator first call = %q, want empty", v.S)
+	if v.AsStr() != "" {
+		t.Fatalf("independent separator first call = %q, want empty", v.AsStr())
 	}
 }
 
@@ -38,8 +38,8 @@ func TestSeparatorDefault(t *testing.T) {
 	sep := callFn(t, "separator")
 	_, _ = runtime.Call(sep, nil) // discard the leading empty
 	v, _ := runtime.Call(sep, nil)
-	if v.S != "," {
-		t.Fatalf("default separator = %q, want %q", v.S, ",")
+	if v.AsStr() != "," {
+		t.Fatalf("default separator = %q, want %q", v.AsStr(), ",")
 	}
 }
 
@@ -48,7 +48,7 @@ func TestSeparatorDefault(t *testing.T) {
 func TestCellValue(t *testing.T) {
 	c := callFn(t, "cell", runtime.Int(0))
 	got, err := runtime.GetAttribute(c, runtime.Str("value"), runtime.AccessDot, false)
-	if err != nil || got.Kind != runtime.KInt || got.I != 0 {
+	if err != nil || got.Kind() != runtime.KInt || got.AsInt() != 0 {
 		t.Fatalf("initial value = %v (err %v), want 0", got, err)
 	}
 
@@ -56,7 +56,7 @@ func TestCellValue(t *testing.T) {
 		t.Fatalf("SetMember: %v", err)
 	}
 	got, _ = runtime.GetAttribute(c, runtime.Str("value"), runtime.AccessDot, false)
-	if got.I != 42 {
+	if got.AsInt() != 42 {
 		t.Fatalf("after set, value = %v, want 42", got)
 	}
 
@@ -64,7 +64,7 @@ func TestCellValue(t *testing.T) {
 	// through it -- the property that lets a cell survive a loop-scope clone.
 	alias := runtime.CopyValue(c)
 	got, _ = runtime.GetAttribute(alias, runtime.Str("value"), runtime.AccessDot, false)
-	if got.I != 42 {
+	if got.AsInt() != 42 {
 		t.Fatalf("aliased cell value = %v, want 42", got)
 	}
 }
@@ -72,7 +72,7 @@ func TestCellValue(t *testing.T) {
 // TestCellUnknownMember rejects reading or assigning a member other than value.
 func TestCellUnknownMember(t *testing.T) {
 	c := callFn(t, "cell", runtime.Null())
-	if _, ok := c.Obj.GetField("other"); ok {
+	if _, ok := c.AsObject().GetField("other"); ok {
 		t.Error("cell should expose only the value member")
 	}
 	if err := runtime.SetMember(c, "other", runtime.Int(1)); err == nil {

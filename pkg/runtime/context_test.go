@@ -11,7 +11,7 @@ func TestContextGetSetHas(t *testing.T) {
 		t.Fatal("empty context reports x present")
 	}
 	c.Set("x", Int(1))
-	if v, ok := c.Get("x"); !ok || v.I != 1 {
+	if v, ok := c.Get("x"); !ok || v.AsInt() != 1 {
 		t.Fatalf("Get(x) = %v, %v", v, ok)
 	}
 	if !c.Has("x") {
@@ -44,17 +44,17 @@ func TestContextCloneValueCopyBoundary(t *testing.T) {
 	// Editing the clone's binding set does not leak to the parent: a rebind writes
 	// into the clone's own map.
 	clone.Set("scalar", Int(99))
-	if v, _ := c.Get("scalar"); v.I != 5 {
-		t.Fatalf("clone rebind leaked: parent scalar = %d", v.I)
+	if v, _ := c.Get("scalar"); v.AsInt() != 5 {
+		t.Fatalf("clone rebind leaked: parent scalar = %d", v.AsInt())
 	}
 	// Clone shares the array copy-on-write: the clone and the parent hold the SAME
 	// *Array pointer, both marked shared, so the copy is deferred until a mutation.
 	cv, _ := clone.Get("arr")
 	pv, _ := c.Get("arr")
-	if cv.Arr != pv.Arr {
+	if cv.AsArray() != pv.AsArray() {
 		t.Fatal("Clone should share the array pointer copy-on-write, not deep-copy it")
 	}
-	if !cv.Arr.shared {
+	if !cv.AsArray().shared {
 		t.Fatal("a shared array must be marked shared after Clone")
 	}
 	// Own privatizes the shared array before an in-place mutation, so the write
@@ -64,11 +64,11 @@ func TestContextCloneValueCopyBoundary(t *testing.T) {
 	if !copied {
 		t.Fatal("Own must clone a shared array")
 	}
-	owned.Arr.SetInt(0, Int(777))
-	if first, _ := pv.Arr.GetInt(0); first.I != 1 {
-		t.Fatalf("owned mutation leaked into parent: %d", first.I)
+	owned.AsArray().SetInt(0, Int(777))
+	if first, _ := pv.AsArray().GetInt(0); first.AsInt() != 1 {
+		t.Fatalf("owned mutation leaked into parent: %d", first.AsInt())
 	}
-	if first, _ := owned.Arr.GetInt(0); first.I != 777 {
-		t.Fatalf("owned mutation lost: %d", first.I)
+	if first, _ := owned.AsArray().GetInt(0); first.AsInt() != 777 {
+		t.Fatalf("owned mutation lost: %d", first.AsInt())
 	}
 }

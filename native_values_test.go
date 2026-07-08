@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,8 +20,8 @@ func TestRenderValuesParity(t *testing.T) {
 	}
 	body := `{{ user.name | upper }}{{ ", admin" if user.admin }}: {{ user.tags | join("/") }}`
 
-	env := NewWithArray(map[string]string{"t.ql": body})
-	native, err := env.RenderValues("t.ql", map[string]any{
+	env := NewFromMap(map[string]string{"t.ql": body})
+	native, err := env.RenderValues(context.Background(), "t.ql", map[string]any{
 		"user": user{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
 	})
 	if err != nil {
@@ -32,7 +33,7 @@ func TestRenderValuesParity(t *testing.T) {
 	hand.SetStr("name", runtime.Str("ada"))
 	hand.SetStr("admin", runtime.Bool(true))
 	hand.SetStr("tags", runtime.Arr(runtime.NewList(runtime.Str("x"), runtime.Str("y"))))
-	built, err := env.Render("t.ql", map[string]runtime.Value{"user": runtime.Arr(hand)})
+	built, err := env.Render(context.Background(), "t.ql", map[string]runtime.Value{"user": runtime.Arr(hand)})
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
@@ -47,11 +48,11 @@ func TestRenderValuesParity(t *testing.T) {
 
 // TestRenderValuesMapsAndSlices passes native maps and slices directly.
 func TestRenderValuesMapsAndSlices(t *testing.T) {
-	env := NewWithArray(map[string]string{
+	env := NewFromMap(map[string]string{
 		"t.ql": `@for k, v in cfg {{{ k }}={{ v }}
 @}`,
 	})
-	out, err := env.RenderValues("t.ql", map[string]any{
+	out, err := env.RenderValues(context.Background(), "t.ql", map[string]any{
 		"cfg": map[string]any{"gamma": 3, "alpha": 1, "beta": 2},
 	})
 	if err != nil {
@@ -66,8 +67,8 @@ func TestRenderValuesMapsAndSlices(t *testing.T) {
 
 // TestRenderStringValues marshals native bindings for an ad-hoc body.
 func TestRenderStringValues(t *testing.T) {
-	env := NewWithArray(nil)
-	out, err := env.RenderStringValues("ad-hoc", `{{ nums | join("+") }}`, map[string]any{
+	env := NewFromMap(nil)
+	out, err := env.RenderStringValues(context.Background(), "ad-hoc", `{{ nums | join("+") }}`, map[string]any{
 		"nums": []int{1, 2, 3, 4},
 	})
 	if err != nil {
@@ -81,8 +82,8 @@ func TestRenderStringValues(t *testing.T) {
 // TestRenderValuesMixedHandBuilt lets a hand-built runtime.Value ride alongside
 // native bindings in the same map.
 func TestRenderValuesMixedHandBuilt(t *testing.T) {
-	env := NewWithArray(map[string]string{"t.ql": `{{ a }}-{{ b }}`})
-	out, err := env.RenderValues("t.ql", map[string]any{
+	env := NewFromMap(map[string]string{"t.ql": `{{ a }}-{{ b }}`})
+	out, err := env.RenderValues(context.Background(), "t.ql", map[string]any{
 		"a": "native",
 		"b": runtime.Str("built"),
 	})
@@ -97,8 +98,8 @@ func TestRenderValuesMixedHandBuilt(t *testing.T) {
 // TestRenderValuesUnsupported surfaces a marshaling error from a binding and
 // renders nothing.
 func TestRenderValuesUnsupported(t *testing.T) {
-	env := NewWithArray(map[string]string{"t.ql": `{{ x }}`})
-	out, err := env.RenderValues("t.ql", map[string]any{"x": make(chan int)})
+	env := NewFromMap(map[string]string{"t.ql": `{{ x }}`})
+	out, err := env.RenderValues(context.Background(), "t.ql", map[string]any{"x": make(chan int)})
 	if err == nil {
 		t.Fatalf("RenderValues with chan binding = nil error, want marshaling error")
 	}
@@ -135,8 +136,8 @@ func TestRenderValuesMatchesConformanceFixture(t *testing.T) {
 		Meta map[string]int `quill:"meta"`
 	}
 
-	env := NewWithArray(map[string]string{"template.ql": string(tmpl)})
-	out, err := env.RenderValues("template.ql", map[string]any{
+	env := NewFromMap(map[string]string{"template.ql": string(tmpl)})
+	out, err := env.RenderValues(context.Background(), "template.ql", map[string]any{
 		"user": user{
 			Name: "ada",
 			Tags: []string{"x", "y"},
@@ -155,8 +156,8 @@ func TestRenderValuesMatchesConformanceFixture(t *testing.T) {
 
 // TestRenderValuesNilBindings renders with no bindings.
 func TestRenderValuesNilBindings(t *testing.T) {
-	env := NewWithArray(map[string]string{"t.ql": `static`})
-	out, err := env.RenderValues("t.ql", nil)
+	env := NewFromMap(map[string]string{"t.ql": `static`})
+	out, err := env.RenderValues(context.Background(), "t.ql", nil)
 	if err != nil {
 		t.Fatalf("RenderValues(nil): %v", err)
 	}

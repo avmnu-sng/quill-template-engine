@@ -26,12 +26,13 @@ library.
 ## Your first render
 
 An `Environment` is the engine facade: you build one over a loader, then render
-templates by name. The quickest loader is an in-memory map, via `NewWithArray`:
+templates by name. The quickest loader is an in-memory map, via `NewFromMap`:
 
 ```go
 package main
 
 import (
+	"context"
 	"fmt"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
@@ -39,10 +40,10 @@ import (
 )
 
 func main() {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
-	out, err := env.Render("greet.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "greet.quill", map[string]runtime.Value{
 		"name": runtime.Str("ada"),
 		"loud": runtime.Bool(true),
 	})
@@ -56,6 +57,11 @@ func main() {
 `{{ name | upper }}` interpolates `name` through the `upper` filter, and
 `{{ "!" if loud }}` is a postfix conditional that emits `!` only when `loud` is
 truthy. Both are covered in the [Guide](guide/templates.md).
+
+Every render and load method takes a `context.Context` as its first argument, so
+a render honors cancellation and deadlines: pass a request's context and a caller
+that goes away or a deadline that elapses aborts the render with the context's
+error. Use `context.Background()` when you have no context to thread.
 
 A template loads once and is memoized; subsequent renders of the same name reuse
 the parsed and type-checked module.
@@ -101,7 +107,7 @@ type User struct {
 	Tags  []string `quill:"tags"`
 }
 
-out, _ := env.RenderValues("greet.quill", map[string]any{
+out, _ := env.RenderValues(context.Background(), "greet.quill", map[string]any{
 	"user":  User{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
 	"count": 3,
 })
@@ -118,7 +124,7 @@ mix freely.
 buffering the whole output, use `RenderTo`:
 
 ```go
-err := env.RenderTo(os.Stdout, "greet.quill", vars)
+err := env.RenderTo(context.Background(), os.Stdout, "greet.quill", vars)
 ```
 
 `RenderStringTo` is the string-keyed variant. Streaming is covered alongside the
@@ -127,7 +133,7 @@ sandbox in [Escaping & Safety](safety.md).
 ## Render options
 
 The `Environment` is configured with `Option` values passed to `New` /
-`NewWithArray`. The ones you meet first:
+`NewFromMap`. The ones you meet first:
 
 - `quill.WithAutoescapeHTML(true)` -- turn on HTML escaping globally. Off by
   default; see [Escaping & Safety](safety.md).

@@ -5,9 +5,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/avmnu-sng/quill-template-engine/internal/lex"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
-	"github.com/avmnu-sng/quill-template-engine/pkg/lex"
+	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )
 
 // parseIntLit decodes an INT token. The lexer already stripped '_' separators and
@@ -180,7 +181,7 @@ func (p *parser) parseSubExpr(t lex.Token, src string) (result *ast.Node) {
 // surrounding OPEN_INTERP / CLOSE_INTERP and trailing EOF, leaving a token slice
 // terminated by a synthetic EOF. A lexical fault is reported against t.
 func codeTokens(p *parser, t lex.Token, src, where string) []lex.Token {
-	full := lex.Lex(p.src.WithCode("{{" + src + "}}")).Tokens
+	full := lex.Lex(source.New(p.src.Name(), "{{"+src+"}}")).Tokens
 	var out []lex.Token
 	for _, tk := range full {
 		switch tk.Kind {

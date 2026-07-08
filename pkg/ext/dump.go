@@ -19,31 +19,31 @@ func Dump(v runtime.Value) string {
 }
 
 func dumpValue(b *strings.Builder, v runtime.Value, indent string) {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KNull:
 		b.WriteString("null")
 	case runtime.KBool:
 		b.WriteString("bool(")
-		b.WriteString(strconv.FormatBool(v.B))
+		b.WriteString(strconv.FormatBool(v.AsBool()))
 		b.WriteByte(')')
 	case runtime.KInt:
 		b.WriteString("int(")
-		b.WriteString(strconv.FormatInt(v.I, 10))
+		b.WriteString(strconv.FormatInt(v.AsInt(), 10))
 		b.WriteByte(')')
 	case runtime.KFloat:
 		b.WriteString("float(")
-		b.WriteString(strconv.FormatFloat(v.F, 'g', -1, 64))
+		b.WriteString(strconv.FormatFloat(v.AsFloat(), 'g', -1, 64))
 		b.WriteByte(')')
 	case runtime.KStr:
 		b.WriteString("string(")
-		b.WriteString(strconv.Quote(v.S))
+		b.WriteString(strconv.Quote(v.AsStr()))
 		b.WriteByte(')')
 	case runtime.KSafe:
 		b.WriteString("safe(")
-		b.WriteString(strconv.Quote(v.S))
+		b.WriteString(strconv.Quote(v.AsStr()))
 		b.WriteByte(')')
 	case runtime.KArray:
-		dumpArray(b, v.Arr, indent)
+		dumpArray(b, v.AsArray(), indent)
 	case runtime.KObject:
 		b.WriteString("object(")
 		if s, err := runtime.ToText(v); err == nil {
@@ -69,10 +69,10 @@ func dumpArray(b *strings.Builder, a *runtime.Array, indent string) {
 	for _, p := range a.Pairs() {
 		b.WriteString(inner)
 		b.WriteByte('[')
-		if p.Key.Kind == runtime.KInt {
-			b.WriteString(strconv.FormatInt(p.Key.I, 10))
+		if p.Key.Kind() == runtime.KInt {
+			b.WriteString(strconv.FormatInt(p.Key.AsInt(), 10))
 		} else {
-			b.WriteString(strconv.Quote(p.Key.S))
+			b.WriteString(strconv.Quote(p.Key.AsStr()))
 		}
 		b.WriteString("] => ")
 		dumpValue(b, p.Val, inner)

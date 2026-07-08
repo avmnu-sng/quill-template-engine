@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -20,11 +21,9 @@ func TestTypesRenderIdentically(t *testing.T) {
 	typed := "@types {\n  users: list<Object<\"User\">>\n@}\n@for u: Object<\"User\"> in users {\n{{ u.name | upper }}: {{ u.age + 1 }}\n@}"
 
 	reg := check.NewRegistry()
-	reg.AddType(&check.ObjectType{
-		Name:      "User",
-		Members:   map[string]*check.Type{"name": check.String, "age": check.Int},
-		Stringify: true,
-	})
+	reg.AddType(check.NewObjectType("User").
+		WithMembers(map[string]*check.Type{"name": check.String, "age": check.Int}).
+		WithStringify(true))
 
 	users := mkList(
 		mkMap("name", runtime.Str("ada"), "age", runtime.Int(40)),
@@ -32,14 +31,14 @@ func TestTypesRenderIdentically(t *testing.T) {
 	)
 	vars := map[string]runtime.Value{"users": users}
 
-	plain := NewWithArray(nil)
-	gotUntyped, err := plain.RenderString("u.ql", untyped, vars)
+	plain := NewFromMap(nil)
+	gotUntyped, err := plain.RenderString(context.Background(), "u.ql", untyped, vars)
 	if err != nil {
 		t.Fatalf("untyped render: %v", err)
 	}
 
-	withTypes := NewWithArray(nil, WithTypes(reg))
-	gotTyped, err := withTypes.RenderString("t.ql", typed, vars)
+	withTypes := NewFromMap(nil, WithTypes(reg))
+	gotTyped, err := withTypes.RenderString(context.Background(), "t.ql", typed, vars)
 	if err != nil {
 		t.Fatalf("typed render: %v", err)
 	}
@@ -55,10 +54,10 @@ func TestTypesRenderIdentically(t *testing.T) {
 // TestCheckTimeRejection proves an ill-typed template is rejected at Load/Render
 // (before any byte is emitted) with a positioned KindTypeCheck error.
 func TestCheckTimeRejection(t *testing.T) {
-	e := NewWithArray(map[string]string{
+	e := NewFromMap(map[string]string{
 		"bad.ql": "@types {\n  s: string\n@}\n{{ s + 1 }}",
 	})
-	out, err := e.Render("bad.ql", map[string]runtime.Value{"s": runtime.Str("x")})
+	out, err := e.Render(context.Background(), "bad.ql", map[string]runtime.Value{"s": runtime.Str("x")})
 	if err == nil {
 		t.Fatalf("expected a type error, got output %q", out)
 	}
@@ -77,9 +76,9 @@ func TestCheckTimeRejection(t *testing.T) {
 // unannotated template's behavior: it still renders the dynamic floor.
 func TestUnannotatedUnaffectedByRegistry(t *testing.T) {
 	reg := check.NewRegistry()
-	reg.AddType(&check.ObjectType{Name: "User", Stringify: true})
-	e := NewWithArray(nil, WithTypes(reg))
-	out, err := e.RenderString("t.ql", "{{ a + b }}", map[string]runtime.Value{
+	reg.AddType(check.NewObjectType("User").WithStringify(true))
+	e := NewFromMap(nil, WithTypes(reg))
+	out, err := e.RenderString(context.Background(), "t.ql", "{{ a + b }}", map[string]runtime.Value{
 		"a": runtime.Int(2), "b": runtime.Int(3),
 	})
 	if err != nil {

@@ -1,0 +1,13 @@
+Usage: quill [flags] <template-name>
+
+Flags:
+  -autoescape string
+    	output escaping strategy: "off" (default, source emission) or "html" (default "off")
+  -data string
+    	JSON file with the render variables (an object); "-" reads stdin
+  -root string
+    	template root directory the loader resolves names under (default ".")
+  -strict
+    	strict-undefined handling; -strict=false enables lenient migration mode (default true)
+  -version
+    	print the version and exit

@@ -24,18 +24,18 @@ func (c *checker) consistent(s, t *Type) bool {
 		t = Any
 	}
 	// The gradual rule: any is consistent with everything, both directions.
-	if s.Kind == KAny || t.Kind == KAny {
+	if s.kind == KAny || t.kind == KAny {
 		return true
 	}
-	if s.Kind == KNever {
+	if s.kind == kNever {
 		return true // the empty type flows anywhere (used as a join identity)
 	}
 
 	// A source union is consistent with t iff every arm is. This is the obligation
 	// that a polymorphic value must be narrowed before single-arm use: a raw
 	// `int | string` is NOT consistent with `int` (the string arm fails).
-	if s.Kind == KUnion {
-		for _, arm := range s.Union {
+	if s.kind == KUnion {
+		for _, arm := range s.union {
 			if !c.consistent(arm, t) {
 				return false
 			}
@@ -43,8 +43,8 @@ func (c *checker) consistent(s, t *Type) bool {
 		return true
 	}
 	// A non-union source is consistent with a target union iff it matches any arm.
-	if t.Kind == KUnion {
-		for _, arm := range t.Union {
+	if t.kind == KUnion {
+		for _, arm := range t.union {
 			if c.consistent(s, arm) {
 				return true
 			}
@@ -52,30 +52,30 @@ func (c *checker) consistent(s, t *Type) bool {
 		return false
 	}
 
-	if s.Kind != t.Kind {
+	if s.kind != t.kind {
 		return false
 	}
-	switch s.Kind {
+	switch s.kind {
 	case KObject:
 		// Nominal flow across declared subtype/interface edges (Sub ~ Super).
-		return c.reg.subtypeOf(s.Name, t.Name)
+		return c.reg.subtypeOf(s.name, t.name)
 	case KList:
-		return c.consistent(s.Elem, t.Elem)
+		return c.consistent(s.elem, t.elem)
 	case KMap:
-		return c.consistent(s.Key, t.Key) && c.consistent(s.Val, t.Val)
+		return c.consistent(s.key, t.key) && c.consistent(s.val, t.val)
 	case KArrow:
-		if len(s.Params) != len(t.Params) {
+		if len(s.params) != len(t.params) {
 			return false
 		}
 		// Parameters are checked invariantly-by-consistency (an any param accepts
 		// anything), and the return covariantly. This is permissive enough for the
 		// gradual arrow use the pipeline relies on.
-		for i := range s.Params {
-			if !c.consistent(s.Params[i], t.Params[i]) {
+		for i := range s.params {
+			if !c.consistent(s.params[i], t.params[i]) {
 				return false
 			}
 		}
-		return c.consistent(s.Ret, t.Ret)
+		return c.consistent(s.ret, t.ret)
 	default:
 		// Same scalar kind: reflexively consistent.
 		return true
@@ -93,13 +93,13 @@ func (c *checker) renderable(t *Type) bool {
 	if t == nil {
 		return true
 	}
-	switch t.Kind {
-	case KAny, KNull, KBool, KInt, KFloat, KString, KNever:
+	switch t.kind {
+	case KAny, KNull, KBool, KInt, KFloat, KString, kNever:
 		return true
 	case KObject:
-		return c.reg.stringifies(t.Name)
+		return c.reg.stringifies(t.name)
 	case KUnion:
-		for _, a := range t.Union {
+		for _, a := range t.union {
 			if !c.renderable(a) {
 				return false
 			}
@@ -118,24 +118,24 @@ func (c *checker) renderable(t *Type) bool {
 // element type; any is iterable as any. A scalar (int/bool/float/null) is NOT
 // iterable -- a typed for over it is the promoted T4 runtime error.
 func (c *checker) iterableElem(t *Type) (elem *Type, key *Type, ok bool) {
-	if t == nil || t.Kind == KAny {
+	if t == nil || t.kind == KAny {
 		return Any, Any, true
 	}
-	switch t.Kind {
+	switch t.kind {
 	case KList:
-		return t.Elem, Int, true
+		return t.elem, Int, true
 	case KMap:
-		return t.Val, t.Key, true
+		return t.val, t.key, true
 	case KString:
 		// A string iterates its characters as one-char strings (runtime iterate.go).
 		return String, Int, true
 	case KObject:
-		e, can := c.reg.iterElem(t.Name)
+		e, can := c.reg.iterElem(t.name)
 		return e, Any, can
 	case KUnion:
 		// Iterable iff every arm is, joining the element types.
-		je, jk := Never, Never
-		for _, a := range t.Union {
+		je, jk := never, never
+		for _, a := range t.union {
 			ae, ak, can := c.iterableElem(a)
 			if !can {
 				return nil, nil, false

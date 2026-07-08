@@ -205,38 +205,45 @@ func isFSNotExist(err error) bool {
 }
 
 // FuncLoader adapts a plain callback into a Loader. The callback returns the
-// template source and a boolean reporting whether the name is known; a false
-// second result becomes the canonical not-found error. It is the lightest way
-// to source templates from a database, a config object, or any lookup a host
-// already owns.
+// template source, a boolean reporting whether the name is known, and an error:
+// a false found result with a nil error becomes the canonical not-found error,
+// while a non-nil error is propagated unchanged so a host can report a lookup
+// I/O failure distinctly from a miss. It is the lightest way to source templates
+// from a database, a config object, or any lookup a host already owns.
 type FuncLoader struct {
-	fn func(name string) (string, bool)
+	fn func(name string) (string, bool, error)
 }
 
 // NewFuncLoader builds a FuncLoader over fn. A nil fn yields a loader for which
 // every name is not found.
-func NewFuncLoader(fn func(name string) (string, bool)) *FuncLoader {
+func NewFuncLoader(fn func(name string) (string, bool, error)) *FuncLoader {
 	return &FuncLoader{fn: fn}
 }
 
-// Get calls the callback and returns the source, or a not-found error when the
-// callback reports the name is unknown.
+// Get calls the callback and returns the source. A non-nil error from the
+// callback is propagated as-is (a real lookup failure); a false found result
+// with a nil error becomes the canonical not-found error.
 func (l *FuncLoader) Get(name string) (*source.Source, error) {
 	if l.fn == nil {
 		return nil, notFound(name)
 	}
-	code, ok := l.fn(name)
+	code, ok, err := l.fn(name)
+	if err != nil {
+		return nil, err
+	}
 	if !ok {
 		return nil, notFound(name)
 	}
 	return source.New(name, code), nil
 }
 
-// Exists reports whether the callback knows the name.
+// Exists reports whether the callback knows the name. A callback error is
+// treated as "not known" so a probe never surfaces it; use Get to observe a
+// lookup failure.
 func (l *FuncLoader) Exists(name string) bool {
 	if l.fn == nil {
 		return false
 	}
-	_, ok := l.fn(name)
-	return ok
+	_, ok, err := l.fn(name)
+	return err == nil && ok
 }

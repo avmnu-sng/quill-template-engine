@@ -22,31 +22,35 @@ fixture-testable in isolation. The interpreter depends only on `runtime`, and th
 compile-to-Go backend is a pure addition behind the same `Template` contract.
 
 ```
-quill/         facade: Environment, options, the render entry points, engine callables
-  source/      Source value object; CRLF normalization
-  lex/         the two-mode TEXT/CODE lexer: sigil predicate, @-sigil statement lead
-               (default) and leading-keyword statement test (pragma bare), verbatim,
-               trim modifiers, line directive
-  ast/         AST node (uniform struct, ordered mixed-key children, Kind discriminator)
-  parse/       the parser: LL statement parser + Pratt expression loop
-  check/       the gradual type checker: a front-end pass between parse and interpret
-  runtime/     the value layer: Value taxonomy, ordered *Array, Safe, Context, Output;
-               Equal/Order/Same, Truthy, ToText, GetAttribute (kind-dispatch,
-               strict-by-default), the six-strategy Escape, and the Object protocol
-  interp/      the tree-walking interpreter: for-loop scope, include/block/macro dispatch,
-               composition, escaping regions, sandbox gating, coverage hooks
-  compile/     the compile-to-Go backend: lowers a template (or a multi-template unit)
-               to Go source -- a render function plus a dispatch manifest
-  compiled/    the manifest contract between generated render functions and the
-               Environment's compiled dispatch (a leaf: stdlib + ext + runtime only)
-  ext/         the callable registry: Filter/Function/Test, ExtensionSet, Extension bundles,
-               the typed NewFilter/NewFunction/NewTest helpers, and the core standard library
-  loader/      Loader, FilesystemLoader, ArrayLoader, ChainLoader, PrefixLoader, FSLoader, FuncLoader
-  cache/       the parse cache and the rendered-body cache backing @cache
-  errors/      the structured error family, carrying source context and TypeCheck diagnostics
-  sandbox/     the SecurityPolicy and host TYPE-GRAPH
-  cover/       the coverage Collector, Report, and the text/LCOV/HTML writers
-  cmd/quill/   the command: render, the cover subcommand, and the compile subcommand
+quill/           facade: Environment, options, the render entry points, engine callables
+  pkg/           the frozen public API -- semver-stable from v1.0.0:
+    source/      Source value object; CRLF normalization
+    ast/         AST node (uniform struct, ordered mixed-key children, Kind discriminator)
+    parse/       the parser: LL statement parser + Pratt expression loop
+    check/       the gradual type checker: a front-end pass between parse and interpret
+    runtime/     the value layer: Value taxonomy, ordered *Array, Safe, Context, Output;
+                 Equal/Order/Same, Truthy, ToText, GetAttribute (kind-dispatch,
+                 strict-by-default), the six-strategy Escape, and the Object protocol
+    compiled/    the manifest contract between generated render functions and the
+                 Environment's compiled dispatch (a leaf: stdlib + ext + runtime only)
+    ext/         the callable registry: Filter/Function/Test, the Set registry, Bundle,
+                 the typed NewFilter/NewFunction/NewTest helpers, and the core standard library
+    loader/      Loader, FilesystemLoader, ArrayLoader, ChainLoader, PrefixLoader, FSLoader, FuncLoader
+    cache/       the parse cache and the rendered-body cache backing @cache
+    errors/      the structured error family, carrying source context and TypeCheck diagnostics
+    sandbox/     the sandbox Policy (the spec's SecurityPolicy) and host TYPE-GRAPH
+    cover/       the coverage Collector, Report, and the text/LCOV/HTML writers
+  internal/      engine internals -- not importable, exempt from the API freeze:
+    lex/         the two-mode TEXT/CODE lexer: sigil predicate, @-sigil statement lead
+                 (default) and leading-keyword statement test (pragma bare), verbatim,
+                 trim modifiers, line directive
+    interp/      the tree-walking interpreter: for-loop scope, include/block/macro dispatch,
+                 composition, escaping regions, sandbox gating, coverage hooks
+    compile/     the compile-to-Go backend: lowers a template (or a multi-template unit)
+                 to Go source -- a render function plus a dispatch manifest
+    covercore/   the coverage instrumentation core (region map, Hit/Seed) the interpreter drives
+    jsonval/     converts decoded JSON into runtime values for the CLI data path
+  cmd/quill/     the command: render, the cover subcommand, and the compile subcommand
 ```
 
 The `runtime`-imports-nothing-from-parser discipline is what keeps the value model
@@ -111,9 +115,10 @@ so coverage is zero-overhead when off and never changes rendered bytes.
 
 ### The compile-to-Go backend (shipped)
 
-The `compile` package generates Go source for the hot path -- a render function
-plus a dispatch manifest -- which a host installs with `WithCompiled`. The
-generated code emits body literals as constants, inlines loop metadata, and skips
+The internal compile backend (`internal/compile`, driven by the `quill compile`
+command) generates Go source for the hot path -- a render function plus a dispatch
+manifest -- which a host installs with `WithCompiled`. The generated code emits
+body literals as constants, inlines loop metadata, and skips
 the per-node dispatch, `Context`, and copy-on-write the interpreter pays, so it
 renders several times faster on loop-heavy workloads (see
 [Performance](performance.md)).

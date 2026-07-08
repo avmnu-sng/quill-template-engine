@@ -2,8 +2,8 @@ package ext
 
 import "github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 
-// Extension is a cohesive bundle of callables and host tables a third party
-// ships as a single unit. The engine folds a bundle into an ExtensionSet with
+// Bundle is a cohesive collection of callables and host tables a third party
+// ships as a single unit. The engine folds a bundle into a Set with
 // Register: every filter, function, and test the bundle exposes is added by
 // name (later registrations shadow earlier ones), and every constant and
 // enumeration is merged into the set's host tables.
@@ -18,7 +18,7 @@ import "github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 // The four callable-returning methods return the value objects directly, so a
 // bundle can build them by hand (the &Filter{Name, Fn} form) or with the typed
 // NewFilter/NewFunction/NewTest helpers.
-type Extension interface {
+type Bundle interface {
 	// Filters returns the filters the bundle contributes, or nil.
 	Filters() []*Filter
 	// Functions returns the functions the bundle contributes, or nil.
@@ -33,7 +33,7 @@ type Extension interface {
 	Enums() map[string][]runtime.Value
 }
 
-// BaseExtension is a zero-value Extension a bundle embeds so it implements only
+// BaseExtension is a zero-value Bundle a type embeds so it implements only
 // the families it ships. Every method returns nil; an embedding type overrides
 // just the ones it provides.
 type BaseExtension struct{}
@@ -58,7 +58,7 @@ func (BaseExtension) Enums() map[string][]runtime.Value { return nil }
 // kind and name (the uniform "later wins" rule AddFilter/AddFunction/AddTest
 // already follow). Constants and enumerations are merged into the set's host
 // tables the same way. Register returns the receiver so calls chain.
-func (s *ExtensionSet) Register(x Extension) *ExtensionSet {
+func (s *Set) Register(x Bundle) *Set {
 	for _, f := range x.Filters() {
 		s.AddFilter(f)
 	}
@@ -82,7 +82,7 @@ func (s *ExtensionSet) Register(x Extension) *ExtensionSet {
 // matching Register). A nil other is a no-op. Merge returns the receiver so
 // calls chain. This is the composition primitive behind layering several
 // extension sets into one registry while preserving shadow order.
-func (s *ExtensionSet) Merge(other *ExtensionSet) *ExtensionSet {
+func (s *Set) Merge(other *Set) *Set {
 	if other == nil {
 		return s
 	}

@@ -16,6 +16,10 @@ import (
 // Object<...> is opaque-but-known and host callables are dynamic. The checker
 // NEVER mutates the AST -- it reads annotations and reports errors only, so it
 // cannot change what the interpreter renders (the binding invariant).
+//
+// Check deliberately takes no context.Context: type-checking is a bounded,
+// in-memory pass over an already-parsed module, so cancellation would add no
+// value. This omission is an intentional, frozen part of the v1 API.
 func Check(mod *ast.Node, reg *Registry) error {
 	c := &checker{reg: reg, macros: map[string]*Signature{}, blocks: map[string]*Signature{}}
 	c.indexCallables(mod)
@@ -122,14 +126,14 @@ func (c *checker) indexCallables(mod *ast.Node) {
 // rest. An unannotated return is `any`.
 func (c *checker) macroSignature(n *ast.Node) *Signature {
 	params := n.Child(0) // KindParams
-	sig := &Signature{Ret: Any}
+	sig := &Signature{ret: Any}
 	if params != nil {
 		c.fillParamSig(sig, params)
 	}
 	// The return type, when present, is the child after KindParams.
 	for i := 1; i < n.NumChildren(); i++ {
 		if ch := n.Child(i); ch != nil && ch.Kind == ast.KindType {
-			sig.Ret = fromAST(ch)
+			sig.ret = fromAST(ch)
 			break
 		}
 	}
@@ -138,20 +142,20 @@ func (c *checker) macroSignature(n *ast.Node) *Signature {
 
 // blockSignature reads a @block's optional input params and return type.
 func (c *checker) blockSignature(n *ast.Node) *Signature {
-	sig := &Signature{Ret: Any}
+	sig := &Signature{ret: Any}
 	for _, ch := range n.Children {
 		switch ch.Kind {
 		case ast.KindParams:
 			c.fillParamSig(sig, ch)
 		case ast.KindType:
-			sig.Ret = fromAST(ch)
+			sig.ret = fromAST(ch)
 		}
 	}
 	return sig
 }
 
-// fillParamSig translates a KindParams node into a Signature's Params/Optional/
-// Variadic fields. A KindParam carries its type as a child (when ParamHasType)
+// fillParamSig translates a KindParams node into a Signature's params/optional/
+// variadic fields. A KindParam carries its type as a child (when ParamHasType)
 // and a default as a child (when ParamHasDefault). A "**name" kwargs tail is
 // bound in the body scope as map<string,any> but occupies no positional slot,
 // so it is skipped here (a caller reaches it only through named arguments).
@@ -165,18 +169,18 @@ func (c *checker) fillParamSig(sig *Signature, params *ast.Node) {
 			continue
 		}
 		if p.Bool { // variadic ...rest
-			sig.Variadic = true
-			sig.VarElem = c.paramType(p)
+			sig.variadic = true
+			sig.varElem = c.paramType(p)
 			continue
 		}
-		sig.Params = append(sig.Params, c.paramType(p))
+		sig.params = append(sig.params, c.paramType(p))
 		if p.Int&ast.ParamHasDefault != 0 {
 			trailingOptional++
 		} else {
 			trailingOptional = 0
 		}
 	}
-	sig.Optional = trailingOptional
+	sig.optional = trailingOptional
 }
 
 // paramType returns a parameter's declared type, or `any` when unannotated. The

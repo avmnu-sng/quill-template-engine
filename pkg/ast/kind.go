@@ -39,8 +39,9 @@ const (
 	// KindFloat is a float literal; Float holds the value.
 	KindFloat
 	// KindString is a string literal; Str holds the decoded value. For an
-	// interpolated double-quoted string the parser emits a KindConcat chain
-	// instead, so KindString is always a plain constant.
+	// interpolated double-quoted string the parser emits a left-folded
+	// KindBinary("~") concat chain instead, so KindString is always a plain
+	// constant.
 	KindString
 	// KindBool is a boolean literal; Bool holds the value.
 	KindBool
@@ -278,8 +279,9 @@ const (
 	// (optional) is the alias map literal (Bool marks its presence).
 	KindUse
 	// KindEmbed is "@embed src [mods] { blocks }". Child 0 is the source; the
-	// include-modifier flags ride in Int (see IncFlag*); an optional with-map is a
-	// KindMap child flagged by IncWith; the remaining children are KindBlock nodes.
+	// include-modifier flags ride in Int (see IncWith/IncOnly/IncIgnoreMissing); an
+	// optional with-map is a KindMap child flagged by IncWith; the remaining
+	// children are KindBlock nodes.
 	KindEmbed
 	// KindInclude is "@include expr [mods]". Child 0 is the source; Int holds the
 	// include-modifier flags; an optional with-map/expr is a child flagged by

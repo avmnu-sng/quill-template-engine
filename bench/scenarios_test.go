@@ -17,6 +17,7 @@ package quillbench
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	htmltmpl "html/template"
 	"io"
@@ -25,7 +26,6 @@ import (
 	texttmpl "text/template"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
 )
 
@@ -126,22 +126,22 @@ func quillFilterVars(n int) map[string]runtime.Value {
 }
 
 func BenchmarkQuill_Filter_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"filter.ql": quillFilter})
-	tmpl, err := env.LoadTemplate("filter.ql")
+	env := quill.NewFromMap(map[string]string{"filter.ql": quillFilter})
+	tmpl, err := env.LoadTemplate(context.Background(), "filter.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := quillFilterVars(n)
-			out, err := interp.Render(env, tmpl, vars)
+			out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = interp.Render(env, tmpl, vars); err != nil {
+				if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -247,22 +247,22 @@ func quillNestedVars(n int) map[string]runtime.Value {
 }
 
 func BenchmarkQuill_Nested_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"nested.ql": quillNested})
-	tmpl, err := env.LoadTemplate("nested.ql")
+	env := quill.NewFromMap(map[string]string{"nested.ql": quillNested})
+	tmpl, err := env.LoadTemplate(context.Background(), "nested.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := quillNestedVars(n)
-			out, err := interp.Render(env, tmpl, vars)
+			out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = interp.Render(env, tmpl, vars); err != nil {
+				if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -353,22 +353,22 @@ func quillCondVars(n int) map[string]runtime.Value {
 }
 
 func BenchmarkQuill_Cond_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"cond.ql": quillCond})
-	tmpl, err := env.LoadTemplate("cond.ql")
+	env := quill.NewFromMap(map[string]string{"cond.ql": quillCond})
+	tmpl, err := env.LoadTemplate(context.Background(), "cond.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := quillCondVars(n)
-			out, err := interp.Render(env, tmpl, vars)
+			out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = interp.Render(env, tmpl, vars); err != nil {
+				if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -467,20 +467,20 @@ func quillEscapeVars(n int) map[string]runtime.Value {
 // the HTML-special characters pass through verbatim, so this is the no-escape
 // baseline the ON variant is compared against.
 func BenchmarkQuill_Autoescape_Off_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"esc.ql": quillEscape})
-	tmpl, err := env.LoadTemplate("esc.ql")
+	env := quill.NewFromMap(map[string]string{"esc.ql": quillEscape})
+	tmpl, err := env.LoadTemplate(context.Background(), "esc.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
 	vars := quillEscapeVars(autoescapeN)
-	out, err := interp.Render(env, tmpl, vars)
+	out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if sink, err = interp.Render(env, tmpl, vars); err != nil {
+		if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -491,21 +491,21 @@ func BenchmarkQuill_Autoescape_Off_Render(b *testing.B) {
 // HTML-escaped, so ns/op minus the OFF variant is Quill's per-render escaping
 // cost.
 func BenchmarkQuill_Autoescape_On_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"esc.ql": quillEscape},
+	env := quill.NewFromMap(map[string]string{"esc.ql": quillEscape},
 		quill.WithAutoescapeHTML(true))
-	tmpl, err := env.LoadTemplate("esc.ql")
+	tmpl, err := env.LoadTemplate(context.Background(), "esc.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
 	vars := quillEscapeVars(autoescapeN)
-	out, err := interp.Render(env, tmpl, vars)
+	out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(len(out)))
 	b.ReportAllocs()
 	for b.Loop() {
-		if sink, err = interp.Render(env, tmpl, vars); err != nil {
+		if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -554,7 +554,7 @@ func BenchmarkHTML_Autoescape_Render(b *testing.B) {
 // ============================================================================
 //
 // The loop scenario is rendered two ways on the same Environment: env.Render,
-// which buffers the whole output into a returned string, and env.RenderTo(w),
+// which buffers the whole output into a returned string, and env.RenderTo(context.Background(), w),
 // which streams to an io.Writer (io.Discard here) with bounded memory because the
 // loop template is slot-free. Reporting allocs for both exposes the buffered
 // path's single big builder allocation against the streamed path's near-zero
@@ -564,21 +564,21 @@ func BenchmarkHTML_Autoescape_Render(b *testing.B) {
 // BenchmarkQuill_Stream_Buffered_Render times the buffered facade path: Render
 // allocates and grows a strings.Builder, then returns its contents as a string.
 func BenchmarkQuill_Stream_Buffered_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
-	if _, err := env.LoadTemplate("loop.ql"); err != nil {
+	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
+	if _, err := env.LoadTemplate(context.Background(), "loop.ql"); err != nil {
 		b.Fatal(err)
 	}
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := map[string]runtime.Value{"users": quillUsersN(n)}
-			out, err := env.Render("loop.ql", vars)
+			out, err := env.Render(context.Background(), "loop.ql", vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = env.Render("loop.ql", vars); err != nil {
+				if sink, err = env.Render(context.Background(), "loop.ql", vars); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -592,21 +592,21 @@ func BenchmarkQuill_Stream_Buffered_Render(b *testing.B) {
 // render before the loop (identical bytes), and the render error is checked so
 // the timed work cannot be elided.
 func BenchmarkQuill_Stream_Streamed_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
-	if _, err := env.LoadTemplate("loop.ql"); err != nil {
+	env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
+	if _, err := env.LoadTemplate(context.Background(), "loop.ql"); err != nil {
 		b.Fatal(err)
 	}
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := map[string]runtime.Value{"users": quillUsersN(n)}
-			out, err := env.Render("loop.ql", vars)
+			out, err := env.Render(context.Background(), "loop.ql", vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if err := env.RenderTo(io.Discard, "loop.ql", vars); err != nil {
+				if err := env.RenderTo(context.Background(), io.Discard, "loop.ql", vars); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -634,8 +634,8 @@ func TestVerifyScenarios(t *testing.T) {
 
 	// ---- Scenario 1: filter pipeline ----
 	{
-		env := quill.NewWithArray(map[string]string{"filter.ql": quillFilter})
-		qOut, err := env.Render("filter.ql", quillFilterVars(n))
+		env := quill.NewFromMap(map[string]string{"filter.ql": quillFilter})
+		qOut, err := env.Render(context.Background(), "filter.ql", quillFilterVars(n))
 		if err != nil {
 			t.Fatalf("quill filter: %v", err)
 		}
@@ -657,8 +657,8 @@ func TestVerifyScenarios(t *testing.T) {
 
 	// ---- Scenario 2: nested loops ----
 	{
-		env := quill.NewWithArray(map[string]string{"nested.ql": quillNested})
-		qOut, err := env.Render("nested.ql", quillNestedVars(n))
+		env := quill.NewFromMap(map[string]string{"nested.ql": quillNested})
+		qOut, err := env.Render(context.Background(), "nested.ql", quillNestedVars(n))
 		if err != nil {
 			t.Fatalf("quill nested: %v", err)
 		}
@@ -674,8 +674,8 @@ func TestVerifyScenarios(t *testing.T) {
 
 	// ---- Scenario 3: conditionals ----
 	{
-		env := quill.NewWithArray(map[string]string{"cond.ql": quillCond})
-		qOut, err := env.Render("cond.ql", quillCondVars(n))
+		env := quill.NewFromMap(map[string]string{"cond.ql": quillCond})
+		qOut, err := env.Render(context.Background(), "cond.ql", quillCondVars(n))
 		if err != nil {
 			t.Fatalf("quill cond: %v", err)
 		}
@@ -700,14 +700,14 @@ func TestVerifyScenarios(t *testing.T) {
 	{
 		vars := quillEscapeVars(n)
 
-		envOff := quill.NewWithArray(map[string]string{"esc.ql": quillEscape})
-		qOff, err := envOff.Render("esc.ql", vars)
+		envOff := quill.NewFromMap(map[string]string{"esc.ql": quillEscape})
+		qOff, err := envOff.Render(context.Background(), "esc.ql", vars)
 		if err != nil {
 			t.Fatalf("quill escape off: %v", err)
 		}
-		envOn := quill.NewWithArray(map[string]string{"esc.ql": quillEscape},
+		envOn := quill.NewFromMap(map[string]string{"esc.ql": quillEscape},
 			quill.WithAutoescapeHTML(true))
-		qOn, err := envOn.Render("esc.ql", vars)
+		qOn, err := envOn.Render(context.Background(), "esc.ql", vars)
 		if err != nil {
 			t.Fatalf("quill escape on: %v", err)
 		}
@@ -746,14 +746,14 @@ func TestVerifyScenarios(t *testing.T) {
 
 	// ---- Scenario 5: streaming (RenderTo) == buffered (Render) ----
 	{
-		env := quill.NewWithArray(map[string]string{"loop.ql": quillLoop})
+		env := quill.NewFromMap(map[string]string{"loop.ql": quillLoop})
 		vars := map[string]runtime.Value{"users": quillUsersN(n)}
-		buffered, err := env.Render("loop.ql", vars)
+		buffered, err := env.Render(context.Background(), "loop.ql", vars)
 		if err != nil {
 			t.Fatalf("quill buffered: %v", err)
 		}
 		var sb strings.Builder
-		if err := env.RenderTo(&sb, "loop.ql", vars); err != nil {
+		if err := env.RenderTo(context.Background(), &sb, "loop.ql", vars); err != nil {
 			t.Fatalf("quill streamed: %v", err)
 		}
 		if sb.String() != buffered {

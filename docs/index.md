@@ -67,6 +67,7 @@ Build an `Environment` over a loader and render by name.
 package main
 
 import (
+	"context"
 	"fmt"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
@@ -74,10 +75,10 @@ import (
 )
 
 func main() {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
-	out, err := env.Render("greet.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "greet.quill", map[string]runtime.Value{
 		"name": runtime.Str("ada"),
 		"loud": runtime.Bool(true),
 	})

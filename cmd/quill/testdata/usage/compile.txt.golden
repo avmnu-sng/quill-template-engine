@@ -1,0 +1,19 @@
+Usage: quill compile [flags] <template-name>
+
+Flags:
+  -autoescape string
+    	output escaping strategy: "off" (default, source emission) or "html" (default "off")
+  -func string
+    	name of the generated render function (default "Render")
+  -o string
+    	output file for the generated source; default stdout
+  -pkg string
+    	package clause of the generated file (default "qtpl")
+  -root string
+    	template root directory the loader resolves names under (default ".")
+  -seed int
+    	fixed seed for the randomness callables; omit the flag for the time-seeded default
+  -strict
+    	strict-undefined handling; -strict=false compiles the lenient migration mode (default true)
+  -tabwidth int
+    	spaces one indent level expands to (the WithTabWidth knob) (default 4)

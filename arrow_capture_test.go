@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
@@ -71,7 +72,7 @@ func TestArrowCapturesLexicalScopeLive(t *testing.T) {
 					"part.ql": "@set c.value = () => x\n",
 				}
 			}
-			got, err := New(loader.NewArrayLoader(tmpls)).Render("main.ql", nil)
+			got, err := New(loader.NewArrayLoader(tmpls)).Render(context.Background(), "main.ql", nil)
 			if err != nil {
 				t.Fatalf("render: %v", err)
 			}

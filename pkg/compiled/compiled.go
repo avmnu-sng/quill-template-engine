@@ -15,6 +15,7 @@
 package compiled
 
 import (
+	"context"
 	"io"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
@@ -34,6 +35,11 @@ import (
 // *cache.RenderCache satisfies this interface directly; a host may supply any
 // implementation with the same two methods, and the narrow surface keeps
 // eviction and tag-invalidation controls off the generated-code boundary.
+//
+// Implementations must be safe for concurrent use: the Environment shares one
+// RenderCache across renders and may call Get and Put concurrently from
+// concurrent renders. The engine-default *cache.RenderCache is safe; a custom
+// implementation must provide its own synchronization.
 type RenderCache interface {
 	// Get returns the stored body for key and whether one is present, so a
 	// compiled @cache region replays a hit and re-renders a miss.
@@ -43,11 +49,18 @@ type RenderCache interface {
 	Put(key string, body string, tags []string)
 }
 
-// RenderFunc is the signature of a generated render function: it writes the
-// template's output to w, resolves callables through exts, reads top-level
-// variables from vars, and memoizes @cache regions through rc (nil when the
-// engine exposes no store), returning the first render error.
-type RenderFunc func(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc RenderCache) error
+// RenderFunc is the signature of a generated render function: it honors the
+// cancellation and deadline of ctx, writes the template's output to w, resolves
+// callables through exts, reads top-level variables from vars, and memoizes
+// @cache regions through rc (nil when the engine exposes no store), returning
+// the first render error.
+//
+// The Environment invokes a single RenderFunc value concurrently across
+// concurrent renders, sharing one exts and one rc, so an implementation must be
+// safe for concurrent calls: it must confine mutable state to its parameters and
+// locals (the compile backend's generated functions are stateless, which
+// satisfies this).
+type RenderFunc func(ctx context.Context, w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc RenderCache) error
 
 // Fingerprint captures the compile options that shape a generated unit's
 // rendered bytes. The Environment dispatches to a compiled unit only when the
@@ -55,7 +68,23 @@ type RenderFunc func(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtim
 // these knobs is burned into the generated code at compile time: the escape
 // strategy and undefined-handling are lowered statically, and the tab width
 // and random seed ride the generated engine handle.
+//
+// A Fingerprint is opaque and immutable: build one with NewFingerprint and
+// read it back through the accessor methods. Two fingerprints compare equal
+// with == exactly when every recorded option agrees, which is the equality the
+// dispatch gate relies on.
 type Fingerprint struct {
+	autoescapeHTML   bool
+	lenientVariables bool
+	tabWidth         int
+	randomSeed       int64
+	randomSeedSet    bool
+}
+
+// FingerprintParams supplies the compile options a Fingerprint records. It is
+// a plain input struct to NewFingerprint; the constructed Fingerprint is
+// opaque and shares none of its storage.
+type FingerprintParams struct {
 	// AutoescapeHTML records the compiled output strategy: html when true, off
 	// when false (the engine's WithAutoescapeHTML option).
 	AutoescapeHTML bool
@@ -75,11 +104,63 @@ type Fingerprint struct {
 	RandomSeedSet bool
 }
 
+// NewFingerprint builds an opaque Fingerprint from the given compile options.
+// Generated code and hosts construct one this way; the dispatch gate then
+// compares it field for field against the Environment's own configuration.
+func NewFingerprint(p FingerprintParams) Fingerprint {
+	return Fingerprint{
+		autoescapeHTML:   p.AutoescapeHTML,
+		lenientVariables: p.LenientVariables,
+		tabWidth:         p.TabWidth,
+		randomSeed:       p.RandomSeed,
+		randomSeedSet:    p.RandomSeedSet,
+	}
+}
+
+// AutoescapeHTML reports the compiled output strategy: html when true, off when
+// false (the engine's WithAutoescapeHTML option).
+func (f Fingerprint) AutoescapeHTML() bool { return f.autoescapeHTML }
+
+// LenientVariables reports the compiled undefined-handling mode; true is the
+// engine's WithStrictVariables(false) migration mode.
+func (f Fingerprint) LenientVariables() bool { return f.lenientVariables }
+
+// TabWidth reports the spaces-per-indent-level width burned into the unit's
+// engine handle (the engine's WithTabWidth option, default 4).
+func (f Fingerprint) TabWidth() int { return f.tabWidth }
+
+// RandomSeed reports the fixed seed of the randomness callables; it is
+// meaningful only when RandomSeedSet reports true.
+func (f Fingerprint) RandomSeed() int64 { return f.randomSeed }
+
+// RandomSeedSet reports whether the unit was compiled with a deliberate seed,
+// distinguishing a seed of zero from the unseeded engine default.
+func (f Fingerprint) RandomSeedSet() bool { return f.randomSeedSet }
+
 // Manifest describes one compiled unit to the Environment's dispatch. A
 // generated file exports one Manifest value; a host installs it with
 // quill.WithCompiled. Every field is written once at generation time and read
 // concurrently afterwards, so a Manifest must not be mutated after install.
+//
+// A Manifest is opaque: build one with NewManifest and read it back through the
+// accessor methods. The unit's dispatch metadata (entry name, member sources,
+// fingerprint, feature flags) and its render entry point are set once by the
+// constructor and never mutated.
 type Manifest struct {
+	entry          string
+	sources        map[string]string
+	fingerprint    Fingerprint
+	usesLog        bool
+	usesSlots      bool
+	absentIncludes []string
+	render         RenderFunc
+}
+
+// ManifestParams supplies the dispatch metadata and render entry point a
+// Manifest carries. It is a plain input struct to NewManifest; the constructed
+// Manifest is opaque and takes ownership of the Sources map and AbsentIncludes
+// slice, so the caller must not mutate them afterwards.
+type ManifestParams struct {
 	// Entry is the template name the unit renders; a by-name render of this
 	// name is eligible for compiled dispatch.
 	Entry string
@@ -118,6 +199,53 @@ type Manifest struct {
 	// Render is the generated render entry point.
 	Render RenderFunc
 }
+
+// NewManifest builds an opaque Manifest from the given dispatch metadata and
+// render entry point. Generated code exports one Manifest value built this way;
+// a host installs it with quill.WithCompiled. The returned Manifest takes
+// ownership of the params' Sources map and AbsentIncludes slice.
+func NewManifest(p ManifestParams) *Manifest {
+	return &Manifest{
+		entry:          p.Entry,
+		sources:        p.Sources,
+		fingerprint:    p.Fingerprint,
+		usesLog:        p.UsesLog,
+		usesSlots:      p.UsesSlots,
+		absentIncludes: p.AbsentIncludes,
+		render:         p.Render,
+	}
+}
+
+// Entry returns the template name the unit renders; a by-name render of this
+// name is eligible for compiled dispatch.
+func (m *Manifest) Entry() string { return m.entry }
+
+// Sources returns the map of every member template name to the source text the
+// unit was compiled from. The returned map is the Manifest's own storage and
+// must be treated as read-only after install.
+func (m *Manifest) Sources() map[string]string { return m.sources }
+
+// Fingerprint returns the compile-options fingerprint the unit's bytes depend
+// on, for the dispatch gate to compare against the Environment's configuration.
+func (m *Manifest) Fingerprint() Fingerprint { return m.fingerprint }
+
+// UsesLog reports whether the unit lowers an @log statement, so dispatch can
+// fall back whenever the Environment carries a non-discarding logger.
+func (m *Manifest) UsesLog() bool { return m.usesLog }
+
+// UsesSlots reports whether the unit buffers its output to resolve deferred-slot
+// placeholders, so streaming dispatch can route it through a scratch buffer.
+func (m *Manifest) UsesSlots() bool { return m.usesSlots }
+
+// AbsentIncludes returns the ignore-missing @include targets the unit inlined
+// as rendering nothing; dispatch falls back the moment any of them resolves.
+// The returned slice is the Manifest's own storage and must be treated as
+// read-only.
+func (m *Manifest) AbsentIncludes() []string { return m.absentIncludes }
+
+// Render returns the generated render entry point, the frozen render ABI the
+// Environment calls to serve a compiled by-name render.
+func (m *Manifest) Render() RenderFunc { return m.render }
 
 // Divergence reports one shadow-verification mismatch: a render whose compiled
 // output or error text differs from the interpreter's for the same template

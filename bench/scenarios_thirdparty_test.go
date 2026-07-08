@@ -36,6 +36,7 @@
 package quillbench
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"reflect"
@@ -44,7 +45,6 @@ import (
 	texttmpl "text/template"
 
 	quill "github.com/avmnu-sng/quill-template-engine"
-	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
 
 	jet "github.com/CloudyKit/jet/v6"
 	pongo2 "github.com/flosch/pongo2/v6"
@@ -147,8 +147,8 @@ func TestVerifyScenariosThirdparty(t *testing.T) {
 
 	// ---- Peer filter scenario: upper + join ----
 	{
-		env := quill.NewWithArray(map[string]string{"filter.ql": quillPeerFilter})
-		qOut, err := env.Render("filter.ql", quillFilterVars(n))
+		env := quill.NewFromMap(map[string]string{"filter.ql": quillPeerFilter})
+		qOut, err := env.Render(context.Background(), "filter.ql", quillFilterVars(n))
 		if err != nil {
 			t.Fatalf("quill peer filter: %v", err)
 		}
@@ -191,8 +191,8 @@ func TestVerifyScenariosThirdparty(t *testing.T) {
 
 	// ---- Peer conditional scenario (reuses the offline templates/data) ----
 	{
-		env := quill.NewWithArray(map[string]string{"cond.ql": quillCond})
-		qOut, err := env.Render("cond.ql", quillCondVars(n))
+		env := quill.NewFromMap(map[string]string{"cond.ql": quillCond})
+		qOut, err := env.Render(context.Background(), "cond.ql", quillCondVars(n))
 		if err != nil {
 			t.Fatalf("quill cond: %v", err)
 		}
@@ -338,22 +338,22 @@ func BenchmarkJet_Cond_Render(b *testing.B) {
 // ============================================================================
 
 func BenchmarkQuill_PeerFilter_Render(b *testing.B) {
-	env := quill.NewWithArray(map[string]string{"filter.ql": quillPeerFilter})
-	tmpl, err := env.LoadTemplate("filter.ql")
+	env := quill.NewFromMap(map[string]string{"filter.ql": quillPeerFilter})
+	tmpl, err := env.LoadTemplate(context.Background(), "filter.ql")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for _, n := range scenarioSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			vars := quillFilterVars(n)
-			out, err := interp.Render(env, tmpl, vars)
+			out, err := env.RenderPrepared(context.Background(), tmpl, vars)
 			if err != nil {
 				b.Fatal(err)
 			}
 			b.SetBytes(int64(len(out)))
 			b.ReportAllocs()
 			for b.Loop() {
-				if sink, err = interp.Render(env, tmpl, vars); err != nil {
+				if sink, err = env.RenderPrepared(context.Background(), tmpl, vars); err != nil {
 					b.Fatal(err)
 				}
 			}

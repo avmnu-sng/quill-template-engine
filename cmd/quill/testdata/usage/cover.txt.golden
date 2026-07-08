@@ -1,0 +1,22 @@
+Usage: quill cover [flags] [<template-name>]
+
+Renders one template (-data + name) or a JSON list of cases (-cases),
+collects template coverage, and writes a text/lcov/html report.
+
+Flags:
+  -autoescape string
+    	output escaping strategy: "off" (default) or "html" (default "off")
+  -cases string
+    	JSON file of {template,data} cases; unions coverage across all
+  -data string
+    	JSON data file for a single-template run ("-" reads stdin)
+  -fail-under float
+    	exit with code 2 if total unit coverage percent is below N
+  -format string
+    	report format: text (default), lcov, or html (default "text")
+  -o string
+    	output file for the report (default stdout)
+  -root string
+    	template root the loader resolves names under (default ".")
+  -strict
+    	strict-undefined handling; -strict=false enables lenient mode (default true)

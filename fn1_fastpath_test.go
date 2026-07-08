@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -16,10 +17,10 @@ import (
 // keeps the engine on the general path for a core-audited name.
 func TestFn1HostFilterGetsFreshArgSlice(t *testing.T) {
 	var retained []runtime.Value
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(&ext.Filter{
 		Name: "upper",
-		Fn: func(args []runtime.Value) (runtime.Value, error) {
+		Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 			if retained != nil {
 				// Sabotage the PREVIOUS call's slice; a fresh slice per call
 				// makes this invisible to the current invocation.
@@ -36,8 +37,8 @@ func TestFn1HostFilterGetsFreshArgSlice(t *testing.T) {
 			return runtime.Str("H:" + strings.ToUpper(s)), nil
 		},
 	})
-	e := NewWithArray(nil, WithExtensions(set))
-	out, err := e.RenderString("m", "@for x in [\"a\", \"b\", \"c\"] {\n{{ x | upper }}\n@}\n", nil)
+	e := NewFromMap(nil, WithExtensions(set))
+	out, err := e.RenderString(context.Background(), "m", "@for x in [\"a\", \"b\", \"c\"] {\n{{ x | upper }}\n@}\n", nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -51,16 +52,16 @@ func TestFn1HostFilterGetsFreshArgSlice(t *testing.T) {
 // the general path: its Fn observes the standard one-element argument slice.
 func TestFn1ShadowedFilterWithoutFn1TakesGeneralPath(t *testing.T) {
 	argLens := []int{}
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(&ext.Filter{
 		Name: "upper",
-		Fn: func(args []runtime.Value) (runtime.Value, error) {
+		Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 			argLens = append(argLens, len(args))
 			return runtime.Str("shadow"), nil
 		},
 	})
-	e := NewWithArray(nil, WithExtensions(set))
-	out, err := e.RenderString("m", `{{ "x" | upper }}`, nil)
+	e := NewFromMap(nil, WithExtensions(set))
+	out, err := e.RenderString(context.Background(), "m", `{{ "x" | upper }}`, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -77,14 +78,14 @@ func TestFn1ShadowedFilterWithoutFn1TakesGeneralPath(t *testing.T) {
 // general path, so Fn sees the injected context mapping ahead of the piped
 // value and the trap never fires.
 func TestFn1NeedsFlagsDisableFastCall(t *testing.T) {
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(&ext.Filter{
 		Name: "upper",
-		Fn: func(args []runtime.Value) (runtime.Value, error) {
-			if len(args) != 2 || args[0].Kind != runtime.KArray {
+		Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+			if len(args) != 2 || args[0].Kind() != runtime.KArray {
 				return runtime.Null(), fmt.Errorf("context injection missing: %d args", len(args))
 			}
-			got, ok := args[0].Arr.GetStr("who")
+			got, ok := args[0].AsArray().GetStr("who")
 			if !ok {
 				return runtime.Null(), fmt.Errorf("injected context lacks the in-scope binding")
 			}
@@ -92,13 +93,13 @@ func TestFn1NeedsFlagsDisableFastCall(t *testing.T) {
 			w, _ := runtime.ToText(got)
 			return runtime.Str(s + "/" + w), nil
 		},
-		Fn1: func(v runtime.Value) (runtime.Value, error) {
+		Fn1: func(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 			return runtime.Null(), fmt.Errorf("Fn1 must not be consulted when Needs flags are set")
 		},
 		NeedsContext: true,
 	})
-	e := NewWithArray(nil, WithExtensions(set))
-	out, err := e.RenderString("m", "@set who = \"ada\"\n{{ \"x\" | upper }}", nil)
+	e := NewFromMap(nil, WithExtensions(set))
+	out, err := e.RenderString(context.Background(), "m", "@set who = \"ada\"\n{{ \"x\" | upper }}", nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -113,7 +114,7 @@ func TestFn1NeedsFlagsDisableFastCall(t *testing.T) {
 func probeFilter(name string, calls *[]string) *ext.Filter {
 	return &ext.Filter{
 		Name: name,
-		Fn: func(args []runtime.Value) (runtime.Value, error) {
+		Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 			*calls = append(*calls, "general")
 			s, err := runtime.ToText(args[0])
 			if err != nil {
@@ -121,7 +122,7 @@ func probeFilter(name string, calls *[]string) *ext.Filter {
 			}
 			return runtime.Str("p:" + s), nil
 		},
-		Fn1: func(v runtime.Value) (runtime.Value, error) {
+		Fn1: func(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 			*calls = append(*calls, "fast")
 			s, err := runtime.ToText(v)
 			if err != nil {
@@ -138,12 +139,12 @@ func probeFilter(name string, calls *[]string) *ext.Filter {
 // because the fast call must never depend on runtime argument data.
 func TestFn1SpreadArgKeepsGeneralPath(t *testing.T) {
 	var calls []string
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFilter(probeFilter("probe1", &calls))
-	e := NewWithArray(nil, WithExtensions(set))
+	e := NewFromMap(nil, WithExtensions(set))
 
 	vars := map[string]runtime.Value{"empty": runtime.Arr(runtime.NewArray())}
-	out, err := e.RenderString("m", `{{ "a" | probe1 }};{{ "b" | probe1(...empty) }}`, vars)
+	out, err := e.RenderString(context.Background(), "m", `{{ "a" | probe1 }};{{ "b" | probe1(...empty) }}`, vars)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -159,8 +160,8 @@ func TestFn1SpreadArgKeepsGeneralPath(t *testing.T) {
 // under its worst case -- alternating filter names -- and under repeats, so a
 // stale-memo bug would misroute a call to the wrong filter and change bytes.
 func TestFn1MemoResolvesAlternatingFilters(t *testing.T) {
-	e := NewWithArray(nil)
-	out, err := e.RenderString("m",
+	e := NewFromMap(nil)
+	out, err := e.RenderString(context.Background(), "m",
 		"@for x in [\"aB\", \"cD\"] {\n{{ x | upper }}{{ x | lower }}{{ x | upper }}\n@}\n", nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -193,12 +194,12 @@ func TestFn1FastAndGeneralRoutesByteEqual(t *testing.T) {
 		)),
 		"empty": runtime.Arr(runtime.NewArray()),
 	}
-	e := NewWithArray(nil)
+	e := NewFromMap(nil)
 	for _, name := range audited {
 		fastTpl := fmt.Sprintf("@for v in vals {\n[{{ v | %s | join(\",\") }}]\n@}\n", name)
 		genTpl := fmt.Sprintf("@for v in vals {\n[{{ v | %s(...empty) | join(\",\") }}]\n@}\n", name)
-		fastOut, fastErr := e.RenderString("f-"+name, fastTpl, vars)
-		genOut, genErr := e.RenderString("g-"+name, genTpl, vars)
+		fastOut, fastErr := e.RenderString(context.Background(), "f-"+name, fastTpl, vars)
+		genOut, genErr := e.RenderString(context.Background(), "g-"+name, genTpl, vars)
 		if (fastErr == nil) != (genErr == nil) {
 			t.Errorf("%s: error mismatch: fast=%v general=%v", name, fastErr, genErr)
 			continue

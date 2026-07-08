@@ -182,6 +182,10 @@ sandbox, coverage, performance, the standard library, and the architecture. The
 canonical API reference is
 [pkg.go.dev](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine).
 
+Upgrading from v0.3.0? The [migration
+guide](https://avmnu-sng.github.io/quill-template-engine/migration/) maps every
+v1.0.0 breaking change from the old API to the new one.
+
 ## Development
 
 Quill uses [go-task](https://taskfile.dev) as its build tool. Install it with

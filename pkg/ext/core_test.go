@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
@@ -14,7 +15,7 @@ func callFilter(t *testing.T, name string, args ...runtime.Value) runtime.Value 
 	if !ok {
 		t.Fatalf("filter %q not registered", name)
 	}
-	v, err := f.Fn(args)
+	v, err := f.Fn(context.Background(), args)
 	if err != nil {
 		t.Fatalf("filter %q error: %v", name, err)
 	}
@@ -28,7 +29,7 @@ func callFn(t *testing.T, name string, args ...runtime.Value) runtime.Value {
 	if !ok {
 		t.Fatalf("function %q not registered", name)
 	}
-	v, err := f.Fn(args)
+	v, err := f.Fn(context.Background(), args)
 	if err != nil {
 		t.Fatalf("function %q error: %v", name, err)
 	}
@@ -42,7 +43,7 @@ func callTest(t *testing.T, name string, args ...runtime.Value) bool {
 	if !ok {
 		t.Fatalf("test %q not registered", name)
 	}
-	b, err := tst.Fn(args)
+	b, err := tst.Fn(context.Background(), args)
 	if err != nil {
 		t.Fatalf("test %q error: %v", name, err)
 	}
@@ -52,20 +53,20 @@ func callTest(t *testing.T, name string, args ...runtime.Value) bool {
 func list(vals ...runtime.Value) runtime.Value { return runtime.Arr(runtime.NewList(vals...)) }
 
 func TestStringFilters(t *testing.T) {
-	if got := callFilter(t, "upper", runtime.Str("hi")); got.S != "HI" {
-		t.Errorf("upper = %q", got.S)
+	if got := callFilter(t, "upper", runtime.Str("hi")); got.AsStr() != "HI" {
+		t.Errorf("upper = %q", got.AsStr())
 	}
-	if got := callFilter(t, "lower", runtime.Str("Hi")); got.S != "hi" {
-		t.Errorf("lower = %q", got.S)
+	if got := callFilter(t, "lower", runtime.Str("Hi")); got.AsStr() != "hi" {
+		t.Errorf("lower = %q", got.AsStr())
 	}
-	if got := callFilter(t, "trim", runtime.Str("  x  ")); got.S != "x" {
-		t.Errorf("trim = %q", got.S)
+	if got := callFilter(t, "trim", runtime.Str("  x  ")); got.AsStr() != "x" {
+		t.Errorf("trim = %q", got.AsStr())
 	}
-	if got := callFilter(t, "trim", runtime.Str("xxhixx"), runtime.Str("both"), runtime.Str("x")); got.S != "hi" {
-		t.Errorf("trim mask = %q", got.S)
+	if got := callFilter(t, "trim", runtime.Str("xxhixx"), runtime.Str("both"), runtime.Str("x")); got.AsStr() != "hi" {
+		t.Errorf("trim mask = %q", got.AsStr())
 	}
-	if got := callFilter(t, "trim", runtime.Str("  x  "), runtime.Str("left")); got.S != "x  " {
-		t.Errorf("ltrim = %q", got.S)
+	if got := callFilter(t, "trim", runtime.Str("  x  "), runtime.Str("left")); got.AsStr() != "x  " {
+		t.Errorf("ltrim = %q", got.AsStr())
 	}
 }
 
@@ -76,8 +77,8 @@ func TestReplaceStrtr(t *testing.T) {
 	pairs.SetStr("a", runtime.Str("b"))
 	pairs.SetStr("b", runtime.Str("c"))
 	got := callFilter(t, "replace", runtime.Str("ab"), runtime.Arr(pairs))
-	if got.S != "bc" { // not "cc": a replacement is never re-scanned
-		t.Errorf("replace cascade leaked: %q", got.S)
+	if got.AsStr() != "bc" { // not "cc": a replacement is never re-scanned
+		t.Errorf("replace cascade leaked: %q", got.AsStr())
 	}
 }
 
@@ -103,44 +104,44 @@ func TestDefaultFilter(t *testing.T) {
 }
 
 func TestLength(t *testing.T) {
-	if got := callFilter(t, "length", runtime.Str("abc")); got.I != 3 {
-		t.Errorf("length string = %d", got.I)
+	if got := callFilter(t, "length", runtime.Str("abc")); got.AsInt() != 3 {
+		t.Errorf("length string = %d", got.AsInt())
 	}
-	if got := callFilter(t, "length", list(runtime.Int(1), runtime.Int(2))); got.I != 2 {
-		t.Errorf("length list = %d", got.I)
+	if got := callFilter(t, "length", list(runtime.Int(1), runtime.Int(2))); got.AsInt() != 2 {
+		t.Errorf("length list = %d", got.AsInt())
 	}
-	if got := callFilter(t, "length", runtime.Int(5)); got.I != 1 {
-		t.Errorf("length scalar = %d", got.I)
+	if got := callFilter(t, "length", runtime.Int(5)); got.AsInt() != 1 {
+		t.Errorf("length scalar = %d", got.AsInt())
 	}
 }
 
 func TestJoin(t *testing.T) {
 	got := callFilter(t, "join", list(runtime.Str("a"), runtime.Str("b"), runtime.Str("c")), runtime.Str(", "))
-	if got.S != "a, b, c" {
-		t.Errorf("join = %q", got.S)
+	if got.AsStr() != "a, b, c" {
+		t.Errorf("join = %q", got.AsStr())
 	}
 	got = callFilter(t, "join", list(runtime.Str("a"), runtime.Str("b"), runtime.Str("c")), runtime.Str(", "), runtime.Str(" and "))
-	if got.S != "a, b and c" {
-		t.Errorf("join final = %q", got.S)
+	if got.AsStr() != "a, b and c" {
+		t.Errorf("join final = %q", got.AsStr())
 	}
 }
 
 func TestCollectionFilters(t *testing.T) {
 	l := list(runtime.Int(3), runtime.Int(1), runtime.Int(2))
-	if got := callFilter(t, "first", l); got.I != 3 {
-		t.Errorf("first = %d", got.I)
+	if got := callFilter(t, "first", l); got.AsInt() != 3 {
+		t.Errorf("first = %d", got.AsInt())
 	}
-	if got := callFilter(t, "last", l); got.I != 2 {
-		t.Errorf("last = %d", got.I)
+	if got := callFilter(t, "last", l); got.AsInt() != 2 {
+		t.Errorf("last = %d", got.AsInt())
 	}
 	sorted := callFilter(t, "sort", l)
-	ps := sorted.Arr.Pairs()
-	if ps[0].Val.I != 1 || ps[2].Val.I != 3 {
+	ps := sorted.AsArray().Pairs()
+	if ps[0].Val.AsInt() != 1 || ps[2].Val.AsInt() != 3 {
 		t.Errorf("sort = %v", ps)
 	}
 	rev := callFilter(t, "reverse", l, runtime.Bool(false))
-	if rev.Arr.Pairs()[0].Val.I != 2 {
-		t.Errorf("reverse = %v", rev.Arr.Pairs())
+	if rev.AsArray().Pairs()[0].Val.AsInt() != 2 {
+		t.Errorf("reverse = %v", rev.AsArray().Pairs())
 	}
 }
 
@@ -149,57 +150,57 @@ func TestKeysAndMerge(t *testing.T) {
 	m.SetStr("x", runtime.Int(1))
 	m.SetStr("y", runtime.Int(2))
 	keys := callFilter(t, "keys", runtime.Arr(m))
-	if keys.Arr.Len() != 2 || keys.Arr.Pairs()[0].Val.S != "x" {
-		t.Errorf("keys = %v", keys.Arr.Pairs())
+	if keys.AsArray().Len() != 2 || keys.AsArray().Pairs()[0].Val.AsStr() != "x" {
+		t.Errorf("keys = %v", keys.AsArray().Pairs())
 	}
 	a := runtime.NewList(runtime.Int(1), runtime.Int(2))
 	b := runtime.NewList(runtime.Int(3))
 	merged := callFilter(t, "merge", runtime.Arr(a), runtime.Arr(b))
-	if merged.Arr.Len() != 3 || merged.Arr.Pairs()[2].Val.I != 3 {
-		t.Errorf("merge = %v", merged.Arr.Pairs())
+	if merged.AsArray().Len() != 3 || merged.AsArray().Pairs()[2].Val.AsInt() != 3 {
+		t.Errorf("merge = %v", merged.AsArray().Pairs())
 	}
 }
 
 func TestSliceFilter(t *testing.T) {
-	if got := callFilter(t, "slice", runtime.Str("hello"), runtime.Int(1), runtime.Int(3)); got.S != "ell" {
-		t.Errorf("slice string = %q", got.S)
+	if got := callFilter(t, "slice", runtime.Str("hello"), runtime.Int(1), runtime.Int(3)); got.AsStr() != "ell" {
+		t.Errorf("slice string = %q", got.AsStr())
 	}
-	if got := callFilter(t, "slice", runtime.Str("hello"), runtime.Int(-2)); got.S != "lo" {
-		t.Errorf("slice negative = %q", got.S)
+	if got := callFilter(t, "slice", runtime.Str("hello"), runtime.Int(-2)); got.AsStr() != "lo" {
+		t.Errorf("slice negative = %q", got.AsStr())
 	}
 }
 
 func TestEscapeAndRaw(t *testing.T) {
 	got := callFilter(t, "escape", runtime.Str(`<a href="x">&'`))
-	if got.Kind != runtime.KSafe {
-		t.Fatalf("escape should return Safe, got %s", got.Kind)
+	if got.Kind() != runtime.KSafe {
+		t.Fatalf("escape should return Safe, got %s", got.Kind())
 	}
-	if got.S != "&lt;a href=&quot;x&quot;&gt;&amp;&#39;" {
-		t.Errorf("escape html = %q", got.S)
+	if got.AsStr() != "&lt;a href=&quot;x&quot;&gt;&amp;&#39;" {
+		t.Errorf("escape html = %q", got.AsStr())
 	}
 	// Already-safe content is returned unchanged.
-	if got := callFilter(t, "escape", runtime.Safe("<b>")); got.S != "<b>" {
-		t.Errorf("escape of safe = %q", got.S)
+	if got := callFilter(t, "escape", runtime.Safe("<b>")); got.AsStr() != "<b>" {
+		t.Errorf("escape of safe = %q", got.AsStr())
 	}
-	if got := callFilter(t, "raw", runtime.Str("<b>")); got.Kind != runtime.KSafe || got.S != "<b>" {
+	if got := callFilter(t, "raw", runtime.Str("<b>")); got.Kind() != runtime.KSafe || got.AsStr() != "<b>" {
 		t.Errorf("raw = %v", got)
 	}
 }
 
 func TestFunctions(t *testing.T) {
 	r := callFn(t, "range", runtime.Int(1), runtime.Int(4))
-	if r.Arr.Len() != 4 || r.Arr.Pairs()[3].Val.I != 4 {
-		t.Errorf("range = %v", r.Arr.Pairs())
+	if r.AsArray().Len() != 4 || r.AsArray().Pairs()[3].Val.AsInt() != 4 {
+		t.Errorf("range = %v", r.AsArray().Pairs())
 	}
 	rc := callFn(t, "range", runtime.Str("a"), runtime.Str("c"))
-	if rc.Arr.Len() != 3 || rc.Arr.Pairs()[0].Val.S != "a" {
-		t.Errorf("char range = %v", rc.Arr.Pairs())
+	if rc.AsArray().Len() != 3 || rc.AsArray().Pairs()[0].Val.AsStr() != "a" {
+		t.Errorf("char range = %v", rc.AsArray().Pairs())
 	}
-	if got := callFn(t, "max", runtime.Int(3), runtime.Int(7), runtime.Int(1)); got.I != 7 {
-		t.Errorf("max = %d", got.I)
+	if got := callFn(t, "max", runtime.Int(3), runtime.Int(7), runtime.Int(1)); got.AsInt() != 7 {
+		t.Errorf("max = %d", got.AsInt())
 	}
-	if got := callFn(t, "min", list(runtime.Int(3), runtime.Int(7), runtime.Int(1))); got.I != 1 {
-		t.Errorf("min iterable = %d", got.I)
+	if got := callFn(t, "min", list(runtime.Int(3), runtime.Int(7), runtime.Int(1))); got.AsInt() != 1 {
+		t.Errorf("min iterable = %d", got.AsInt())
 	}
 }
 
@@ -234,12 +235,12 @@ func TestTests(t *testing.T) {
 // the same name and kind (spec 03 Section 1).
 func TestHostShadowsCore(t *testing.T) {
 	s := Core()
-	s.AddFilter(&Filter{Name: "upper", Fn: func(a []runtime.Value) (runtime.Value, error) {
+	s.AddFilter(&Filter{Name: "upper", Fn: func(ctx context.Context, a []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("SHADOWED"), nil
 	}})
 	f, _ := s.Filter("upper")
-	got, _ := f.Fn([]runtime.Value{runtime.Str("hi")})
-	if got.S != "SHADOWED" {
-		t.Errorf("host did not shadow core: %q", got.S)
+	got, _ := f.Fn(context.Background(), []runtime.Value{runtime.Str("hi")})
+	if got.AsStr() != "SHADOWED" {
+		t.Errorf("host did not shadow core: %q", got.AsStr())
 	}
 }

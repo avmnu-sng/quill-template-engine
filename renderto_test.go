@@ -3,6 +3,7 @@ package quill
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -71,10 +72,10 @@ func TestRenderToMatchesConformanceCorpus(t *testing.T) {
 		t.Run(e.Name(), func(t *testing.T) {
 			tmpls, main, vars, opts, _ := fixtureSetup(t, dir)
 
-			got, rerr := New(loader.NewArrayLoader(tmpls), opts...).Render(main, vars)
+			got, rerr := New(loader.NewArrayLoader(tmpls), opts...).Render(context.Background(), main, vars)
 
 			var buf bytes.Buffer
-			terr := New(loader.NewArrayLoader(tmpls), opts...).RenderTo(&buf, main, vars)
+			terr := New(loader.NewArrayLoader(tmpls), opts...).RenderTo(context.Background(), &buf, main, vars)
 
 			if bytes.Contains(buf.Bytes(), []byte(slotPlaceholderMark)) {
 				t.Fatalf("raw slot placeholder leaked into RenderTo output")
@@ -319,12 +320,12 @@ func batteryCases() []streamCase {
 func TestRenderToStreamingBattery(t *testing.T) {
 	for _, tc := range batteryCases() {
 		t.Run(tc.name, func(t *testing.T) {
-			want, err := New(loader.NewArrayLoader(tc.tmpls)).Render(tc.main, tc.vars)
+			want, err := New(loader.NewArrayLoader(tc.tmpls)).Render(context.Background(), tc.main, tc.vars)
 			if err != nil {
 				t.Fatalf("Render error: %v", err)
 			}
 			var cw countingWriter
-			if err := New(loader.NewArrayLoader(tc.tmpls)).RenderTo(&cw, tc.main, tc.vars); err != nil {
+			if err := New(loader.NewArrayLoader(tc.tmpls)).RenderTo(context.Background(), &cw, tc.main, tc.vars); err != nil {
 				t.Fatalf("RenderTo error: %v", err)
 			}
 			if bytes.Contains(cw.buf.Bytes(), []byte(slotPlaceholderMark)) {
@@ -355,12 +356,12 @@ func TestRenderStringToSelfNameShadow(t *testing.T) {
 	}
 	body := "top\n@include \"part.ql\"\nbottom\n"
 
-	want, err := New(loader.NewArrayLoader(tmpls)).RenderString("part.ql", body, nil)
+	want, err := New(loader.NewArrayLoader(tmpls)).RenderString(context.Background(), "part.ql", body, nil)
 	if err != nil {
 		t.Fatalf("RenderString error: %v", err)
 	}
 	var cw countingWriter
-	if err := New(loader.NewArrayLoader(tmpls)).RenderStringTo(&cw, "part.ql", body, nil); err != nil {
+	if err := New(loader.NewArrayLoader(tmpls)).RenderStringTo(context.Background(), &cw, "part.ql", body, nil); err != nil {
 		t.Fatalf("RenderStringTo error: %v", err)
 	}
 	if bytes.Contains(cw.buf.Bytes(), []byte(slotPlaceholderMark)) {
@@ -382,14 +383,14 @@ func TestRenderToFlush(t *testing.T) {
 	tmpls := map[string]string{
 		"main.ql": "before-marker\n@flush\nafter-marker\n",
 	}
-	want, err := New(loader.NewArrayLoader(tmpls)).Render("main.ql", nil)
+	want, err := New(loader.NewArrayLoader(tmpls)).Render(context.Background(), "main.ql", nil)
 	if err != nil {
 		t.Fatalf("Render error: %v", err)
 	}
 
 	var dest bytes.Buffer
 	bw := bufio.NewWriterSize(&dest, 1<<16)
-	if err := New(loader.NewArrayLoader(tmpls)).RenderTo(bw, "main.ql", nil); err != nil {
+	if err := New(loader.NewArrayLoader(tmpls)).RenderTo(context.Background(), bw, "main.ql", nil); err != nil {
 		t.Fatalf("RenderTo error: %v", err)
 	}
 	// The buffer is far larger than the output, so anything visible in dest
@@ -413,7 +414,7 @@ func TestRenderToWriteErrorStopsRender(t *testing.T) {
 		"main.ql": "@for i in 1..10000 {\nrow {{ i }}\n@}",
 	}
 	w := &failAfterWriter{n: 64}
-	err := New(loader.NewArrayLoader(tmpls)).RenderTo(w, "main.ql", nil)
+	err := New(loader.NewArrayLoader(tmpls)).RenderTo(context.Background(), w, "main.ql", nil)
 	if err == nil {
 		t.Fatal("expected a write error, got nil")
 	}
@@ -442,12 +443,12 @@ func TestRenderToErrorMatchesRender(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, rerr := New(loader.NewArrayLoader(tc.tmpls)).Render(tc.main, nil)
+			_, rerr := New(loader.NewArrayLoader(tc.tmpls)).Render(context.Background(), tc.main, nil)
 			if rerr == nil {
 				t.Fatal("expected a Render error")
 			}
 			var cw countingWriter
-			terr := New(loader.NewArrayLoader(tc.tmpls)).RenderTo(&cw, tc.main, nil)
+			terr := New(loader.NewArrayLoader(tc.tmpls)).RenderTo(context.Background(), &cw, tc.main, nil)
 			if terr == nil {
 				t.Fatal("expected a RenderTo error")
 			}
@@ -466,7 +467,7 @@ func TestRenderToErrorMatchesRender(t *testing.T) {
 // returned alongside the error.
 func TestRenderPartialOnErrorShape(t *testing.T) {
 	tmpls := map[string]string{"main.ql": "prefix-{{ missing_var }}"}
-	got, err := New(loader.NewArrayLoader(tmpls)).Render("main.ql", nil)
+	got, err := New(loader.NewArrayLoader(tmpls)).Render(context.Background(), "main.ql", nil)
 	if err == nil {
 		t.Fatal("expected a render error")
 	}
@@ -481,12 +482,12 @@ func TestRenderPartialOnErrorShape(t *testing.T) {
 func TestRenderToValuesAndStringToAndDisplay(t *testing.T) {
 	tmpls := map[string]string{"main.ql": "sum: {{ a + b }}\n"}
 	env := New(loader.NewArrayLoader(tmpls))
-	want, err := env.RenderValues("main.ql", map[string]any{"a": 2, "b": 40})
+	want, err := env.RenderValues(context.Background(), "main.ql", map[string]any{"a": 2, "b": 40})
 	if err != nil {
 		t.Fatalf("RenderValues error: %v", err)
 	}
 	var buf bytes.Buffer
-	if err := New(loader.NewArrayLoader(tmpls)).RenderToValues(&buf, "main.ql", map[string]any{"a": 2, "b": 40}); err != nil {
+	if err := New(loader.NewArrayLoader(tmpls)).RenderToValues(context.Background(), &buf, "main.ql", map[string]any{"a": 2, "b": 40}); err != nil {
 		t.Fatalf("RenderToValues error: %v", err)
 	}
 	if buf.String() != want {
@@ -494,12 +495,12 @@ func TestRenderToValuesAndStringToAndDisplay(t *testing.T) {
 	}
 
 	body := "inline {{ x * 2 }}\n"
-	wantStr, err := env.RenderString("inline.ql", body, map[string]runtime.Value{"x": runtime.Int(21)})
+	wantStr, err := env.RenderString(context.Background(), "inline.ql", body, map[string]runtime.Value{"x": runtime.Int(21)})
 	if err != nil {
 		t.Fatalf("RenderString error: %v", err)
 	}
 	buf.Reset()
-	if err := New(loader.NewArrayLoader(tmpls)).RenderStringTo(&buf, "inline.ql", body, map[string]runtime.Value{"x": runtime.Int(21)}); err != nil {
+	if err := New(loader.NewArrayLoader(tmpls)).RenderStringTo(context.Background(), &buf, "inline.ql", body, map[string]runtime.Value{"x": runtime.Int(21)}); err != nil {
 		t.Fatalf("RenderStringTo error: %v", err)
 	}
 	if buf.String() != wantStr {
@@ -507,12 +508,12 @@ func TestRenderToValuesAndStringToAndDisplay(t *testing.T) {
 	}
 
 	buf.Reset()
-	if err := New(loader.NewArrayLoader(tmpls)).Display(&buf, "main.ql",
+	if err := New(loader.NewArrayLoader(tmpls)).RenderTo(context.Background(), &buf, "main.ql",
 		map[string]runtime.Value{"a": runtime.Int(1), "b": runtime.Int(2)}); err != nil {
-		t.Fatalf("Display error: %v", err)
+		t.Fatalf("RenderTo error: %v", err)
 	}
 	if buf.String() != "sum: 3\n" {
-		t.Fatalf("Display mismatch: %q", buf.String())
+		t.Fatalf("RenderTo mismatch: %q", buf.String())
 	}
 }
 
@@ -525,12 +526,12 @@ func TestRenderToLargeOutputEquivalence(t *testing.T) {
 	}
 	vars := map[string]runtime.Value{"payload": runtime.Str(strings.Repeat("x", 600))}
 
-	want, err := New(loader.NewArrayLoader(tmpls)).Render("main.ql", vars)
+	want, err := New(loader.NewArrayLoader(tmpls)).Render(context.Background(), "main.ql", vars)
 	if err != nil {
 		t.Fatalf("Render error: %v", err)
 	}
 	var buf bytes.Buffer
-	if err := New(loader.NewArrayLoader(tmpls)).RenderTo(&buf, "main.ql", vars); err != nil {
+	if err := New(loader.NewArrayLoader(tmpls)).RenderTo(context.Background(), &buf, "main.ql", vars); err != nil {
 		t.Fatalf("RenderTo error: %v", err)
 	}
 	if buf.String() != want {
@@ -546,13 +547,13 @@ func TestRenderToLargeOutputEquivalence(t *testing.T) {
 func TestRenderToStringWriterFastPath(t *testing.T) {
 	tmpls := map[string]string{"main.ql": "plain {{ v }} output\nsecond line\n"}
 	vars := map[string]runtime.Value{"v": runtime.Int(9)}
-	want, err := New(loader.NewArrayLoader(tmpls)).Render("main.ql", vars)
+	want, err := New(loader.NewArrayLoader(tmpls)).Render(context.Background(), "main.ql", vars)
 	if err != nil {
 		t.Fatalf("Render error: %v", err)
 	}
 	var dest bytes.Buffer
 	bw := bufio.NewWriter(&dest)
-	if err := New(loader.NewArrayLoader(tmpls)).RenderTo(bw, "main.ql", vars); err != nil {
+	if err := New(loader.NewArrayLoader(tmpls)).RenderTo(context.Background(), bw, "main.ql", vars); err != nil {
 		t.Fatalf("RenderTo error: %v", err)
 	}
 	if err := bw.Flush(); err != nil {
@@ -573,13 +574,13 @@ func TestRenderToSandboxActive(t *testing.T) {
 
 	run := func(filters []string) (string, error, string, error) {
 		mk := func() *Environment {
-			pol := buildPolicy(&sandboxConfig{Filters: filters})
+			pol := buildPolicy(&sandboxConfig{Filters: filters}, false)
 			return New(loader.NewArrayLoader(tmpls),
 				WithSandboxPolicy(pol), WithSandboxActive(true))
 		}
-		got, rerr := mk().Render("main.ql", vars)
+		got, rerr := mk().Render(context.Background(), "main.ql", vars)
 		var buf bytes.Buffer
-		terr := mk().RenderTo(&buf, "main.ql", vars)
+		terr := mk().RenderTo(context.Background(), &buf, "main.ql", vars)
 		return got, rerr, buf.String(), terr
 	}
 

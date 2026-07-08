@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -15,21 +16,21 @@ import (
 func TestDateHostObjectProtocol(t *testing.T) {
 	// date(0) is the Unix epoch in UTC -> 1970-01-01 00:00:00 in the default layout.
 	d := callFn(t, "date", runtime.Int(0))
-	if d.Kind != runtime.KObject {
-		t.Fatalf("date() = kind %s, want an object", d.Kind)
+	if d.Kind() != runtime.KObject {
+		t.Fatalf("date() = kind %s, want an object", d.Kind())
 	}
 
 	// GetField: a date exposes no attributes, so any name is absent and null.
-	got, ok := d.Obj.GetField("year")
+	got, ok := d.AsObject().GetField("year")
 	if ok {
 		t.Errorf("date GetField(year) ok=true, want false (a date has no fields)")
 	}
-	if got.Kind != runtime.KNull {
-		t.Errorf("date GetField absent value = %s, want null", got.Kind)
+	if got.Kind() != runtime.KNull {
+		t.Errorf("date GetField absent value = %s, want null", got.Kind())
 	}
 
 	// CallMethod: a date has no callable methods; every invocation is a runtime error.
-	res, err := d.Obj.CallMethod("format", []runtime.Value{runtime.Str("x")})
+	res, err := d.AsObject().CallMethod("format", []runtime.Value{runtime.Str("x")})
 	if err == nil {
 		t.Fatalf("date CallMethod should error, got %v", res)
 	}
@@ -39,8 +40,8 @@ func TestDateHostObjectProtocol(t *testing.T) {
 	if errors.KindOf(err) != errors.KindRuntime {
 		t.Errorf("date CallMethod error kind = %s, want KindRuntime", errors.KindOf(err))
 	}
-	if res.Kind != runtime.KNull {
-		t.Errorf("date CallMethod result = %s, want null", res.Kind)
+	if res.Kind() != runtime.KNull {
+		t.Errorf("date CallMethod result = %s, want null", res.Kind())
 	}
 
 	// Stringify: reached through the public ToText hook, renders the default layout.
@@ -53,7 +54,7 @@ func TestDateHostObjectProtocol(t *testing.T) {
 	}
 
 	// ClassName: reported through the ClassNamed capability interface.
-	cn, ok := d.Obj.(runtime.ClassNamed)
+	cn, ok := d.AsObject().(runtime.ClassNamed)
 	if !ok {
 		t.Fatal("date value should implement runtime.ClassNamed")
 	}
@@ -69,13 +70,13 @@ func TestSeparatorHostObjectProtocol(t *testing.T) {
 	sep := callFn(t, "separator", runtime.Str("; "))
 
 	// GetField: a separator is used only by calling it, so it has no members.
-	got, ok := sep.Obj.GetField("sep")
-	if ok || got.Kind != runtime.KNull {
-		t.Errorf("separator GetField(sep) = (%s, %v), want (null, false)", got.Kind, ok)
+	got, ok := sep.AsObject().GetField("sep")
+	if ok || got.Kind() != runtime.KNull {
+		t.Errorf("separator GetField(sep) = (%s, %v), want (null, false)", got.Kind(), ok)
 	}
 
 	// CallMethod: a separator is invoked directly, never through a named method.
-	res, err := sep.Obj.CallMethod("reset", nil)
+	res, err := sep.AsObject().CallMethod("reset", nil)
 	if err == nil {
 		t.Fatalf("separator CallMethod should error, got %v", res)
 	}
@@ -87,7 +88,7 @@ func TestSeparatorHostObjectProtocol(t *testing.T) {
 	}
 
 	// ClassName.
-	cn, _ := sep.Obj.(runtime.ClassNamed)
+	cn, _ := sep.AsObject().(runtime.ClassNamed)
 	if cn == nil || cn.ClassName() != "Separator" {
 		t.Errorf("separator ClassName = %q, want %q", cn.ClassName(), "Separator")
 	}
@@ -100,19 +101,19 @@ func TestCellHostObjectProtocolMembers(t *testing.T) {
 	c := callFn(t, "cell", runtime.Str("seed"))
 
 	// GetField hit path: `value` yields the held value.
-	got, ok := c.Obj.GetField("value")
-	if !ok || got.Kind != runtime.KStr || got.S != "seed" {
+	got, ok := c.AsObject().GetField("value")
+	if !ok || got.Kind() != runtime.KStr || got.AsStr() != "seed" {
 		t.Errorf("cell GetField(value) = (%v, %v), want (\"seed\", true)", got, ok)
 	}
 
 	// GetField miss path: any other member is absent and null.
-	got, ok = c.Obj.GetField("missing")
-	if ok || got.Kind != runtime.KNull {
-		t.Errorf("cell GetField(missing) = (%s, %v), want (null, false)", got.Kind, ok)
+	got, ok = c.AsObject().GetField("missing")
+	if ok || got.Kind() != runtime.KNull {
+		t.Errorf("cell GetField(missing) = (%s, %v), want (null, false)", got.Kind(), ok)
 	}
 
 	// CallMethod: a cell is read/written through `value`, never through a method.
-	res, err := c.Obj.CallMethod("get", nil)
+	res, err := c.AsObject().CallMethod("get", nil)
 	if err == nil {
 		t.Fatalf("cell CallMethod should error, got %v", res)
 	}
@@ -124,7 +125,7 @@ func TestCellHostObjectProtocolMembers(t *testing.T) {
 	}
 
 	// ClassName.
-	cn, _ := c.Obj.(runtime.ClassNamed)
+	cn, _ := c.AsObject().(runtime.ClassNamed)
 	if cn == nil || cn.ClassName() != "Cell" {
 		t.Errorf("cell ClassName = %q, want %q", cn.ClassName(), "Cell")
 	}
@@ -155,7 +156,7 @@ func TestCellStringifyHeldValueKinds(t *testing.T) {
 // TestRegistryHasFunctionAndHasTest covers HasFunction and HasTest on both the
 // present and the absent path, driven through the public registration API.
 func TestRegistryHasFunctionAndHasTest(t *testing.T) {
-	s := NewExtensionSet()
+	s := NewSet()
 
 	// Absent before registration.
 	if s.HasFunction("greet") {
@@ -165,10 +166,10 @@ func TestRegistryHasFunctionAndHasTest(t *testing.T) {
 		t.Error("HasTest(blank) = true on empty set, want false")
 	}
 
-	s.AddFunction(&Function{Name: "greet", Fn: func([]runtime.Value) (runtime.Value, error) {
+	s.AddFunction(&Function{Name: "greet", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("hi"), nil
 	}})
-	s.AddTest(&Test{Name: "blank", Fn: func([]runtime.Value) (bool, error) {
+	s.AddTest(&Test{Name: "blank", Fn: func(context.Context, []runtime.Value) (bool, error) {
 		return true, nil
 	}})
 
@@ -192,14 +193,14 @@ func TestRegistryHasFunctionAndHasTest(t *testing.T) {
 // callable values, and gives the copy independent maps so a later addition to
 // one set does not leak into the other.
 func TestRegistryCloneIndependence(t *testing.T) {
-	base := NewExtensionSet()
-	base.AddFilter(&Filter{Name: "f", Fn: func([]runtime.Value) (runtime.Value, error) {
+	base := NewSet()
+	base.AddFilter(&Filter{Name: "f", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("base-f"), nil
 	}})
-	base.AddFunction(&Function{Name: "fn", Fn: func([]runtime.Value) (runtime.Value, error) {
+	base.AddFunction(&Function{Name: "fn", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Str("base-fn"), nil
 	}})
-	base.AddTest(&Test{Name: "t", Fn: func([]runtime.Value) (bool, error) { return true, nil }})
+	base.AddTest(&Test{Name: "t", Fn: func(context.Context, []runtime.Value) (bool, error) { return true, nil }})
 	base.AddConstant("K", runtime.Str("base-k"))
 	base.AddEnum("E", []runtime.Value{runtime.Str("a"), runtime.Str("b")})
 
@@ -209,10 +210,10 @@ func TestRegistryCloneIndependence(t *testing.T) {
 	if !cp.HasFilter("f") || !cp.HasFunction("fn") || !cp.HasTest("t") {
 		t.Error("Clone dropped a callable family")
 	}
-	if v, ok := cp.Constant("K"); !ok || v.S != "base-k" {
+	if v, ok := cp.Constant("K"); !ok || v.AsStr() != "base-k" {
 		t.Errorf("Clone constant K = %+v ok=%v, want base-k", v, ok)
 	}
-	if cases, ok := cp.Enum("E"); !ok || len(cases) != 2 || cases[0].S != "a" {
+	if cases, ok := cp.Enum("E"); !ok || len(cases) != 2 || cases[0].AsStr() != "a" {
 		t.Errorf("Clone enum E = %+v ok=%v", cases, ok)
 	}
 
@@ -222,21 +223,21 @@ func TestRegistryCloneIndependence(t *testing.T) {
 	if orig != clone {
 		t.Error("Clone should share the callable pointer, not deep-copy it")
 	}
-	got, _ := clone.Fn(nil)
-	if got.S != "base-f" {
-		t.Errorf("cloned filter f = %q, want base-f", got.S)
+	got, _ := clone.Fn(context.Background(), nil)
+	if got.AsStr() != "base-f" {
+		t.Errorf("cloned filter f = %q, want base-f", got.AsStr())
 	}
 
 	// Independent maps: adding to the clone does not touch the base, and vice versa.
 	// Exercise every one of the five maps Clone copies, not just filters/functions,
 	// so a future Clone that forgets to fork one map (constants or enums) is caught.
-	cp.AddFilter(&Filter{Name: "clone_only", Fn: func([]runtime.Value) (runtime.Value, error) {
+	cp.AddFilter(&Filter{Name: "clone_only", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), nil
 	}})
 	if base.HasFilter("clone_only") {
 		t.Error("adding a filter to the clone leaked into the base set")
 	}
-	cp.AddTest(&Test{Name: "clone_t", Fn: func([]runtime.Value) (bool, error) { return true, nil }})
+	cp.AddTest(&Test{Name: "clone_t", Fn: func(context.Context, []runtime.Value) (bool, error) { return true, nil }})
 	if base.HasTest("clone_t") {
 		t.Error("adding a test to the clone leaked into the base set")
 	}
@@ -249,7 +250,7 @@ func TestRegistryCloneIndependence(t *testing.T) {
 		t.Error("adding an enum to the clone leaked into the base set")
 	}
 
-	base.AddFunction(&Function{Name: "base_only", Fn: func([]runtime.Value) (runtime.Value, error) {
+	base.AddFunction(&Function{Name: "base_only", Fn: func(context.Context, []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), nil
 	}})
 	if cp.HasFunction("base_only") {
@@ -287,7 +288,7 @@ func TestBaseExtensionFiltersNil(t *testing.T) {
 
 	// Registering a do-nothing bundle adds nothing to any family.
 	type emptyExt struct{ BaseExtension }
-	s := NewExtensionSet()
+	s := NewSet()
 	s.Register(emptyExt{})
 	if s.HasFilter("anything") {
 		t.Error("empty bundle should register no filters")

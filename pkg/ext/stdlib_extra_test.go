@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -25,9 +26,9 @@ func flagged(name string, flag runtime.Value) runtime.Value {
 func gridRows(t *testing.T, v runtime.Value) string {
 	t.Helper()
 	var rows []string
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		var cells []string
-		for _, c := range p.Val.Arr.Pairs() {
+		for _, c := range p.Val.AsArray().Pairs() {
 			s, err := runtime.ToText(c.Val)
 			if err != nil {
 				t.Fatalf("ToText: %v", err)
@@ -79,18 +80,18 @@ func TestColumnsTransposeOfBatch(t *testing.T) {
 	columned := callFilter(t, "columns", seq, n)
 
 	// batch(3) grid rows.
-	rows := batched.Arr.Pairs()
-	cols := columned.Arr.Pairs()
+	rows := batched.AsArray().Pairs()
+	cols := columned.AsArray().Pairs()
 	for c, colPair := range cols {
 		var want []string
 		for _, rowPair := range rows {
-			if cell, ok := rowPair.Val.Arr.GetInt(int64(c)); ok {
+			if cell, ok := rowPair.Val.AsArray().GetInt(int64(c)); ok {
 				s, _ := runtime.ToText(cell)
 				want = append(want, s)
 			}
 		}
 		var got []string
-		for _, cell := range colPair.Val.Arr.Pairs() {
+		for _, cell := range colPair.Val.AsArray().Pairs() {
 			s, _ := runtime.ToText(cell.Val)
 			got = append(got, s)
 		}
@@ -116,10 +117,10 @@ func TestColumnsFill(t *testing.T) {
 func TestColumnsErrors(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("columns")
-	if _, err := f.Fn([]runtime.Value{runtime.Int(1), runtime.Int(2)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Int(1), runtime.Int(2)}); err == nil {
 		t.Error("columns on a non-collection should error")
 	}
-	if _, err := f.Fn([]runtime.Value{list(runtime.Int(1)), runtime.Int(0)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Int(1)), runtime.Int(0)}); err == nil {
 		t.Error("columns count 0 should error")
 	}
 }
@@ -151,7 +152,7 @@ func TestEntriesList(t *testing.T) {
 func TestEntriesError(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("entries")
-	if _, err := f.Fn([]runtime.Value{runtime.Int(1)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Int(1)}); err == nil {
 		t.Error("entries on a non-mapping should error")
 	}
 }
@@ -178,7 +179,7 @@ func TestSortMap(t *testing.T) {
 			args := append([]runtime.Value{m}, tc.by...)
 			got := callFilter(t, "sort_map", args...)
 			var parts []string
-			for _, p := range got.Arr.Pairs() {
+			for _, p := range got.AsArray().Pairs() {
 				k, _ := runtime.ToText(p.Key)
 				val, _ := runtime.ToText(p.Val)
 				parts = append(parts, k+"="+val)
@@ -207,7 +208,7 @@ func TestSortMap(t *testing.T) {
 			args := append([]runtime.Value{tied}, tc.by...)
 			got := callFilter(t, "sort_map", args...)
 			var parts []string
-			for _, p := range got.Arr.Pairs() {
+			for _, p := range got.AsArray().Pairs() {
 				k, _ := runtime.ToText(p.Key)
 				val, _ := runtime.ToText(p.Val)
 				parts = append(parts, k+"="+val)
@@ -223,10 +224,10 @@ func TestSortMap(t *testing.T) {
 func TestSortMapErrors(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("sort_map")
-	if _, err := f.Fn([]runtime.Value{runtime.Int(1)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Int(1)}); err == nil {
 		t.Error("sort_map on a non-mapping should error")
 	}
-	if _, err := f.Fn([]runtime.Value{mapOf(kv(runtime.Str("a"), runtime.Int(1))), runtime.Str("nope")}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{mapOf(kv(runtime.Str("a"), runtime.Int(1))), runtime.Str("nope")}); err == nil {
 		t.Error("sort_map with an unknown by argument should error")
 	}
 }
@@ -287,7 +288,7 @@ func TestSelectAttrUnknownTest(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("selectattr")
 	people := list(person("ann", 30))
-	if _, err := f.Fn([]runtime.Value{people, runtime.Str("age"), runtime.Str("nope")}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{people, runtime.Str("age"), runtime.Str("nope")}); err == nil {
 		t.Error("selectattr with an unknown test should error")
 	}
 }

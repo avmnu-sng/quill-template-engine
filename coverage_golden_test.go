@@ -2,6 +2,7 @@ package quill
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"os"
 	"path/filepath"
@@ -52,14 +53,14 @@ func goldenReport(t *testing.T) *cover.Report {
 	foot := "FOOT\n"
 
 	coll := cover.NewCollector()
-	env := NewWithArray(map[string]string{
+	env := NewFromMap(map[string]string{
 		"page.ql": page,
 		"foot.ql": foot,
 	}, WithCoverage(coll))
 
 	// Render 1: admin true, a non-empty rows list. Takes the @if then arm and the
 	// @for body arm; the @else body ("guest") stays unreached.
-	if _, err := env.Render("page.ql", map[string]runtime.Value{
+	if _, err := env.Render(context.Background(), "page.ql", map[string]runtime.Value{
 		"admin": runtime.Bool(true),
 		"name":  runtime.Str("Ada"),
 		"rows":  runtime.Arr(runtime.NewList(runtime.Int(1), runtime.Int(2))),
@@ -69,7 +70,7 @@ func goldenReport(t *testing.T) *cover.Report {
 	// Render 2: admin false, again a non-empty rows list. Takes the @if not-taken
 	// and else arms, so the @if is now fully covered; the @for empty arm still
 	// never fires, so the @for stays partially covered.
-	if _, err := env.Render("page.ql", map[string]runtime.Value{
+	if _, err := env.Render(context.Background(), "page.ql", map[string]runtime.Value{
 		"admin": runtime.Bool(false),
 		"name":  runtime.Str("Bob"),
 		"rows":  runtime.Arr(runtime.NewList(runtime.Int(3))),

@@ -8,6 +8,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -36,7 +37,7 @@ func main() {
 }
 
 func render() error {
-	env := quill.NewWithArray(map[string]string{"server.quill": tmpl})
+	env := quill.NewFromMap(map[string]string{"server.quill": tmpl})
 
 	location := func(path, upstream string) runtime.Value {
 		l := runtime.NewArray()
@@ -50,7 +51,7 @@ func render() error {
 		location("/static", "http://127.0.0.1:7070"),
 	))
 
-	out, err := env.Render("server.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "server.quill", map[string]runtime.Value{
 		"port":      runtime.Str("80"),
 		"host":      runtime.Str("example.com"),
 		"locations": locations,

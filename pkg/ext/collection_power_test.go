@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -19,7 +20,7 @@ func person(name string, age int64) runtime.Value {
 func joinVals(t *testing.T, v runtime.Value) string {
 	t.Helper()
 	var parts []string
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		s, err := runtime.ToText(p.Val)
 		if err != nil {
 			t.Fatalf("ToText: %v", err)
@@ -57,8 +58,8 @@ func TestMapPreservesKeys(t *testing.T) {
 	src.SetStr("a", person("ann", 1))
 	src.SetStr("b", person("bob", 2))
 	got := callFilter(t, "map", runtime.Arr(src), runtime.Str("name"))
-	keys := got.Arr.Keys()
-	if len(keys) != 2 || keys[0].S != "a" || keys[1].S != "b" {
+	keys := got.AsArray().Keys()
+	if len(keys) != 2 || keys[0].AsStr() != "a" || keys[1].AsStr() != "b" {
 		t.Errorf("map did not preserve keys: %v", keys)
 	}
 }
@@ -66,17 +67,17 @@ func TestMapPreservesKeys(t *testing.T) {
 // TestSum covers plain summation and the sum(attribute:'path') form, and the
 // int/float promotion (spec 03 Section 2.2).
 func TestSum(t *testing.T) {
-	if got := callFilter(t, "sum", list(runtime.Int(1), runtime.Int(2), runtime.Int(3))); got.Kind != runtime.KInt || got.I != 6 {
+	if got := callFilter(t, "sum", list(runtime.Int(1), runtime.Int(2), runtime.Int(3))); got.Kind() != runtime.KInt || got.AsInt() != 6 {
 		t.Errorf("sum ints = %+v, want Int 6", got)
 	}
-	if got := callFilter(t, "sum", list()); got.Kind != runtime.KInt || got.I != 0 {
+	if got := callFilter(t, "sum", list()); got.Kind() != runtime.KInt || got.AsInt() != 0 {
 		t.Errorf("sum empty = %+v, want Int 0", got)
 	}
-	if got := callFilter(t, "sum", list(runtime.Int(1), runtime.Float(0.5))); got.Kind != runtime.KFloat || got.F != 1.5 {
+	if got := callFilter(t, "sum", list(runtime.Int(1), runtime.Float(0.5))); got.Kind() != runtime.KFloat || got.AsFloat() != 1.5 {
 		t.Errorf("sum mixed = %+v, want Float 1.5", got)
 	}
 	people := list(person("ann", 30), person("bob", 25))
-	if got := callFilter(t, "sum", people, runtime.Str("age")); got.Kind != runtime.KInt || got.I != 55 {
+	if got := callFilter(t, "sum", people, runtime.Str("age")); got.Kind() != runtime.KInt || got.AsInt() != 55 {
 		t.Errorf("sum attribute = %+v, want Int 55", got)
 	}
 }
@@ -85,7 +86,7 @@ func TestSum(t *testing.T) {
 func TestSumNonNumber(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("sum")
-	if _, err := f.Fn([]runtime.Value{list(runtime.Str("x"))}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Str("x"))}); err == nil {
 		t.Fatal("sum of a non-number should error")
 	}
 }
@@ -143,7 +144,7 @@ func TestComparisonTests(t *testing.T) {
 func TestComparisonTestsCrossKind(t *testing.T) {
 	s := Core()
 	tst, _ := s.Test("lt")
-	if _, err := tst.Fn([]runtime.Value{runtime.Int(1), runtime.Str("x")}); err == nil {
+	if _, err := tst.Fn(context.Background(), []runtime.Value{runtime.Int(1), runtime.Str("x")}); err == nil {
 		t.Fatal("lt across unlike kinds should error")
 	}
 }
@@ -173,8 +174,8 @@ func TestSelectPreservesKeys(t *testing.T) {
 	src.SetStr("x", runtime.Int(1))
 	src.SetStr("y", runtime.Int(2))
 	got := callFilter(t, "select", runtime.Arr(src), runtime.Str("even"))
-	keys := got.Arr.Keys()
-	if len(keys) != 1 || keys[0].S != "y" {
+	keys := got.AsArray().Keys()
+	if len(keys) != 1 || keys[0].AsStr() != "y" {
 		t.Errorf("select did not preserve mapping key: %v", keys)
 	}
 }
@@ -200,7 +201,7 @@ func TestSelectAttr(t *testing.T) {
 func TestMapRejectsNonCallableNonString(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("map")
-	if _, err := f.Fn([]runtime.Value{list(runtime.Int(1)), runtime.Int(3)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Int(1)), runtime.Int(3)}); err == nil {
 		t.Fatal("map with an int argument should error")
 	}
 }
@@ -210,7 +211,7 @@ func TestMapRejectsNonCallableNonString(t *testing.T) {
 func TestGroupByRejectsNonCallableNonString(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("group_by")
-	if _, err := f.Fn([]runtime.Value{list(runtime.Int(1)), runtime.Int(3)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Int(1)), runtime.Int(3)}); err == nil {
 		t.Fatal("group_by with an int argument should error")
 	}
 }
@@ -232,17 +233,17 @@ func TestGroupBy(t *testing.T) {
 		row("sales", "dee"),
 	)
 	got := callFilter(t, "group_by", people, runtime.Str("dept"))
-	groups := got.Arr.Pairs()
+	groups := got.AsArray().Pairs()
 	if len(groups) != 2 {
 		t.Fatalf("group_by got %d groups, want 2", len(groups))
 	}
 	// First-appearance order: eng before sales.
-	k0, _ := groups[0].Val.Arr.GetStr("key")
-	k1, _ := groups[1].Val.Arr.GetStr("key")
-	if k0.S != "eng" || k1.S != "sales" {
-		t.Errorf("group_by keys = %q,%q, want eng,sales", k0.S, k1.S)
+	k0, _ := groups[0].Val.AsArray().GetStr("key")
+	k1, _ := groups[1].Val.AsArray().GetStr("key")
+	if k0.AsStr() != "eng" || k1.AsStr() != "sales" {
+		t.Errorf("group_by keys = %q,%q, want eng,sales", k0.AsStr(), k1.AsStr())
 	}
-	items0, _ := groups[0].Val.Arr.GetStr("items")
+	items0, _ := groups[0].Val.AsArray().GetStr("items")
 	names0 := callFilter(t, "map", items0, runtime.Str("name"))
 	if j := joinVals(t, names0); j != "ann,cal" {
 		t.Errorf("group_by eng items = %q, want ann,cal", j)
@@ -267,18 +268,18 @@ func TestGroupByTypedKeyDistinctness(t *testing.T) {
 		row(runtime.Str("true"), "strtrue"),
 	)
 	got := callFilter(t, "group_by", rows, runtime.Str("k"))
-	groups := got.Arr.Pairs()
+	groups := got.AsArray().Pairs()
 	if len(groups) != 4 {
 		t.Fatalf("group_by got %d groups, want 4 (typed keys stay distinct)", len(groups))
 	}
 	wantKinds := []runtime.Kind{runtime.KInt, runtime.KStr, runtime.KBool, runtime.KStr}
 	wantTags := []string{"int1", "str1", "booltrue", "strtrue"}
 	for i, g := range groups {
-		key, _ := g.Val.Arr.GetStr("key")
-		if key.Kind != wantKinds[i] {
-			t.Errorf("group %d key kind = %v, want %v", i, key.Kind, wantKinds[i])
+		key, _ := g.Val.AsArray().GetStr("key")
+		if key.Kind() != wantKinds[i] {
+			t.Errorf("group %d key kind = %v, want %v", i, key.Kind(), wantKinds[i])
 		}
-		items, _ := g.Val.Arr.GetStr("items")
+		items, _ := g.Val.AsArray().GetStr("items")
 		tags := callFilter(t, "map", items, runtime.Str("tag"))
 		if j := joinVals(t, tags); j != wantTags[i] {
 			t.Errorf("group %d items = %q, want %q", i, j, wantTags[i])

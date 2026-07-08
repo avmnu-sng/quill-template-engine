@@ -101,8 +101,8 @@ static table on purpose: their standing against Quill shifts with workload and
 version, so run `task bench:all` and compare in your own environment rather than
 trusting a frozen ranking here.
 
-The compiled figure is the **real shipped `compile` backend**: the render
-function `compile.Module` emits, the same unit `WithCompiled` installs,
+The compiled figure is the **real shipped compile backend**: the render function
+the `quill compile` command emits, the same unit `WithCompiled` installs,
 benchmarked by `BenchmarkCompiledReal_Loop_Render` over the committed generated
 source in `bench/compiled_loop_gen.go`. A staleness test regenerates that source
 in-memory and fails if it drifts from the backend's current output, and a parity
@@ -119,8 +119,9 @@ compiled path dispatches.
 ## The compile-to-Go backend
 
 Templates run on the tree-walking interpreter by default. For the hot path, the
-compile backend (package `compile`) generates Go source -- a render function plus
-a dispatch manifest -- that you install with `WithCompiled`:
+compile-to-Go backend -- reached through the `quill compile` command -- generates
+Go source (a render function plus a dispatch manifest) that you install with
+`WithCompiled`:
 
 ```go
 env := quill.New(ldr, quill.WithCompiled(qtpl.Manifest))
@@ -167,8 +168,8 @@ wraps every run so you do not have to remember the flags or `cd bench` (each
 | `task bench:profile` | one hot benchmark with CPU/mem profiles into `bench/prof/` |
 
 `task bench` runs the offline Quill-vs-stdlib benchmarks with zero external
-dependencies, including `BenchmarkCompiledReal_Loop_Render` (the shipped
-`compile` backend) and `BenchmarkCompiled_Loop_Render` (the proof-of-ceiling).
+dependencies, including `BenchmarkCompiledReal_Loop_Render` (the shipped compile
+backend) and `BenchmarkCompiled_Loop_Render` (the proof-of-ceiling).
 The generated render function `bench/compiled_loop_gen.go` is committed, so the
 real-backend benchmark builds with no manual pre-step; regenerate it after a
 compiler change with `go generate ./...` (or `go run genloop.go`) from the

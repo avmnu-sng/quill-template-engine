@@ -1,12 +1,13 @@
 package quill
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
 	"testing"
 
-	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
+	"github.com/avmnu-sng/quill-template-engine/internal/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
 	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
@@ -68,22 +69,24 @@ func preparedMemoVars() map[string]runtime.Value {
 }
 
 // TestLoadTemplateReturnsStableTemplatePointer pins the documented identity
-// contract: on one Environment, LoadTemplate of an unchanged template returns
-// the SAME *interp.Template pointer across calls, because the prepared memo
-// serves the Template built at first load instead of re-preparing.
+// contract: on one Environment, the prepared memo serves the SAME underlying
+// *interp.Template pointer across warm loads instead of re-preparing. The public
+// LoadTemplate wraps that shared template in a fresh opaque handle per call, so
+// the pointer contract is asserted on the unexported loadTemplate the wrapper
+// and the render machinery consume.
 func TestLoadTemplateReturnsStableTemplatePointer(t *testing.T) {
 	env := New(loader.NewArrayLoader(preparedMemoFixtures()))
 	for _, name := range preparedMemoEntries() {
-		first, err := env.LoadTemplate(name)
+		first, err := env.loadTemplate(context.Background(), name)
 		if err != nil {
-			t.Fatalf("LoadTemplate(%q) first: %v", name, err)
+			t.Fatalf("loadTemplate(%q) first: %v", name, err)
 		}
-		second, err := env.LoadTemplate(name)
+		second, err := env.loadTemplate(context.Background(), name)
 		if err != nil {
-			t.Fatalf("LoadTemplate(%q) second: %v", name, err)
+			t.Fatalf("loadTemplate(%q) second: %v", name, err)
 		}
 		if first != second {
-			t.Errorf("LoadTemplate(%q) returned distinct Templates across warm calls", name)
+			t.Errorf("loadTemplate(%q) returned distinct Templates across warm calls", name)
 		}
 	}
 }
@@ -97,22 +100,22 @@ func TestLoadTemplateReturnsStableTemplatePointer(t *testing.T) {
 func TestLoadTemplateRepreparesWhenParseCacheServesNewModule(t *testing.T) {
 	fixtures := preparedMemoFixtures()
 	env := New(loader.NewArrayLoader(fixtures))
-	before, err := env.Render("page.ql", preparedMemoVars())
+	before, err := env.Render(context.Background(), "page.ql", preparedMemoVars())
 	if err != nil {
 		t.Fatalf("render before module swap: %v", err)
 	}
-	stale, err := env.LoadTemplate("page.ql")
+	stale, err := env.loadTemplate(context.Background(), "page.ql")
 	if err != nil {
-		t.Fatalf("LoadTemplate before module swap: %v", err)
+		t.Fatalf("loadTemplate before module swap: %v", err)
 	}
 	mod, err := parse.Parse(source.New("page.ql", fixtures["page.ql"]))
 	if err != nil {
 		t.Fatalf("re-parse: %v", err)
 	}
 	env.cache.Put("page.ql", mod)
-	fresh, err := env.LoadTemplate("page.ql")
+	fresh, err := env.loadTemplate(context.Background(), "page.ql")
 	if err != nil {
-		t.Fatalf("LoadTemplate after module swap: %v", err)
+		t.Fatalf("loadTemplate after module swap: %v", err)
 	}
 	if fresh == stale {
 		t.Fatal("LoadTemplate served the stale Template after the parse cache module changed")
@@ -120,7 +123,7 @@ func TestLoadTemplateRepreparesWhenParseCacheServesNewModule(t *testing.T) {
 	if fresh.Module != mod {
 		t.Fatal("re-prepared Template was not built from the parse cache's new module")
 	}
-	after, err := env.Render("page.ql", preparedMemoVars())
+	after, err := env.Render(context.Background(), "page.ql", preparedMemoVars())
 	if err != nil {
 		t.Fatalf("render after module swap: %v", err)
 	}
@@ -138,12 +141,12 @@ func TestRepeatRenderStabilityOnOneEnvironment(t *testing.T) {
 	env := New(loader.NewArrayLoader(preparedMemoFixtures()))
 	vars := preparedMemoVars()
 	for _, name := range preparedMemoEntries() {
-		first, err := env.Render(name, vars)
+		first, err := env.Render(context.Background(), name, vars)
 		if err != nil {
 			t.Fatalf("render %q: %v", name, err)
 		}
 		for i := 1; i < 1000; i++ {
-			out, err := env.Render(name, vars)
+			out, err := env.Render(context.Background(), name, vars)
 			if err != nil {
 				t.Fatalf("render %q iteration %d: %v", name, i, err)
 			}
@@ -169,7 +172,7 @@ func TestConcurrentRendersShareOneEnvironment(t *testing.T) {
 	entries := preparedMemoEntries()
 	want := make(map[string]string, len(entries))
 	for _, name := range entries {
-		out, err := env.Render(name, preparedMemoVars())
+		out, err := env.Render(context.Background(), name, preparedMemoVars())
 		if err != nil {
 			t.Fatalf("seed render %q: %v", name, err)
 		}
@@ -186,7 +189,7 @@ func TestConcurrentRendersShareOneEnvironment(t *testing.T) {
 			vars := preparedMemoVars()
 			for i := 0; i < iterations; i++ {
 				name := entries[(g+i)%len(entries)]
-				out, err := env.Render(name, vars)
+				out, err := env.Render(context.Background(), name, vars)
 				if err != nil {
 					errCh <- fmt.Errorf("goroutine %d render %q: %w", g, name, err)
 					return
@@ -213,23 +216,23 @@ func TestTemplateExistsAndRawSourceUnaffectedByMemo(t *testing.T) {
 	fixtures := preparedMemoFixtures()
 	env := New(loader.NewArrayLoader(fixtures))
 	check := func(stage string) {
-		if !env.TemplateExists("page.ql") {
-			t.Errorf("%s: TemplateExists(page.ql) = false", stage)
+		if !env.templateExists("page.ql") {
+			t.Errorf("%s: templateExists(page.ql) = false", stage)
 		}
-		if env.TemplateExists("missing.ql") {
-			t.Errorf("%s: TemplateExists(missing.ql) = true", stage)
+		if env.templateExists("missing.ql") {
+			t.Errorf("%s: templateExists(missing.ql) = true", stage)
 		}
-		src, ok := env.RawSource("page.ql")
+		src, ok := env.rawSource("page.ql")
 		if !ok || src != fixtures["page.ql"] {
-			t.Errorf("%s: RawSource(page.ql) = %q, %v; want fixture source, true", stage, src, ok)
+			t.Errorf("%s: rawSource(page.ql) = %q, %v; want fixture source, true", stage, src, ok)
 		}
-		if _, ok := env.RawSource("missing.ql"); ok {
-			t.Errorf("%s: RawSource(missing.ql) reported ok", stage)
+		if _, ok := env.rawSource("missing.ql"); ok {
+			t.Errorf("%s: rawSource(missing.ql) reported ok", stage)
 		}
 	}
 	check("cold")
 	for i := 0; i < 2; i++ {
-		if _, err := env.LoadTemplate("page.ql"); err != nil {
+		if _, err := env.LoadTemplate(context.Background(), "page.ql"); err != nil {
 			t.Fatalf("warm load %d: %v", i, err)
 		}
 	}
@@ -244,11 +247,11 @@ func TestLoadTemplatePrepareErrorIsNotMemoized(t *testing.T) {
 	env := New(loader.NewArrayLoader(map[string]string{
 		"bad.ql": "{{ \"x\" matches \"(\" ? \"y\" : \"n\" }}\n",
 	}))
-	_, first := env.LoadTemplate("bad.ql")
+	_, first := env.LoadTemplate(context.Background(), "bad.ql")
 	if first == nil {
 		t.Fatal("LoadTemplate of an invalid literal regex succeeded")
 	}
-	_, second := env.LoadTemplate("bad.ql")
+	_, second := env.LoadTemplate(context.Background(), "bad.ql")
 	if second == nil {
 		t.Fatal("second LoadTemplate of an invalid literal regex succeeded")
 	}

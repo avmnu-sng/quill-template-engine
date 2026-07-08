@@ -28,11 +28,11 @@ control: you receive the already-flattened argument slice and return a
 ```go
 type Filter struct {
 	Name string
-	Fn   func(args []runtime.Value) (runtime.Value, error)
+	Fn   func(ctx context.Context, args []runtime.Value) (runtime.Value, error)
 
 	// Fn1 is the optional arity-known fast call for a bare pipe (x | name
 	// with no explicit arguments); see Section 1.1.
-	Fn1 func(v runtime.Value) (runtime.Value, error)
+	Fn1 func(ctx context.Context, v runtime.Value) (runtime.Value, error)
 
 	NeedsEnvironment bool
 	NeedsContext     bool
@@ -41,7 +41,7 @@ type Filter struct {
 
 type Function struct {
 	Name string
-	Fn   func(args []runtime.Value) (runtime.Value, error)
+	Fn   func(ctx context.Context, args []runtime.Value) (runtime.Value, error)
 
 	NeedsEnvironment bool
 	NeedsContext     bool
@@ -50,24 +50,28 @@ type Function struct {
 
 type Test struct {
 	Name string
-	Fn   func(args []runtime.Value) (bool, error)
+	Fn   func(ctx context.Context, args []runtime.Value) (bool, error)
 }
 ```
 
-For a filter, the interpreter flattens the piped value and the explicit arguments
-(positional, named, and spread) into one `[]runtime.Value` in call order, so
-`"ab" | repeat(3)` reaches `Fn` as `[]runtime.Value{Str("ab"), Int(3)}`. A
-function receives just its explicit arguments; a test receives the tested value
-first, then any argument.
+Every `Fn` takes the render's `context.Context` as its first parameter -- the
+cancellation and deadline context threaded from the `Render` call, which a
+long-running callable should honor. It is distinct from the `NeedsContext`
+injection flag (Section 6), which prepends the template's variable scope into
+`args`. After `ctx`, a filter's interpreter flattens the piped value and the
+explicit arguments (positional, named, and spread) into one `[]runtime.Value` in
+call order, so `"ab" | repeat(3)` reaches `Fn` as
+`[]runtime.Value{Str("ab"), Int(3)}`. A function receives just its explicit
+arguments; a test receives the tested value first, then any argument.
 
 The struct form is the right tool when you need to inspect argument kinds, accept
 a variable shape, or build the result value by hand:
 
 ```go
-set := ext.NewExtensionSet()
+set := ext.NewSet()
 set.AddFilter(&ext.Filter{
 	Name: "reverse_str",
-	Fn: func(args []runtime.Value) (runtime.Value, error) {
+	Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 		s, _ := runtime.ToText(args[0])
 		r := []rune(s)
 		for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
@@ -91,7 +95,7 @@ dispatch choice the template author never observes, so a registration that sets
 is `NewFilter1`, which builds both from one unary function:
 
 ```go
-set.AddFilter(ext.NewFilter1("shout", func(v runtime.Value) (runtime.Value, error) {
+set.AddFilter(ext.NewFilter1("shout", func(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	s, err := runtime.ToText(v)
 	if err != nil {
 		return runtime.Null(), err
@@ -120,7 +124,7 @@ in the `[]runtime.Value`-based `Fn` the engine calls, so you never touch a
 `runtime.Value` in the body:
 
 ```go
-set := ext.NewExtensionSet()
+set := ext.NewSet()
 set.AddFilter(ext.NewFilter("repeat", func(s string, n int64) string {
 	return strings.Repeat(s, int(n))
 }))
@@ -179,19 +183,19 @@ result type, too many results, a second result that is not `error`, or a test
 that does not return a bool.
 
 The struct form (Section 1) and the typed helpers interoperate freely -- a single
-`ExtensionSet` can hold both -- so reach for the helper by default and drop to the
+`Set` can hold both -- so reach for the helper by default and drop to the
 struct form only where you need the raw slice.
 
 --------------------------------------------------------------------------------
 
-## 3. The ExtensionSet registry
+## 3. The Set registry
 
-An `ExtensionSet` is the callable registry: name-keyed maps for filters,
+A `Set` is the callable registry: name-keyed maps for filters,
 functions, and tests, plus the host constant and enumeration tables. Build one
-with `NewExtensionSet` and add to it:
+with `NewSet` and add to it:
 
 ```go
-set := ext.NewExtensionSet()
+set := ext.NewSet()
 set.AddFilter(f)        // register or shadow a filter by name
 set.AddFunction(fn)     // ... a function
 set.AddTest(t)          // ... a test
@@ -202,7 +206,7 @@ set.AddEnum("Color", []runtime.Value{runtime.Str("red"), runtime.Str("green")})
 Adding a name that already exists **shadows** the earlier entry -- this is exactly
 how a host overrides a built-in of the same kind and name. All filter, function,
 and test registration must complete before rendering begins: renders read the
-registry without synchronization, so mutating an `ExtensionSet` mid-render is
+registry without synchronization, so mutating a `Set` mid-render is
 unsupported. Lookups
 (`Filter`/`Function`/`Test`) and existence checks (`HasFilter`/`HasFunction`/
 `HasTest`, which back the `@guard` statement) are by exact name. `Clone` returns a
@@ -215,13 +219,13 @@ Constants back the `constant()` function and the `is constant` test; enumeration
 
 --------------------------------------------------------------------------------
 
-## 4. Extension bundles
+## 4. Bundles
 
-An `Extension` is a cohesive bundle of callables and host tables a third party
+A `Bundle` is a cohesive collection of callables and host tables a third party
 ships as a single unit:
 
 ```go
-type Extension interface {
+type Bundle interface {
 	Filters() []*Filter
 	Functions() []*Function
 	Tests() []*Test
@@ -257,7 +261,7 @@ func (MathExt) Filters() []*ext.Filter {
 }
 ```
 
-`ExtensionSet.Register(bundle)` folds a bundle in: each filter, function, and test
+`Set.Register(bundle)` folds a bundle in: each filter, function, and test
 is added by name (later wins), and every constant and enumeration is merged into
 the set's host tables. `Register` returns the receiver so calls chain.
 
@@ -267,10 +271,10 @@ the set's host tables. `Register` returns the receiver so calls chain.
 
 Two primitives compose registries, both following the uniform **later wins** rule:
 
-- `ExtensionSet.Merge(other)` folds another set's callables and tables into the
+- `Set.Merge(other)` folds another set's callables and tables into the
   receiver, with `other` shadowing the receiver on every name collision. A nil
   `other` is a no-op.
-- `ExtensionSet.Register(bundle)` folds a bundle in with the same rule.
+- `Set.Register(bundle)` folds a bundle in with the same rule.
 
 When you build an `Environment`, the registry is layered bottom-up:
 
@@ -281,8 +285,8 @@ When you build an `Environment`, the registry is layered bottom-up:
 
 So a later host layer shadows an earlier one, and every host layer shadows core --
 a host can override any built-in without editing the engine. `WithExtensions`
-takes one or more `*ExtensionSet` layers; `WithExtension` takes one or more
-`Extension` bundles; multiple options accumulate, and sets and bundles interleave
+takes one or more `*Set` layers; `WithExtension` takes one or more
+`Bundle` values; multiple options accumulate, and sets and bundles interleave
 in option order.
 
 ```go
@@ -306,12 +310,15 @@ The three flags on `Filter` and `Function` request them:
   variables visible where the callable was called.
 - `NeedsCharset` -- the active charset.
 
-When a flag is set, the interpreter **prepends** the requested value(s) ahead of
-the piped value and the user arguments, in the fixed order **environment,
-context, charset**. A callable that sets `NeedsContext` therefore receives the
-context `*Array` as its first argument, then the piped value, then the explicit
-arguments. Set only the flags you use; the built-in `include`/`dump`/`source`
-family sets them, and they are available to host callables for the same reasons.
+When a flag is set, the interpreter **prepends** the requested value(s) into
+`args` ahead of the piped value and the user arguments, in the fixed order
+**environment, context, charset**. These injected values are separate from the
+`ctx context.Context` first parameter, which is always present regardless of the
+flags: a callable that sets `NeedsContext` receives the template-scope `*Array`
+as the first entry of `args`, then the piped value, then the explicit arguments,
+while `ctx` still carries the Go cancellation context. Set only the flags you
+use; the built-in `include`/`dump`/`source` family sets them, and they are
+available to host callables for the same reasons.
 
 The typed helpers do not set these flags; a callable that needs injection uses
 the struct form (or sets the flags on the struct the helper returns) and reads
@@ -326,12 +333,9 @@ there is no grandfathering. A filter or function is denied unless the policy
 allowlists it by name.
 
 ```go
-pol := &sandbox.Policy{
-	Filters:   map[string]bool{"times": true}, // allow the custom filter
-	Functions: map[string]bool{},
-	Tags:      map[string]bool{},
-	Graph:     sandbox.NewTypeGraph(),
-}
+pol := sandbox.NewPolicy(
+	sandbox.AllowFilters("times"), // allow the custom filter
+)
 env := quill.New(ldr,
 	quill.WithExtensions(set),
 	quill.WithSandboxPolicy(pol),
@@ -339,8 +343,9 @@ env := quill.New(ldr,
 )
 ```
 
-A custom filter whose name is in `Policy.Filters` passes; one that is not raises a
-host-catchable `*errors.Security` naming the offending filter. Any host object a
+A custom filter the policy allowlists (here, `times`, via `AllowFilters`) passes;
+one that is not raises a host-catchable `*errors.Security` naming the offending
+filter. Any host object a
 custom callable exposes is gated by the same per-type method/property rules and
 the type-graph as every other host value (see
 [Escaping & Safety](safety.md)).
@@ -359,10 +364,11 @@ signature in a `check.Registry` and install it with `quill.WithTypes`:
 
 ```go
 reg := check.NewRegistry()
-reg.AddSignature("clamp", &check.Signature{
-	Params: []*check.Type{check.Int, check.Int, check.Int},
-	Ret:    check.Int,
-})
+reg.AddSignature("clamp", check.NewSignature(
+	[]*check.Type{check.Int, check.Int, check.Int}, // params
+	0, false, nil,                                  // optional count, variadic, variadic elem
+	check.Int,                                      // return type
+))
 env := quill.New(ldr, quill.WithExtensions(set), quill.WithTypes(reg))
 ```
 
@@ -381,8 +387,8 @@ registers a custom filter and function with the typed helpers, layers them over 
 `WithExtensions`, and renders a template that uses both:
 
 ```go
-func callables() *ext.ExtensionSet {
-	set := ext.NewExtensionSet()
+func callables() *ext.Set {
+	set := ext.NewSet()
 	set.AddFilter(ext.NewFilter("repeat", func(s string, n int64) string {
 		return strings.Repeat(s, int(n))
 	}))
@@ -399,11 +405,11 @@ func callables() *ext.ExtensionSet {
 	return set
 }
 
-env := quill.NewWithArray(
+env := quill.NewFromMap(
 	map[string]string{"demo.quill": `{{ "ab" | repeat(3) }} {{ clamp(42, 0, 10) }}`},
 	quill.WithExtensions(callables()),
 )
-out, _ := env.Render("demo.quill", nil) // ababab 10
+out, _ := env.Render(context.Background(), "demo.quill", nil) // ababab 10
 ```
 
 Run it with `go run ./examples/extension`.
@@ -470,15 +476,17 @@ env := quill.New(loader.NewFSLoader(templatesFS, "templates"))
 
 ### FuncLoader
 
-`loader.NewFuncLoader(fn func(name string) (source string, ok bool))` adapts a
-plain callback into a loader. The callback returns the template source and a
-boolean reporting whether the name is known; a false second result becomes the
-not-found error. It is the lightest way to source templates from a database, a
-config object, or any lookup a host already owns.
+`loader.NewFuncLoader(fn func(name string) (source string, ok bool, err error))`
+adapts a plain callback into a loader. The callback returns the template source,
+a boolean reporting whether the name is known, and an error: a false `ok` with a
+nil error becomes the not-found error, while a non-nil error propagates unchanged
+so a database- or network-backed lookup can report an I/O failure distinctly from
+a miss. It is the lightest way to source templates from a database, a config
+object, or any lookup a host already owns.
 
 ```go
-env := quill.New(loader.NewFuncLoader(func(name string) (string, bool) {
+env := quill.New(loader.NewFuncLoader(func(name string) (string, bool, error) {
 	src, ok := templateStore[name]
-	return src, ok
+	return src, ok, nil
 }))
 ```

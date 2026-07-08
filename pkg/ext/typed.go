@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
@@ -52,12 +53,12 @@ func NewFunction(name string, fn any) *Function {
 func NewTest(name string, fn any) *Test {
 	call := build(name, "test", fn)
 	return &Test{
-		Fn: func(args []runtime.Value) (bool, error) {
-			out, err := call(args)
+		Fn: func(ctx context.Context, args []runtime.Value) (bool, error) {
+			out, err := call(ctx, args)
 			if err != nil {
 				return false, err
 			}
-			return out.Kind == runtime.KBool && out.B, nil
+			return out.Kind() == runtime.KBool && out.AsBool(), nil
 		},
 		Name: name,
 	}
@@ -83,8 +84,10 @@ type signature struct {
 }
 
 // build validates fn at registration time and returns the []runtime.Value-based
-// closure the engine calls. It panics on an unsupported func shape.
-func build(name, kind string, fn any) func([]runtime.Value) (runtime.Value, error) {
+// closure the engine calls. The closure accepts the render context to satisfy
+// the ext callable signature; a natural Go func takes no context, so invoke
+// ignores it. It panics on an unsupported func shape.
+func build(name, kind string, fn any) func(context.Context, []runtime.Value) (runtime.Value, error) {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
 	if ft.Kind() != reflect.Func {
@@ -111,7 +114,7 @@ func build(name, kind string, fn any) func([]runtime.Value) (runtime.Value, erro
 
 	buildResults(sig, ft, kind)
 
-	return func(args []runtime.Value) (runtime.Value, error) { return sig.invoke(args) }
+	return func(_ context.Context, args []runtime.Value) (runtime.Value, error) { return sig.invoke(args) }
 }
 
 // buildResults validates the result shape and resolves the result converter.
@@ -210,32 +213,32 @@ func inConverter(name, kind string, t reflect.Type) func(runtime.Value) (reflect
 	switch t.Kind() {
 	case reflect.String:
 		return func(v runtime.Value) (reflect.Value, error) {
-			if v.Kind != runtime.KStr && v.Kind != runtime.KSafe {
+			if v.Kind() != runtime.KStr && v.Kind() != runtime.KSafe {
 				return reflect.Value{}, typeErr("string", v)
 			}
-			return reflect.ValueOf(v.S).Convert(t), nil
+			return reflect.ValueOf(v.AsStr()).Convert(t), nil
 		}
 	case reflect.Bool:
 		return func(v runtime.Value) (reflect.Value, error) {
-			if v.Kind != runtime.KBool {
+			if v.Kind() != runtime.KBool {
 				return reflect.Value{}, typeErr("bool", v)
 			}
-			return reflect.ValueOf(v.B).Convert(t), nil
+			return reflect.ValueOf(v.AsBool()).Convert(t), nil
 		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return func(v runtime.Value) (reflect.Value, error) {
-			if v.Kind != runtime.KInt {
+			if v.Kind() != runtime.KInt {
 				return reflect.Value{}, typeErr("int", v)
 			}
-			return reflect.ValueOf(v.I).Convert(t), nil
+			return reflect.ValueOf(v.AsInt()).Convert(t), nil
 		}
 	case reflect.Float32, reflect.Float64:
 		return func(v runtime.Value) (reflect.Value, error) {
-			switch v.Kind {
+			switch v.Kind() {
 			case runtime.KFloat:
-				return reflect.ValueOf(v.F).Convert(t), nil
+				return reflect.ValueOf(v.AsFloat()).Convert(t), nil
 			case runtime.KInt:
-				return reflect.ValueOf(float64(v.I)).Convert(t), nil
+				return reflect.ValueOf(float64(v.AsInt())).Convert(t), nil
 			default:
 				return reflect.Value{}, typeErr("float", v)
 			}
@@ -243,10 +246,10 @@ func inConverter(name, kind string, t reflect.Type) func(runtime.Value) (reflect
 	case reflect.Slice:
 		elemConv := inConverter(name, kind, t.Elem())
 		return func(v runtime.Value) (reflect.Value, error) {
-			if v.Kind != runtime.KArray || v.Arr == nil {
+			if v.Kind() != runtime.KArray || v.AsArray() == nil {
 				return reflect.Value{}, typeErr("array", v)
 			}
-			pairs := v.Arr.Pairs()
+			pairs := v.AsArray().Pairs()
 			out := reflect.MakeSlice(t, len(pairs), len(pairs))
 			for i, p := range pairs {
 				ev, err := elemConv(p.Val)
@@ -298,5 +301,5 @@ func outConverter(name, kind string, t reflect.Type) func(reflect.Value) (runtim
 // typeErr builds the argument-type mismatch error a converter reports at call
 // time, naming the wanted Go type and the actual runtime kind.
 func typeErr(want string, got runtime.Value) error {
-	return errors.New(errors.KindRuntime, "expected %s, got %s", want, got.Kind.String())
+	return errors.New(errors.KindRuntime, "expected %s, got %s", want, got.Kind().String())
 }

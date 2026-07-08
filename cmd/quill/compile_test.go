@@ -22,9 +22,9 @@ func TestCompileSubcommandWritesGeneratedSource(t *testing.T) {
 	src := out.String()
 	for _, want := range []string{
 		"package mytpl",
-		"func RenderHello(w io.Writer, exts *ext.ExtensionSet, vars map[string]runtime.Value, rc compiled.RenderCache) error {",
-		"var RenderHelloManifest = &compiled.Manifest{",
-		"Fingerprint: compiled.Fingerprint{AutoescapeHTML: false, LenientVariables: false, TabWidth: 4, RandomSeed: 0, RandomSeedSet: false},",
+		"func RenderHello(ctx context.Context, w io.Writer, exts *ext.Set, vars map[string]runtime.Value, rc compiled.RenderCache) error {",
+		"var RenderHelloManifest = compiled.NewManifest(compiled.ManifestParams{",
+		"Fingerprint: compiled.NewFingerprint(compiled.FingerprintParams{AutoescapeHTML: false, LenientVariables: false, TabWidth: 4, RandomSeed: 0, RandomSeedSet: false}),",
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("generated source missing %q", want)
@@ -45,7 +45,7 @@ func TestCompileSubcommandOptionFlags(t *testing.T) {
 		t.Fatalf("compile: %v", err)
 	}
 	// A -seed of zero is a deliberate seed: RandomSeedSet must be true.
-	want := "Fingerprint: compiled.Fingerprint{AutoescapeHTML: true, LenientVariables: true, TabWidth: 2, RandomSeed: 0, RandomSeedSet: true},"
+	want := "Fingerprint: compiled.NewFingerprint(compiled.FingerprintParams{AutoescapeHTML: true, LenientVariables: true, TabWidth: 2, RandomSeed: 0, RandomSeedSet: true}),"
 	if !strings.Contains(out.String(), want) {
 		t.Errorf("generated source missing %q", want)
 	}
@@ -67,7 +67,7 @@ func TestCompileSubcommandOutputFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read generated file: %v", err)
 	}
-	if !strings.Contains(string(b), "var RenderManifest = &compiled.Manifest{") {
+	if !strings.Contains(string(b), "var RenderManifest = compiled.NewManifest(compiled.ManifestParams{") {
 		t.Error("generated file missing the manifest")
 	}
 }

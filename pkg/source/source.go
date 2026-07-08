@@ -10,7 +10,9 @@ package source
 import "strings"
 
 // Source is an immutable template origin: a human-facing name and the template
-// text after CRLF/CR normalization to LF. It is safe to share by pointer.
+// text after CRLF/CR normalization to LF. It is safe to share by pointer. A nil
+// *Source is a valid, safe receiver: Name, Code, and Line all return "" on a nil
+// Source, so callers may invoke these methods without a nil check.
 type Source struct {
 	name string
 	code string
@@ -39,15 +41,7 @@ func (s *Source) Code() string {
 	return s.code
 }
 
-// WithCode returns a Source that keeps this Source's name but carries different
-// code. It is used to lex and parse a fragment (e.g. an expression embedded in a
-// string interpolation) while keeping diagnostics anchored to the original
-// template name. The fragment code is normalized like any other Source.
-func (s *Source) WithCode(code string) *Source {
-	return New(s.Name(), code)
-}
-
-// Line returns the 1-based content of the given 1-based line, or "" when the
+// Line returns the content of the given 1-based line, or "" when the
 // line is out of range or the Source is nil. It is a convenience for building
 // error messages that quote the offending line.
 func (s *Source) Line(n int) string {

@@ -1,8 +1,10 @@
 // Package loader resolves a template name to its source bytes. The engine asks a
 // Loader for a template by name when it must render an @extends parent, an
-// @include target, or an @import/@from source. Two loaders ship: an ArrayLoader
-// backed by an in-memory name->source map (for tests and embedded templates) and
-// a FilesystemLoader rooted at a directory.
+// @include target, or an @import/@from source. Several loaders ship: ArrayLoader
+// (an in-memory name->source map), FilesystemLoader (an on-disk root directory),
+// FSLoader (an fs.FS such as an embed.FS), FuncLoader (a host callback), and the
+// composable ChainLoader (first hit over an ordered list) and PrefixLoader
+// (prefix-routed sub-loaders).
 //
 // A miss is reported as a *errors.Error of KindRuntime so the engine can
 // distinguish "not found" (which ignore-missing tolerates and a candidate list
@@ -10,6 +12,7 @@
 package loader
 
 import (
+	stderrors "errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,10 +21,21 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )
 
+// ErrNotFound is the sentinel every loader miss wraps. Test for a missing
+// template with errors.Is(err, loader.ErrNotFound) rather than inspecting the
+// message text: error strings are not part of the compatibility contract, but
+// this sentinel is.
+var ErrNotFound = stderrors.New("template not found")
+
 // Loader resolves a template name to a *source.Source. Exists is a cheap
 // presence probe used by candidate lists and the block("name", "other") /
 // ignore-missing paths so the engine need not catch a Get error to test
 // existence.
+//
+// The engine may call Get and Exists concurrently from multiple in-flight
+// renders, so a Loader implementation must be safe for concurrent Get/Exists.
+// Every loader in this package is safe for concurrent use once fully constructed;
+// the exception is mutating a loader after construction (see ArrayLoader.Set).
 type Loader interface {
 	Get(name string) (*source.Source, error)
 	Exists(name string) bool
@@ -43,7 +57,10 @@ func NewArrayLoader(templates map[string]string) *ArrayLoader {
 	return &ArrayLoader{templates: cp}
 }
 
-// Set adds or replaces a template, allowing incremental population.
+// Set adds or replaces a template, allowing incremental population. It is not
+// safe to call concurrently with Get, Exists, or a render that consults this
+// loader; populate the loader before handing it to an Environment used for
+// concurrent renders.
 func (l *ArrayLoader) Set(name, src string) { l.templates[name] = src }
 
 // Get returns the named template's source, or a not-found error.
@@ -118,18 +135,16 @@ func (l *FilesystemLoader) Exists(name string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// notFound builds the canonical not-found error so callers can match KindRuntime
-// and the "not found" message shape consistently.
+// notFound builds the canonical not-found error: a KindRuntime *errors.Error
+// wrapping ErrNotFound, so callers match it precisely with errors.Is while the
+// rendered message still names the missing template.
 func notFound(name string) error {
-	return errors.New(errors.KindRuntime, "template %q not found", name)
+	return errors.Wrap(errors.KindRuntime, ErrNotFound, "template %q not found", name)
 }
 
-// IsNotFound reports whether err is a loader not-found error, letting the engine
-// implement ignore-missing and candidate-list fallthrough without string-
-// matching across call sites.
+// IsNotFound reports whether err is (or wraps) a loader not-found error. It is
+// errors.Is(err, ErrNotFound); the prior message-substring heuristic is gone, so
+// an unrelated error whose text merely contains "not found" no longer matches.
 func IsNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "not found")
+	return stderrors.Is(err, ErrNotFound)
 }

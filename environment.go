@@ -1,19 +1,20 @@
 package quill
 
 import (
+	"context"
 	"io"
 	"log"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/avmnu-sng/quill-template-engine/internal/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ast"
 	"github.com/avmnu-sng/quill-template-engine/pkg/cache"
 	"github.com/avmnu-sng/quill-template-engine/pkg/check"
 	"github.com/avmnu-sng/quill-template-engine/pkg/compiled"
 	"github.com/avmnu-sng/quill-template-engine/pkg/cover"
 	"github.com/avmnu-sng/quill-template-engine/pkg/ext"
-	"github.com/avmnu-sng/quill-template-engine/pkg/interp"
 	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
 	"github.com/avmnu-sng/quill-template-engine/pkg/parse"
 	"github.com/avmnu-sng/quill-template-engine/pkg/runtime"
@@ -23,17 +24,27 @@ import (
 
 // Environment is the engine facade: it ties a Loader, a parse cache, and the
 // callable registry together and renders templates by name or from a string. It
-// implements interp.Engine so the tree-walking renderer can load parents,
-// includes, and imports through it.
+// hands the tree-walking renderer an unexported engineAdapter (engine_adapter.go)
+// so the renderer can load parents, includes, and imports through it without the
+// interpreter's Engine contract appearing on the Environment's public surface.
 //
 // The defaults match the spec: autoescape is OFF by default (spec 04
 // Section 8.1) and strict_variables is ON (the strict-by-default
 // undefined policy, spec 04 Section 6). Both are configurable via Option.
+//
+// A constructed Environment is safe for concurrent use by multiple goroutines:
+// Option values are applied only during New (or NewFromMap), and afterward every
+// render and load entry point reads immutable configuration or concurrency-safe
+// caches (the parse cache, the render cache, and the mutex-guarded prepared and
+// compiled-unit memos), so one Environment can back concurrent renders -- for
+// example a single Environment per process serving concurrent requests.
+// Construction is not itself concurrent; build the Environment fully before
+// sharing it across goroutines.
 type Environment struct {
 	loader      loader.Loader
 	cache       *cache.Cache
 	renderCache *cache.RenderCache
-	extensions  *ext.ExtensionSet
+	extensions  *ext.Set
 
 	// prepared memoizes the prepared *interp.Template per template name so a warm
 	// LoadTemplate skips re-running interp.PrepareChecked over an already-indexed
@@ -175,8 +186,8 @@ func WithRandomSeed(seed int64) Option {
 // is non-nil. New folds each layer into the registry in slice order, so a single
 // list captures the interleaving of WithExtensions and WithExtension options.
 type hostLayer struct {
-	set    *ext.ExtensionSet
-	bundle ext.Extension
+	set    *ext.Set
+	bundle ext.Bundle
 }
 
 // WithExtensions layers one or more host callable sets over the core stdlib.
@@ -185,7 +196,7 @@ type hostLayer struct {
 // one and every host set shadows core (host shadows core, spec 03 Section 1).
 // Multiple WithExtensions options accumulate in call order. Passing several sets
 // in one call is equivalent to passing them across several options.
-func WithExtensions(sets ...*ext.ExtensionSet) Option {
+func WithExtensions(sets ...*ext.Set) Option {
 	return func(e *Environment) {
 		for _, s := range sets {
 			e.hostLayers = append(e.hostLayers, hostLayer{set: s})
@@ -193,12 +204,12 @@ func WithExtensions(sets ...*ext.ExtensionSet) Option {
 	}
 }
 
-// WithExtension layers one or more Extension bundles over the core stdlib. Each
+// WithExtension layers one or more Bundle values over the core stdlib. Each
 // bundle is registered (its filters, functions, tests, constants, and enums
 // folded in) in New, interleaved with WithExtensions layers in the order the
 // options were passed, so shadow order is uniform across sets and bundles: later
 // shadows earlier, and every host layer shadows core.
-func WithExtension(exts ...ext.Extension) Option {
+func WithExtension(exts ...ext.Bundle) Option {
 	return func(e *Environment) {
 		for _, x := range exts {
 			e.hostLayers = append(e.hostLayers, hostLayer{bundle: x})
@@ -294,21 +305,21 @@ func WithLogger(l *log.Logger) Option {
 func WithCompiled(manifests ...*compiled.Manifest) Option {
 	return func(e *Environment) {
 		for _, m := range manifests {
-			if m == nil || m.Render == nil || m.Entry == "" {
+			if m == nil || m.Render() == nil || m.Entry() == "" {
 				continue
 			}
-			if _, ok := m.Sources[m.Entry]; !ok {
+			if _, ok := m.Sources()[m.Entry()]; !ok {
 				continue
 			}
 			if e.compiledUnits == nil {
 				e.compiledUnits = map[string]*compiledUnit{}
 			}
-			members := make([]string, 0, len(m.Sources))
-			for name := range m.Sources {
+			members := make([]string, 0, len(m.Sources()))
+			for name := range m.Sources() {
 				members = append(members, name)
 			}
 			sort.Strings(members)
-			e.compiledUnits[m.Entry] = &compiledUnit{manifest: m, members: members}
+			e.compiledUnits[m.Entry()] = &compiledUnit{manifest: m, members: members}
 		}
 	}
 }
@@ -365,52 +376,58 @@ func New(ldr loader.Loader, opts ...Option) *Environment {
 	return e
 }
 
-// NewWithArray is a convenience constructor over an in-memory template map.
-func NewWithArray(templates map[string]string, opts ...Option) *Environment {
+// NewFromMap is a convenience constructor over an in-memory template map.
+func NewFromMap(templates map[string]string, opts ...Option) *Environment {
 	return New(loader.NewArrayLoader(templates), opts...)
 }
 
-// Extensions returns the callable registry (interp.Engine).
-func (e *Environment) Extensions() *ext.ExtensionSet { return e.extensions }
+// The renderer-internal configuration getters the interpreter needs
+// (StrictVariables, AutoescapeHTML, RandomSeed, Policy, SandboxActive, Coverage,
+// TabWidth, Logger, and the load/compile/exists hooks) are NOT methods on
+// *Environment: they live on the unexported engineAdapter (engine_adapter.go),
+// which the interp entry points receive instead of the bare Environment. Keeping
+// them off the public surface means installing the interpreter as an internal
+// package cannot leak its Engine contract into the frozen host API.
+//
+// Extensions and RenderCache stay public: they return the public *ext.Set and
+// *cache.RenderCache types (not interpreter internals) and are the documented
+// calling convention for the compiled backend's generated render functions,
+// whose signature takes exactly those two values. A host that installs a
+// compiled unit renders through Environment.Render (WithCompiled), but a host or
+// test that invokes a generated render function directly obtains its registry
+// and rendered-body cache from here.
 
-// StrictVariables reports the undefined-handling policy (interp.Engine).
-func (e *Environment) StrictVariables() bool { return e.strictVariables }
+// Extensions returns the callable registry (core stdlib plus every host
+// extension layer and the engine-bound include/block-family callables). It is
+// the *ext.Set a compiled backend render function is invoked with.
+func (e *Environment) Extensions() *ext.Set { return e.extensions }
 
-// AutoescapeHTML reports the default output strategy (interp.Engine).
-func (e *Environment) AutoescapeHTML() bool { return e.autoescapeHTML }
-
-// RandomSeed returns the configured RNG seed and whether one was set (interp.Engine).
-func (e *Environment) RandomSeed() (int64, bool) { return e.randomSeed, e.randomSeedSet }
-
-// RenderCache returns the engine's rendered-body cache, backing @cache
-// (interp.Engine, spec 01 Section 4.7).
+// RenderCache returns the engine's rendered-body cache, backing @cache (spec 01
+// Section 4.7). It is the *cache.RenderCache a compiled backend render function
+// is invoked with.
 func (e *Environment) RenderCache() *cache.RenderCache { return e.renderCache }
 
-// Policy returns the host-supplied sandbox security policy, or nil (interp.Engine).
-func (e *Environment) Policy() *sandbox.Policy { return e.policy }
+// LoadTemplate parses and prepares the named template and returns an opaque,
+// read-only handle. Both steps are memoized: the parse cache pins the module and
+// the prepared memo pins the template built from it, so a warm load is two map
+// hits. LoadTemplate therefore wraps the SAME underlying template across calls
+// for an unchanged template; a template is immutable after prepare and safe to
+// share across concurrent renders. Hand the returned handle back to
+// RenderPrepared to render it without re-loading. CompileString and the
+// RenderString family stay uncached.
+func (e *Environment) LoadTemplate(ctx context.Context, name string) (*Template, error) {
+	tmpl, err := e.loadTemplate(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return newTemplate(tmpl), nil
+}
 
-// SandboxActive reports the global sandbox activation gate (interp.Engine).
-func (e *Environment) SandboxActive() bool { return e.sandboxActive }
-
-// Coverage returns the host-attached coverage Collector, or nil when coverage is
-// off (interp.Engine). The interpreter copies it into each render's cov field.
-func (e *Environment) Coverage() *cover.Collector { return e.coverage }
-
-// TabWidth returns the spaces-per-indent-level width backing the tab filter, the
-// tab/space/break functions, and the @tab region (interp.Engine, WithTabWidth).
-func (e *Environment) TabWidth() int { return e.tabWidth }
-
-// Logger returns the sink the @log statement writes to (interp.Engine). It is
-// never nil; without WithLogger it discards.
-func (e *Environment) Logger() *log.Logger { return e.logger }
-
-// LoadTemplate parses and prepares the named template (interp.Engine), with
-// both steps memoized: the parse cache pins the module and the prepared memo
-// pins the Template built from it, so a warm load is two map hits. LoadTemplate
-// therefore returns the SAME *Template pointer across calls for an unchanged
-// template; a Template is immutable after prepare and safe to share across
-// concurrent renders. CompileString and the RenderString family stay uncached.
-func (e *Environment) LoadTemplate(name string) (*interp.Template, error) {
+// loadTemplate is the unexported load path returning the interpreter's internal
+// template for rendering. LoadTemplate wraps its result in an opaque *Template
+// for the public boundary, while the engineAdapter and the render machinery use
+// it directly.
+func (e *Environment) loadTemplate(ctx context.Context, name string) (*interp.Template, error) {
 	mod, err := e.loadModule(name)
 	if err != nil {
 		return nil, err
@@ -471,17 +488,18 @@ func (e *Environment) prepare(name string, mod *ast.Node) (*interp.Template, err
 	return tmpl, nil
 }
 
-// TemplateExists reports whether the named template can be loaded (interp.Engine).
-func (e *Environment) TemplateExists(name string) bool {
+// templateExists reports whether the named template can be loaded. It backs the
+// engineAdapter's TemplateExists and the compiled-dispatch coherence checks.
+func (e *Environment) templateExists(name string) bool {
 	if _, ok := e.cache.Get(name); ok {
 		return true
 	}
 	return e.loader.Exists(name)
 }
 
-// RawSource returns the unparsed source text of the named template, backing the
-// source() function (interp.Engine, spec 03 Section 3.2).
-func (e *Environment) RawSource(name string) (string, bool) {
+// rawSource returns the unparsed source text of the named template, backing the
+// source() function through the engineAdapter (spec 03 Section 3.2).
+func (e *Environment) rawSource(name string) (string, bool) {
 	src, err := e.loader.Get(name)
 	if err != nil {
 		return "", false
@@ -489,10 +507,22 @@ func (e *Environment) RawSource(name string) (string, bool) {
 	return src.Code(), true
 }
 
-// CompileString parses and prepares an ad-hoc template body, backing
-// template_from_string (interp.Engine, spec 03 Section 3.3). The body is not
-// added to the loader; inheritance/include targets in it still resolve by name.
-func (e *Environment) CompileString(name, body string) (*interp.Template, error) {
+// CompileString parses and prepares an ad-hoc template body and returns an
+// opaque, read-only handle, backing template_from_string (spec 03 Section 3.3).
+// The body is not added to the loader; inheritance/include targets in it still
+// resolve by name. Hand the returned handle back to RenderPrepared to render it.
+func (e *Environment) CompileString(ctx context.Context, name, body string) (*Template, error) {
+	tmpl, err := e.compileString(ctx, name, body)
+	if err != nil {
+		return nil, err
+	}
+	return newTemplate(tmpl), nil
+}
+
+// compileString is the unexported compile path returning the interpreter's
+// internal template. CompileString wraps its result for the public boundary; the
+// engineAdapter (backing template_from_string) uses it directly.
+func (e *Environment) compileString(ctx context.Context, name, body string) (*interp.Template, error) {
 	mod, err := parse.Parse(source.New(name, body))
 	if err != nil {
 		return nil, err
@@ -520,18 +550,18 @@ func (e *Environment) compiledFor(name string) *compiled.Manifest {
 		return nil
 	}
 	m := u.manifest
-	fp := m.Fingerprint
-	if fp.AutoescapeHTML != e.autoescapeHTML ||
-		fp.LenientVariables != !e.strictVariables ||
-		fp.TabWidth != e.tabWidth ||
-		fp.RandomSeed != e.randomSeed ||
-		fp.RandomSeedSet != e.randomSeedSet {
+	fp := m.Fingerprint()
+	if fp.AutoescapeHTML() != e.autoescapeHTML ||
+		fp.LenientVariables() != !e.strictVariables ||
+		fp.TabWidth() != e.tabWidth ||
+		fp.RandomSeed() != e.randomSeed ||
+		fp.RandomSeedSet() != e.randomSeedSet {
 		return nil
 	}
 	if e.policy != nil || e.sandboxActive || e.coverage != nil || e.typeRegistry != nil {
 		return nil
 	}
-	if m.UsesLog && e.logger.Writer() != io.Discard {
+	if m.UsesLog() && e.logger.Writer() != io.Discard {
 		return nil
 	}
 	if !e.unitCoherent(u) {
@@ -542,8 +572,8 @@ func (e *Environment) compiledFor(name string) *compiled.Manifest {
 	// loader serves it, the interpreter would inline the partial, so dispatch
 	// must fall back. This is the runtime template-exists check the compiled
 	// render function cannot make from its stateless signature.
-	for _, name := range m.AbsentIncludes {
-		if e.TemplateExists(name) {
+	for _, name := range m.AbsentIncludes() {
+		if e.templateExists(name) {
 			return nil
 		}
 	}
@@ -584,7 +614,7 @@ func (e *Environment) unitCoherent(u *compiledUnit) bool {
 	}
 	u.ok = true
 	for i, name := range u.members {
-		if u.witness[i].Src.Code() != u.manifest.Sources[name] {
+		if u.witness[i].Src.Code() != u.manifest.Sources()[name] {
 			u.ok = false
 			break
 		}
@@ -600,13 +630,13 @@ func (e *Environment) unitCoherent(u *compiledUnit) bool {
 // contract: binding marks argument arrays shared and every template mutation
 // privatizes first (copy-on-write), so the first render cannot change what
 // the second reads.
-func (e *Environment) renderShadowed(m *compiled.Manifest, tmpl *interp.Template, vars map[string]runtime.Value) (string, error) {
-	interpOut, interpErr := interp.Render(e, tmpl, vars)
+func (e *Environment) renderShadowed(ctx context.Context, m *compiled.Manifest, tmpl *interp.Template, vars map[string]runtime.Value) (string, error) {
+	interpOut, interpErr := interp.Render(ctx, engineAdapter{e}, tmpl, vars)
 	var b strings.Builder
-	compErr := m.Render(&b, e.extensions, vars, e.renderCache)
+	compErr := m.Render()(ctx, &b, e.extensions, vars, e.renderCache)
 	if b.String() != interpOut || !sameErrorText(compErr, interpErr) {
 		e.compiledVerify(compiled.Divergence{
-			Template:       m.Entry,
+			Template:       m.Entry(),
 			CompiledOutput: b.String(),
 			InterpOutput:   interpOut,
 			CompiledErr:    compErr,
@@ -631,14 +661,14 @@ func sameErrorText(a, b error) bool {
 // output. When an installed compiled unit (WithCompiled) passes the dispatch
 // gate the render runs through the generated function with identical output
 // and error bytes, including the partial output an errored render returns.
-func (e *Environment) Render(name string, vars map[string]runtime.Value) (string, error) {
-	tmpl, err := e.LoadTemplate(name)
+func (e *Environment) Render(ctx context.Context, name string, vars map[string]runtime.Value) (string, error) {
+	tmpl, err := e.loadTemplate(ctx, name)
 	if err != nil {
 		return "", err
 	}
 	if m := e.compiledFor(name); m != nil {
 		if e.compiledVerify != nil {
-			return e.renderShadowed(m, tmpl, vars)
+			return e.renderShadowed(ctx, m, tmpl, vars)
 		}
 		// The compiled path shares the interpreter's warm-render Builder
 		// sizing: pre-grow from the Template's remembered output length and
@@ -649,19 +679,34 @@ func (e *Environment) Render(name string, vars map[string]runtime.Value) (string
 		if hint := tmpl.OutGrowHint(); hint > 0 {
 			b.Grow(hint)
 		}
-		err := m.Render(&b, e.extensions, vars, e.renderCache)
+		err := m.Render()(ctx, &b, e.extensions, vars, e.renderCache)
 		if err == nil {
 			tmpl.RecordOutSize(b.Len())
 		}
 		return b.String(), err
 	}
-	return interp.Render(e, tmpl, vars)
+	return interp.Render(ctx, engineAdapter{e}, tmpl, vars)
+}
+
+// RenderPrepared renders an already-loaded template handle (from LoadTemplate or
+// CompileString) with vars and returns the output, skipping the load step. It is
+// the render half of the load/render split: a host that loads once and renders
+// many times, or that needs to time rendering alone, holds the opaque handle and
+// feeds it here. The output is byte-identical to Render of the same template with
+// the same vars; unlike Render it does not consult installed compiled units (the
+// handle is rendered by the interpreter), so it is the pure interpreter render of
+// exactly the passed template. A nil handle renders nothing.
+func (e *Environment) RenderPrepared(ctx context.Context, tmpl *Template, vars map[string]runtime.Value) (string, error) {
+	if tmpl == nil {
+		return "", nil
+	}
+	return interp.Render(ctx, engineAdapter{e}, tmpl.internal(), vars)
 }
 
 // RenderString parses an ad-hoc template body (not added to the loader) and
 // renders it. Inheritance/include/import targets in the body still resolve
 // through the loader by name.
-func (e *Environment) RenderString(name, body string, vars map[string]runtime.Value) (string, error) {
+func (e *Environment) RenderString(ctx context.Context, name, body string, vars map[string]runtime.Value) (string, error) {
 	mod, err := parse.Parse(source.New(name, body))
 	if err != nil {
 		return "", err
@@ -673,7 +718,7 @@ func (e *Environment) RenderString(name, body string, vars map[string]runtime.Va
 	if err != nil {
 		return "", err
 	}
-	return interp.Render(e, tmpl, vars)
+	return interp.Render(ctx, engineAdapter{e}, tmpl, vars)
 }
 
 // RenderTo loads the named template and renders it directly to w. When the
@@ -695,8 +740,8 @@ func (e *Environment) RenderString(name, body string, vars map[string]runtime.Va
 // interpreter's bytes: for a slot-free unit that includes an errored render's
 // partial output (matching the streaming path), and for a slots unit it writes
 // nothing on error (matching the buffered path).
-func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime.Value) error {
-	tmpl, err := e.LoadTemplate(name)
+func (e *Environment) RenderTo(ctx context.Context, w io.Writer, name string, vars map[string]runtime.Value) error {
+	tmpl, err := e.loadTemplate(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -709,8 +754,8 @@ func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime
 			// writes nothing on error, so its placeholder-bearing partial is
 			// withheld. The render error outranks a write error because it is the
 			// authoritative result the comparison above already served.
-			out, rerr := e.renderShadowed(m, tmpl, vars)
-			if rerr != nil && m.UsesSlots {
+			out, rerr := e.renderShadowed(ctx, m, tmpl, vars)
+			if rerr != nil && m.UsesSlots() {
 				return rerr
 			}
 			_, werr := io.WriteString(w, out)
@@ -719,40 +764,40 @@ func (e *Environment) RenderTo(w io.Writer, name string, vars map[string]runtime
 			}
 			return werr
 		}
-		if m.UsesSlots {
+		if m.UsesSlots() {
 			// A slots unit's generated render writes its partial, unresolved
 			// buffer to the writer on error; buffering into a scratch builder and
 			// writing it only on success keeps that placeholder-bearing partial
 			// off the caller's writer, mirroring the interpreter's buffered-slots
 			// branch which writes nothing when the render fails.
 			var b strings.Builder
-			if rerr := m.Render(&b, e.extensions, vars, e.renderCache); rerr != nil {
+			if rerr := m.Render()(ctx, &b, e.extensions, vars, e.renderCache); rerr != nil {
 				return rerr
 			}
 			_, werr := io.WriteString(w, b.String())
 			return werr
 		}
-		return m.Render(w, e.extensions, vars, e.renderCache)
+		return m.Render()(ctx, w, e.extensions, vars, e.renderCache)
 	}
-	return interp.RenderTo(e, tmpl, vars, w)
+	return interp.RenderTo(ctx, engineAdapter{e}, tmpl, vars, w)
 }
 
 // RenderToValues renders the named template directly to w like RenderTo, but
 // from native Go bindings: each value in vars is marshaled through
 // runtime.FromGo exactly as RenderValues does.
-func (e *Environment) RenderToValues(w io.Writer, name string, vars map[string]any) error {
+func (e *Environment) RenderToValues(ctx context.Context, w io.Writer, name string, vars map[string]any) error {
 	rv, err := fromGoVars(vars)
 	if err != nil {
 		return err
 	}
-	return e.RenderTo(w, name, rv)
+	return e.RenderTo(ctx, w, name, rv)
 }
 
 // RenderStringTo parses an ad-hoc template body (not added to the loader) and
 // renders it directly to w with RenderTo's streaming-vs-buffered behavior.
 // Inheritance/include/import targets in the body still resolve through the
 // loader by name.
-func (e *Environment) RenderStringTo(w io.Writer, name, body string, vars map[string]runtime.Value) error {
+func (e *Environment) RenderStringTo(ctx context.Context, w io.Writer, name, body string, vars map[string]runtime.Value) error {
 	mod, err := parse.Parse(source.New(name, body))
 	if err != nil {
 		return err
@@ -764,15 +809,7 @@ func (e *Environment) RenderStringTo(w io.Writer, name, body string, vars map[st
 	if err != nil {
 		return err
 	}
-	return interp.RenderTo(e, tmpl, vars, w)
-}
-
-// Display renders the named template directly into w -- the push model of the
-// Template contract, under its traditional name. It is RenderTo: a slot-free
-// template closure streams with bounded memory, a slot-using one buffers then
-// writes, and the bytes written equal Render's returned string.
-func (e *Environment) Display(w io.Writer, name string, vars map[string]runtime.Value) error {
-	return e.RenderTo(w, name, vars)
+	return interp.RenderTo(ctx, engineAdapter{e}, tmpl, vars, w)
 }
 
 // RenderValues renders the named template from native Go bindings: each value in
@@ -782,24 +819,24 @@ func (e *Environment) Display(w io.Writer, name string, vars map[string]runtime.
 // through unchanged, so hand-built and native bindings mix freely. An
 // unsupported Go kind (a channel, a bare function, a complex number) returns the
 // typed marshaling error and renders nothing.
-func (e *Environment) RenderValues(name string, vars map[string]any) (string, error) {
+func (e *Environment) RenderValues(ctx context.Context, name string, vars map[string]any) (string, error) {
 	rv, err := fromGoVars(vars)
 	if err != nil {
 		return "", err
 	}
-	return e.Render(name, rv)
+	return e.Render(ctx, name, rv)
 }
 
 // RenderStringValues parses an ad-hoc template body (not added to the loader)
 // and renders it from native Go bindings, marshaling each value through
 // runtime.FromGo exactly as RenderValues does. Inheritance/include/import
 // targets in the body still resolve through the loader by name.
-func (e *Environment) RenderStringValues(name, body string, vars map[string]any) (string, error) {
+func (e *Environment) RenderStringValues(ctx context.Context, name, body string, vars map[string]any) (string, error) {
 	rv, err := fromGoVars(vars)
 	if err != nil {
 		return "", err
 	}
-	return e.RenderString(name, body, rv)
+	return e.RenderString(ctx, name, body, rv)
 }
 
 // fromGoVars marshals a native binding map into the runtime.Value map the render

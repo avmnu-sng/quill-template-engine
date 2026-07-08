@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"math"
 	"math/rand"
 	"sort"
@@ -26,7 +27,7 @@ import (
 // registerStdlib installs the full catalogue onto s. Some callables close over s
 // itself (constant/enum read the host registry on s), so they are registered
 // here rather than as bare package functions.
-func registerStdlib(s *ExtensionSet) {
+func registerStdlib(s *Set) {
 	registerStringFilters(s)
 	registerShapingFilters(s)
 	registerCollectionFilters(s)
@@ -39,7 +40,7 @@ func registerStdlib(s *ExtensionSet) {
 
 // --- string filters ---------------------------------------------------------
 
-func registerStringFilters(s *ExtensionSet) {
+func registerStringFilters(s *Set) {
 	addFilterFast1(s, NewFilter1("capitalize", filterCapitalize1))
 	addFilterFast1(s, NewFilter1("title", filterTitle1))
 	s.AddFilter(&Filter{Name: "ucfirst", Fn: filterUcfirst})
@@ -54,7 +55,7 @@ func registerStringFilters(s *ExtensionSet) {
 // filterCapitalize1 upper-cases the first rune and lower-cases the rest (spec
 // 03 Section 2.1). Distinct from ucfirst, which leaves the remainder unchanged.
 // The unary implementation both dispatch routes share.
-func filterCapitalize1(v runtime.Value) (runtime.Value, error) {
+func filterCapitalize1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	s, err := wantString(v)
 	if err != nil {
 		return runtime.Null(), err
@@ -71,7 +72,7 @@ func filterCapitalize1(v runtime.Value) (runtime.Value, error) {
 // filterTitle1 upper-cases the first rune of each word and lower-cases the
 // rest (spec 03 Section 2.1). A word boundary is any non-letter/non-digit
 // rune. The unary implementation both dispatch routes share.
-func filterTitle1(v runtime.Value) (runtime.Value, error) {
+func filterTitle1(ctx context.Context, v runtime.Value) (runtime.Value, error) {
 	s, err := wantString(v)
 	if err != nil {
 		return runtime.Null(), err
@@ -96,7 +97,7 @@ func filterTitle1(v runtime.Value) (runtime.Value, error) {
 
 // filterUcfirst upper-cases the FIRST BYTE only, leaving the rest unchanged
 // (spec 03 Section 5.2); distinct from capitalize.
-func filterUcfirst(args []runtime.Value) (runtime.Value, error) {
+func filterUcfirst(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -114,13 +115,13 @@ func filterUcfirst(args []runtime.Value) (runtime.Value, error) {
 // filterNl2br replaces newlines with "<br />\n" after HTML-escaping the text,
 // returning a Safe value (spec 03 Section 2.1). Pre-escaping makes it safe under
 // an escape-on region without a double-escape.
-func filterNl2br(args []runtime.Value) (runtime.Value, error) {
+func filterNl2br(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	s, err := runtime.ToText(v)
 	if err != nil {
 		return runtime.Null(), err
 	}
-	if v.Kind != runtime.KSafe {
+	if v.Kind() != runtime.KSafe {
 		s = EscapeHTML(s)
 	}
 	s = strings.ReplaceAll(s, "\r\n", "\n")
@@ -130,7 +131,7 @@ func filterNl2br(args []runtime.Value) (runtime.Value, error) {
 
 // filterSpaceless collapses whitespace between tags (">   <" -> "><"), spec 03
 // Section 2.1.
-func filterSpaceless(args []runtime.Value) (runtime.Value, error) {
+func filterSpaceless(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -140,7 +141,7 @@ func filterSpaceless(args []runtime.Value) (runtime.Value, error) {
 
 // filterStriptags removes markup tags, optionally keeping those in allowed (a
 // string like "<a><b>"), spec 03 Section 2.1.
-func filterStriptags(args []runtime.Value) (runtime.Value, error) {
+func filterStriptags(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -169,7 +170,7 @@ func filterStriptags(args []runtime.Value) (runtime.Value, error) {
 // filterSplit splits a string on a delimiter (spec 03 Section 2.1). A positive
 // limit caps the parts, putting the remainder in the last; an empty delimiter
 // chunks into runes, or into limit-length rune groups when limit > 0.
-func filterSplit(args []runtime.Value) (runtime.Value, error) {
+func filterSplit(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -219,7 +220,7 @@ func chunkRunes(s string, size int) []string {
 
 // filterFormat is printf with Go fmt verbs (spec 03 Section 2.6). The piped
 // value is the format string; the explicit args fill it.
-func filterFormat(args []runtime.Value) (runtime.Value, error) {
+func filterFormat(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	format, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -235,7 +236,7 @@ func filterFormat(args []runtime.Value) (runtime.Value, error) {
 // runtime is UTF-8 throughout, so a conversion to/from UTF-8 (or an alias of it)
 // is the identity, and any other target is an explicit error rather than a
 // silent corruption (spec 03 Section 2.1, the documented UTF-8-centric mapping).
-func filterConvertEncoding(args []runtime.Value) (runtime.Value, error) {
+func filterConvertEncoding(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -265,7 +266,7 @@ func isUTF8Name(name string) bool {
 
 // --- collection filters -----------------------------------------------------
 
-func registerCollectionFilters(s *ExtensionSet) {
+func registerCollectionFilters(s *Set) {
 	s.AddFilter(&Filter{Name: "batch", Fn: filterBatch})
 	s.AddFilter(&Filter{Name: "columns", Fn: filterColumns})
 	s.AddFilter(&Filter{Name: "column", Fn: filterColumn})
@@ -282,25 +283,25 @@ func registerCollectionFilters(s *ExtensionSet) {
 
 	// select/reject/selectattr/rejectattr resolve a named test from s, so they
 	// close over the set the same way constant/enum do.
-	s.AddFilter(&Filter{Name: "select", Fn: func(args []runtime.Value) (runtime.Value, error) {
-		return filterSelect(s, args, true)
+	s.AddFilter(&Filter{Name: "select", Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+		return filterSelect(ctx, s, args, true)
 	}})
-	s.AddFilter(&Filter{Name: "reject", Fn: func(args []runtime.Value) (runtime.Value, error) {
-		return filterSelect(s, args, false)
+	s.AddFilter(&Filter{Name: "reject", Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+		return filterSelect(ctx, s, args, false)
 	}})
-	s.AddFilter(&Filter{Name: "selectattr", Fn: func(args []runtime.Value) (runtime.Value, error) {
-		return filterSelectAttr(s, args, true)
+	s.AddFilter(&Filter{Name: "selectattr", Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+		return filterSelectAttr(ctx, s, args, true)
 	}})
-	s.AddFilter(&Filter{Name: "rejectattr", Fn: func(args []runtime.Value) (runtime.Value, error) {
-		return filterSelectAttr(s, args, false)
+	s.AddFilter(&Filter{Name: "rejectattr", Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
+		return filterSelectAttr(ctx, s, args, false)
 	}})
 }
 
 // filterBatch chunks a collection into fixed-size lists, padding the last chunk
 // with fill when supplied (spec 03 Section 2.2).
-func filterBatch(args []runtime.Value) (runtime.Value, error) {
+func filterBatch(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "batch expects a collection")
 	}
 	size := int(toInt(arg(args, 1)))
@@ -309,7 +310,7 @@ func filterBatch(args []runtime.Value) (runtime.Value, error) {
 	}
 	hasFill := len(args) > 2 && !args[2].IsNull()
 	fill := arg(args, 2)
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	out := runtime.NewArray()
 	chunkIdx := int64(0)
 	for i := 0; i < len(ps); i += size {
@@ -338,9 +339,9 @@ func filterBatch(args []runtime.Value) (runtime.Value, error) {
 // order, and the first r = len%n columns hold one more element than the rest.
 // When fill is supplied every column is padded to the tallest column's height,
 // giving a rectangular grid. n must be >= 1.
-func filterColumns(args []runtime.Value) (runtime.Value, error) {
+func filterColumns(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "columns expects a collection")
 	}
 	n := int(toInt(arg(args, 1)))
@@ -349,7 +350,7 @@ func filterColumns(args []runtime.Value) (runtime.Value, error) {
 	}
 	hasFill := len(args) > 2 && !args[2].IsNull()
 	fill := arg(args, 2)
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	cols := make([]*runtime.Array, n)
 	for c := 0; c < n; c++ {
 		cols[c] = runtime.NewArray()
@@ -376,14 +377,14 @@ func filterColumns(args []runtime.Value) (runtime.Value, error) {
 // filterEntries yields a mapping's [key, value] pairs as an ordered sequence of
 // two-element lists, in insertion order (spec 03 Section 2.2). A list source
 // yields its integer keys paired with their values the same way.
-func filterEntries(args []runtime.Value) (runtime.Value, error) {
+func filterEntries(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "entries expects a mapping")
 	}
 	out := runtime.NewArray()
 	idx := int64(0)
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		pair := runtime.NewArray()
 		pair.SetInt(0, p.Key)
 		pair.SetInt(1, p.Val)
@@ -397,9 +398,9 @@ func filterEntries(args []runtime.Value) (runtime.Value, error) {
 // mapping with the same pairs in the sorted order (spec 03 Section 2.2). The by
 // argument is "key" (default) or "value". The sort is stable, so pairs comparing
 // equal on the chosen component keep their original insertion order.
-func filterSortMap(args []runtime.Value) (runtime.Value, error) {
+func filterSortMap(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "sort_map expects a mapping")
 	}
 	by := "key"
@@ -414,7 +415,7 @@ func filterSortMap(args []runtime.Value) (runtime.Value, error) {
 		return runtime.Null(), errors.New(errors.KindRuntime,
 			"sort_map by must be \"key\" or \"value\", got %q", by)
 	}
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	var sortErr error
 	sort.SliceStable(ps, func(i, j int) bool {
 		var a, b runtime.Value
@@ -442,15 +443,15 @@ func filterSortMap(args []runtime.Value) (runtime.Value, error) {
 
 // filterColumn extracts one attribute per row of a list, in order (spec 03
 // Section 2.2). A row missing the key contributes nothing.
-func filterColumn(args []runtime.Value) (runtime.Value, error) {
+func filterColumn(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "column expects a collection")
 	}
 	key := arg(args, 1)
 	out := runtime.NewArray()
 	idx := int64(0)
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		got, err := runtime.GetAttribute(p.Val, normalizeKey(key), runtime.AccessIndex, true)
 		if err != nil {
 			return runtime.Null(), err
@@ -468,16 +469,16 @@ func filterColumn(args []runtime.Value) (runtime.Value, error) {
 // collection of the results (spec 03 Section 2.2). When the argument is a dotted
 // path string rather than a callable -- the map(attribute:'path') form -- it
 // plucks that path from each element instead, key-preserving.
-func filterMap(args []runtime.Value) (runtime.Value, error) {
+func filterMap(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	fn := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "map expects a collection")
 	}
 	byAttr := isPathArg(fn)
 	if !byAttr && !runtime.IsCallable(fn) {
 		return runtime.Null(), errors.New(errors.KindRuntime,
-			"map expects a callable or a string attribute path, got %s", fn.Kind)
+			"map expects a callable or a string attribute path, got %s", fn.Kind())
 	}
 	var path []runtime.Value
 	if byAttr {
@@ -488,7 +489,7 @@ func filterMap(args []runtime.Value) (runtime.Value, error) {
 		path = p
 	}
 	out := runtime.NewArray()
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		var res runtime.Value
 		var err error
 		if byAttr {
@@ -507,7 +508,7 @@ func filterMap(args []runtime.Value) (runtime.Value, error) {
 // isPathArg reports whether v is a string value usable as an attribute path,
 // distinguishing the map/group_by attribute form from an arrow argument.
 func isPathArg(v runtime.Value) bool {
-	return v.Kind == runtime.KStr || v.Kind == runtime.KSafe
+	return v.Kind() == runtime.KStr || v.Kind() == runtime.KSafe
 }
 
 // parsePath splits a dotted-path string ("a.b.c") into its segment keys, used by
@@ -544,14 +545,14 @@ func pluck(v runtime.Value, path []runtime.Value) (runtime.Value, error) {
 
 // filterFilter keeps elements where the arrow is truthy, key-preserving (spec 03
 // Section 2.2).
-func filterFilter(args []runtime.Value) (runtime.Value, error) {
+func filterFilter(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	fn := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "filter expects a collection")
 	}
 	out := runtime.NewArray()
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		res, err := runtime.Call(fn, []runtime.Value{p.Val, p.Key})
 		if err != nil {
 			return runtime.Null(), err
@@ -565,14 +566,14 @@ func filterFilter(args []runtime.Value) (runtime.Value, error) {
 
 // filterReduce left-folds a collection with an arrow (acc, value, key), starting
 // from initial (default Null), spec 03 Section 2.2.
-func filterReduce(args []runtime.Value) (runtime.Value, error) {
+func filterReduce(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	fn := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "reduce expects a collection")
 	}
 	acc := arg(args, 2)
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		res, err := runtime.Call(fn, []runtime.Value{acc, p.Val, p.Key})
 		if err != nil {
 			return runtime.Null(), err
@@ -584,13 +585,13 @@ func filterReduce(args []runtime.Value) (runtime.Value, error) {
 
 // filterFind returns the first value for which the arrow is truthy, else Null
 // (spec 03 Section 2.2).
-func filterFind(args []runtime.Value) (runtime.Value, error) {
+func filterFind(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	fn := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "find expects a collection")
 	}
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		res, err := runtime.Call(fn, []runtime.Value{p.Val, p.Key})
 		if err != nil {
 			return runtime.Null(), err
@@ -606,9 +607,9 @@ func filterFind(args []runtime.Value) (runtime.Value, error) {
 // each element first -- the sum(attribute:'path') form (spec 03 Section 2.2).
 // An int sequence sums to an Int; any float participant promotes the total to a
 // Float. An empty collection sums to Int 0.
-func filterSum(args []runtime.Value) (runtime.Value, error) {
+func filterSum(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "sum expects a collection")
 	}
 	var path []runtime.Value
@@ -622,7 +623,7 @@ func filterSum(args []runtime.Value) (runtime.Value, error) {
 	var isum int64
 	var fsum float64
 	anyFloat := false
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		val := p.Val
 		if path != nil {
 			got, err := pluck(val, path)
@@ -631,16 +632,16 @@ func filterSum(args []runtime.Value) (runtime.Value, error) {
 			}
 			val = got
 		}
-		switch val.Kind {
+		switch val.Kind() {
 		case runtime.KInt:
-			isum += val.I
-			fsum += float64(val.I)
+			isum += val.AsInt()
+			fsum += float64(val.AsInt())
 		case runtime.KFloat:
 			anyFloat = true
-			fsum += val.F
+			fsum += val.AsFloat()
 		default:
 			return runtime.Null(), errors.New(errors.KindRuntime,
-				"sum expects numbers, got %s", val.Kind)
+				"sum expects numbers, got %s", val.Kind())
 		}
 	}
 	if anyFloat {
@@ -653,9 +654,9 @@ func filterSum(args []runtime.Value) (runtime.Value, error) {
 // preserved, reindexed as a list (spec 03 Section 2.2). With the
 // unique(attribute:'path') form it dedupes by the projected path rather than by
 // the whole value; the first element carrying each distinct key is kept.
-func filterUnique(args []runtime.Value) (runtime.Value, error) {
+func filterUnique(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "unique expects a collection")
 	}
 	var path []runtime.Value
@@ -669,7 +670,7 @@ func filterUnique(args []runtime.Value) (runtime.Value, error) {
 	var seen []runtime.Value
 	out := runtime.NewArray()
 	idx := int64(0)
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		key := p.Val
 		if path != nil {
 			got, err := pluck(p.Val, path)
@@ -703,16 +704,16 @@ func filterUnique(args []runtime.Value) (runtime.Value, error) {
 // Two elements share a group when their keys are equal under runtime.Equal, the
 // same typed-equality contract unique(attribute:) uses, so Int 1, Str "1", and
 // Bool true land in separate groups.
-func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
+func filterGroupBy(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	by := arg(args, 1)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "group_by expects a collection")
 	}
 	byArrow := runtime.IsCallable(by)
 	if !byArrow && !isPathArg(by) {
 		return runtime.Null(), errors.New(errors.KindRuntime,
-			"group_by expects a string path or an arrow, got %s", by.Kind)
+			"group_by expects a string path or an arrow, got %s", by.Kind())
 	}
 	var path []runtime.Value
 	if !byArrow {
@@ -724,7 +725,7 @@ func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
 	}
 	var keys []runtime.Value   // group keys in first-appearance order
 	var items []*runtime.Array // parallel accumulators, one per group key
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		var gk runtime.Value
 		var err error
 		if byArrow {
@@ -763,9 +764,9 @@ func filterGroupBy(args []runtime.Value) (runtime.Value, error) {
 // named test passes, key-preserving on a mapping source (spec 03 Section 2.2).
 // The test name is the first argument; any further arguments are passed to the
 // test after the element value.
-func filterSelect(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Value, error) {
+func filterSelect(ctx context.Context, s *Set, args []runtime.Value, keep bool) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "select/reject expects a collection")
 	}
 	name, err := wantString(arg(args, 1))
@@ -781,9 +782,9 @@ func filterSelect(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Val
 		extra = args[2:]
 	}
 	out := runtime.NewArray()
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		testArgs := append([]runtime.Value{p.Val}, extra...)
-		pass, err := t.Fn(testArgs)
+		pass, err := t.Fn(ctx, testArgs)
 		if err != nil {
 			return runtime.Null(), err
 		}
@@ -802,9 +803,9 @@ func filterSelect(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Val
 // set. The three-or-more-argument form selectattr(path, test, extra...) plucks
 // the path from each element and applies the named test to the projected value
 // with the extra arguments after it. Both are key-preserving on a mapping source.
-func filterSelectAttr(s *ExtensionSet, args []runtime.Value, keep bool) (runtime.Value, error) {
+func filterSelectAttr(ctx context.Context, s *Set, args []runtime.Value, keep bool) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "selectattr/rejectattr expects a collection")
 	}
 	path, err := parsePath(arg(args, 1))
@@ -815,7 +816,7 @@ func filterSelectAttr(s *ExtensionSet, args []runtime.Value, keep bool) (runtime
 	// One-arg form (no test name): filter by the truthiness of the projected value.
 	if len(args) < 3 || args[2].IsNull() {
 		out := runtime.NewArray()
-		for _, p := range v.Arr.Pairs() {
+		for _, p := range v.AsArray().Pairs() {
 			attr, err := pluck(p.Val, path)
 			if err != nil {
 				return runtime.Null(), err
@@ -840,13 +841,13 @@ func filterSelectAttr(s *ExtensionSet, args []runtime.Value, keep bool) (runtime
 		extra = args[3:]
 	}
 	out := runtime.NewArray()
-	for _, p := range v.Arr.Pairs() {
+	for _, p := range v.AsArray().Pairs() {
 		attr, err := pluck(p.Val, path)
 		if err != nil {
 			return runtime.Null(), err
 		}
 		testArgs := append([]runtime.Value{attr}, extra...)
-		pass, err := t.Fn(testArgs)
+		pass, err := t.Fn(ctx, testArgs)
 		if err != nil {
 			return runtime.Null(), err
 		}
@@ -861,7 +862,7 @@ func filterSelectAttr(s *ExtensionSet, args []runtime.Value, keep bool) (runtime
 // own signature shuffle(seed: int? = null), an explicit seed argument makes the
 // permutation deterministic; absent one, it draws from a time-seeded source
 // unless the engine has installed a host seed (spec 03 Section 2.2, X15).
-func filterShuffle(args []runtime.Value) (runtime.Value, error) {
+func filterShuffle(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	if len(args) > 1 && !args[1].IsNull() {
 		rng = rand.New(rand.NewSource(toInt(args[1])))
@@ -875,13 +876,13 @@ func filterShuffle(args []runtime.Value) (runtime.Value, error) {
 // engine's source (a host seed or time) is used.
 func ShuffleWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime, "shuffle expects a collection")
 	}
 	if len(args) > 1 && !args[1].IsNull() {
 		rng = rand.New(rand.NewSource(toInt(args[1])))
 	}
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	vals := make([]runtime.Value, len(ps))
 	for i, p := range ps {
 		vals[i] = p.Val
@@ -897,13 +898,13 @@ func ShuffleWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 // filterSortArrow sorts key-preserving by the one total ordering, or by a
 // spaceship arrow comparator (a, b) => int when one is supplied (spec 03 Section
 // 2.2). It replaces the core filterSort to add comparator support.
-func filterSortArrow(args []runtime.Value) (runtime.Value, error) {
+func filterSortArrow(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KArray || v.Arr == nil {
+	if v.Kind() != runtime.KArray || v.AsArray() == nil {
 		return runtime.Null(), errors.New(errors.KindRuntime,
-			"sort expects a collection, got %s", v.Kind)
+			"sort expects a collection, got %s", v.Kind())
 	}
-	ps := v.Arr.Pairs()
+	ps := v.AsArray().Pairs()
 	hasCmp := len(args) > 1 && runtime.IsCallable(args[1])
 	cmp := arg(args, 1)
 	var sortErr error
@@ -935,7 +936,7 @@ func filterSortArrow(args []runtime.Value) (runtime.Value, error) {
 
 // --- math filters -----------------------------------------------------------
 
-func registerMathFilters(s *ExtensionSet) {
+func registerMathFilters(s *Set) {
 	s.AddFilter(&Filter{Name: "abs", Fn: filterAbs})
 	s.AddFilter(&Filter{Name: "round", Fn: filterRound})
 	s.AddFilter(&Filter{Name: "format_number", Fn: filterFormatNumber})
@@ -944,27 +945,27 @@ func registerMathFilters(s *ExtensionSet) {
 
 // filterAbs returns the absolute value, preserving int vs float (spec 03 Section
 // 2.3).
-func filterAbs(args []runtime.Value) (runtime.Value, error) {
+func filterAbs(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KInt:
-		if v.I < 0 {
-			return runtime.Int(-v.I), nil
+		if v.AsInt() < 0 {
+			return runtime.Int(-v.AsInt()), nil
 		}
 		return v, nil
 	case runtime.KFloat:
-		return runtime.Float(math.Abs(v.F)), nil
+		return runtime.Float(math.Abs(v.AsFloat())), nil
 	default:
-		return runtime.Null(), errors.New(errors.KindRuntime, "abs expects a number, got %s", v.Kind)
+		return runtime.Null(), errors.New(errors.KindRuntime, "abs expects a number, got %s", v.Kind())
 	}
 }
 
 // filterRound rounds to a precision with a mode in common/ceil/floor; negative
 // precision rounds to tens/hundreds; result is a Float (spec 03 Section 2.3).
-func filterRound(args []runtime.Value) (runtime.Value, error) {
+func filterRound(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KInt && v.Kind != runtime.KFloat {
-		return runtime.Null(), errors.New(errors.KindRuntime, "round expects a number, got %s", v.Kind)
+	if v.Kind() != runtime.KInt && v.Kind() != runtime.KFloat {
+		return runtime.Null(), errors.New(errors.KindRuntime, "round expects a number, got %s", v.Kind())
 	}
 	f := asFloat(v)
 	precision := 0
@@ -998,11 +999,11 @@ func filterRound(args []runtime.Value) (runtime.Value, error) {
 
 // filterFormatNumber renders a number with a fixed decimal count and thousands
 // separators (spec 03 Section 2.1). decimals defaults to 0, point ".", sep ",".
-func filterFormatNumber(args []runtime.Value) (runtime.Value, error) {
+func filterFormatNumber(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind != runtime.KInt && v.Kind != runtime.KFloat {
+	if v.Kind() != runtime.KInt && v.Kind() != runtime.KFloat {
 		return runtime.Null(), errors.New(errors.KindRuntime,
-			"format_number expects a number, got %s", v.Kind)
+			"format_number expects a number, got %s", v.Kind())
 	}
 	decimals := 0
 	if len(args) > 1 {
@@ -1070,7 +1071,7 @@ func groupThousands(digits, sep string) string {
 
 // --- encoding, serialization, date, utility filters -------------------------
 
-func registerEncodingFilters(s *ExtensionSet) {
+func registerEncodingFilters(s *Set) {
 	s.AddFilter(&Filter{Name: "json", Fn: filterJSON})
 	s.AddFilter(&Filter{Name: "json_encode", Fn: filterJSON}) // alias
 	s.AddFilter(&Filter{Name: "url_encode", Fn: filterURLEncode})
@@ -1082,7 +1083,7 @@ func registerEncodingFilters(s *ExtensionSet) {
 // filterJSON serializes via Go encoding/json output rules (spec 03 Section 2.6):
 // no HTML escaping of < > &, ordered keys, literal '/'. pretty switches to
 // indented with the given indent (default two spaces).
-func filterJSON(args []runtime.Value) (runtime.Value, error) {
+func filterJSON(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	pretty := len(args) > 1 && runtime.Truthy(args[1])
 	indent := "  "
@@ -1102,11 +1103,11 @@ func filterJSON(args []runtime.Value) (runtime.Value, error) {
 
 // filterURLEncode percent-encodes a string, or builds a query string from a
 // mapping (key=value joined by &), spec 03 Section 2.4.
-func filterURLEncode(args []runtime.Value) (runtime.Value, error) {
+func filterURLEncode(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
-	if v.Kind == runtime.KArray && v.Arr != nil {
+	if v.Kind() == runtime.KArray && v.AsArray() != nil {
 		var parts []string
-		for _, p := range v.Arr.Pairs() {
+		for _, p := range v.AsArray().Pairs() {
 			k, err := runtime.ToText(p.Key)
 			if err != nil {
 				return runtime.Null(), err
@@ -1128,7 +1129,7 @@ func filterURLEncode(args []runtime.Value) (runtime.Value, error) {
 
 // filterInvoke calls a piped callable with the given arguments (spec 03 Section
 // 2.4). The callable is an arrow or a host callable Object.
-func filterInvoke(args []runtime.Value) (runtime.Value, error) {
+func filterInvoke(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	fn := arg(args, 0)
 	var rest []runtime.Value
 	if len(args) > 1 {
@@ -1139,7 +1140,7 @@ func filterInvoke(args []runtime.Value) (runtime.Value, error) {
 
 // --- indentation filters -----------------------------------------------------
 
-func registerSourceFilters(s *ExtensionSet) {
+func registerSourceFilters(s *Set) {
 	s.AddFilter(&Filter{Name: "tab", Fn: filterTab})
 	s.AddFilter(&Filter{Name: "indent", Fn: filterIndent})
 }
@@ -1150,7 +1151,7 @@ func registerSourceFilters(s *ExtensionSet) {
 // expressed in Quill truthiness and length. The engine re-registers a width-aware
 // override in front of this so a host's WithTabWidth changes the unit; this core
 // form is the standalone default when no engine is present.
-func filterTab(args []runtime.Value) (runtime.Value, error) {
+func filterTab(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	return tabWithWidth(DefaultTabWidth, args)
 }
 
@@ -1174,7 +1175,7 @@ func tabWithWidth(width int, args []runtime.Value) (runtime.Value, error) {
 	piped := arg(args, 0)
 	unit := strings.Repeat(" ", width)
 	// Standalone form: a number piped with no string body -> n levels of indent.
-	if piped.Kind == runtime.KInt || piped.Kind == runtime.KFloat {
+	if piped.Kind() == runtime.KInt || piped.Kind() == runtime.KFloat {
 		n := int(toInt(piped))
 		if n < 0 {
 			n = 0
@@ -1197,13 +1198,13 @@ func tabWithWidth(width int, args []runtime.Value) (runtime.Value, error) {
 
 // SpaceWith emits n spaces (default 1), backing the space() function. args is the
 // flattened argument list: an optional count.
-func SpaceWith(args []runtime.Value) (runtime.Value, error) {
+func SpaceWith(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	return runtime.Str(strings.Repeat(" ", countArg(args, 0, 1))), nil
 }
 
 // BreakWith emits n newlines (default 1), backing the break() function. args is
 // the flattened argument list: an optional count.
-func BreakWith(args []runtime.Value) (runtime.Value, error) {
+func BreakWith(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	return runtime.Str(strings.Repeat("\n", countArg(args, 0, 1))), nil
 }
 
@@ -1233,7 +1234,7 @@ func countArg(args []runtime.Value, i, def int) int {
 
 // filterIndent is the explicit multi-line indenter (spec 03 Section 5.3):
 // s | indent(n, unit="    ") prefixes each non-blank line of s with n units.
-func filterIndent(args []runtime.Value) (runtime.Value, error) {
+func filterIndent(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	s, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -1273,7 +1274,7 @@ func indentLines(s, prefix string) string {
 
 // --- functions --------------------------------------------------------------
 
-func registerStdlibFunctions(s *ExtensionSet) {
+func registerStdlibFunctions(s *Set) {
 	s.AddFunction(&Function{Name: "attribute", Fn: fnAttribute})
 	registerRefFunctions(s)
 	s.AddFunction(&Function{Name: "cycle", Fn: fnCycle})
@@ -1288,36 +1289,36 @@ func registerStdlibFunctions(s *ExtensionSet) {
 	// width-aware override so WithTabWidth changes the level size.
 	s.AddFunction(&Function{Name: "space", Fn: SpaceWith})
 	s.AddFunction(&Function{Name: "break", Fn: BreakWith})
-	s.AddFunction(&Function{Name: "tab", Fn: func(args []runtime.Value) (runtime.Value, error) {
+	s.AddFunction(&Function{Name: "tab", Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 		return TabFnWith(DefaultTabWidth, args)
 	}})
 
 	// constant / enum / enum_cases close over s to read the host registry.
-	s.AddFunction(&Function{Name: "constant", Fn: func(args []runtime.Value) (runtime.Value, error) {
+	s.AddFunction(&Function{Name: "constant", Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 		return fnConstant(s, args)
 	}})
-	s.AddFunction(&Function{Name: "enum", Fn: func(args []runtime.Value) (runtime.Value, error) {
+	s.AddFunction(&Function{Name: "enum", Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 		return fnEnum(s, args)
 	}})
-	s.AddFunction(&Function{Name: "enum_cases", Fn: func(args []runtime.Value) (runtime.Value, error) {
+	s.AddFunction(&Function{Name: "enum_cases", Fn: func(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 		return fnEnumCases(s, args)
 	}})
 }
 
 // fnAttribute reads member name of var at runtime, optionally calling it with an
 // argument list -- the dynamic form of a.b / a.b(args), spec 03 Section 3.2.
-func fnAttribute(args []runtime.Value) (runtime.Value, error) {
+func fnAttribute(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	recv := arg(args, 0)
 	name := arg(args, 1)
 	if len(args) > 2 && !args[2].IsNull() {
 		callArgs := args[2]
-		if recv.Kind != runtime.KObject {
+		if recv.Kind() != runtime.KObject {
 			return runtime.Null(), errors.New(errors.KindAttribute,
-				"attribute() can only call a method on an object, got %s", recv.Kind)
+				"attribute() can only call a method on an object, got %s", recv.Kind())
 		}
 		var ca []runtime.Value
-		if callArgs.Kind == runtime.KArray && callArgs.Arr != nil {
-			for _, p := range callArgs.Arr.Pairs() {
+		if callArgs.Kind() == runtime.KArray && callArgs.AsArray() != nil {
+			for _, p := range callArgs.AsArray().Pairs() {
 				ca = append(ca, p.Val)
 			}
 		}
@@ -1325,19 +1326,19 @@ func fnAttribute(args []runtime.Value) (runtime.Value, error) {
 		if err != nil {
 			return runtime.Null(), err
 		}
-		return recv.Obj.CallMethod(nm, ca)
+		return recv.AsObject().CallMethod(nm, ca)
 	}
 	return runtime.GetAttribute(recv, normalizeKey(name), runtime.AccessDot, true)
 }
 
 // fnCycle returns values[position % length], wrapping (spec 03 Section 3.2).
-func fnCycle(args []runtime.Value) (runtime.Value, error) {
+func fnCycle(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	values := arg(args, 0)
-	if values.Kind != runtime.KArray || values.Arr == nil || values.Arr.Len() == 0 {
+	if values.Kind() != runtime.KArray || values.AsArray() == nil || values.AsArray().Len() == 0 {
 		return runtime.Null(), errors.New(errors.KindRuntime, "cycle expects a non-empty collection")
 	}
 	pos := toInt(arg(args, 1))
-	ps := values.Arr.Pairs()
+	ps := values.AsArray().Pairs()
 	n := int64(len(ps))
 	idx := ((pos % n) + n) % n
 	return ps[idx].Val, nil
@@ -1346,7 +1347,7 @@ func fnCycle(args []runtime.Value) (runtime.Value, error) {
 // fnRandom is the host-facing random() with a fresh time-seeded source. The
 // engine registers a seed-aware wrapper (RandomWith) when a host seed is set
 // (spec 03 Section 3.2, X15); this plain form is the fallback when none is.
-func fnRandom(args []runtime.Value) (runtime.Value, error) {
+func fnRandom(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	return RandomWith(rand.New(rand.NewSource(time.Now().UnixNano())), args)
 }
 
@@ -1366,7 +1367,7 @@ func fnRandom(args []runtime.Value) (runtime.Value, error) {
 func RandomWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	hasMax := len(args) > 1 && !args[1].IsNull()
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KNull:
 		if hasMax {
 			return randIntInRange(rng, 0, toInt(args[1]))
@@ -1374,23 +1375,23 @@ func RandomWith(rng *rand.Rand, args []runtime.Value) (runtime.Value, error) {
 		return runtime.Int(rng.Int63()), nil
 	case runtime.KInt:
 		if hasMax {
-			return randIntInRange(rng, v.I, toInt(args[1]))
+			return randIntInRange(rng, v.AsInt(), toInt(args[1]))
 		}
-		return randIntInRange(rng, 0, v.I)
+		return randIntInRange(rng, 0, v.AsInt())
 	case runtime.KArray:
-		if v.Arr == nil || v.Arr.Len() == 0 {
+		if v.AsArray() == nil || v.AsArray().Len() == 0 {
 			return runtime.Null(), nil
 		}
-		ps := v.Arr.Pairs()
+		ps := v.AsArray().Pairs()
 		return ps[rng.Intn(len(ps))].Val, nil
 	case runtime.KStr, runtime.KSafe:
-		r := []rune(v.S)
+		r := []rune(v.AsStr())
 		if len(r) == 0 {
 			return runtime.Str(""), nil
 		}
 		return runtime.Str(string(r[rng.Intn(len(r))])), nil
 	default:
-		return runtime.Null(), errors.New(errors.KindRuntime, "random cannot operate on %s", v.Kind)
+		return runtime.Null(), errors.New(errors.KindRuntime, "random cannot operate on %s", v.Kind())
 	}
 }
 
@@ -1407,7 +1408,7 @@ func randIntInRange(rng *rand.Rand, lo, hi int64) (runtime.Value, error) {
 // returns whether the constant exists rather than its value (spec 03 Section
 // 3.2). The obj argument (a class scope) is accepted but unused in this engine,
 // which has a single flat constant namespace.
-func fnConstant(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
+func fnConstant(s *Set, args []runtime.Value) (runtime.Value, error) {
 	name, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -1424,7 +1425,7 @@ func fnConstant(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
 }
 
 // fnEnum returns the first case of a named host enumeration (spec 03 Section 3.2).
-func fnEnum(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
+func fnEnum(s *Set, args []runtime.Value) (runtime.Value, error) {
 	name, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -1438,7 +1439,7 @@ func fnEnum(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
 
 // fnEnumCases returns all cases of a named host enumeration in declaration order
 // (spec 03 Section 3.2).
-func fnEnumCases(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
+func fnEnumCases(s *Set, args []runtime.Value) (runtime.Value, error) {
 	name, err := wantString(arg(args, 0))
 	if err != nil {
 		return runtime.Null(), err
@@ -1456,13 +1457,13 @@ func fnEnumCases(s *ExtensionSet, args []runtime.Value) (runtime.Value, error) {
 
 // --- tests ------------------------------------------------------------------
 
-func registerStdlibTests(s *ExtensionSet) {
+func registerStdlibTests(s *Set) {
 	s.AddTest(&Test{Name: "divisible_by", Fn: testDivisibleBy})
 	s.AddTest(&Test{Name: "divisible by", Fn: testDivisibleBy}) // spaced-spelling alias
 	s.AddTest(&Test{Name: "sequence", Fn: testSequence})
 	s.AddTest(&Test{Name: "mapping", Fn: testMapping})
 	s.AddTest(&Test{Name: "true", Fn: testTrue})
-	s.AddTest(&Test{Name: "constant", Fn: func(args []runtime.Value) (bool, error) {
+	s.AddTest(&Test{Name: "constant", Fn: func(ctx context.Context, args []runtime.Value) (bool, error) {
 		return testConstant(s, args)
 	}})
 
@@ -1489,32 +1490,32 @@ func registerStdlibTests(s *ExtensionSet) {
 }
 
 // testEq reports value equality via the one typed equality (spec 03 Section 4).
-func testEq(args []runtime.Value) (bool, error) {
+func testEq(ctx context.Context, args []runtime.Value) (bool, error) {
 	return runtime.Equal(arg(args, 0), arg(args, 1)), nil
 }
 
 // testNe is the complement of eq (spec 03 Section 4).
-func testNe(args []runtime.Value) (bool, error) {
+func testNe(ctx context.Context, args []runtime.Value) (bool, error) {
 	return !runtime.Equal(arg(args, 0), arg(args, 1)), nil
 }
 
 // testLt reports x < y via the one runtime ordering (spec 03 Section 4).
-func testLt(args []runtime.Value) (bool, error) {
+func testLt(ctx context.Context, args []runtime.Value) (bool, error) {
 	return orderTest(args, func(c int) bool { return c < 0 })
 }
 
 // testLe reports x <= y via the one runtime ordering (spec 03 Section 4).
-func testLe(args []runtime.Value) (bool, error) {
+func testLe(ctx context.Context, args []runtime.Value) (bool, error) {
 	return orderTest(args, func(c int) bool { return c <= 0 })
 }
 
 // testGt reports x > y via the one runtime ordering (spec 03 Section 4).
-func testGt(args []runtime.Value) (bool, error) {
+func testGt(ctx context.Context, args []runtime.Value) (bool, error) {
 	return orderTest(args, func(c int) bool { return c > 0 })
 }
 
 // testGe reports x >= y via the one runtime ordering (spec 03 Section 4).
-func testGe(args []runtime.Value) (bool, error) {
+func testGe(ctx context.Context, args []runtime.Value) (bool, error) {
 	return orderTest(args, func(c int) bool { return c >= 0 })
 }
 
@@ -1529,40 +1530,44 @@ func orderTest(args []runtime.Value, pred func(int) bool) (bool, error) {
 }
 
 // testDivisibleBy reports integer divisibility x % n == 0 (spec 03 Section 4).
-func testDivisibleBy(args []runtime.Value) (bool, error) {
+func testDivisibleBy(ctx context.Context, args []runtime.Value) (bool, error) {
 	x := arg(args, 0)
 	n := arg(args, 1)
-	if x.Kind != runtime.KInt || n.Kind != runtime.KInt {
+	if x.Kind() != runtime.KInt || n.Kind() != runtime.KInt {
 		return false, errors.New(errors.KindRuntime, "divisible_by expects integers")
 	}
-	if n.I == 0 {
+	if n.AsInt() == 0 {
 		return false, errors.New(errors.KindArithmetic, "divisible_by zero")
 	}
-	return x.I%n.I == 0, nil
+	return x.AsInt()%n.AsInt() == 0, nil
 }
 
 // testSequence reports a list-shaped *Array; an empty array IS a sequence (spec
 // 03 Section 4).
-func testSequence(args []runtime.Value) (bool, error) { return runtime.IsSequence(arg(args, 0)), nil }
+func testSequence(ctx context.Context, args []runtime.Value) (bool, error) {
+	return runtime.IsSequence(arg(args, 0)), nil
+}
 
 // testMapping reports a non-list *Array or any Object; an empty array is NOT a
 // mapping (spec 03 Section 4).
-func testMapping(args []runtime.Value) (bool, error) { return runtime.IsMapping(arg(args, 0)), nil }
+func testMapping(ctx context.Context, args []runtime.Value) (bool, error) {
+	return runtime.IsMapping(arg(args, 0)), nil
+}
 
 // testTrue reports whether the value is Bool true (Safe-unwrapped first), spec 03
 // Section 4.
-func testTrue(args []runtime.Value) (bool, error) {
+func testTrue(ctx context.Context, args []runtime.Value) (bool, error) {
 	v := arg(args, 0)
-	if v.Kind == runtime.KSafe {
+	if v.Kind() == runtime.KSafe {
 		// A Safe never carries a bool payload; it is not the Bool true value.
 		return false, nil
 	}
-	return v.Kind == runtime.KBool && v.B, nil
+	return v.Kind() == runtime.KBool && v.AsBool(), nil
 }
 
 // testConstant reports whether x equals the named host constant (spec 03 Section
 // 4). The constant name is the test's argument.
-func testConstant(s *ExtensionSet, args []runtime.Value) (bool, error) {
+func testConstant(s *Set, args []runtime.Value) (bool, error) {
 	x := arg(args, 0)
 	name, err := wantString(arg(args, 1))
 	if err != nil {
@@ -1577,40 +1582,40 @@ func testConstant(s *ExtensionSet, args []runtime.Value) (bool, error) {
 
 // testString reports whether the value is a string. A Safe carries string
 // content, so it counts as a string too (spec 03 Section 4).
-func testString(args []runtime.Value) (bool, error) {
-	k := arg(args, 0).Kind
+func testString(ctx context.Context, args []runtime.Value) (bool, error) {
+	k := arg(args, 0).Kind()
 	return k == runtime.KStr || k == runtime.KSafe, nil
 }
 
 // testNumber reports whether the value is numeric: an int OR a float (spec 03
 // Section 4). It is the union of the int and float kind tests.
-func testNumber(args []runtime.Value) (bool, error) {
-	k := arg(args, 0).Kind
+func testNumber(ctx context.Context, args []runtime.Value) (bool, error) {
+	k := arg(args, 0).Kind()
 	return k == runtime.KInt || k == runtime.KFloat, nil
 }
 
 // testInt reports whether the value is an integer (spec 03 Section 4).
-func testInt(args []runtime.Value) (bool, error) {
-	return arg(args, 0).Kind == runtime.KInt, nil
+func testInt(ctx context.Context, args []runtime.Value) (bool, error) {
+	return arg(args, 0).Kind() == runtime.KInt, nil
 }
 
 // testFloat reports whether the value is a float (spec 03 Section 4).
-func testFloat(args []runtime.Value) (bool, error) {
-	return arg(args, 0).Kind == runtime.KFloat, nil
+func testFloat(ctx context.Context, args []runtime.Value) (bool, error) {
+	return arg(args, 0).Kind() == runtime.KFloat, nil
 }
 
 // testBool reports whether the value is a boolean (spec 03 Section 4). It is a
 // kind predicate: both true and false satisfy it, unlike `is true` which asks
 // specifically for the Bool true value.
-func testBool(args []runtime.Value) (bool, error) {
-	return arg(args, 0).Kind == runtime.KBool, nil
+func testBool(ctx context.Context, args []runtime.Value) (bool, error) {
+	return arg(args, 0).Kind() == runtime.KBool, nil
 }
 
 // testCallable reports whether the value can be invoked with arguments: an arrow
 // function, a host callable Object, or a value produced by separator()/cell()
 // that carries a callable (spec 03 Section 4). It is the value-domain predicate
 // behind the higher-order collection ops.
-func testCallable(args []runtime.Value) (bool, error) {
+func testCallable(ctx context.Context, args []runtime.Value) (bool, error) {
 	return runtime.IsCallable(arg(args, 0)), nil
 }
 
@@ -1618,7 +1623,7 @@ func testCallable(args []runtime.Value) (bool, error) {
 
 // normalizeKey coerces a value into an Int or Str key for attribute access.
 func normalizeKey(v runtime.Value) runtime.Value {
-	if v.Kind == runtime.KInt {
+	if v.Kind() == runtime.KInt {
 		return v
 	}
 	s, err := runtime.ToText(v)
@@ -1629,8 +1634,8 @@ func normalizeKey(v runtime.Value) runtime.Value {
 }
 
 func asFloat(v runtime.Value) float64 {
-	if v.Kind == runtime.KInt {
-		return float64(v.I)
+	if v.Kind() == runtime.KInt {
+		return float64(v.AsInt())
 	}
-	return v.F
+	return v.AsFloat()
 }

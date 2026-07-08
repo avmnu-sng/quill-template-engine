@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/loader"
@@ -103,7 +104,7 @@ func TestPrivatizedArrayIsolatesInChildScopes(t *testing.T) {
 				tc.want = "1:1\n2:2\n\n\nend: 0\n"
 			}
 			env := New(loader.NewArrayLoader(tc.tmpls))
-			got, err := env.RenderValues("main.ql", vars)
+			got, err := env.RenderValues(context.Background(), "main.ql", vars)
 			if err != nil {
 				t.Fatalf("render: %v", err)
 			}

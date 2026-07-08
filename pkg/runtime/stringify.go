@@ -21,27 +21,27 @@ import (
 //   - Object  -> its Stringify hook output, else a render error
 //   - Safe    -> the wrapped content, unwrapped verbatim
 func ToText(v Value) (string, error) {
-	switch v.Kind {
+	switch v.kind {
 	case KNull:
 		return "", nil
 	case KBool:
-		if v.B {
+		if v.b {
 			return "true", nil
 		}
 		return "false", nil
 	case KInt:
-		return strconv.FormatInt(v.I, 10), nil
+		return strconv.FormatInt(v.i, 10), nil
 	case KFloat:
-		return formatFloat(v.F)
+		return formatFloat(v.f)
 	case KStr:
-		return v.S, nil
+		return v.s, nil
 	case KSafe:
-		return v.S, nil
+		return v.s, nil
 	case KArray:
 		return "", errors.New(errors.KindRender,
 			"cannot render an array as text; use join or json")
 	case KObject:
-		if s, ok := v.Obj.(Stringifier); ok {
+		if s, ok := v.obj.(Stringifier); ok {
 			out, err := s.Stringify()
 			if err != nil {
 				return "", err
@@ -49,7 +49,7 @@ func ToText(v Value) (string, error) {
 			return out, nil
 		}
 		return "", errors.New(errors.KindRender,
-			"cannot render object %s as text: no stringify hook", objectClass(v.Obj))
+			"cannot render object %s as text: no stringify hook", objectClass(v.obj))
 	default:
 		return "", errors.New(errors.KindRender, "cannot render value of unknown kind")
 	}

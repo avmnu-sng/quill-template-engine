@@ -6,6 +6,10 @@ package runtime
 // gives the port's save/restore semantics (spec 04 Section 8). Insertion order
 // is preserved so an "available: ..." list in an undefined-variable error is
 // deterministic (spec 04 Section 8.1).
+//
+// The zero value is not usable: construct with NewContext. Binding into a
+// zero-value Context (its backing map is nil) panics. A Context is not safe for
+// concurrent use; each render owns its own scope chain.
 type Context struct {
 	order []string
 	vars  map[string]Value

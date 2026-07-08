@@ -79,7 +79,7 @@ func buildReport(snap map[regionID]int64, sources map[string]string) *Report {
 			Col:    id.col,
 			Kind:   id.kind,
 			Hits:   hits,
-			Branch: id.kind.isBranchArm(),
+			Branch: id.kind.IsBranchArm(),
 		})
 	}
 

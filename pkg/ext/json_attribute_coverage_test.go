@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"testing"
 
 	"github.com/avmnu-sng/quill-template-engine/pkg/errors"
@@ -52,7 +53,7 @@ func (*attrObj) CallMethod(name string, args []runtime.Value) (runtime.Value, er
 	if name == "greet" {
 		who := "world"
 		if len(args) > 0 {
-			who = args[0].S
+			who = args[0].AsStr()
 		}
 		return runtime.Str("hi " + who), nil
 	}
@@ -90,8 +91,8 @@ func TestJSONScalars(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := callFilter(t, "json", c.in); got.S != c.want {
-				t.Errorf("json(%s) = %q, want %q", c.name, got.S, c.want)
+			if got := callFilter(t, "json", c.in); got.AsStr() != c.want {
+				t.Errorf("json(%s) = %q, want %q", c.name, got.AsStr(), c.want)
 			}
 		})
 	}
@@ -123,8 +124,8 @@ func TestJSONStringEscaping(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			got := callFilter(t, "json", runtime.Str(c.in))
-			if got.S != c.want {
-				t.Errorf("json(%q) = %q, want %q", c.in, got.S, c.want)
+			if got.AsStr() != c.want {
+				t.Errorf("json(%q) = %q, want %q", c.in, got.AsStr(), c.want)
 			}
 		})
 	}
@@ -134,33 +135,33 @@ func TestJSONStringEscaping(t *testing.T) {
 // including deterministic insertion-order keys.
 func TestJSONCollections(t *testing.T) {
 	empty := callFilter(t, "json", runtime.Arr(runtime.NewArray()))
-	if empty.S != "[]" {
-		t.Errorf("empty array json = %q, want []", empty.S)
+	if empty.AsStr() != "[]" {
+		t.Errorf("empty array json = %q, want []", empty.AsStr())
 	}
 
 	// A nil *Array is also list-shaped and encodes as [].
 	nilArr := callFilter(t, "json", runtime.Arr(nil))
-	if nilArr.S != "[]" {
-		t.Errorf("nil array json = %q, want []", nilArr.S)
+	if nilArr.AsStr() != "[]" {
+		t.Errorf("nil array json = %q, want []", nilArr.AsStr())
 	}
 
 	l := callFilter(t, "json", list(runtime.Int(1), runtime.Str("x"), runtime.Bool(true)))
-	if l.S != `[1,"x",true]` {
-		t.Errorf("list json = %q", l.S)
+	if l.AsStr() != `[1,"x",true]` {
+		t.Errorf("list json = %q", l.AsStr())
 	}
 
 	// Map keys emit in insertion order (b before a), NOT sorted.
 	m := callFilter(t, "json", mapWith([2]string{"b", "1"}, [2]string{"a", "2"}))
-	if m.S != `{"b":"1","a":"2"}` {
-		t.Errorf("map json = %q, want insertion-ordered", m.S)
+	if m.AsStr() != `{"b":"1","a":"2"}` {
+		t.Errorf("map json = %q, want insertion-ordered", m.AsStr())
 	}
 
 	// Nested: a list holding a map holding a list.
 	inner := runtime.NewArray()
 	inner.SetStr("nums", list(runtime.Int(1), runtime.Int(2)))
 	nested := callFilter(t, "json", list(runtime.Arr(inner)))
-	if nested.S != `[{"nums":[1,2]}]` {
-		t.Errorf("nested json = %q", nested.S)
+	if nested.AsStr() != `[{"nums":[1,2]}]` {
+		t.Errorf("nested json = %q", nested.AsStr())
 	}
 }
 
@@ -169,14 +170,14 @@ func TestJSONCollections(t *testing.T) {
 func TestJSONPretty(t *testing.T) {
 	got := callFilter(t, "json", list(runtime.Int(1), runtime.Int(2)), runtime.Bool(true))
 	want := "[\n  1,\n  2\n]"
-	if got.S != want {
-		t.Errorf("pretty list = %q, want %q", got.S, want)
+	if got.AsStr() != want {
+		t.Errorf("pretty list = %q, want %q", got.AsStr(), want)
 	}
 
 	m := callFilter(t, "json", mapWith([2]string{"k", "v"}), runtime.Bool(true), runtime.Str("\t"))
 	wantMap := "{\n\t\"k\": \"v\"\n}"
-	if m.S != wantMap {
-		t.Errorf("pretty map custom indent = %q, want %q", m.S, wantMap)
+	if m.AsStr() != wantMap {
+		t.Errorf("pretty map custom indent = %q, want %q", m.AsStr(), wantMap)
 	}
 }
 
@@ -184,8 +185,8 @@ func TestJSONPretty(t *testing.T) {
 // quoted string, and a hook-less Object surfaces a render error (spec 03 2.6).
 func TestJSONObjectStringify(t *testing.T) {
 	got := callFilter(t, "json", runtime.Obj(&jsonStringObj{s: "a\"b"}))
-	if got.S != `"a\"b"` {
-		t.Errorf("json(stringify obj) = %q, want %q", got.S, `"a\"b"`)
+	if got.AsStr() != `"a\"b"` {
+		t.Errorf("json(stringify obj) = %q, want %q", got.AsStr(), `"a\"b"`)
 	}
 
 	s := Core()
@@ -195,7 +196,7 @@ func TestJSONObjectStringify(t *testing.T) {
 	}
 	// A top-level hook-less object surfaces a KindRender error (encodeJSON's
 	// KObject arm -> ToText with no stringify hook).
-	_, err := f.Fn([]runtime.Value{runtime.Obj(&jsonOpaqueObj{})})
+	_, err := f.Fn(context.Background(), []runtime.Value{runtime.Obj(&jsonOpaqueObj{})})
 	if err == nil {
 		t.Fatal("json of a hook-less object must error")
 	}
@@ -208,7 +209,7 @@ func TestJSONObjectStringify(t *testing.T) {
 	// rather than swallowing it or emitting a partial document. This exercises
 	// the list-value and map-value error arms of encodeJSONArray, which the
 	// top-level case above does not reach.
-	if _, err := f.Fn([]runtime.Value{list(runtime.Obj(&jsonOpaqueObj{}))}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Obj(&jsonOpaqueObj{}))}); err == nil {
 		t.Fatal("json of a list holding a hook-less object must error")
 	} else if errors.KindOf(err) != errors.KindRender {
 		t.Errorf("nested-in-list error kind = %v, want KindRender", errors.KindOf(err))
@@ -216,7 +217,7 @@ func TestJSONObjectStringify(t *testing.T) {
 
 	mapWithObj := runtime.NewArray()
 	mapWithObj.SetStr("bad", runtime.Obj(&jsonOpaqueObj{}))
-	if _, err := f.Fn([]runtime.Value{runtime.Arr(mapWithObj)}); err == nil {
+	if _, err := f.Fn(context.Background(), []runtime.Value{runtime.Arr(mapWithObj)}); err == nil {
 		t.Fatal("json of a map holding a hook-less object must error")
 	} else if errors.KindOf(err) != errors.KindRender {
 		t.Errorf("nested-in-map error kind = %v, want KindRender", errors.KindOf(err))
@@ -229,7 +230,7 @@ func TestJSONObjectStringify(t *testing.T) {
 func TestJSONInvalidIndentArg(t *testing.T) {
 	s := Core()
 	f, _ := s.Filter("json")
-	_, err := f.Fn([]runtime.Value{list(runtime.Int(1)), runtime.Bool(true), runtime.Obj(&jsonOpaqueObj{})})
+	_, err := f.Fn(context.Background(), []runtime.Value{list(runtime.Int(1)), runtime.Bool(true), runtime.Obj(&jsonOpaqueObj{})})
 	if err == nil {
 		t.Fatal("unrenderable indent argument must error")
 	}
@@ -243,7 +244,7 @@ func TestJSONInvalidIndentArg(t *testing.T) {
 // TestAttributePresentField reads an existing field off a host Object.
 func TestAttributePresentField(t *testing.T) {
 	got := callFn(t, "attribute", runtime.Obj(&attrObj{}), runtime.Str("title"))
-	if got.Kind != runtime.KStr || got.S != "Quill" {
+	if got.Kind() != runtime.KStr || got.AsStr() != "Quill" {
 		t.Errorf("attribute(obj,'title') = %+v, want Str Quill", got)
 	}
 }
@@ -267,7 +268,7 @@ func TestAttributeMissingField(t *testing.T) {
 func TestAttributePresentMapKey(t *testing.T) {
 	m := mapWith([2]string{"x", "1"}, [2]string{"y", "2"})
 	got := callFn(t, "attribute", m, runtime.Str("y"))
-	if got.Kind != runtime.KStr || got.S != "2" {
+	if got.Kind() != runtime.KStr || got.AsStr() != "2" {
 		t.Errorf("attribute(map,'y') = %+v, want Str 2", got)
 	}
 }
@@ -277,14 +278,14 @@ func TestAttributePresentMapKey(t *testing.T) {
 func TestAttributeMethodCall(t *testing.T) {
 	got := callFn(t, "attribute", runtime.Obj(&attrObj{}), runtime.Str("greet"),
 		list(runtime.Str("bob")))
-	if got.Kind != runtime.KStr || got.S != "hi bob" {
+	if got.Kind() != runtime.KStr || got.AsStr() != "hi bob" {
 		t.Errorf("attribute method call = %+v, want Str 'hi bob'", got)
 	}
 
 	// Empty (non-null but empty) args array still dispatches the call.
 	got = callFn(t, "attribute", runtime.Obj(&attrObj{}), runtime.Str("greet"),
 		runtime.Arr(runtime.NewArray()))
-	if got.Kind != runtime.KStr || got.S != "hi world" {
+	if got.Kind() != runtime.KStr || got.AsStr() != "hi world" {
 		t.Errorf("attribute method call no args = %+v, want Str 'hi world'", got)
 	}
 
@@ -294,7 +295,7 @@ func TestAttributeMethodCall(t *testing.T) {
 	// field value, not attempt to call a "title" method (which attrObj lacks and
 	// would error). This pins the guard's second conjunct.
 	got = callFn(t, "attribute", runtime.Obj(&attrObj{}), runtime.Str("title"), runtime.Null())
-	if got.Kind != runtime.KStr || got.S != "Quill" {
+	if got.Kind() != runtime.KStr || got.AsStr() != "Quill" {
 		t.Errorf("attribute(obj,'title',null) = %+v, want field read Str Quill", got)
 	}
 }
@@ -304,7 +305,7 @@ func TestAttributeMethodCall(t *testing.T) {
 func TestAttributeMethodCallOnNonObject(t *testing.T) {
 	s := Core()
 	f, _ := s.Function("attribute")
-	_, err := f.Fn([]runtime.Value{runtime.Str("scalar"), runtime.Str("m"), list(runtime.Int(1))})
+	_, err := f.Fn(context.Background(), []runtime.Value{runtime.Str("scalar"), runtime.Str("m"), list(runtime.Int(1))})
 	if err == nil {
 		t.Fatal("attribute() method call on a non-object must error")
 	}
@@ -318,7 +319,7 @@ func TestAttributeMethodCallOnNonObject(t *testing.T) {
 func TestAttributeMemberOnScalar(t *testing.T) {
 	s := Core()
 	f, _ := s.Function("attribute")
-	_, err := f.Fn([]runtime.Value{runtime.Str("scalar"), runtime.Str("len")})
+	_, err := f.Fn(context.Background(), []runtime.Value{runtime.Str("scalar"), runtime.Str("len")})
 	if err == nil {
 		t.Fatal("attribute() member on a string must error")
 	}
@@ -350,7 +351,7 @@ func TestLenFunctionAlias(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			got := callFn(t, "len", c.in)
-			if got.Kind != runtime.KInt || got.I != c.want {
+			if got.Kind() != runtime.KInt || got.AsInt() != c.want {
 				t.Errorf("len(%s) = %+v, want %d", c.name, got, c.want)
 			}
 		})
@@ -363,13 +364,13 @@ func TestLenFunctionAlias(t *testing.T) {
 func TestKeysFunctionAlias(t *testing.T) {
 	m := mapWith([2]string{"b", "1"}, [2]string{"a", "2"}, [2]string{"c", "3"})
 	keys := callFn(t, "keys", m)
-	if keys.Kind != runtime.KArray || keys.Arr.Len() != 3 {
+	if keys.Kind() != runtime.KArray || keys.AsArray().Len() != 3 {
 		t.Fatalf("keys(map) shape = %+v", keys)
 	}
 	gotOrder := []string{
-		keys.Arr.Pairs()[0].Val.S,
-		keys.Arr.Pairs()[1].Val.S,
-		keys.Arr.Pairs()[2].Val.S,
+		keys.AsArray().Pairs()[0].Val.AsStr(),
+		keys.AsArray().Pairs()[1].Val.AsStr(),
+		keys.AsArray().Pairs()[2].Val.AsStr(),
 	}
 	if gotOrder[0] != "b" || gotOrder[1] != "a" || gotOrder[2] != "c" {
 		t.Errorf("keys order = %v, want [b a c] (insertion order)", gotOrder)
@@ -377,14 +378,14 @@ func TestKeysFunctionAlias(t *testing.T) {
 
 	// A list's keys are its 0-based integer indices.
 	lk := callFn(t, "keys", list(runtime.Str("x"), runtime.Str("y")))
-	if lk.Arr.Len() != 2 || lk.Arr.Pairs()[0].Val.Kind != runtime.KInt ||
-		lk.Arr.Pairs()[0].Val.I != 0 || lk.Arr.Pairs()[1].Val.I != 1 {
-		t.Errorf("keys(list) = %+v, want [0 1]", lk.Arr.Pairs())
+	if lk.AsArray().Len() != 2 || lk.AsArray().Pairs()[0].Val.Kind() != runtime.KInt ||
+		lk.AsArray().Pairs()[0].Val.AsInt() != 0 || lk.AsArray().Pairs()[1].Val.AsInt() != 1 {
+		t.Errorf("keys(list) = %+v, want [0 1]", lk.AsArray().Pairs())
 	}
 
 	// A non-collection (scalar) yields an empty list.
 	sk := callFn(t, "keys", runtime.Int(5))
-	if sk.Kind != runtime.KArray || sk.Arr.Len() != 0 {
+	if sk.Kind() != runtime.KArray || sk.AsArray().Len() != 0 {
 		t.Errorf("keys(scalar) = %+v, want empty list", sk)
 	}
 }

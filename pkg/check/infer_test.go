@@ -12,20 +12,16 @@ import (
 // walking, iteration element types, stringify hooks, and nominal consistency.
 func nominalRegistry() *Registry {
 	r := NewRegistry()
-	r.AddType(&ObjectType{
-		Name:      "Animal",
-		Members:   map[string]*Type{"legs": Int},
-		Methods:   map[string]*Signature{"speak": {Ret: String}},
-		Stringify: true,
-	})
-	r.AddType(&ObjectType{
-		Name:       "Dog",
-		Members:    map[string]*Type{"name": String},
-		Supertypes: []string{"Animal"},
-		Stringify:  true,
-	})
-	r.AddType(&ObjectType{Name: "Bag", ElemType: String, Stringify: false})
-	r.AddSignature("hostfn", &Signature{Params: []*Type{Int}, Ret: String})
+	r.AddType(NewObjectType("Animal").
+		WithMembers(map[string]*Type{"legs": Int}).
+		WithMethods(map[string]*Signature{"speak": NewSignature(nil, 0, false, nil, String)}).
+		WithStringify(true))
+	r.AddType(NewObjectType("Dog").
+		WithMembers(map[string]*Type{"name": String}).
+		WithSupertypes([]string{"Animal"}).
+		WithStringify(true))
+	r.AddType(NewObjectType("Bag").WithElemType(String).WithStringify(false))
+	r.AddSignature("hostfn", NewSignature([]*Type{Int}, 0, false, nil, String))
 	return r
 }
 

@@ -1,6 +1,7 @@
 package ext
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -43,7 +44,7 @@ func (d *dateValue) ClassName() string { return "Date" }
 // date, in an optional timezone (spec 03 Section 3.2). With no argument it is
 // "now". The Go date model parses RFC3339 and the default layout; a bare integer
 // is a Unix timestamp.
-func fnDate(args []runtime.Value) (runtime.Value, error) {
+func fnDate(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	loc := time.UTC
 	if len(args) > 1 && !args[1].IsNull() {
 		name, err := wantString(args[1])
@@ -66,7 +67,7 @@ func fnDate(args []runtime.Value) (runtime.Value, error) {
 // filterDate formats a date (or a string/timestamp coerced to one) with a Go
 // reference layout (spec 03 Section 2.6 divergence). layout defaults to the
 // engine default; an optional tz reinterprets the instant in that zone.
-func filterDate(args []runtime.Value) (runtime.Value, error) {
+func filterDate(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
 	layout := defaultDateLayout
 	if len(args) > 1 && !args[1].IsNull() {
@@ -102,7 +103,7 @@ func filterDate(args []runtime.Value) (runtime.Value, error) {
 // (spec 03 Section 2.4), returning a new date value. The accepted units are
 // year(s)/month(s)/day(s)/hour(s)/minute(s)/second(s) and the abbreviation set
 // Go's duration parser does not cover.
-func filterDateModify(args []runtime.Value) (runtime.Value, error) {
+func filterDateModify(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	t, err := coerceTime(arg(args, 0), time.UTC)
 	if err != nil {
 		return runtime.Null(), err
@@ -122,20 +123,20 @@ func filterDateModify(args []runtime.Value) (runtime.Value, error) {
 // integer is a Unix timestamp, and a string is parsed against RFC3339 then the
 // default layout then a date-only layout. Null is "now".
 func coerceTime(v runtime.Value, loc *time.Location) (time.Time, error) {
-	switch v.Kind {
+	switch v.Kind() {
 	case runtime.KNull:
 		return time.Now().In(loc), nil
 	case runtime.KObject:
-		if d, ok := v.Obj.(*dateValue); ok {
+		if d, ok := v.AsObject().(*dateValue); ok {
 			return d.t, nil
 		}
 		return time.Time{}, errors.New(errors.KindRuntime, "value is not a date")
 	case runtime.KInt:
-		return time.Unix(v.I, 0).In(loc), nil
+		return time.Unix(v.AsInt(), 0).In(loc), nil
 	case runtime.KFloat:
-		return time.Unix(int64(v.F), 0).In(loc), nil
+		return time.Unix(int64(v.AsFloat()), 0).In(loc), nil
 	case runtime.KStr, runtime.KSafe:
-		s := strings.TrimSpace(v.S)
+		s := strings.TrimSpace(v.AsStr())
 		if s == "" || s == "now" {
 			return time.Now().In(loc), nil
 		}
@@ -149,7 +150,7 @@ func coerceTime(v runtime.Value, loc *time.Location) (time.Time, error) {
 		}
 		return time.Time{}, errors.New(errors.KindRuntime, "cannot parse %q as a date", s)
 	default:
-		return time.Time{}, errors.New(errors.KindRuntime, "cannot interpret %s as a date", v.Kind)
+		return time.Time{}, errors.New(errors.KindRuntime, "cannot interpret %s as a date", v.Kind())
 	}
 }
 

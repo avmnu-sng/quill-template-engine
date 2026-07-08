@@ -1,6 +1,7 @@
 package quill_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -12,10 +13,10 @@ import (
 // Render a template by name from an in-memory template map. Output escaping is
 // off by default.
 func Example() {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"greet.quill": `Hello {{ name | upper }}{{ "!" if loud }}`,
 	})
-	out, err := env.Render("greet.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "greet.quill", map[string]runtime.Value{
 		"name": runtime.Str("ada"),
 		"loud": runtime.Bool(true),
 	})
@@ -35,10 +36,10 @@ func ExampleEnvironment_RenderValues() {
 		Tags  []string `quill:"tags"`
 	}
 
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"user.quill": `{{ user.name }} (admin: {{ user.admin }}) tags: {{ user.tags | join(", ") }}`,
 	})
-	out, err := env.RenderValues("user.quill", map[string]any{
+	out, err := env.RenderValues(context.Background(), "user.quill", map[string]any{
 		"user": User{Name: "ada", Admin: true, Tags: []string{"x", "y"}},
 	})
 	if err != nil {
@@ -51,10 +52,10 @@ func ExampleEnvironment_RenderValues() {
 // Stream output to any io.Writer with RenderTo instead of buffering the whole
 // result.
 func ExampleEnvironment_RenderTo() {
-	env := quill.NewWithArray(map[string]string{
+	env := quill.NewFromMap(map[string]string{
 		"list.quill": "@for n in nums {\nitem {{ n }}\n@}",
 	})
-	err := env.RenderTo(os.Stdout, "list.quill", map[string]runtime.Value{
+	err := env.RenderTo(context.Background(), os.Stdout, "list.quill", map[string]runtime.Value{
 		"nums": runtime.Arr(runtime.NewList(
 			runtime.Int(1), runtime.Int(2), runtime.Int(3),
 		)),
@@ -70,11 +71,11 @@ func ExampleEnvironment_RenderTo() {
 
 // Turn on HTML escaping globally with WithAutoescapeHTML.
 func ExampleWithAutoescapeHTML() {
-	env := quill.NewWithArray(
+	env := quill.NewFromMap(
 		map[string]string{"page.quill": `<p>{{ body }}</p>`},
 		quill.WithAutoescapeHTML(true),
 	)
-	out, err := env.Render("page.quill", map[string]runtime.Value{
+	out, err := env.Render(context.Background(), "page.quill", map[string]runtime.Value{
 		"body": runtime.Str("<b>hi</b>"),
 	})
 	if err != nil {
@@ -87,7 +88,7 @@ func ExampleWithAutoescapeHTML() {
 // Register a host filter and function through the ext package and render with
 // them.
 func ExampleWithExtensions() {
-	set := ext.NewExtensionSet()
+	set := ext.NewSet()
 	set.AddFunction(ext.NewFunction("clamp", func(x, lo, hi int64) int64 {
 		switch {
 		case x < lo:
@@ -99,11 +100,11 @@ func ExampleWithExtensions() {
 		}
 	}))
 
-	env := quill.NewWithArray(
+	env := quill.NewFromMap(
 		map[string]string{"demo.quill": `{{ clamp(42, 0, 10) }}`},
 		quill.WithExtensions(set),
 	)
-	out, err := env.Render("demo.quill", map[string]runtime.Value(nil))
+	out, err := env.Render(context.Background(), "demo.quill", map[string]runtime.Value(nil))
 	if err != nil {
 		panic(err)
 	}

@@ -51,7 +51,7 @@ func TestFromGoScalars(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := mustFromGo(t, tt.in)
-			if got.Kind != tt.want.Kind || !Equal(got, tt.want) {
+			if got.Kind() != tt.want.Kind() || !Equal(got, tt.want) {
 				t.Fatalf("FromGo(%#v) = %+v, want %+v", tt.in, got, tt.want)
 			}
 		})
@@ -62,13 +62,13 @@ func TestFromGoScalars(t *testing.T) {
 func TestFromGoPointerFollow(t *testing.T) {
 	n := 42
 	got := mustFromGo(t, &n)
-	if got.Kind != KInt || got.I != 42 {
+	if got.Kind() != KInt || got.AsInt() != 42 {
 		t.Fatalf("FromGo(&42) = %+v, want Int(42)", got)
 	}
 	s := "deep"
 	pp := &s
 	got = mustFromGo(t, &pp)
-	if got.Kind != KStr || got.S != "deep" {
+	if got.Kind() != KStr || got.AsStr() != "deep" {
 		t.Fatalf("FromGo(**string) = %+v, want Str(deep)", got)
 	}
 }
@@ -78,15 +78,15 @@ func TestFromGoPointerFollow(t *testing.T) {
 func TestFromGoSlice(t *testing.T) {
 	got := mustFromGo(t, []string{"a", "b", "c"})
 	want := NewList(Str("a"), Str("b"), Str("c"))
-	if got.Kind != KArray || !Equal(got, Arr(want)) {
+	if got.Kind() != KArray || !Equal(got, Arr(want)) {
 		t.Fatalf("FromGo(slice) = %+v, want list a,b,c", got)
 	}
-	if !got.Arr.IsList() {
+	if !got.AsArray().IsList() {
 		t.Fatalf("slice did not marshal to a list-shaped array")
 	}
 
 	var nilSlice []int
-	if g := mustFromGo(t, nilSlice); g.Kind != KNull {
+	if g := mustFromGo(t, nilSlice); g.Kind() != KNull {
 		t.Fatalf("FromGo(nil slice) = %+v, want Null", g)
 	}
 
@@ -112,16 +112,16 @@ func TestFromGoArray(t *testing.T) {
 func TestFromGoMapDeterministic(t *testing.T) {
 	m := map[string]any{"gamma": 3, "alpha": 1, "beta": 2}
 	first := mustFromGo(t, m)
-	if first.Kind != KArray {
-		t.Fatalf("FromGo(map) kind = %s, want array", first.Kind)
+	if first.Kind() != KArray {
+		t.Fatalf("FromGo(map) kind = %s, want array", first.Kind())
 	}
-	keys := first.Arr.Keys()
+	keys := first.AsArray().Keys()
 	wantOrder := []string{"alpha", "beta", "gamma"}
 	if len(keys) != len(wantOrder) {
 		t.Fatalf("got %d keys, want %d", len(keys), len(wantOrder))
 	}
 	for i, k := range keys {
-		if k.Kind != KStr || k.S != wantOrder[i] {
+		if k.Kind() != KStr || k.AsStr() != wantOrder[i] {
 			t.Fatalf("key[%d] = %+v, want %q", i, k, wantOrder[i])
 		}
 	}
@@ -129,10 +129,10 @@ func TestFromGoMapDeterministic(t *testing.T) {
 	// map iteration.
 	for n := 0; n < 50; n++ {
 		g := mustFromGo(t, m)
-		gk := g.Arr.Keys()
+		gk := g.AsArray().Keys()
 		for i, k := range gk {
-			if k.S != wantOrder[i] {
-				t.Fatalf("run %d: key[%d] = %q, want %q", n, i, k.S, wantOrder[i])
+			if k.AsStr() != wantOrder[i] {
+				t.Fatalf("run %d: key[%d] = %q, want %q", n, i, k.AsStr(), wantOrder[i])
 			}
 		}
 	}
@@ -142,7 +142,7 @@ func TestFromGoMapDeterministic(t *testing.T) {
 func TestFromGoMapTypedValues(t *testing.T) {
 	m := map[string]int{"x": 1, "y": 2}
 	got := mustFromGo(t, m)
-	if v, ok := got.Arr.GetStr("x"); !ok || v.Kind != KInt || v.I != 1 {
+	if v, ok := got.AsArray().GetStr("x"); !ok || v.Kind() != KInt || v.AsInt() != 1 {
 		t.Fatalf("map[string]int x = %+v ok=%v, want Int(1)", v, ok)
 	}
 }
@@ -154,10 +154,10 @@ func TestFromGoMapTypedValues(t *testing.T) {
 func TestFromGoMapIntKeys(t *testing.T) {
 	m := map[int]string{0: "a", 1: "b", 2: "c"}
 	got := mustFromGo(t, m)
-	if !got.Arr.IsList() {
-		t.Fatalf("int-keyed 0..2 map did not marshal list-shaped: %+v", got.Arr.Keys())
+	if !got.AsArray().IsList() {
+		t.Fatalf("int-keyed 0..2 map did not marshal list-shaped: %+v", got.AsArray().Keys())
 	}
-	if v, ok := got.Arr.GetInt(1); !ok || v.S != "b" {
+	if v, ok := got.AsArray().GetInt(1); !ok || v.AsStr() != "b" {
 		t.Fatalf("GetInt(1) = %+v ok=%v, want Str(b)", v, ok)
 	}
 
@@ -169,18 +169,18 @@ func TestFromGoMapIntKeys(t *testing.T) {
 		wide[i] = fmt.Sprintf("v%d", i)
 	}
 	gw := mustFromGo(t, wide)
-	if !gw.Arr.IsList() {
-		t.Fatalf("dense int-keyed 0..11 map did not marshal list-shaped: %+v", gw.Arr.Keys())
+	if !gw.AsArray().IsList() {
+		t.Fatalf("dense int-keyed 0..11 map did not marshal list-shaped: %+v", gw.AsArray().Keys())
 	}
-	keys := gw.Arr.Keys()
+	keys := gw.AsArray().Keys()
 	if len(keys) != 12 {
 		t.Fatalf("0..11 map key count = %d, want 12", len(keys))
 	}
 	for i, k := range keys {
-		if k.Kind != KInt || k.I != int64(i) {
+		if k.Kind() != KInt || k.AsInt() != int64(i) {
 			t.Fatalf("key[%d] = %+v, want Int(%d) (numeric iteration order)", i, k, i)
 		}
-		if v, ok := gw.Arr.GetInt(int64(i)); !ok || v.S != fmt.Sprintf("v%d", i) {
+		if v, ok := gw.AsArray().GetInt(int64(i)); !ok || v.AsStr() != fmt.Sprintf("v%d", i) {
 			t.Fatalf("GetInt(%d) = %+v ok=%v, want Str(v%d)", i, v, ok, i)
 		}
 	}
@@ -200,8 +200,8 @@ func TestFromGoStruct(t *testing.T) {
 	}
 	p := person{Name: "ada", ID: 7, Email: "a@x", Plain: true, Skipped: "no", JSkip: "no", hidden: "no"}
 	got := mustFromGo(t, p)
-	if got.Kind != KArray {
-		t.Fatalf("FromGo(struct) kind = %s, want array", got.Kind)
+	if got.Kind() != KArray {
+		t.Fatalf("FromGo(struct) kind = %s, want array", got.Kind())
 	}
 	checks := []struct {
 		key  string
@@ -213,29 +213,29 @@ func TestFromGoStruct(t *testing.T) {
 		{"Plain", Bool(true)},
 	}
 	for _, c := range checks {
-		v, ok := got.Arr.GetStr(c.key)
+		v, ok := got.AsArray().GetStr(c.key)
 		if !ok || !Equal(v, c.want) {
 			t.Fatalf("struct[%q] = %+v ok=%v, want %+v", c.key, v, ok, c.want)
 		}
 	}
-	if _, ok := got.Arr.GetStr("Skipped"); ok {
+	if _, ok := got.AsArray().GetStr("Skipped"); ok {
 		t.Fatalf("quill:\"-\" field should be skipped")
 	}
-	if _, ok := got.Arr.GetStr("JSkip"); ok {
+	if _, ok := got.AsArray().GetStr("JSkip"); ok {
 		t.Fatalf("json:\"-\" field should be skipped")
 	}
-	if _, ok := got.Arr.GetStr("hidden"); ok {
+	if _, ok := got.AsArray().GetStr("hidden"); ok {
 		t.Fatalf("unexported field should be skipped")
 	}
 	// Declaration order is preserved.
-	keys := got.Arr.Keys()
+	keys := got.AsArray().Keys()
 	wantOrder := []string{"name", "id", "email", "Plain"}
 	if len(keys) != len(wantOrder) {
 		t.Fatalf("got %d keys %v, want %d", len(keys), keys, len(wantOrder))
 	}
 	for i, k := range keys {
-		if k.S != wantOrder[i] {
-			t.Fatalf("key[%d] = %q, want %q", i, k.S, wantOrder[i])
+		if k.AsStr() != wantOrder[i] {
+			t.Fatalf("key[%d] = %q, want %q", i, k.AsStr(), wantOrder[i])
 		}
 	}
 }
@@ -250,10 +250,10 @@ func TestFromGoStructEmbedded(t *testing.T) {
 		B int `quill:"b"`
 	}
 	got := mustFromGo(t, derived{base: base{A: 1}, B: 2})
-	if v, ok := got.Arr.GetStr("a"); !ok || v.I != 1 {
+	if v, ok := got.AsArray().GetStr("a"); !ok || v.AsInt() != 1 {
 		t.Fatalf("embedded field a = %+v ok=%v, want Int(1)", v, ok)
 	}
-	if v, ok := got.Arr.GetStr("b"); !ok || v.I != 2 {
+	if v, ok := got.AsArray().GetStr("b"); !ok || v.AsInt() != 2 {
 		t.Fatalf("field b = %+v ok=%v, want Int(2)", v, ok)
 	}
 }
@@ -297,7 +297,7 @@ func TestFromGoNested(t *testing.T) {
 	want.SetStr("extra", Arr(extra))
 
 	if !Equal(got, Arr(want)) {
-		t.Fatalf("nested FromGo mismatch:\n got %+v\nwant %+v", got.Arr.Pairs(), want.Pairs())
+		t.Fatalf("nested FromGo mismatch:\n got %+v\nwant %+v", got.AsArray().Pairs(), want.Pairs())
 	}
 }
 
@@ -305,11 +305,11 @@ func TestFromGoNested(t *testing.T) {
 // including when carried inside a native container.
 func TestFromGoPassthrough(t *testing.T) {
 	orig := Str("kept")
-	if got := mustFromGo(t, orig); got.Kind != KStr || got.S != "kept" {
+	if got := mustFromGo(t, orig); got.Kind() != KStr || got.AsStr() != "kept" {
 		t.Fatalf("Value passthrough = %+v, want Str(kept)", got)
 	}
 	arr := NewList(Int(1), Int(2))
-	if got := mustFromGo(t, arr); got.Kind != KArray || !Equal(got, Arr(arr)) {
+	if got := mustFromGo(t, arr); got.Kind() != KArray || !Equal(got, Arr(arr)) {
 		t.Fatalf("*Array passthrough = %+v", got)
 	}
 	// A slice of Values passes each element straight through.
@@ -320,7 +320,7 @@ func TestFromGoPassthrough(t *testing.T) {
 	}
 	// A map whose value is a hand-built Value passes it through.
 	m := mustFromGo(t, map[string]any{"v": Bool(false)})
-	if v, ok := m.Arr.GetStr("v"); !ok || v.Kind != KBool || v.B {
+	if v, ok := m.AsArray().GetStr("v"); !ok || v.Kind() != KBool || v.AsBool() {
 		t.Fatalf("map Value passthrough = %+v ok=%v, want Bool(false)", v, ok)
 	}
 }
@@ -341,27 +341,27 @@ func TestFromGoConcreteTypedPassthrough(t *testing.T) {
 	inner := NewList(Int(1), Int(2))
 	var obj Object = fromGoCallable{}
 	got := mustFromGo(t, holder{V: Str("kept"), A: inner, O: obj})
-	if got.Kind != KArray {
-		t.Fatalf("FromGo(holder) kind = %s, want array", got.Kind)
+	if got.Kind() != KArray {
+		t.Fatalf("FromGo(holder) kind = %s, want array", got.Kind())
 	}
 
-	v, ok := got.Arr.GetStr("V")
-	if !ok || v.Kind != KStr || v.S != "kept" {
+	v, ok := got.AsArray().GetStr("V")
+	if !ok || v.Kind() != KStr || v.AsStr() != "kept" {
 		t.Fatalf("Value field = %+v ok=%v, want Str(kept)", v, ok)
 	}
 
-	a, ok := got.Arr.GetStr("A")
-	if !ok || a.Kind != KArray || !Equal(a, Arr(inner)) {
+	a, ok := got.AsArray().GetStr("A")
+	if !ok || a.Kind() != KArray || !Equal(a, Arr(inner)) {
 		t.Fatalf("*Array field = %+v ok=%v, want list [1,2]", a, ok)
 	}
 
-	o, ok := got.Arr.GetStr("O")
-	if !ok || o.Kind != KObject || !IsCallable(o) {
+	o, ok := got.AsArray().GetStr("O")
+	if !ok || o.Kind() != KObject || !IsCallable(o) {
 		t.Fatalf("Object field = %+v ok=%v, want callable object", o, ok)
 	}
 
-	n, ok := got.Arr.GetStr("N")
-	if !ok || n.Kind != KNull {
+	n, ok := got.AsArray().GetStr("N")
+	if !ok || n.Kind() != KNull {
 		t.Fatalf("nil *Array field = %+v ok=%v, want Null", n, ok)
 	}
 }
@@ -379,8 +379,8 @@ func (fromGoCallable) Invoke([]Value) (Value, error)             { return Str("c
 func TestFromGoObjectPassthrough(t *testing.T) {
 	var obj Object = fromGoCallable{}
 	got := mustFromGo(t, obj)
-	if got.Kind != KObject {
-		t.Fatalf("Object passthrough kind = %s, want object", got.Kind)
+	if got.Kind() != KObject {
+		t.Fatalf("Object passthrough kind = %s, want object", got.Kind())
 	}
 	if !IsCallable(got) {
 		t.Fatalf("callable Object should stay callable after FromGo")

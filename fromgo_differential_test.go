@@ -9,6 +9,7 @@ package quill
 // equality has historically been too weak a bar for value-territory changes.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -28,22 +29,22 @@ import (
 // which could mask a divergence where the two marshalers disagree on kind, so
 // the byte-identity bar needs this stronger walk on top of Equal.
 func strictSame(a, b runtime.Value) bool {
-	if a.Kind != b.Kind {
+	if a.Kind() != b.Kind() {
 		return false
 	}
-	switch a.Kind {
+	switch a.Kind() {
 	case runtime.KNull:
 		return true
 	case runtime.KBool:
-		return a.B == b.B
+		return a.AsBool() == b.AsBool()
 	case runtime.KInt:
-		return a.I == b.I
+		return a.AsInt() == b.AsInt()
 	case runtime.KFloat:
-		return a.F == b.F
+		return a.AsFloat() == b.AsFloat()
 	case runtime.KStr, runtime.KSafe:
-		return a.S == b.S
+		return a.AsStr() == b.AsStr()
 	case runtime.KArray:
-		ap, bp := a.Arr.Pairs(), b.Arr.Pairs()
+		ap, bp := a.AsArray().Pairs(), b.AsArray().Pairs()
 		if len(ap) != len(bp) {
 			return false
 		}
@@ -56,7 +57,7 @@ func strictSame(a, b runtime.Value) bool {
 	case runtime.KObject:
 		// Object passthrough must preserve identity, including a typed-nil
 		// pointer carried into the Object interface.
-		return a.Obj == b.Obj
+		return a.AsObject() == b.AsObject()
 	default:
 		return false
 	}
@@ -453,8 +454,8 @@ func TestFromGoDifferentialConformanceVars(t *testing.T) {
 
 			oldEnv := New(loader.NewArrayLoader(tmpls), opts...)
 			newEnv := New(loader.NewArrayLoader(tmpls), opts...)
-			oldOut, oldErr := oldEnv.Render(main, oldVars)
-			newOut, newErr := newEnv.Render(main, newVars)
+			oldOut, oldErr := oldEnv.Render(context.Background(), main, oldVars)
+			newOut, newErr := newEnv.Render(context.Background(), main, newVars)
 			if (oldErr == nil) != (newErr == nil) {
 				t.Fatalf("render error divergence:\n oracle: %v\n new:    %v", oldErr, newErr)
 			}

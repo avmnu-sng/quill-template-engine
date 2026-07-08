@@ -48,16 +48,16 @@ func TestPolicyAllowsFlatLists(t *testing.T) {
 	if nilPol.AllowsTag("for") || nilPol.AllowsFilter("upper") || nilPol.AllowsFunction("range") {
 		t.Fatal("a nil policy must deny everything")
 	}
-	empty := &Policy{}
+	empty := NewPolicy()
 	if empty.AllowsTag("for") {
-		t.Fatal("a zero-value policy must deny every tag (no grandfathering)")
+		t.Fatal("an empty policy must deny every tag (no grandfathering)")
 	}
 
-	p := &Policy{
-		Tags:      map[string]bool{"for": true, "if": true},
-		Filters:   map[string]bool{"upper": true},
-		Functions: map[string]bool{"range": true},
-	}
+	p := NewPolicy(
+		AllowTags("for", "if"),
+		AllowFilters("upper"),
+		AllowFunctions("range"),
+	)
 	if !p.AllowsTag("for") || !p.AllowsTag("if") {
 		t.Error("allowed tags rejected")
 	}
@@ -80,11 +80,11 @@ func TestPolicyMethodsAndPropertiesViaGraph(t *testing.T) {
 	g.Declare("Admin", "User")
 	g.Declare("User", "Entity")
 
-	p := &Policy{
-		Methods:    map[string]map[string]bool{"Entity": {"Name": true}},
-		Properties: map[string]map[string]bool{"User": {"ID": true}},
-		Graph:      g,
-	}
+	p := NewPolicy(
+		AllowMethods("Entity", "Name"),
+		AllowProperties("User", "ID"),
+		WithTypeGraph(g),
+	)
 
 	// Name() allowed on Entity covers Admin (Admin -> User -> Entity).
 	if !p.AllowsMethod("Admin", "Name") {
@@ -114,10 +114,10 @@ func TestPolicyKnows(t *testing.T) {
 	g := NewTypeGraph()
 	g.Declare("Admin", "User")
 
-	p := &Policy{
-		Methods: map[string]map[string]bool{"Entity": {"Name": true}},
-		Graph:   g,
-	}
+	p := NewPolicy(
+		AllowMethods("Entity", "Name"),
+		WithTypeGraph(g),
+	)
 	// A type with a method allowlist entry is known.
 	if !p.Knows("Entity") {
 		t.Error("type with a method entry should be known")
@@ -134,5 +134,20 @@ func TestPolicyKnows(t *testing.T) {
 	var nilp *Policy
 	if nilp.Knows("Entity") {
 		t.Error("nil policy must know nothing")
+	}
+}
+
+// TestPolicyStrict covers the Strict option/accessor: a policy built without the
+// option is lenient, one built with it is strict, and a nil policy is lenient.
+func TestPolicyStrict(t *testing.T) {
+	if NewPolicy().Strict() {
+		t.Error("a policy without the Strict option must be lenient")
+	}
+	if !NewPolicy(Strict()).Strict() {
+		t.Error("a policy built with Strict() must report strict")
+	}
+	var nilp *Policy
+	if nilp.Strict() {
+		t.Error("a nil policy must be lenient")
 	}
 }

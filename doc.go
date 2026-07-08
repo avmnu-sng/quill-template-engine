@@ -13,13 +13,23 @@
 //
 // See the guide at https://avmnu-sng.github.io/quill-template-engine/ for the
 // language reference, grammar, standard library, runtime semantics, and the
-// extension API. This package is under active development; its API is not yet
-// stable.
+// extension API.
+//
+// # Compatibility
+//
+// From v1.0.0 the exported API follows semantic versioning: no exported symbol in
+// the root package or the pkg/ packages changes incompatibly within the v1
+// series. Error MESSAGE strings are NOT part of that contract -- classify a
+// failure by its exported Kind, with errors.As/errors.Is, or against a sentinel
+// such as loader.ErrNotFound, never by matching message text. The engine
+// internals (the lexer, parser, interpreter, and compile-to-Go backend) live
+// under internal/ and are not importable; the quill command's flags, exit codes,
+// and generated-source shape are the compile backend's stable surface.
 //
 // # The facade
 //
 // Environment is the engine facade. Build one over a Loader with New (or over an
-// in-memory template map with NewWithArray), then Render by name. Output escaping
+// in-memory template map with NewFromMap), then Render by name. Output escaping
 // is off by default, like Go text/template, and undefined variables are strict by
 // default; both, along with the sandbox, the type registry, coverage, streaming,
 // the compiled backend, and host extensions, are configured through Option
@@ -29,7 +39,7 @@
 //
 // A template loads once and is memoized. Loading parses the source into an AST,
 // runs the gradual type checker (package check) between parse and interpret, and
-// prepares the module for the tree-walking interpreter (package interp). The
+// prepares the module for the tree-walking interpreter. The
 // checker consumes the annotations the parser threads through the AST -- the
 // @types block, @set/@for targets, @macro/@block params and returns, and arrow
 // params -- infers types where the spec defines it, and applies the gradual `any`
@@ -63,8 +73,8 @@
 // # Performance
 //
 // Templates run on a tree-walking interpreter by default, and a compiled loop or
-// module can be generated with the compile-to-Go backend (package compile) and
-// installed with WithCompiled for the hot path. Rendering can either return a
+// module can be generated with the compile-to-Go backend (the quill compile
+// command) and installed with WithCompiled for the hot path. Rendering can either return a
 // string (Render) or stream to an io.Writer (RenderTo) without buffering the
 // whole output.
 //
@@ -72,16 +82,17 @@
 //
 // A host adds its own filters, functions, and tests through the ext package and
 // layers them over the core library with WithExtensions (callable sets) or
-// WithExtension (Extension bundles). A later host layer shadows an earlier one and
+// WithExtension (Bundle values). A later host layer shadows an earlier one and
 // every host layer shadows core.
 //
 // # Escaping and the sandbox
 //
 // Output escaping is off by default. HTML escaping is available globally
 // (WithAutoescapeHTML) or as one of six strategies applied by the escape/e filter
-// and the @escape region. A host-supplied SecurityPolicy (sandbox.Policy)
-// restricts the permitted tags, filters, functions, per-type methods, and
-// per-type properties, enforced at compile time for the tag/filter/function floor
+// and the @escape region. A host-supplied sandbox.Policy (installed with
+// WithSandboxPolicy -- the spec's SecurityPolicy) restricts the permitted tags,
+// filters, functions, per-type methods, and per-type properties, enforced at
+// compile time for the tag/filter/function floor
 // and at each host member-access site for the type-graph. The sandbox activates
 // globally (WithSandboxActive), per @sandbox region, or per sandboxed include, and
 // each violation raises a host-catchable *errors.Security. Allowlisting is uniform

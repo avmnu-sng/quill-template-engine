@@ -1,6 +1,7 @@
 package quill
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestInnermostIncludeProvideFeedsShellYield(t *testing.T) {
 		"leaf.ql":  "leaf-body\n@provide syms {\nDEEP\n@}\n",
 	}
 	env := New(loader.NewArrayLoader(tmpls))
-	first, err := env.Render("shell.ql", nil)
+	first, err := env.Render(context.Background(), "shell.ql", nil)
 	if err != nil {
 		t.Fatalf("first render: %v", err)
 	}
@@ -30,7 +31,7 @@ func TestInnermostIncludeProvideFeedsShellYield(t *testing.T) {
 	if strings.Contains(first, "QUILL_SLOT_") {
 		t.Fatalf("render leaked an unresolved slot placeholder: %q", first)
 	}
-	second, err := env.Render("shell.ql", nil)
+	second, err := env.Render(context.Background(), "shell.ql", nil)
 	if err != nil {
 		t.Fatalf("second render: %v", err)
 	}
@@ -50,7 +51,7 @@ func TestEmbedOverrideOntoBlocklessTemplate(t *testing.T) {
 		"plain.ql": "plain-body\n",
 	}
 	env := New(loader.NewArrayLoader(tmpls))
-	out, err := env.Render("page.ql", nil)
+	out, err := env.Render(context.Background(), "page.ql", nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}

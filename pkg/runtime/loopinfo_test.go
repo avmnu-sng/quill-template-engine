@@ -39,30 +39,30 @@ func TestLoopSnapshotsStayEqualAndIndependent(t *testing.T) {
 
 	field := func(v Value, name string) Value {
 		t.Helper()
-		got, ok := v.Obj.GetField(name)
+		got, ok := v.AsObject().GetField(name)
 		if !ok {
 			t.Fatalf("loop.%s not resolved", name)
 		}
 		return got
 	}
 	for i, s := range snaps {
-		if got := field(s, "index0"); got.Kind != KInt || got.I != int64(i) {
+		if got := field(s, "index0"); got.Kind() != KInt || got.AsInt() != int64(i) {
 			t.Fatalf("snapshot %d drifted: index0 = %v", i, got)
 		}
-		if got := field(s, "first"); got.B != (i == 0) {
+		if got := field(s, "first"); got.AsBool() != (i == 0) {
 			t.Fatalf("snapshot %d drifted: first = %v", i, got)
 		}
-		if got := field(s, "last"); got.B != (i == len(pairs)-1) {
+		if got := field(s, "last"); got.AsBool() != (i == len(pairs)-1) {
 			t.Fatalf("snapshot %d drifted: last = %v", i, got)
 		}
 	}
 
 	p0 := field(snaps[0], "parent")
 	p2 := field(snaps[2], "parent")
-	if p0.Kind != KObject || p0.Obj != parent.Obj || p2.Obj != parent.Obj {
+	if p0.Kind() != KObject || p0.AsObject() != parent.AsObject() || p2.AsObject() != parent.AsObject() {
 		t.Fatalf("snapshot parents do not read the shared entry-time probe: %v / %v", p0, p2)
 	}
-	if got := field(p0, "index"); got.I != 2 {
+	if got := field(p0, "index"); got.AsInt() != 2 {
 		t.Fatalf("parent read through a snapshot drifted: index = %v", got)
 	}
 }
@@ -72,8 +72,8 @@ func TestLoopSnapshotsStayEqualAndIndependent(t *testing.T) {
 // top-level loop's parent probe yields.
 func TestLoopParentNilReadsNull(t *testing.T) {
 	v := NewLoopValue(0, []Pair{{Key: Int(0), Val: Str("a")}}, nil)
-	got, ok := v.Obj.GetField("parent")
-	if !ok || got.Kind != KNull {
+	got, ok := v.AsObject().GetField("parent")
+	if !ok || got.Kind() != KNull {
 		t.Fatalf("nil parent must read as Null, got %v (ok=%v)", got, ok)
 	}
 }
@@ -86,17 +86,17 @@ func TestRecursiveLoopDepthFields(t *testing.T) {
 	pairs := []Pair{{Key: Int(0), Val: Str("a")}}
 	top := Null()
 	rec := NewRecursiveLoopValue(0, pairs, 3, &top)
-	if got, ok := rec.Obj.GetField("depth"); !ok || got.I != 4 {
+	if got, ok := rec.AsObject().GetField("depth"); !ok || got.AsInt() != 4 {
 		t.Fatalf("recursive depth = %v (ok=%v), want 4", got, ok)
 	}
-	if got, ok := rec.Obj.GetField("depth0"); !ok || got.I != 3 {
+	if got, ok := rec.AsObject().GetField("depth0"); !ok || got.AsInt() != 3 {
 		t.Fatalf("recursive depth0 = %v (ok=%v), want 3", got, ok)
 	}
 	plain := NewLoopValue(0, pairs, &top)
-	if _, ok := plain.Obj.GetField("depth"); ok {
+	if _, ok := plain.AsObject().GetField("depth"); ok {
 		t.Fatal("plain loop must not resolve depth")
 	}
-	if _, ok := plain.Obj.GetField("depth0"); ok {
+	if _, ok := plain.AsObject().GetField("depth0"); ok {
 		t.Fatal("plain loop must not resolve depth0")
 	}
 }
