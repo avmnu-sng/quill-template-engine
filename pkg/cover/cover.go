@@ -264,6 +264,12 @@ func (c *Collector) region(id regionID) *regionData {
 // present. The region is created on first sight (so a hit without a prior seed
 // still counts), which keeps recording independent of seeding order. It is the
 // entry the interpreter's coverage hooks call at each coverable dispatch point.
+//
+// Hit, SeedTemplate, and SeedMacro are the engine-internal instrumentation
+// surface: the interpreter drives them; a host consumes coverage through the
+// report methods (Report, Summary, TemplateCoverage, Counts, MergeReports), not
+// these. They are exported only because the (internal) interpreter lives in a
+// different package.
 func (c *Collector) Hit(name string, n *ast.Node, kind RegionKind) {
 	if c == nil || n == nil {
 		return

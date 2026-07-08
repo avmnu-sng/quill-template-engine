@@ -13,8 +13,18 @@
 //
 // See the guide at https://avmnu-sng.github.io/quill-template-engine/ for the
 // language reference, grammar, standard library, runtime semantics, and the
-// extension API. This package is under active development; its API is not yet
-// stable.
+// extension API.
+//
+// # Compatibility
+//
+// From v1.0.0 the exported API follows semantic versioning: no exported symbol in
+// the root package or the pkg/ packages changes incompatibly within the v1
+// series. Error MESSAGE strings are NOT part of that contract -- classify a
+// failure by its exported Kind, with errors.As/errors.Is, or against a sentinel
+// such as loader.ErrNotFound, never by matching message text. The engine
+// internals (the lexer, parser, interpreter, and compile-to-Go backend) live
+// under internal/ and are not importable; the quill command's flags, exit codes,
+// and generated-source shape are the compile backend's stable surface.
 //
 // # The facade
 //
@@ -29,7 +39,7 @@
 //
 // A template loads once and is memoized. Loading parses the source into an AST,
 // runs the gradual type checker (package check) between parse and interpret, and
-// prepares the module for the tree-walking interpreter (package interp). The
+// prepares the module for the tree-walking interpreter. The
 // checker consumes the annotations the parser threads through the AST -- the
 // @types block, @set/@for targets, @macro/@block params and returns, and arrow
 // params -- infers types where the spec defines it, and applies the gradual `any`
@@ -63,8 +73,8 @@
 // # Performance
 //
 // Templates run on a tree-walking interpreter by default, and a compiled loop or
-// module can be generated with the compile-to-Go backend (package compile) and
-// installed with WithCompiled for the hot path. Rendering can either return a
+// module can be generated with the compile-to-Go backend (the quill compile
+// command) and installed with WithCompiled for the hot path. Rendering can either return a
 // string (Render) or stream to an io.Writer (RenderTo) without buffering the
 // whole output.
 //

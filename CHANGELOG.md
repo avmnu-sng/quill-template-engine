@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.0] - 2026-07-08
+
+First stable release. From v1.0.0 the exported API follows semantic versioning:
+no exported symbol in the root package or the `pkg/` packages changes
+incompatibly within the v1 series. This release makes the pre-1.0 breaking
+changes that shape that frozen surface, so it carries an unusually large
+BREAKING set; after it, compatibility is the rule.
+
+### Changed
+
+- **BREAKING: `context.Context` is now the first argument of every render and
+  load entry point** (`Render`, `RenderTo`, `RenderString`, `RenderStringTo`,
+  `RenderValues`, `RenderToValues`, `RenderStringValues`, `LoadTemplate`,
+  `CompileString`, and the new `RenderPrepared`), of the host callable signatures
+  (`ext.Filter`/`Function`/`Test`), and of the compiled `RenderFunc` ABI. A long
+  render or a host filter doing I/O can now be cancelled; pass
+  `context.Background()` when you do not need it. Uncancelled renders are
+  byte-identical to before.
+- **BREAKING: the engine internals moved under `internal/` and are no longer
+  importable** -- the lexer (`lex`), the tree-walking interpreter (`interp`), and
+  the compile-to-Go backend (`compile`). Hosts use the root facade and, for AOT
+  compilation, the `quill compile` command.
+- **BREAKING: `runtime.Value` is now opaque.** Its payload fields are unexported;
+  read them with `Kind()`, `AsBool()`, `AsInt()`, `AsFloat()`, `AsStr()`,
+  `AsArray()`, `AsObject()`. Construct values with the existing constructors
+  (`runtime.Int`, `Str`, ...). The struct's size and copyability are unchanged, so
+  it remains valid inside the compiled `RenderFunc` vars map.
+- **BREAKING: `LoadTemplate`/`CompileString` return an opaque `*quill.Template`**
+  (methods `Name`, `BlockNames`, `HasBlock`, `HasMacro`) rather than the internal
+  interpreter template; render a prepared handle with `RenderPrepared`.
+- **BREAKING: opaque configuration and result types.** A `sandbox.Policy` is now
+  built with `sandbox.NewPolicy(sandbox.AllowTags(...), sandbox.AllowFilters(...),
+  sandbox.Strict(), ...)` instead of a struct literal; `check.Type`/`ObjectType`/
+  `Signature` and `compiled.Manifest`/`Fingerprint` are opaque and
+  constructor-built.
+- **BREAKING: `ext` renames** -- `ext.ExtensionSet` -> `ext.Set`,
+  `ext.Extension` -> `ext.Bundle`, `NewExtensionSet` -> `NewSet`. The
+  `WithExtensions`/`WithExtension` option names are unchanged.
+- **BREAKING: root-package renames and removals** -- `NewWithArray` ->
+  `NewFromMap`; `Environment.Display` removed (use `RenderTo`); the
+  renderer-internal `Environment` getters (`StrictVariables`, `AutoescapeHTML`,
+  `Policy`, `SandboxActive`, `Coverage`, `TabWidth`, `Logger`, `TemplateExists`,
+  `RawSource`) are no longer part of the public surface.
+- **BREAKING: `errors` hardening** -- the wrapped error inside `errors.Security`
+  is unexported (reach it via `Unwrap`); an `errors.Error`'s position is read
+  through `Src()`/`Line()`/`Col()` methods instead of fields; a dedicated
+  `errors.SecUnknownType` class distinguishes an unregistered host type from a
+  denied-but-known member.
+- Error MESSAGE strings are documented as NOT part of the compatibility contract:
+  classify a failure by the exported `Kind`, with `errors.As`/`errors.Is`, or
+  against a sentinel such as `loader.ErrNotFound` -- never by matching text.
+
+### Added
+
+- `loader.ErrNotFound`, a sentinel that every loader miss wraps; `loader.IsNotFound`
+  is now `errors.Is(err, loader.ErrNotFound)` and no longer matches unrelated
+  errors whose text happens to contain "not found".
+- Native Go fuzz targets for the lexer (`FuzzLex`) and parser (`FuzzParse`).
+
+### Fixed
+
+- **The lexer honored its single-fault contract only by luck.** For input such as
+  `{{$` the interpolation, statement-head, and block-close scanners emitted an
+  ERROR token but the scan continued, re-emitting the faulting bytes as text --
+  contradicting the documented "a single ERROR token immediately before EOF". The
+  scan now stops at the first fault. Found by the new fuzz targets.
+- `compile.ErrNotCompilable` was a mutable global any importer could corrupt; it
+  is now a non-corruptible sentinel (`errors.Is` classification unchanged).
+
 ## [v0.3.0] - 2026-07-07
 
 ### Changed

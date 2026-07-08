@@ -16,6 +16,10 @@ import (
 // Object<...> is opaque-but-known and host callables are dynamic. The checker
 // NEVER mutates the AST -- it reads annotations and reports errors only, so it
 // cannot change what the interpreter renders (the binding invariant).
+//
+// Check deliberately takes no context.Context: type-checking is a bounded,
+// in-memory pass over an already-parsed module, so cancellation would add no
+// value. This omission is an intentional, frozen part of the v1 API.
 func Check(mod *ast.Node, reg *Registry) error {
 	c := &checker{reg: reg, macros: map[string]*Signature{}, blocks: map[string]*Signature{}}
 	c.indexCallables(mod)
