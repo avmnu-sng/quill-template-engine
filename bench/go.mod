@@ -15,7 +15,7 @@ module quillbench
 go 1.26.2
 
 require (
-	github.com/CloudyKit/jet/v6 v6.2.0
+	github.com/CloudyKit/jet/v6 v6.3.2
 	github.com/avmnu-sng/quill-template-engine v0.0.0
 	github.com/flosch/pongo2/v6 v6.1.0
 	github.com/tyler-sommer/stick v1.0.10
