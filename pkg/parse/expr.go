@@ -405,7 +405,7 @@ func (p *parser) parsePower() *ast.Node {
 // Crucially, parseUnary recurses on parseUnary (not parsePower) for its operand,
 // so "-1 ** 0" parses the unary minus FIRST as the outer node and then... no:
 // because parsePower calls parseUnary for its base, "-1 ** 0" is seen by
-// parsePower as base = parseUnary() = -(1)? No -- parseUnary's operand recursion
+// parsePower as base = parseUnary() = -(1)? No: parseUnary's operand recursion
 // would greedily eat the "1 ** 0". The published grammar resolves this exactly:
 // Power -> Unary on the LEFT means a power's base is a Unary; for "-1 ** 0",
 // parseMul -> parsePower -> parseUnary sees the leading "-", and a unary operand

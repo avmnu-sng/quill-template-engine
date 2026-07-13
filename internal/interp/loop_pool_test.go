@@ -18,8 +18,8 @@ import (
 // pooling a loop whose snapshot is still reachable after the loop ends, so a
 // later loop's PairsInto clobbers the memory the reachable snapshot reads.
 //
-// Every case renders the SAME template twice -- once with pooling on (the
-// shipped default) and once with poolLoopSnapshots forced off -- and asserts the
+// Every case renders the SAME template twice, once with pooling on (the
+// shipped default) and once with poolLoopSnapshots forced off, and asserts the
 // two outputs are byte-identical, which is the whole safety claim: pooling is a
 // pure buffer-reuse and can never change a rendered byte. The kill case is
 // pool_then_sibling_loop_clobbers, where a snapshot captured out of one loop is
@@ -78,7 +78,7 @@ func assertPoolParity(t *testing.T, eng *stubEngine, body string, vars map[strin
 // bound out of the first loop (@set snap = loop, plus snap.prev/next which read
 // the loop's pair slice) is read AFTER a second sibling loop runs. The first
 // loop's loop value escapes via the @set, so the gate MUST NOT pool it; if it
-// did, the sibling loop -- pooled or not -- would recycle the first loop's
+// did, the sibling loop (pooled or not) would recycle the first loop's
 // buffer and snap.prev/index/next would read the sibling's data. Rendering both
 // ways and finding them identical proves the escaping first loop kept the fresh
 // path.
@@ -308,7 +308,7 @@ func TestPoolFusedBodyCapturesLoopParity(t *testing.T) {
 // element array in place; the write privatizes (COW) and must not reach the
 // source array, exactly as the fresh path. A recycled buffer holds copies of the
 // element Values (same *Array pointers), so the pooling cannot change whether a
-// member-write privatizes -- the buffer is a materialized snapshot, byte-for-byte
+// member-write privatizes: the buffer is a materialized snapshot, byte-for-byte
 // what Pairs() built.
 func TestPoolLoopElementMutationValueSemantics(t *testing.T) {
 	eng := newStub(nil)
@@ -397,7 +397,7 @@ func TestPoolLoopBoundaryPrevNext(t *testing.T) {
 // TestPoolNestedInnerCapturesOuterViaParent captures the OUTER loop from the
 // inner body (loop.parent) and reads it after both loops end. The inner capture
 // reaches the outer loop's buffer through the parent link, so BOTH loops must
-// stay unpooled -- the outward propagation rule. A later sibling loop then runs;
+// stay unpooled, per the outward propagation rule. A later sibling loop then runs;
 // if either loop had pooled, the captured parent snapshot would be clobbered.
 func TestPoolNestedInnerCapturesOuterViaParent(t *testing.T) {
 	eng := newStub(nil)
@@ -427,7 +427,7 @@ func TestPoolNestedInnerCapturesOuterViaParent(t *testing.T) {
 }
 
 // TestPoolLoopInsideBlockIsPoolSafe pins the composition gain: a self-contained
-// KArray loop inside a @block body -- the shape the Compose workload renders --
+// KArray loop inside a @block body (the shape the Compose workload renders)
 // is analyzed through the block descent and classified pool-safe, so the block's
 // loop recycles a buffer like a top-level loop.
 func TestPoolLoopInsideBlockIsPoolSafe(t *testing.T) {

@@ -349,8 +349,8 @@ func linkUnit(entry string, templates map[string]*ast.Node, opts Options) (*unit
 			break
 		}
 	}
-	// A slot construct in any member -- or in a partial an inlined @include from
-	// any member pulls in -- forces the buffered path: the render inlines member
+	// A slot construct in any member (or one an inlined @include from any member
+	// pulls in from a partial) forces the buffered path: the render inlines member
 	// block bodies and include partials, so a placeholder can enter the stream
 	// from any of them, and buffering a slot-free member is byte-invisible.
 	for _, m := range u.members {

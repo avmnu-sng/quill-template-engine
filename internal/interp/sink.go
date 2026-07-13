@@ -45,7 +45,7 @@ func (s *writerSink) WriteString(str string) (int, error) {
 
 // flush forwards a @flush statement to the destination when the active sink is
 // a streaming writerSink over a flushable writer (a bufio.Writer). On every
-// other sink -- a capture buffer or a buffered render's strings.Builder -- it
+// other sink (a capture buffer or a buffered render's strings.Builder) it
 // stays the documented no-op (spec 01 Section 4.4), so buffered output is
 // byte-identical with or without @flush.
 func (in *interp) flush() error {

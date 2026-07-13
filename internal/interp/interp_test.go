@@ -234,7 +234,7 @@ func TestMatchesOperator(t *testing.T) {
 	}
 
 	// A dynamic (non-literal) bad pattern is not knowable at compile time, so it
-	// is a render-time error -- not rejected by PrepareChecked.
+	// is a render-time error, not something PrepareChecked rejects.
 	mod, _ = parse.ParseString("t", `{{ "x" matches p }}`)
 	tmpl, err := PrepareChecked("t", mod)
 	if err != nil {

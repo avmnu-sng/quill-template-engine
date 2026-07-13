@@ -70,7 +70,7 @@ func (o *equalObj) Equal(other Value) bool {
 }
 
 // fieldMatchObj is an Equaler whose hook matches ANY object whose ClassName
-// equals wantClass -- i.e. it can answer equal across two DIFFERENT object
+// equals wantClass; that is, it can answer equal across two DIFFERENT object
 // types, used to exercise the one-sided (asymmetric) hook path.
 type fieldMatchObj struct {
 	*fieldObj

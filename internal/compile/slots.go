@@ -15,8 +15,8 @@ import (
 // partial's yield placeholder stream out unresolved. The walk descends only the
 // includes stmtInclude actually inlines (a static string source that resolves to
 // a composition-free partial and does not close an include cycle), so an include
-// that instead defers to the interpreter -- where its slots resolve on the interp
-// path -- never forces the buffered shape here. Over-marking is byte-invisible
+// that instead defers to the interpreter, where its slots resolve on the interp
+// path, never forces the buffered shape here. Over-marking is byte-invisible
 // because buffering a slot-free render only defers a straight copy to w.
 func reachesSlots(n *ast.Node, includes map[string]*ast.Node) bool {
 	return reachesSlotsWalk(n, includes, nil)
@@ -44,8 +44,8 @@ func reachesSlotsWalk(n *ast.Node, includes map[string]*ast.Node, stack []string
 		}
 	case ast.KindEmbed:
 		// A flattened embed splices its target's body into this render, so the
-		// target's own @yield/@provide/slot -- and those of its @extends parents
-		// and @use traits -- reach the render-level slot state exactly as the
+		// target's own @yield/@provide/slot, and those of its @extends parents
+		// and @use traits, reach the render-level slot state exactly as the
 		// inline @block overrides below do. Descending the whole reachable target
 		// set forces the buffered shape whenever any of them defers a slot.
 		if mod, ok := flattenableEmbed(n, includes, stack); ok {
@@ -66,9 +66,9 @@ func reachesSlotsWalk(n *ast.Node, includes map[string]*ast.Node, stack []string
 
 // inlinablePartial resolves a static @include node to the partial module
 // stmtInclude would inline at that site, reporting whether the site is one it
-// inlines rather than defers. It mirrors stmtInclude's structural gates -- a
+// inlines rather than defers. It mirrors stmtInclude's structural gates (a
 // string-literal source naming a composition-free partial in the include set
-// that does not close an include cycle -- so a name-reachability walk over the
+// that does not close an include cycle), so a name-reachability walk over the
 // includes visits exactly the partials whose statements enter this render.
 func inlinablePartial(n *ast.Node, includes map[string]*ast.Node, stack []string) (*ast.Node, bool) {
 	src := n.Child(0)
@@ -92,9 +92,9 @@ func inlinablePartial(n *ast.Node, includes map[string]*ast.Node, stack []string
 
 // flattenableEmbed resolves a static @embed node to the target module
 // stmtEmbed flattens at that site, reporting whether the site is one it
-// flattens rather than defers. It mirrors stmtEmbed's structural gate -- a
+// flattens rather than defers. It mirrors stmtEmbed's structural gate (a
 // string-literal source naming a target present in the compile set that does
-// not close a self-embed cycle -- so the slot-reachability walk visits exactly
+// not close a self-embed cycle), so the slot-reachability walk visits exactly
 // the targets whose statements enter this render.
 func flattenableEmbed(n *ast.Node, includes map[string]*ast.Node, stack []string) (*ast.Node, bool) {
 	src := n.Child(0)
@@ -204,7 +204,7 @@ func (c *compiler) stmtProvide(n *ast.Node) error {
 // verbatim through the active writer. The single post-render resolve pass
 // substitutes the label's accumulated slot content for the placeholder, so a
 // shell may @yield a slot before the partials that feed it. The placeholder is
-// written raw -- not through the escape strategy -- because the resolved
+// written raw, not through the escape strategy, because the resolved
 // content was already produced through the active escaper by its @provide
 // bodies, exactly as execYield's emitString.
 //

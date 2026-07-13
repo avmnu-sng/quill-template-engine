@@ -28,7 +28,7 @@ old-to-new API mapping of every change below.
   `context.Background()` when you do not need it. Uncancelled renders are
   byte-identical to before.
 - **BREAKING: the engine internals moved under `internal/` and are no longer
-  importable** -- the lexer (`lex`), the tree-walking interpreter (`interp`), and
+  importable**: the lexer (`lex`), the tree-walking interpreter (`interp`), and
   the compile-to-Go backend (`compile`). Hosts use the root facade and, for AOT
   compilation, the `quill compile` command.
 - **BREAKING: `runtime.Value` is now opaque.** Its payload fields are unexported;
@@ -44,30 +44,30 @@ old-to-new API mapping of every change below.
   sandbox.Strict(), ...)` instead of a struct literal; `check.Type`/`ObjectType`/
   `Signature` and `compiled.Manifest`/`Fingerprint` are opaque and
   constructor-built.
-- **BREAKING: `ext` renames** -- `ext.ExtensionSet` -> `ext.Set`,
+- **BREAKING: `ext` renames**: `ext.ExtensionSet` -> `ext.Set`,
   `ext.Extension` -> `ext.Bundle`, `NewExtensionSet` -> `NewSet`. The
   `WithExtensions`/`WithExtension` option names are unchanged.
-- **BREAKING: root-package renames and removals** -- `NewWithArray` ->
+- **BREAKING: root-package renames and removals**: `NewWithArray` ->
   `NewFromMap`; `Environment.Display` removed (use `RenderTo`); the
   renderer-internal `Environment` getters (`StrictVariables`, `AutoescapeHTML`,
   `Policy`, `SandboxActive`, `Coverage`, `TabWidth`, `Logger`, `TemplateExists`,
   `RawSource`) are no longer part of the public surface.
-- **BREAKING: `errors` hardening** -- the wrapped error inside `errors.Security`
+- **BREAKING: `errors` hardening**: the wrapped error inside `errors.Security`
   is unexported (reach it via `Unwrap`); an `errors.Error`'s position is read
   through `Src()`/`Line()`/`Col()` methods instead of fields; a dedicated
   `errors.SecUnknownType` class distinguishes an unregistered host type from a
   denied-but-known member.
 - **BREAKING: `cover.Collector`'s instrumentation hooks (`Hit`, `SeedTemplate`,
-  `SeedMacro`) are removed from the public API.** They were engine-internal --
+  `SeedMacro`) are removed from the public API.** They were engine-internal:
   driven by the interpreter, never by hosts, which consume coverage through the
   report methods (`Report`, `Summary`, `TemplateCoverage`, `Counts`,
   `MergeReports`). The instrumentation core moved to an internal package.
 - The `quill cover` CI gate now exits with code **2** when total unit coverage is
   below `-fail-under` (distinct from a hard error's exit 1, so CI can tell the two
-  apart); the redundant `-threshold` alias is removed -- use `-fail-under`.
+  apart); the redundant `-threshold` alias is removed (use `-fail-under`).
 - Error MESSAGE strings are documented as NOT part of the compatibility contract:
   classify a failure by the exported `Kind`, with `errors.As`/`errors.Is`, or
-  against a sentinel such as `loader.ErrNotFound` -- never by matching text.
+  against a sentinel such as `loader.ErrNotFound`, never by matching text.
 
 ### Added
 
@@ -80,7 +80,7 @@ old-to-new API mapping of every change below.
 
 - **The lexer honored its single-fault contract only by luck.** For input such as
   `{{$` the interpolation, statement-head, and block-close scanners emitted an
-  ERROR token but the scan continued, re-emitting the faulting bytes as text --
+  ERROR token but the scan continued, re-emitting the faulting bytes as text,
   contradicting the documented "a single ERROR token immediately before EOF". The
   scan now stops at the first fault. Found by the new fuzz targets.
 - `compile.ErrNotCompilable` was a mutable global any importer could corrupt; it
@@ -115,7 +115,7 @@ old-to-new API mapping of every change below.
   arrow-vs-grouping lookahead (`parenIsArrow`) rescan all following tokens per
   `(`, so parsing was O(n^2): a ~220 KB template drove peak memory to ~1 GB and
   ~10 s of CPU, and extreme nesting could crash the process with a goroutine
-  stack overflow -- all reachable through the public `Render` API. The lookahead
+  stack overflow. All of this is reachable through the public `Render` API. The lookahead
   is now O(1) via a one-pass bracket-match table, and a parser nesting-depth cap
   turns pathological input into a positioned syntax error instead. The same
   100k-paren input now parses in ~37 ms using tens of MB.
@@ -127,8 +127,8 @@ old-to-new API mapping of every change below.
   `core/cache`, `core/lex`, `core/parse`, `core/source`, and `core/interp`. Update
   the import path if you referenced any of them directly, or if you use the
   `compile`, `check`, or `cover` APIs whose signatures name `*ast.Node` (now
-  `*core/ast.Node`). The documented public packages -- `runtime`, `loader`, `ext`,
-  `cover`, `sandbox`, `check`, `compile`, `compiled`, `errors`, and `cmd/quill` --
+  `*core/ast.Node`). The documented public packages (`runtime`, `loader`, `ext`,
+  `cover`, `sandbox`, `check`, `compile`, `compiled`, `errors`, and `cmd/quill`)
   keep their import paths unchanged, as does `go get`/`go install`.
 
 ### Added

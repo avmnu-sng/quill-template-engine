@@ -289,7 +289,7 @@ func TestSetListDestructureOptionalNotTrailing(t *testing.T) {
 }
 
 // Over-supply without a tail is an error even when a slot is optional: "[a, b?]"
-// accepts one or two elements but not three (spec 01 Section 2.1 -- a generator must
+// accepts one or two elements but not three (spec 01 Section 2.1: a generator must
 // not silently drop trailing elements). This locks the over-supply error wording.
 func TestSetListDestructureOptionalOverSupply(t *testing.T) {
 	eng := newStub(nil)

@@ -14,7 +14,7 @@ import (
 // most-derived first, exactly as interp execEmbed builds a sub-interp block
 // table and prepends the override chain. The flattened body then splices into
 // the SAME render, so a @provide inside it appends to the render-level slot
-// buffers and a @yield reaches the single post-render resolve pass -- the
+// buffers and a @yield reaches the single post-render resolve pass, the
 // compiled analog of execEmbed's shareSlotsFrom.
 //
 // The shapes cover the conformance fixture (an override plus a self-contained
@@ -235,7 +235,7 @@ var embedBattery = []includeCase{
 // (Unit and single-template Module), asserting each output byte-equal to the
 // facade's Render AND to the pinned contract, that the dispatch gate served the
 // compiled unit under the fixture's configuration, and that no raw yield
-// placeholder survives -- the leak class an embed that fed a slot would open if
+// placeholder survives, the leak class an embed that fed a slot would open if
 // the render failed to buffer and resolve.
 func TestEmbedBattery(t *testing.T) {
 	var cases []compiledCase
@@ -422,7 +422,7 @@ func TestEmbedNotCompilable(t *testing.T) {
 // TestEmbedErrorPathNoLeak pins the error-path leak class for a slots-using
 // embed: a flattened embed whose body writes a @yield placeholder and then
 // errors mid-render must, like the interpreter's buffered render, write NOTHING
-// to the caller's writer -- no partial output and no raw yield placeholder. The
+// to the caller's writer: no partial output and no raw yield placeholder. The
 // errPath leg drives Environment.RenderTo on both engines and byte-compares
 // what each streams on the same error.
 func TestEmbedErrorPathNoLeak(t *testing.T) {

@@ -10,11 +10,11 @@
 //     the engine's one canonical key model (spec 04 Section 7): a canonical
 //     decimal-integer key name such as "0" becomes an Int slot, everything else
 //     ("01", "name", "1.0") stays a Str key. So an object whose keys happen to be
-//     "0".."n-1" is list-shaped, exactly as the key model dictates -- there is no
+//     "0".."n-1" is list-shaped, exactly as the key model dictates, with no
 //     JSON-specific exception to that rule;
 //   - a JSON array becomes a list-shaped *Array with 0-based integer keys;
 //   - a JSON number that is an exact integer becomes an Int, otherwise a Float,
-//     so {{ n }} renders 3 (not 3.0) for an integral input -- matching Quill's
+//     so {{ n }} renders 3 (not 3.0) for an integral input, matching Quill's
 //     ToText spellings (spec 04 Section 5);
 //   - true/false become Bool, a string becomes Str, and null becomes Null.
 //

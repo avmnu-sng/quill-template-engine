@@ -76,7 +76,7 @@ func (in *interp) evalCall(n *ast.Node, ctx *runtime.Scope) (runtime.Value, erro
 		return in.callLoopChanged(n, ctx)
 	}
 
-	// a.b(...) -- either a macro on an imported namespace / _self, or a host
+	// a.b(...) is either a macro on an imported namespace / _self, or a host
 	// method call. Evaluate the receiver; a macroRef/selfRef resolves to a macro.
 	if callee.Kind == ast.KindAttr {
 		recv, err := in.eval(callee.Child(0), ctx, false)
@@ -172,7 +172,7 @@ func (in *interp) evalFilter(n *ast.Node, ctx *runtime.Scope) (runtime.Value, er
 	}
 	// Arity-known fast call: a bare pipe with zero explicit arguments into a
 	// filter that publishes Fn1 and needs no engine injection dispatches on the
-	// piped value alone -- no argument slice exists, so retaining or mutating
+	// piped value alone; no argument slice exists, so retaining or mutating
 	// one is structurally impossible. The zero-argument proof is syntactic
 	// (any KindArg child, including a spread expanding to nothing, keeps the
 	// general path), and the sandbox gates still run over the piped value,
@@ -569,7 +569,7 @@ func (e *engineRef) RandomSeed() (int64, bool) { return e.eng.RandomSeed() }
 
 // EngineFromValue recovers the Engine from the host Object the runtime injects
 // into a needs_environment callable (the engineRef shim). It lets a callable
-// registered outside this package -- e.g. the facade's include() -- reach the
+// registered outside this package (e.g. the facade's include()) reach the
 // engine without exporting the shim type.
 func EngineFromValue(v runtime.Value) (Engine, bool) {
 	if v.Kind() != runtime.KObject {

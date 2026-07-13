@@ -14,10 +14,11 @@ import (
 // attrFastCases is the differential battery for the inline KArray dotted-read
 // fast path: each case renders through the compiled path and must match the
 // facade byte-for-byte (output or error text). It walks both arms of the
-// generated read -- mapping hits take the inline Arr.GetStr branch while every
-// miss and every non-Array receiver re-enters runtime.GetAttribute -- plus the
-// spill-elision edges, where the receiver binding local is embedded without a
-// copy and an inline assignment in a sibling operand rebinds it between reads.
+// generated read: mapping hits take the inline Arr.GetStr branch while every
+// miss and every non-Array receiver re-enters runtime.GetAttribute. It also
+// exercises the spill-elision edges, where the receiver binding local is
+// embedded without a copy and an inline assignment in a sibling operand
+// rebinds it between reads.
 // A dotted member name is NAME-token-shaped by the grammar, so an
 // integer-looking name cannot reach the fast path; the mixed-key fixtures pin
 // that the inline GetStr resolves against the same canonical Int/Str key

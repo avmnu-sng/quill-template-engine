@@ -11,7 +11,7 @@ import (
 
 // Template is one parsed-and-prepared template: its module AST plus the indexed
 // composition tables the renderer walks (spec 01 Section 5). It is the runtime
-// realization of the port's Template contract -- Display (renderTemplate), Block
+// realization of the port's Template contract: Display (renderTemplate), Block
 // / HasBlock (the block table), Macro / HasMacro (the macro table), and Parent
 // (the extends head). The tables are built once by Prepare and then shared
 // read-only across renders.
@@ -93,8 +93,8 @@ type Template struct {
 	// value provably never escapes the loop's iteration, computed once by
 	// Prepare (analyzeLoopEscapes). execFor consults it to recycle a pooled
 	// snapshot buffer for a safe KArray loop instead of allocating a fresh pair
-	// slice per render; a loop absent from the set -- including any construct
-	// the analysis could not prove safe -- keeps the fresh-Pairs() path, where a
+	// slice per render; a loop absent from the set (including any construct
+	// the analysis could not prove safe) keeps the fresh-Pairs() path, where a
 	// captured loop snapshot may be read arbitrarily late. It is immutable once
 	// PrepareChecked returns, read-only across renders.
 	forSafe map[*ast.Node]bool
@@ -128,7 +128,7 @@ type Template struct {
 // composition is the memoized render-ready form of one static inheritance
 // chain: everything renderTemplate builds before executing the topmost body.
 // The chain, block table, and macro namespace are shared across renders and
-// are read-only once built -- the renderer never writes a table entry after
+// are read-only once built. The renderer never writes a table entry after
 // the build phase, and the sole table mutator, @embed override layering,
 // builds its own fresh table inside a fresh sub-interp (see execEmbed).
 // nsBinds carries composition's one per-render side effect, the @import
@@ -447,7 +447,7 @@ func tagKeyword(n *ast.Node) string {
 
 // compileLiteralRegexps walks the entire AST (statements and the expression
 // subtrees they hang off) and, for every `matches` node whose right operand is a
-// plain string literal (KindString -- single-quote, backtick, or escape-only
+// plain string literal (KindString: single-quote, backtick, or escape-only
 // double-quote; an interpolated pattern is a KindBinary "~" concat chain and
 // stays dynamic), compiles the pattern with the stdlib RE2 engine. A compile
 // failure is surfaced as a clear error at the pattern's source position, and the
@@ -547,7 +547,7 @@ func (t *Template) HasMacro(name string) bool { _, ok := t.macros[name]; return 
 func (t *Template) IsChild() bool { return t.extendsNode != nil }
 
 // Traitable reports whether this template may be pulled in by @use: it must have
-// NO parent (@extends), NO macros, and NO free body content -- only @block
+// NO parent (@extends), NO macros, and NO free body content, holding only @block
 // definitions and @use statements at top level (spec 01 Section 5.4, design/
 // composition Section 4). A trait is a pure bundle of blocks.
 func (t *Template) Traitable() bool {

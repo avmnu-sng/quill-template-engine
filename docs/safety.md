@@ -10,15 +10,15 @@ running untrusted templates. Streaming output is covered at the end.
 The default output strategy is `off` (synonym `raw`): an interpolation renders the
 value's `ToText` bytes verbatim, with no transformation. This matches Go
 `text/template`, and it is the right default for any text where the raw bytes are
-load-bearing -- configuration, program source, plain text, and any format where
+load-bearing: configuration, program source, plain text, and any format where
 characters like `<`, `>`, `&`, and `"` are ordinary content rather than markup
 that must be escaped.
 
 Escaping is opt-in, three ways:
 
-- **Per template or region** -- `@escape html { ... @}` sets the active strategy
+- **Per template or region**: `@escape html { ... @}` sets the active strategy
   for a region; `WithAutoescapeHTML(true)` turns HTML escaping on globally.
-- **Per site** -- `| escape` or `| e("html")` escapes a single interpolation.
+- **Per site**: `| escape` or `| e("html")` escapes a single interpolation.
 
 There is no need to write `| raw` under the default, because nothing is escaped
 until you opt in.
@@ -55,19 +55,19 @@ so the escapers split into two classes:
 
 ## The safeness machinery
 
-- **`raw` filter / safeness annotation** -- a compile-time no-op marking content
+- **`raw` filter / safeness annotation**: a compile-time no-op marking content
   already-safe; never auto-escaped. It is inert under the default and switches a
   single site back to unescaped under an `escape`-on region.
-- **`Safe` value** -- the already-escaped carrier, returned unchanged by `escape`,
+- **`Safe` value**: the already-escaped carrier, returned unchanged by `escape`,
   produced by captures and macros under escaping, and a plain-string passthrough
   when escaping is off.
 - **Per-strategy filter safeness, pre-escape filters** (e.g. `nl2br`), and
   **safeness inference** over ternary/conditional operands are active only when
   escaping is enabled.
-- **Default-strategy selection** -- a fixed value, off, or a host-supplied
+- **Default-strategy selection**: a fixed value, off, or a host-supplied
   resolver including by file extension (`body.html.quill` -> `html`). The default is
   off; the host may register a resolver.
-- **Compile-time escape injection** -- escaping is decided and injected at compile
+- **Compile-time escape injection**: escaping is decided and injected at compile
   time, so the off-path has zero render cost and the output is deterministic.
 
 Under the default (escaping off) a `Safe` value is an inert passthrough
@@ -93,7 +93,7 @@ env := quill.New(ldr,
 ```
 
 A `Policy` is opaque and built with `sandbox.NewPolicy` and its functional
-options -- `AllowTags`, `AllowFilters`, `AllowFunctions`, `AllowMethods`,
+options: `AllowTags`, `AllowFilters`, `AllowFunctions`, `AllowMethods`,
 `AllowProperties`, `Strict`, and `WithTypeGraph`. Anything not allowed is denied,
 so the policy above permits only the `if`/`for` tags and the `upper`/`lower`
 filters; every function, method, and property is refused. Build a policy once at
@@ -136,7 +136,7 @@ caller's writer.
 
 ## Next
 
-- [Types](types.md) -- the value model, including how `Safe` behaves under
+- [Types](types.md): the value model, including how `Safe` behaves under
   equality.
-- [Standard Library](stdlib.md) -- the `escape`/`e`, `raw`, and `nl2br` filters.
-- [Extensions & Loaders](extensions.md) -- custom callables under the sandbox.
+- [Standard Library](stdlib.md): the `escape`/`e`, `raw`, and `nl2br` filters.
+- [Extensions & Loaders](extensions.md): custom callables under the sandbox.

@@ -28,14 +28,14 @@ TEXT into CODE, plus one bulk passthrough region:
 | an `@`-led statement keyword | matching `@}` or end of line | a statement | CODE (statement) |
 | `@verbatim { ... }` / fenced `@verbatim` | balancing `@}` / fence | literal region, never scanned | TEXT-literal |
 
-Everything else in TEXT -- every bare `{`, `}`, `<`, `>`, `&`, `;`, `(`, `)` -- is
+Everything else in TEXT (every bare `{`, `}`, `<`, `>`, `&`, `;`, `(`, `)`) is
 ordinary output text. The load-bearing invariant:
 
 > A single `{` or `}` in template text is NEVER a delimiter, in either
 > statement-lead mode. A `{` is a delimiter only when immediately followed by `{`
 > or `#`, with no intervening character. Under the default, a statement begins ONLY
-> at `@`, and a block closes ONLY at `@}`, so a bare `}` in text -- even a lone `}`
-> at column 0 -- is always literal output.
+> at `@`, and a block closes ONLY at `@}`, so a bare `}` in text (even a lone `}`
+> at column 0) is always literal output.
 
 A lone `{` followed by a space, a letter, a newline, a digit, or a quote is emitted
 as text and the scanner stays in TEXT. A block of code such as
@@ -48,8 +48,8 @@ The default `@`-sigil statement lead exists because a common workload is
 brace-dense text: literal lone-`}` lines are pervasive, many at column 0 (top-level
 closes of emitted classes, methods, functions, or nested config blocks). The
 `@`-default makes every one of those sites correct with zero escaping, at the cost
-of one `@` per statement. The keyword-led BARE mode -- statements recognized by a
-line-leading keyword, a lone `}` line closing the innermost block -- is an explicit
+of one `@` per statement. The keyword-led BARE mode (statements recognized by a
+line-leading keyword, a lone `}` line closing the innermost block) is an explicit
 opt-in via a front-matter `pragma bare` (equivalently `pragma sigil off`), for
 markup and other templates where brace collisions are rare. Section 1.3 specifies
 both modes; unless noted, the rest of this manual writes statements in the
@@ -89,11 +89,11 @@ explicit opt-in.
 optional leading horizontal whitespace, a line's FIRST non-whitespace character is
 `@` immediately followed by one of the fixed, closed set of statement keywords
 (Section 5.1) at a word boundary, and the construct parses as a complete statement
-head. A brace block opened by an `@`-led statement closes ONLY at `@}` -- a line
+head. A brace block opened by an `@`-led statement closes ONLY at `@}`: a line
 whose only non-whitespace content (after optional leading whitespace) is `@}`,
 optionally carrying a `-`/`~`/`+` trim modifier. Consequently:
 
-- A bare `{` or `}` ANYWHERE in TEXT -- including a lone `}` at column 0 -- is
+- A bare `{` or `}` ANYWHERE in TEXT (including a lone `}` at column 0) is
   unconditionally literal output. No literal lone-`}` site needs any escaping.
 - A line that begins with the WORD `for`, `if`, `while`, `block` (no `@`) is
   ordinary TEXT; there is no grammar-shape rejection to perform and no
@@ -120,7 +120,7 @@ boundary and the construct parses as a complete statement head, and a block clos
 at a lone `}` line. This suits markup and other templates where literal braces are
 rare. In bare mode an output line might legitimately begin with the word `for`
 (C's `for (...)`) or `if`, and a literal lone `}` might collide with a block close;
-Quill resolves both deterministically -- never by heuristic -- with grammar-shape
+Quill resolves both deterministically (never by heuristic) with grammar-shape
 rejection plus the escape tools below:
 
 - **Grammar-shape rejection.** Quill's `for` requires `for <ident> in <expr> {`. An
@@ -146,8 +146,8 @@ rejection plus the escape tools below:
 
 In bare mode the lexer emits a suppressible `line-leading-keyword` diagnostic at
 every line that both begins with a Quill keyword AND forms a Quill-shaped head, so
-the collision is never silent. The core lexical invariant -- a single `{` or `}` is
-never a delimiter -- is unchanged in either mode.
+the collision is never silent. The core lexical invariant (a single `{` or `}` is
+never a delimiter) is unchanged in either mode.
 
 #### The block-close rule and the line-leading-`}` collision (bare mode only)
 
@@ -161,8 +161,8 @@ of such a body is recognized by exactly this rule:
 > `-`/`~` trim modifier) closes the innermost open Quill block. This is the ONLY
 > close form; a `}` with any other non-whitespace on its line is literal TEXT.
 
-So text that closes its own braces ON THE SAME LINE as other content -- an indented
-close, an interpolation-led close `{{ 1 | tab }}}`, or `} else {` in emitted C --
+So text that closes its own braces ON THE SAME LINE as other content (an indented
+close, an interpolation-led close `{{ 1 | tab }}}`, or `} else {` in emitted C)
 is never a Quill close, because the line is not a lone `}`. The residual collision
 is a TEXT body that emits a brace-balanced block whose own close lands as a bare
 `}` at COLUMN 0. There the literal close and the intended Quill close are
@@ -176,7 +176,7 @@ never arises; under bare mode the author disambiguates explicitly:
    disambiguate it**, by one of: the leading-pipe text marker (`| }`), wrapping the
    brace-dense region in `verbatim`, or emitting the brace through interpolation
    (`{{ "}" }}`). Switching to the `@`-default removes the requirement entirely.
-3. **Indentation does not by itself escape a literal `}`** -- a line that is
+3. **Indentation does not by itself escape a literal `}`**: a line that is
    whitespace then `}` is still a lone-`}` close. Only the leading-pipe marker,
    `verbatim`, or interpolation make a column-aligned or column-0 literal `}`
    non-closing.
@@ -239,8 +239,8 @@ for people coming from Jinja, Twig, or Go `text/template`.
 ### 1.6 The verbatim region
 
 The primary escape hatch for brace-dense bulk output. Its body is copied byte for
-byte and is NOT scanned for any Quill syntax -- not `{{`, not `{#`, not statement
-keywords:
+byte and is NOT scanned for any Quill syntax (not `{{`, not `{#`, not statement
+keywords):
 
 ```
 @verbatim {
@@ -418,7 +418,7 @@ uniformly across filters, functions, methods, and tests.
 
 ## 4. Control flow and scoping
 
-All block statements use brace bodies `{ ... }` -- no end-keywords. Under the
+All block statements use brace bodies `{ ... }`, with no end-keywords. Under the
 `@`-default a body closes at `@}`; under `pragma bare` it closes at a lone `}`. The
 examples below use the `@`-default spelling. The narrative treatment is in
 [Control Flow](../guide/control-flow.md).
@@ -453,7 +453,7 @@ expressions taken in the single truthiness rule ([Types](../types.md)).
 - The `else` branch runs exactly when the sequence yielded zero iterations, and
   only after the iterand resolved to a collection. It is reached for an
   iterable-but-empty value; it is NOT reached when the iterand is non-iterable.
-- **Non-iterable is a runtime error**, NOT a silent empty loop -- a silently
+- **Non-iterable is a runtime error**, NOT a silent empty loop: a silently
   skipped loop would omit an entire section of output with no signal. The explicit
   "empty is fine" idiom is `for x in (coll ?? []) { ... }`. Where a static type
   proves non-iterability, the error is promoted to check time.
@@ -547,11 +547,11 @@ Under the default (escaping off) the capture is a plain `Str`; under an
 
 ### 4.4 Effect, flush, deprecation, logging
 
-- `@do expr` -- evaluate for side effects, no output.
-- `@flush` -- a documented no-op for a string/byte sink, kept for parity.
-- `@deprecated "message" [since "2.0"]` -- routes a deprecation diagnostic to the
+- `@do expr`: evaluate for side effects, no output.
+- `@flush`: a documented no-op for a string/byte sink, kept for parity.
+- `@deprecated "message" [since "2.0"]` routes a deprecation diagnostic to the
   diagnostics sink, no output.
-- `@log expr` -- evaluates `expr` and writes its text form to the host logger
+- `@log expr` evaluates `expr` and writes its text form to the host logger
   (`WithLogger(l)`, default a discarding logger). It produces NO rendered output
   but IS a coverable unit.
 
@@ -579,14 +579,14 @@ Under the default (escaping off) the capture is a plain `Str`; under an
 - `@tab(n) { ... }` indents the entire rendered body by `n` levels, nesting
   cumulatively; blank lines stay blank. One level is `WithTabWidth` spaces (default
   4). See [Standard Library](../stdlib.md).
-- `@verbatim { ... }` / fenced verbatim -- literal body, not scanned (Section 1.6).
+- `@verbatim { ... }` / fenced verbatim: literal body, not scanned (Section 1.6).
 - `@line 42` resets the reported source line for diagnostics.
 - `@cache key="header" ttl=3600 tags=["a"] { ... }` caches a rendered body under a
   key with optional ttl/tags.
 
 ## 5. Composition: inheritance, blocks, macros, includes
 
-Composition is built on the internal template contract -- render a body, resolve
+Composition is built on the internal template contract: render a body, resolve
 a block by name, look up a macro, and walk the parent chain. (The public opaque
 `quill.Template` handle exposes only the inspection surface `Name`/`BlockNames`/
 `HasBlock`/`HasMacro`.) The shared data structure is the BLOCK TABLE, an ordered
@@ -644,7 +644,7 @@ defined` tests existence.
 
 Declared params with constant defaults, optional type annotations, and a variadic
 capture `...rest`. A macro sees ONLY its params, defaults, variadics, and host
-globals -- the caller's local context is invisible. A macro returns its captured
+globals; the caller's local context is invisible. A macro returns its captured
 output (a `Str`, or `Safe` under escaping).
 
 **Tail captures: `...rest` for positional args, `**opts` for named args.** A macro
@@ -665,8 +665,8 @@ absorbed. Because `**opts` is an ordinary mapping, it forwards to a nested call 
 spread: `inner(...opts)`.
 
 **The macro namespace is in scope inside every macro body.** A macro body sees the
-names of all macros visible to the template -- its OWN, sibling macros in the same
-template, and macros brought in by `import`/`from` -- so a macro may call itself or
+names of all macros visible to the template (its OWN, sibling macros in the same
+template, and macros brought in by `import`/`from`), so a macro may call itself or
 a sibling directly by name. Recursion and mutual recursion are reachable by bare
 name and by the `_self` import path (`import _self as me; me.tree(...)`).
 

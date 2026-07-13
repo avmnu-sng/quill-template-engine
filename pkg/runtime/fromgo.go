@@ -12,8 +12,8 @@ import (
 )
 
 // FromGo marshals a native Go value into a runtime.Value so a host can pass
-// ordinary Go data -- scalars, slices, maps, structs, and nested combinations
-// of them -- to a render without hand-building the value taxonomy. It is the
+// ordinary Go data (scalars, slices, maps, structs, and nested combinations
+// of them) to a render without hand-building the value taxonomy. It is the
 // host-facing counterpart to the internal JSON bridge: where Decode turns a
 // data file into a Value, FromGo turns a live Go value into one.
 //
@@ -41,8 +41,8 @@ import (
 //   - a runtime.Value passes through unchanged, so a host can mix hand-built and
 //     native values freely.
 //
-// An unsupported kind -- a channel, a function that is not a registered
-// Callable, or a complex number -- yields a clear KindRuntime error naming the
+// An unsupported kind (a channel, a function that is not a registered
+// Callable, or a complex number) yields a clear KindRuntime error naming the
 // offending Go kind, so the failure is a typed *errors.Error the host can
 // branch on rather than a silent wrong render.
 func FromGo(v any) (Value, error) {
@@ -107,8 +107,8 @@ func fromReflect(rv reflect.Value) (Value, error) {
 }
 
 // fromReflectPass is fromReflect with the passthrough classification supplied
-// by the caller. Bulk callers -- slice elements, map values, planned struct
-// fields -- share one static member type, so they classify once and skip the
+// by the caller. Bulk callers (slice elements, map values, planned struct
+// fields) share one static member type, so they classify once and skip the
 // per-member probe entirely for types that can never pass through.
 //
 // A concretely-typed runtime.Value, *Array, or Object member passes through as
@@ -208,7 +208,7 @@ func fromSequence(rv reflect.Value) (Value, error) {
 // Go's randomized map iteration. A string-keyed map sorts by its string keys; an
 // integer-keyed map sorts numerically by key value, so a dense 0..n-1 int map
 // marshals list-shaped and iterates in ascending order regardless of digit
-// width. The map key type must be a string or an integer -- the two kinds that
+// width. The map key type must be a string or an integer, the two kinds that
 // have an unambiguous Quill key spelling; any other key type is a clear error.
 func fromMap(rv reflect.Value) (Value, error) {
 	if rv.IsNil() {
@@ -310,8 +310,8 @@ func mapKeyString(k reflect.Value) (string, error) {
 var structPlans sync.Map // reflect.Type -> *structPlan
 
 // structPlan is the precomputed field walk for one struct type: every decision
-// that depends only on the type -- tag names, skip markers, the
-// embedded-flattening shape, the passthrough classification -- resolved ahead
+// that depends only on the type (tag names, skip markers, the
+// embedded-flattening shape, the passthrough classification) resolved ahead
 // of the per-value marshal.
 type structPlan struct {
 	fields []fieldPlan

@@ -326,7 +326,7 @@ func TestFromGoPassthrough(t *testing.T) {
 }
 
 // TestFromGoConcreteTypedPassthrough proves a struct field declared with a
-// concrete Quill type -- runtime.Value, *runtime.Array, or Object -- passes
+// concrete Quill type (runtime.Value, *runtime.Array, or Object) passes
 // through as that finished value rather than being re-marshalled through its
 // reflected representation. Without the concrete-type dispatch inside
 // fromReflect a `Value` field would marshal to an array of the Value struct's

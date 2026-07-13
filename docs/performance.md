@@ -20,10 +20,10 @@ standard-library-only: the peer engines are dependencies of the harness alone,
 never of Quill. Three workloads exercise different cost centers, each rendering
 the same logical input across engines:
 
-- **Tiny** -- a single interpolation with one filter: `Hello {{ name | upper }}!`.
-- **Loop** -- a `@for` over records, emitting an indexed line per row with an
+- **Tiny** is a single interpolation with one filter: `Hello {{ name | upper }}!`.
+- **Loop** is a `@for` over records, emitting an indexed line per row with an
   `upper` filter and two field reads.
-- **Compose** -- `@extends` + overriding `@block`s + `parent()` + a loop, the
+- **Compose** is `@extends` + overriding `@block`s + `parent()` + a loop, the
   template-inheritance path.
 
 A verification test asserts that every engine renders byte-identical output for
@@ -55,7 +55,7 @@ comparison rather than a like-for-like language comparison. See
   predictably than a manual `b.N` loop.
 - **`SetBytes` -> MB/s**: each render benchmark renders once outside the timed
   loop to size `b.SetBytes(len(output))`, so `go test` reports render throughput
-  in MB/s alongside ns/op -- a size-normalized figure that stays comparable as a
+  in MB/s alongside ns/op, a size-normalized figure that stays comparable as a
   workload grows.
 - **Size-parameterized scaling**: the Loop workload sweeps `n = 1, 10, 100,
   1000` rows as sub-benchmarks (`.../n=100`), so per-engine scaling from a single
@@ -68,7 +68,7 @@ comparison rather than a like-for-like language comparison. See
 - **benchstat**: run the suite repeatedly (`-count`) and summarize the
   distribution (mean +/- variation) with
   [benchstat](https://pkg.go.dev/golang.org/x/perf/cmd/benchstat) rather than
-  trusting a single noisy run -- wired up as `task bench:stat` (see
+  trusting a single noisy run. It is wired up as `task bench:stat` (see
   [Reproducing](#reproducing-the-numbers)).
 
 ## Results
@@ -76,7 +76,7 @@ comparison rather than a like-for-like language comparison. See
 The table below is **illustrative, not a guarantee**. It was measured with `go
 test -bench` on one machine (Apple M2 Max, Go 1.26, `darwin/arm64`), render phase
 only (templates parsed once, outside the timed loop), medians of six runs.
-Absolute numbers vary by machine and Go version -- reproduce them locally with
+Absolute numbers vary by machine and Go version; reproduce them locally with
 `task bench:all` and read the same-run *ratios*, not the nanoseconds:
 
 | Workload | Quill interpreter | Quill compiled | Go `text/template` |
@@ -119,7 +119,7 @@ compiled path dispatches.
 ## The compile-to-Go backend
 
 Templates run on the tree-walking interpreter by default. For the hot path, the
-compile-to-Go backend -- reached through the `quill compile` command -- generates
+compile-to-Go backend (reached through the `quill compile` command) generates
 Go source (a render function plus a dispatch manifest) that you install with
 `WithCompiled`:
 
@@ -148,8 +148,8 @@ render, which is well within budget for typical render workloads: a parse is
 memoized in the cache and reused across renders, the postfix conditional desugars
 to a ternary at parse time (no extra node kind), and coverage instrumentation is a
 single nil-check when no collector is attached. The value layer spends its
-correctness budget once in the `runtime` package -- one equality, one ordering,
-one truthiness, one `ToText` -- so the hot path does no per-site algorithm
+correctness budget once in the `runtime` package (one equality, one ordering,
+one truthiness, one `ToText`), so the hot path does no per-site algorithm
 selection.
 
 ## Reproducing the numbers
@@ -197,7 +197,7 @@ to `go run` if it is not on `PATH`.)
 To track deltas over time, `bench/baseline.txt` holds a committed reference run.
 `task bench:compare` measures the current tree against it with benchstat, and
 `task bench:baseline` regenerates that file. It is committed and refreshed
-**intentionally** -- after a deliberate performance change, regenerate it on a
+**intentionally**. After a deliberate performance change, regenerate it on a
 quiet machine and commit the update so the comparison stays meaningful. Because
 absolute numbers are machine-specific, `bench:compare` is most useful for a
 before/after on the *same* machine.
@@ -208,8 +208,8 @@ command to open them.
 
 ## Next
 
-- [Comparison](comparison.md) -- the neutral capability matrix vs other Go
+- [Comparison](comparison.md): the neutral capability matrix vs other Go
   engines.
-- [Architecture](architecture.md) -- the interpreter and the compile-to-Go
+- [Architecture](architecture.md): the interpreter and the compile-to-Go
   backend.
-- [CLI](cli.md) -- the `compile` subcommand.
+- [CLI](cli.md): the `compile` subcommand.

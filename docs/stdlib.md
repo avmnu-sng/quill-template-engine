@@ -3,8 +3,8 @@
 This is the reference for Quill's built-in standard library: the filters piped
 with `|`, the functions called with `name(...)`, and the tests applied with `is`
 / `is not`. Each entry states its Go semantics. The runtime value rules these
-callables operate under -- truthiness, equality, ordering, coercion, undefined
-handling, escaping -- are in [Types](types.md). The call surface (pipe/call/test
+callables operate under (truthiness, equality, ordering, coercion, undefined
+handling, escaping) are in [Types](types.md). The call surface (pipe/call/test
 forms, named and defaulted arguments) is in [Expressions](guide/expressions.md).
 
 ## The three callable kinds
@@ -16,7 +16,7 @@ forms, named and defaulted arguments) is in [Expressions](guide/expressions.md).
 | Test | `x is name` / `x is name(arg)` / `x is not name` | the tested value `x` |
 
 A filter is a function whose first parameter is supplied by the pipe: `x | f(a, b)`
-is exactly `f(x, a, b)`. There is no separate filter-versus-function namespace -- a
+is exactly `f(x, a, b)`. There is no separate filter-versus-function namespace: a
 name resolves to at most one filter, one function, and one test, and the syntactic
 position selects which.
 
@@ -109,7 +109,7 @@ is "piped `T`, returns `R`"; `(T, A) -> R` lists the piped value first.
 - **`replace` (strtr-style).** Substitution is longest-key-first, non-overlapping,
   single-pass, and byte-level: every position is matched against the longest
   applicable key, the match is emitted as its replacement, and scanning resumes
-  after the match -- a replacement is never re-scanned. This is not naive
+  after the match. A replacement is never re-scanned. This is not naive
   sequential replacement (which would cascade `a->b` then `b->c`). Backed by
   `strings.Replacer`.
 - **`merge`.** Integer-keyed values from `other` are appended and reindexed onto
@@ -140,8 +140,8 @@ length-zero collections/strings and `Null`.
 
 ### Attribute projection, named-test filtering, and grouping
 
-Four collection filters take an `attribute: "path"` named argument -- a dotted
-path plucked from each element -- so a projection reads a nested value directly
+Four collection filters take an `attribute: "path"` named argument (a dotted
+path plucked from each element), so a projection reads a nested value directly
 rather than through an arrow:
 
 ```
@@ -284,11 +284,11 @@ statement: `{{ "markdown" is filter }}`.
 ## Indentation and text-shaping helpers
 
 These filters and functions shape indentation and vertical whitespace. They are
-used heavily wherever line layout matters -- indented markup, nested config,
-program source -- and they complement the trim modifiers in
+used heavily wherever line layout matters (indented markup, nested config,
+program source), and they complement the trim modifiers in
 [Whitespace Control](whitespace.md).
 
-### `tab` -- the indentation workhorse
+### `tab`: the indentation workhorse
 
 `n | tab` produces `n` levels of indentation standalone (`{{ 1 | tab }}` emits one
 indent), and `s | tab(n)` indents each non-blank line of `s` by `n` levels. One
@@ -296,7 +296,7 @@ level expands to `WithTabWidth` spaces (default 4), so `{{ 1 | tab }}` emits fou
 spaces by default and a host that sets `WithTabWidth(2)` gets two. A level of zero
 or below emits no indentation.
 
-### `space`, `break`, and `tab` -- the indentation functions
+### `space`, `break`, and `tab`: the indentation functions
 
 | Function | Emits |
 |----------|-------|
@@ -306,19 +306,19 @@ or below emits no indentation.
 
 A count of zero or below emits nothing.
 
-### `@tab(n) { ... }` -- the indentation-aware region
+### `@tab(n) { ... }`: the indentation-aware region
 
 `@tab(n) { body @}` indents the entire rendered body by `n` levels. Indentation is
 applied by the output layer to each non-blank line as the body renders, so it
 covers interpolation, control-flow output, and included partials uniformly. Blank
 lines stay blank, and regions nest cumulatively via an indent stack.
 
-### `ucfirst` -- byte-first upper-case
+### `ucfirst`: byte-first upper-case
 
 `ucfirst` upper-cases the first byte only and leaves the rest unchanged, distinct
 from `capitalize` (which lower-cases the remainder).
 
-### `indent` -- the explicit multi-line indenter
+### `indent`: the explicit multi-line indenter
 
 `s | indent(n, unit: string = "    ")` indents each line of `s` by `n` units, with
 the indentation unit configurable. It complements `tab`'s level-based model when
@@ -333,7 +333,7 @@ switches a single site back to unescaped. See [Escaping & Safety](safety.md).
 
 ## Next
 
-- [Extensions & Loaders](extensions.md) -- register your own filters, functions,
+- [Extensions & Loaders](extensions.md): register your own filters, functions,
   and tests.
-- [Expressions](guide/expressions.md) -- the call surface these callables use.
-- [Types](types.md) -- the value rules they operate under.
+- [Expressions](guide/expressions.md): the call surface these callables use.
+- [Types](types.md): the value rules they operate under.

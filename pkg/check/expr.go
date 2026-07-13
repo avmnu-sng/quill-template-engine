@@ -77,8 +77,8 @@ func (c *checker) exprType(n *ast.Node, sc *scope) (*Type, error) {
 		// A test subject and any argument are typed; the test yields bool.
 		// `is defined` is a whole-chain absence-suppression tool (spec 04 Section 6):
 		// it is "true/false, never throws", so an absent member/name at any hop in
-		// the subject must yield bool, not a check-time miss. Type it leniently --
-		// like ?? / default -- swallowing absence while surfacing a genuine error.
+		// the subject must yield bool, not a check-time miss. Type it leniently
+		// (like ?? / default), swallowing absence while surfacing a genuine error.
 		if n.Str == "defined" {
 			if _, err := c.exprTypeLenient(n.Child(0), sc); err != nil {
 				return Any, err

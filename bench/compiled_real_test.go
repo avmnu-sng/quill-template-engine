@@ -29,8 +29,8 @@ const realGeneratedHeader = "// Code emitted by the Quill compile backend and co
 	"//go:generate go run genloop.go\n\n"
 
 // generateCompiledLoop lowers the loop benchmark template through the real
-// compile backend on the same code path genloop.go uses -- the quill CLI's
-// compile subcommand -- and returns the exact bytes the committed
+// compile backend on the same code path genloop.go uses (the quill CLI's
+// compile subcommand) and returns the exact bytes the committed
 // compiled_loop_gen.go must contain: the generated-file header followed by the
 // CLI's generated source. It is driven by const quillLoop so a divergence
 // between the committed generator template and the benchmark template surfaces

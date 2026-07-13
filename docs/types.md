@@ -3,8 +3,8 @@
 Quill's gradual type system is its lead differentiator: a static type checker that
 runs between parse and interpret, catches a class of error before any byte is
 rendered, and stays entirely optional. This page covers the type system, the
-value model, and the runtime rules -- truthiness, equality, ordering, coercion,
-attribute access, and undefined handling -- that the checker promotes to
+value model, and the runtime rules (truthiness, equality, ordering, coercion,
+attribute access, and undefined handling) that the checker promotes to
 load-time errors where types are present.
 
 The governing invariant: **an annotation moves an error earlier in time; it never
@@ -101,7 +101,7 @@ error to check time):
   registered host signatures.
 
 Where types are absent (everything is `any`), the checker does nothing and the
-strict-by-default runtime is the only line of defense -- so untyped Quill behaves
+strict-by-default runtime is the only line of defense, so untyped Quill behaves
 exactly like the dynamic floor. The two layers agree: the static checker promotes
 a runtime error to check time; it never permits something the runtime would
 reject.
@@ -125,12 +125,12 @@ The numeric model is int64 and float64: `/` is true division (float unless
 exact), `//` is floor division, `%` is remainder, `**` is right-associative power.
 Integer overflow, division/modulo by zero, and any operation that would produce a
 non-finite float (`NaN`, `Inf`) are all **defined arithmetic errors** naming the
-operation and operands -- never a silent promotion or a `NaN`/`Inf` token. Because
+operation and operands, never a silent promotion or a `NaN`/`Inf` token. Because
 non-finite floats are unrepresentable in a live value, `==` stays reflexive and
 ordering stays total over the entire `Float` kind with no special `NaN` case.
 
-**Truthiness -- one rule.** The falsy set is exactly `{ Null, false, 0, 0.0, "",
-empty *Array }`. Everything else is truthy -- crucially `"0"` is truthy (a
+**Truthiness: one rule.** The falsy set is exactly `{ Null, false, 0, 0.0, "",
+empty *Array }`. Everything else is truthy; crucially `"0"` is truthy (a
 non-empty string), and any `Object` is truthy. This one rule is used by `if`, the
 postfix `if`, the ternary, `?:`, and the boolean operators.
 
@@ -147,7 +147,7 @@ hook. `===` is an alias of `==`; `same(a, b)` is raw reference identity.
 `<` `>` `<=` `>=` `<=>`, plus membership `in`/`not in`, `sort`, `min`, and `max`,
 are backed by one comparator. It is total within the number tower and between two
 strings (byte-lexicographic), and defined nowhere across unlike kinds. Cross-kind
-ordering is a check-time error where types are known, else a runtime error --
+ordering is a check-time error where types are known, else a runtime error,
 never silent juggling. Membership `in` uses typed `==`, so `"1" in [1]` is false.
 
 ## Coercion and the output path
@@ -177,15 +177,15 @@ renders each operand by these rules; `+` is numeric only.
 
 Two distinct operators, each kind-dispatched:
 
-- **`a.b`** -- dotted access. If `a` is an `*Array`, read string key `"b"`; if `a`
+- **`a.b`**: dotted access. If `a` is an `*Array`, read string key `"b"`; if `a`
   is an `Object`, read public field `b`, then accessor `getB`/`isB`/`hasB`
   (precedence `get > is > has`), then a class constant `b`. `a.b()` invokes a
   method.
-- **`a[k]`** -- subscript. `*Array` by key, or an `Object` index interface. Only
+- **`a[k]`**: subscript. `*Array` by key, or an `Object` index interface. Only
   int and string keys; bool/float/null subscripts are type errors. Slices
   `a[start:end]`, `a[:end]`, `a[start:]`, and negative indices route to the slice
   operation.
-- **`a?.b`, `a?[k]`** -- null-safe. A null receiver short-circuits the whole chain
+- **`a?.b`, `a?[k]`**: null-safe. A null receiver short-circuits the whole chain
   to `null`, regardless of strictness.
 - **Dynamic access** `attribute(a, name, args?)` for a runtime-computed member
   name.
@@ -201,7 +201,7 @@ gradual:
 
 - Reading an undefined context variable, an absent `*Array` key via `a.b`/`a[k]`,
   or an absent object member is a **runtime error** naming the symbol and listing
-  the available keys -- not a silent `Null`. A silently absent value is the
+  the available keys, not a silent `Null`. A silently absent value is the
   costliest failure to debug, so the default is loud. Lenient mode
   (`WithStrictVariables(false)`) restores the silent `Null`.
 - Absence is made explicit with three tools: the `is defined` test (true/false,
@@ -212,8 +212,8 @@ gradual:
 ### Suppression depth: the whole-chain rule
 
 `??`, `default`, and `is defined` set the "absence allowed" flag for the complete
-evaluation of their left operand -- every hop in an access chain, including the
-receiver -- so an absent variable or an absent intermediate member at any depth
+evaluation of their left operand (every hop in an access chain, including the
+receiver), so an absent variable or an absent intermediate member at any depth
 yields the fallback rather than an error:
 
 | Expression | `a` absent | `a` present, `.b` absent | `a.b` present, `.c` absent |
@@ -227,7 +227,7 @@ yields the fallback rather than an error:
 | `a.b.c is defined` | `false` | `false` | `false` |
 
 So `user.nick ?? "anon"` yields `"anon"` when `user` is absent, when `user` is
-present but `.nick` is absent, or when `user.nick` is present-and-null -- the
+present but `.nick` is absent, or when `user.nick` is present-and-null; the
 common "this whole path may be absent" case works with the bare `??`, no `?.`
 required.
 
@@ -248,13 +248,13 @@ order with both targets. `is sequence` / `is mapping` split on list-shape (an
 empty `*Array` is a sequence). The key model: a canonical decimal-integer key is
 an integer key; everything else is a string key (`"01"`, `"1.0"`, `" 1"`, `"+1"`
 stay strings). `*Array` values are value types, copy-on-write at loop, include,
-and rebind boundaries -- a value semantic matching the slice/map mental model.
+and rebind boundaries, a value semantic matching the slice/map mental model.
 
 ## Next
 
-- [Escaping & Safety](safety.md) -- the escape strategies, the safeness
+- [Escaping & Safety](safety.md): the escape strategies, the safeness
   machinery, and the sandbox.
-- [Standard Library](stdlib.md) -- the filters, functions, and tests that operate
+- [Standard Library](stdlib.md): the filters, functions, and tests that operate
   under these rules.
 - [Types & Semantics reference](reference/language.md) points back into the full
   language manual.

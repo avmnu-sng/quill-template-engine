@@ -313,7 +313,7 @@ func equalType(a, b *Type) bool {
 // 6.6): identical types join to themselves; any absorbs; null widens a type to
 // nullable; int and float join to their union (no `number` supertype);
 // otherwise the join is the union. The join never silently widens a scalar to
-// any -- widening to any happens only when one input is already any.
+// any; widening to any happens only when one input is already any.
 func join(a, b *Type) *Type {
 	if a == nil {
 		a = Any

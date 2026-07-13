@@ -2,8 +2,8 @@
 
 // This file is compiled only under the "thirdparty" build tag, so the default
 // benchmark run stays offline with zero external dependencies. It adds the
-// third-party peer (pongo2, jet) legs for two of the Phase 2a scenarios -- the
-// filter pipeline and the if/elseif/else conditional -- so those workloads can
+// third-party peer (pongo2, jet) legs for two of the Phase 2a scenarios (the
+// filter pipeline and the if/elseif/else conditional), so those workloads can
 // be compared against the same-runtime Twig/Jinja-family engines, exactly as the
 // Phase 1 Loop workload is.
 //
@@ -11,8 +11,8 @@
 // (scenarios_test.go) chains upper|trim|replace|default, a chain pongo2 and jet
 // cannot express with a matching filter set (pongo2 has no trim filter; neither
 // has Quill's map-form replace or null-only default). So the PEER filter
-// scenario here uses the subset every engine reproduces byte-identically --
-// upper on the name plus join on the tag list -- with its own templates
+// scenario here uses the subset every engine reproduces byte-identically
+// (upper on the name plus join on the tag list) with its own templates
 // (quillPeerFilter / stdPeerFilter / the pongo2 and jet sources). The name keeps
 // its surrounding whitespace precisely because no engine trims it, so all four
 // engines emit the same bytes. The conditional scenario, by contrast, reuses the
@@ -22,7 +22,7 @@
 // pongo2 and jet default to HTML-autoescaping, but every interpolated value in
 // these two scenarios is escape-free (letters, digits, spaces, commas, the
 // bracket/period/colon literals are TEMPLATE text), so no escaping fires and the
-// raw output already matches byte for byte -- no normalization is needed. This is
+// raw output already matches byte for byte, so no normalization is needed. This is
 // the same property the Phase 1 Loop fairness relies on.
 //
 // Fetch the peers and run with:
@@ -88,7 +88,7 @@ const jetPeerFilter = `{{- range i, u := users -}}
 // jetFilterSet builds a jet Set holding the peer filter and conditional
 // templates, with a joinTags global that joins a []string with a separator (the
 // join filter jet lacks). Development mode is left off so parsed templates are
-// cached -- the fair "loaded once, render many" configuration.
+// cached: the fair "loaded once, render many" configuration.
 func jetFilterSet() *jet.Set {
 	loader := jet.NewInMemLoader()
 	loader.Set("filter.jet", jetPeerFilter)
@@ -138,7 +138,7 @@ const jetCond = `{{- range i, u := users -}}
 // TestVerifyScenariosThirdparty asserts the ENTIRE rendered output of the peer
 // filter and conditional scenarios is byte-identical across every engine the
 // thirdparty benchmarks compare: Quill (interpreter), text/template, pongo2, and
-// jet. Timing engines that produce identical bytes is the whole point -- the
+// jet. Timing engines that produce identical bytes is the whole point; the
 // benchmarks must compare equivalent work. No normalization is needed: every
 // interpolated value is escape-free, so pongo2's and jet's default HTML
 // autoescaping does not fire.

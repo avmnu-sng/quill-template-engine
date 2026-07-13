@@ -19,13 +19,13 @@ import (
 // snapshot. Reuse is de-risked ONLY by the escape gate (forSafe) proving the
 // loop value never outlives its iteration.
 //
-// Every case renders the SAME template twice -- once with reuse on (the shipped
+// Every case renders the SAME template twice, once with reuse on (the shipped
 // default) and once with reuseLoopInfo forced off, the fresh-per-iteration
-// NewLoopValue path -- and asserts the two outputs are byte-identical, the whole
+// NewLoopValue path, then asserts the two outputs are byte-identical, the whole
 // safety claim: reuse is a pure allocation elision and can never change a
 // rendered byte. Cases whose loop escapes ALSO assert the loop is classified
 // unsafe (absent from forSafe), so the parity is not an accident of both renders
-// taking the fresh path -- the reuse would corrupt the capture if the gate let
+// taking the fresh path; the reuse would corrupt the capture if the gate let
 // it through.
 
 // renderReuse renders body against eng with loop-value reuse ON.
@@ -116,8 +116,8 @@ func TestReuseCaptureViaSetStaysFrozen(t *testing.T) {
 // TestReuseCaptureInCellReadAfterLoop stores the loop value in a cell that
 // outlives the loop's child scope and reads its fields after the loop ends. The
 // cell holds the object, so the loop escapes and must keep the fresh path;
-// otherwise a later index advance -- there is none here, but the frozen contract
-// is what the classification protects -- would surface a different step. The
+// otherwise a later index advance (there is none here, but the frozen contract
+// is what the classification protects) would surface a different step. The
 // capture happens in the last iteration and its frozen index/prev/next/length
 // must read that step both ways.
 func TestReuseCaptureInCellReadAfterLoop(t *testing.T) {
@@ -320,7 +320,7 @@ func TestReuseTwoTargetLoopPoolSafe(t *testing.T) {
 }
 
 // TestReuseBlockLoopIsPoolSafe pins the composition gain: a self-contained
-// KArray loop inside a @block body -- the shape the Compose workload renders --
+// KArray loop inside a @block body (the shape the Compose workload renders)
 // reuses its object like a top-level loop, and the rendered output is identical
 // with reuse on and off.
 func TestReuseBlockLoopIsPoolSafe(t *testing.T) {

@@ -116,7 +116,7 @@ func fn1Battery() []runtime.Value {
 }
 
 // fn1Opaque is a host object with no Stringify hook, so ToText-based filters
-// error on it -- exercising the error arm of the Fn/Fn1 equivalence.
+// error on it, exercising the error arm of the Fn/Fn1 equivalence.
 type fn1Opaque struct{}
 
 // GetField exposes no fields, returning (null, false).

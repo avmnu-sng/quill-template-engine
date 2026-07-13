@@ -7,7 +7,7 @@ import (
 )
 
 // sampleReport builds a report with one covered unit, one uncovered unit, and a
-// two-arm branch with only the then arm taken -- enough to exercise every writer
+// two-arm branch with only the then arm taken, which is enough to exercise every writer
 // path (DA hit/miss, BRDA hit and '-' sentinel, covered/uncovered/neutral lines).
 func sampleReport() *Report {
 	snap := map[regionID]int64{

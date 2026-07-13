@@ -23,7 +23,7 @@ var updateGolden = flag.Bool("update", false, "update coverage report golden fil
 // covered @if (both arms fired across two renders) and a partially covered @for
 // (body arm only); an unreached @else body; and a shared partial recorded under
 // its own name. It renders TWICE with different data so the two @if arms and the
-// two @for arms are unioned into one Report -- the aggregation the reporters
+// two @for arms are unioned into one Report, the aggregation the reporters
 // consume. Output is deterministic: templates and regions sort by name/position,
 // so the golden bytes are stable across runs.
 func goldenReport(t *testing.T) *cover.Report {

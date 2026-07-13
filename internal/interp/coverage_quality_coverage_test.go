@@ -35,7 +35,7 @@ func prepSandbox(t *testing.T, name, body string) *Template {
 // TestRenderSandboxedAllows covers the success path: an engine whose GLOBAL
 // sandbox is off still renders under RenderSandboxed with the policy enforced,
 // and an allowed template produces its ordinary output. The engine's global
-// gate being off proves the per-render force -- not the engine setting -- is
+// gate being off proves the per-render force (not the engine setting) is
 // what activates the sandbox.
 func TestRenderSandboxedAllows(t *testing.T) {
 	eng := newStub(nil)
@@ -157,7 +157,7 @@ func TestBindTargetNullNestedListWithSpread(t *testing.T) {
 		t.Fatalf("present nested spread: got %q want %q", got, "1|7|[8,9]")
 	}
 
-	// Absent: the optional nested pattern goes through bindTargetNull -- b is
+	// Absent: the optional nested pattern goes through bindTargetNull, where b is
 	// null and the spread tail is an empty sequence, not undefined.
 	got = renderStub(t, eng, src, map[string]runtime.Value{
 		"xs": list(runtime.Int(1)),
@@ -254,7 +254,7 @@ func TestBindTargetNullMapPattern(t *testing.T) {
 // contributor forces a fresh owned merged map; a THIRD merges into that owned
 // map in place. A three-level @extends chain, every level carrying a pool-safe
 // loop, drives all three arms in one render (child aliases, parent copies,
-// grandparent merges), and the render still produces the exact output -- proving
+// grandparent merges), and the render still produces the exact output, proving
 // the union does not disturb execution.
 
 // TestAbsorbForSafeChainThreeContributors renders a three-level @extends chain
@@ -313,7 +313,7 @@ func TestAbsorbForSafeCopyOnWrite(t *testing.T) {
 
 	in := &interp{}
 
-	// Arm 1: first contributor is aliased read-only -- same map by identity, and
+	// Arm 1: first contributor is aliased read-only: the same map by identity, and
 	// the render does not yet claim ownership.
 	in.absorbForSafe(t1)
 	if !sameForSafe(in.forSafe, t1.forSafe) {
@@ -324,7 +324,7 @@ func TestAbsorbForSafeCopyOnWrite(t *testing.T) {
 	}
 
 	// Arm 2: second contributor forces a fresh owned map. The union must hold
-	// both nodes, ownership flips true, and -- the load-bearing check -- t1's
+	// both nodes, ownership flips true, and, as the load-bearing check, t1's
 	// ORIGINAL map must be unchanged (still length 1, still just its own node).
 	in.absorbForSafe(t2)
 	if !in.forSafeOwned {
@@ -344,7 +344,7 @@ func TestAbsorbForSafeCopyOnWrite(t *testing.T) {
 		t.Fatal("copy-on-write violated: t1's map no longer holds exactly its own node")
 	}
 
-	// Arm 3: third contributor merges in place -- the owned map's identity is
+	// Arm 3: third contributor merges in place, so the owned map's identity is
 	// preserved and it now holds all three nodes.
 	owned := in.forSafe
 	in.absorbForSafe(t3)

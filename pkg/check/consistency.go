@@ -1,7 +1,7 @@
 package check
 
 // consistent reports whether a value of static type s may flow into a context
-// expecting type t -- the gradual consistency relation S ~ T of
+// expecting type t: the gradual consistency relation S ~ T of
 // design/type-system.md Section 7.1, NOT subtyping. Consistency, not subtyping,
 // governs flow:
 //
@@ -87,7 +87,7 @@ func (c *checker) consistent(s, t *Type) bool {
 // renderable types are null, bool, int, float, string, and an Object whose host
 // node declares a stringify hook; list and map are NOT renderable (rendering an
 // *Array is the explicit runtime error, promoted to check time). A union is
-// renderable iff EVERY arm is renderable -- the narrowing requirement. any is
+// renderable iff EVERY arm is renderable (the narrowing requirement). any is
 // renderable (the check is inert under any; the runtime is the guard).
 func (c *checker) renderable(t *Type) bool {
 	if t == nil {
@@ -116,7 +116,7 @@ func (c *checker) renderable(t *Type) bool {
 // iterates its element; a map iterates its value (with the key as the second
 // target); a string is iterable per the runtime; an Object iterates its declared
 // element type; any is iterable as any. A scalar (int/bool/float/null) is NOT
-// iterable -- a typed for over it is the promoted T4 runtime error.
+// iterable; a typed for over it is the promoted T4 runtime error.
 func (c *checker) iterableElem(t *Type) (elem *Type, key *Type, ok bool) {
 	if t == nil || t.kind == KAny {
 		return Any, Any, true

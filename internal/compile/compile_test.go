@@ -349,8 +349,8 @@ func TestDeterminismAndHygiene(t *testing.T) {
 	}
 }
 
-// TestLoadGateParity asserts Module runs the facade's load-time gates -- the
-// gradual type checker and the literal-regex validation -- rejecting exactly
+// TestLoadGateParity asserts Module runs the facade's load-time gates (the
+// gradual type checker and the literal-regex validation), rejecting exactly
 // the templates the facade rejects at load, with the facade's exact error
 // text, even when the offending construct sits in dead code.
 func TestLoadGateParity(t *testing.T) {

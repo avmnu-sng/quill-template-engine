@@ -1,8 +1,8 @@
-# Quill -- Extensions
+# Quill Extensions
 
 Quill's standard library is the floor, not the ceiling. A host application adds
-its own filters, functions, and tests -- and its own constants and enumerations
--- through the `ext` package, layers them over the core library when it builds an
+its own filters, functions, and tests (and its own constants and enumerations)
+through the `ext` package, layers them over the core library when it builds an
 `Environment`, and (optionally) teaches the sandbox and the type checker about
 them. This document is the full reference for that surface.
 
@@ -54,7 +54,7 @@ type Test struct {
 }
 ```
 
-Every `Fn` takes the render's `context.Context` as its first parameter -- the
+Every `Fn` takes the render's `context.Context` as its first parameter: the
 cancellation and deadline context threaded from the `Render` call, which a
 long-running callable should honor. It is distinct from the `NeedsContext`
 injection flag (Section 6), which prepends the template's variable scope into
@@ -87,8 +87,8 @@ set.AddFilter(&ext.Filter{
 A filter may additionally publish `Fn1`, its behavior for a bare pipe with no
 explicit arguments. The engine consults `Fn1` only when the call site proved
 zero explicit arguments syntactically and none of the `Needs*` flags is set;
-every other invocation -- explicit arguments, spreads (even ones that expand to
-nothing), injection flags, or a registration without `Fn1` -- builds the usual
+every other invocation (explicit arguments, spreads including ones that expand
+to nothing, injection flags, or a registration without `Fn1`) builds the usual
 fresh argument slice and goes through `Fn`. Which of the two runs is an engine
 dispatch choice the template author never observes, so a registration that sets
 `Fn1` must keep `Fn`'s zero-extra-argument behavior identical; the easiest way
@@ -182,8 +182,8 @@ is a registration-time programming error, not a template fault, so the helper
 result type, too many results, a second result that is not `error`, or a test
 that does not return a bool.
 
-The struct form (Section 1) and the typed helpers interoperate freely -- a single
-`Set` can hold both -- so reach for the helper by default and drop to the
+The struct form (Section 1) and the typed helpers interoperate freely (a single
+`Set` can hold both), so reach for the helper by default and drop to the
 struct form only where you need the raw slice.
 
 --------------------------------------------------------------------------------
@@ -203,7 +203,7 @@ set.AddConstant("PI", runtime.Float(3.14159))
 set.AddEnum("Color", []runtime.Value{runtime.Str("red"), runtime.Str("green")})
 ```
 
-Adding a name that already exists **shadows** the earlier entry -- this is exactly
+Adding a name that already exists **shadows** the earlier entry; this is exactly
 how a host overrides a built-in of the same kind and name. All filter, function,
 and test registration must complete before rendering begins: renders read the
 registry without synchronization, so mutating a `Set` mid-render is
@@ -283,8 +283,8 @@ When you build an `Environment`, the registry is layered bottom-up:
 3. each host layer supplied via `WithExtensions` and `WithExtension`, **in the
    order the options were passed**.
 
-So a later host layer shadows an earlier one, and every host layer shadows core --
-a host can override any built-in without editing the engine. `WithExtensions`
+So a later host layer shadows an earlier one, and every host layer shadows core.
+A host can override any built-in without editing the engine. `WithExtensions`
 takes one or more `*Set` layers; `WithExtension` takes one or more
 `Bundle` values; multiple options accumulate, and sets and bundles interleave
 in option order.
@@ -304,11 +304,11 @@ env := quill.New(ldr,
 A filter or function may need an engine value the template author never passes.
 The three flags on `Filter` and `Function` request them:
 
-- `NeedsEnvironment` -- a handle back into the engine, so the callable can load,
+- `NeedsEnvironment`: a handle back into the engine, so the callable can load,
   render, or read the source of another template.
-- `NeedsContext` -- the live call-site scope, materialized as an `*Array` of the
+- `NeedsContext`: the live call-site scope, materialized as an `*Array` of the
   variables visible where the callable was called.
-- `NeedsCharset` -- the active charset.
+- `NeedsCharset`: the active charset.
 
 When a flag is set, the interpreter **prepends** the requested value(s) into
 `args` ahead of the piped value and the user arguments, in the fixed order
@@ -374,7 +374,7 @@ env := quill.New(ldr, quill.WithExtensions(set), quill.WithTypes(reg))
 
 With the signature registered, a call to `clamp` with the wrong arity or an
 argument of the wrong type is rejected at load time, before any byte is rendered.
-Registering a signature never changes runtime behavior -- it only moves an error
+Registering a signature never changes runtime behavior; it only moves an error
 earlier in time, so a template renders identical bytes with or without the
 registry.
 
@@ -421,8 +421,8 @@ Run it with `go run ./examples/extension`.
 A `loader.Loader` resolves a template name to its source. Beyond the in-memory
 `ArrayLoader` and the directory-rooted `FilesystemLoader`, four composable
 loaders let a host assemble the exact resolution strategy it needs. Each
-satisfies `loader.Loader` fully -- a `Get(name)` returning the source or a
-not-found error, and a cheap `Exists(name)` probe -- so any of them, in any
+satisfies `loader.Loader` fully (a `Get(name)` returning the source or a
+not-found error, and a cheap `Exists(name)` probe), so any of them, in any
 combination, plugs into `quill.New`.
 
 ### ChainLoader

@@ -234,8 +234,8 @@ func TestSortMapErrors(t *testing.T) {
 
 // TestSelectAttrTruthiness covers the one-argument selectattr(path)/rejectattr(path)
 // form filtering by the engine truthiness rule (spec 03 Section 2.2). The flag
-// values mix booleans, numbers, strings, and null so the truthiness rule -- not a
-// strict `is true` test -- is what governs.
+// values mix booleans, numbers, strings, and null so the truthiness rule (not a
+// strict `is true` test) is what governs.
 func TestSelectAttrTruthiness(t *testing.T) {
 	people := list(
 		flagged("ann", runtime.Bool(true)),

@@ -3,20 +3,20 @@
 v1.0.0 is Quill's first stable release. From this version the exported API
 follows semantic versioning: no exported symbol in the root package or the
 `pkg/` packages changes incompatibly within the v1 series. To get there, v1.0.0
-batches every remaining breaking change into a single window -- so the jump from
+batches every remaining breaking change into a single window, so the jump from
 v0.3.0 carries an unusually large BREAKING set, and after it compatibility is the
 rule.
 
 This guide maps each old API to its v1.0.0 replacement. Most hosts only import
 the root package plus `runtime` and `loader`, so the changes you are most likely
 to hit are the context parameter, the opaque `runtime.Value`, and the `ext`/
-`sandbox` renames -- start there.
+`sandbox` renames. Start there.
 
 ## At a glance
 
 | Area | v0.3.0 | v1.0.0 |
 |------|--------|--------|
-| Render / load | `env.Render("t", vars)` | `env.Render(ctx, "t", vars)` -- `context.Context` first |
+| Render / load | `env.Render("t", vars)` | `env.Render(ctx, "t", vars)` (`context.Context` first) |
 | In-memory env | `quill.NewWithArray(m)` | `quill.NewFromMap(m)` |
 | Read a value | `v.S`, `v.I`, `v.Kind` (fields) | `v.AsStr()`, `v.AsInt()`, `v.Kind()` (accessors) |
 | Prepared template | `*interp.Template` with `Block()`/`Macro()` | opaque `*quill.Template`; render with `RenderPrepared` |
@@ -36,7 +36,7 @@ to hit are the context parameter, the opaque `runtime.Value`, and the `ext`/
 ## 1. `context.Context` on every render and load
 
 Every render and load entry point now takes a `context.Context` as its first
-argument -- `Render`, `RenderTo`, `RenderString`, `RenderStringTo`,
+argument: `Render`, `RenderTo`, `RenderString`, `RenderStringTo`,
 `RenderValues`, `RenderToValues`, `RenderStringValues`, `LoadTemplate`,
 `CompileString`, and the new `RenderPrepared`. A long render, or a host callable
 doing I/O, can now be cancelled with the context; an uncancelled render produces
@@ -81,7 +81,7 @@ inside a compiled `RenderFunc` vars map.
 
 `LoadTemplate` and `CompileString` now return an opaque `*quill.Template` rather
 than the internal interpreter template. The handle exposes a curated inspection
-surface -- `Name()`, `BlockNames()`, `HasBlock(name)`, `HasMacro(name)` -- and no
+surface (`Name()`, `BlockNames()`, `HasBlock(name)`, `HasMacro(name)`) and no
 longer hands out AST-returning `Block()`/`Macro()` accessors. Render a prepared
 handle with `RenderPrepared`, the parse-once/render-many path:
 
@@ -156,7 +156,7 @@ callback receive `ctx`.
 
 - `quill.NewWithArray(map[string]string)` -> `quill.NewFromMap(...)` (it always
   took a map, never an array).
-- `Environment.Display(w, name, vars)` is removed -- use
+- `Environment.Display(w, name, vars)` is removed; use
   `RenderTo(ctx, w, name, vars)`.
 - The renderer-internal `Environment` getters are no longer public:
   `StrictVariables`, `AutoescapeHTML`, `Policy`, `SandboxActive`, `Coverage`,
@@ -187,7 +187,7 @@ Continue to classify failures with `errors.As`/`errors.Is` on the exported
 
 ## 8. `cover`: instrumentation hooks are internal
 
-`cover.Collector`'s record-side hooks -- `Hit`, `SeedTemplate`, `SeedMacro` --
+`cover.Collector`'s record-side hooks (`Hit`, `SeedTemplate`, `SeedMacro`)
 are removed from the public API. They were only ever driven by the interpreter,
 never by hosts. Keep using the report side: attach a `Collector` with
 `WithCoverage`, then consume `Report()`, its `WriteText`/`WriteLCOV`/`WriteHTML`
@@ -206,14 +206,14 @@ quill compile -root templates -pkg qtpl -o index_gen.go index.quill
 ```
 
 ```go
-// v1.0.0 -- install the generated unit
+// v1.0.0: install the generated unit
 env := quill.New(ldr, quill.WithCompiled(qtpl.Manifest))
 ```
 
 ## 10. `loader.ErrNotFound` replaces text matching
 
 Loader misses now wrap the exported sentinel `loader.ErrNotFound`, and
-`loader.IsNotFound` is `errors.Is(err, loader.ErrNotFound)` -- it no longer
+`loader.IsNotFound` is `errors.Is(err, loader.ErrNotFound)`; it no longer
 matches unrelated errors whose message merely contains "not found". Classify a
 miss with the sentinel:
 
@@ -224,11 +224,11 @@ if errors.Is(err, loader.ErrNotFound) { /* handle the miss */ }
 
 More broadly, error **message strings are not part of the compatibility
 contract**: branch on the exported `Kind`, with `errors.As`/`errors.Is`, or
-against a sentinel such as `loader.ErrNotFound` -- never by matching message
+against a sentinel such as `loader.ErrNotFound`, never by matching message
 text.
 
-The `loader.NewFuncLoader` callback also gained an error return --
-`func(name string) (string, bool, error)` -- so a database- or network-backed
+The `loader.NewFuncLoader` callback also gained an error return
+(`func(name string) (string, bool, error)`), so a database- or network-backed
 loader can report an I/O failure distinctly from a miss. Return a nil error and
 `false` for a plain miss:
 
@@ -248,7 +248,7 @@ loader.NewFuncLoader(func(name string) (string, bool, error) {
 The `quill cover` CI gate now exits with code **2** when total unit coverage is
 below the threshold, distinct from a hard error's exit **1**, so CI can tell a
 coverage shortfall from a real failure. The redundant `-threshold` alias is
-removed -- use `-fail-under`.
+removed; use `-fail-under`.
 
 ## Checklist
 

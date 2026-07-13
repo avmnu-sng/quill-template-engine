@@ -91,7 +91,7 @@ func TestLoopParentChainCapturedAcrossNesting(t *testing.T) {
 // different iterations of one nested loop and reads both after the loops end:
 // each capture keeps its own step's fields (equal to what that step resolved
 // live) and does not disturb the other, while both parents read the same outer
-// step -- the three properties a layout that shared or reused per-iteration
+// step: the three properties a layout that shared or reused per-iteration
 // state would break.
 func TestCapturedLoopValuesStayEqualAndIndependent(t *testing.T) {
 	src := "@set first = {}\n" +

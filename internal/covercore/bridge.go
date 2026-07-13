@@ -9,7 +9,7 @@ package covercore
 // pkg/cover registers a one-line accessor here at init; internal/interp then calls
 // CoreOf, passing the *cover.Collector it received from the engine. Both the
 // accessor and CoreOf live in this internal package, so a host outside the module
-// can reach neither -- it only ever holds a *cover.Collector, whose methods are
+// can reach neither; it only ever holds a *cover.Collector, whose methods are
 // the report side alone. This mirrors the standard-library idiom of bridging two
 // packages through a function value set in init to sidestep an import cycle.
 
@@ -27,7 +27,7 @@ func SetCollectorBridge(f func(any) *Core) { collectorCore = f }
 // CoreOf returns the *Core behind a *cover.Collector, or nil when coll is nil, is
 // not a *cover.Collector, or the bridge is uninstalled. The interpreter uses it to
 // turn the host-facing Collector it gets from the engine into the internal Core it
-// records hits and seeds on -- the one path from the public wrapper to the private
+// records hits and seeds on: the one path from the public wrapper to the private
 // record side, and one that only in-module (internal) callers can take.
 func CoreOf(coll any) *Core {
 	if collectorCore == nil || coll == nil {

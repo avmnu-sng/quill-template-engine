@@ -38,7 +38,7 @@ type includeCase struct {
 // pin the fixpoint's reach and the loop.changed scope cut: a nested @include chain
 // whose innermost partial reads the outer loop, a loop.parent.parent read two
 // include boundaries deep, and loop.changed sites that must land in the include
-// child scope -- a partial's own @for tracks changes normally (its changed memory
+// child scope. A partial's own @for tracks changes normally (its changed memory
 // resets each caller iteration because the partial re-renders fresh), while a
 // caller @for keeps its own changed memory untouched by an include after it. Every
 // case runs strict and, where marked, lenient.

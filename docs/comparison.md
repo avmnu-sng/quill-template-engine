@@ -3,7 +3,7 @@
 This is a neutral capability matrix for Quill against four other Go template
 engines: the standard library's `text/template` and `html/template`, and the
 Twig/Jinja-family engines pongo2 and stick. It is meant to help you choose, not to
-rank -- each engine makes different trade-offs, and the right choice depends on
+rank. Each engine makes different trade-offs, and the right choice depends on
 what you are rendering.
 
 ## Capability matrix

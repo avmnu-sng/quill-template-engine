@@ -49,8 +49,8 @@ type compiledCase struct {
 	// errPath marks a case whose render errors mid-stream: it drives the case
 	// through Environment.RenderTo under WithCompiled (frame "<name>@renderto",
 	// payload "ok") and asserts the compiled streaming path writes byte-exactly
-	// what the interpreter's RenderTo writes on the same error -- for a slots
-	// unit, nothing, with no raw yield placeholder reaching the writer.
+	// what the interpreter's RenderTo writes on the same error. For a slots
+	// unit that means nothing, with no raw yield placeholder reaching the writer.
 	errPath bool
 	// cacheCheck marks an @cache case whose store persistence across renders is
 	// the contract under test: it renders the case TWICE on one long-lived
@@ -59,8 +59,8 @@ type compiledCase struct {
 	// Environment rendered the same two times (frame "<name>@cache", payload
 	// "ok"). A single render cannot observe a cross-render hit; a warm store
 	// makes the second render replay the first render's body, so a divergent
-	// store decision -- a handle-less always-miss or a per-render cache instead
-	// of the Environment's shared one -- changes the second render's bytes and
+	// store decision (a handle-less always-miss or a per-render cache instead
+	// of the Environment's shared one) changes the second render's bytes and
 	// fails here.
 	cacheCheck bool
 	// varsJSON2 is the second render's data for a cacheCheck case, distinct from
@@ -548,8 +548,8 @@ func runRenderToCase(base string, m *compiled.Manifest, varsJSON string) {
 // error-exactly against an interpreter-only Environment rendered the same two
 // times. The second render exercises the cross-render hit: a warm store makes
 // it replay the first render's body regardless of the second render's data, so
-// a compiled path that does not share the Environment's store -- an always-miss
-// with no handle, or a per-render cache -- diverges from the interpreter on the
+// a compiled path that does not share the Environment's store (an always-miss
+// with no handle, or a per-render cache) diverges from the interpreter on the
 // second render and fails here. Both engines render the same two data sets in
 // the same order, so the store warms identically on both sides.
 func runCacheCase(base string, m *compiled.Manifest, varsJSON, varsJSON2 string) {
@@ -589,7 +589,7 @@ func runCacheCase(base string, m *compiled.Manifest, varsJSON, varsJSON2 string)
 // @extends children of a shared base), a correct render namespaces each unit's
 // store entry under its own root, so the second unit renders its own data fresh.
 // A key namespaced by the error-position source collides both units under the
-// shared definer, so the second unit replays the first's stored body -- wrong
+// shared definer, so the second unit replays the first's stored body: wrong
 // bytes the interpreter never produces. Both Environments carry both manifests'
 // sources so the interpreter renders the same two entries.
 func runCacheSharedRootCase(base string, m *compiled.Manifest, varsJSON string, peer *compiled.Manifest, peerVars string) {

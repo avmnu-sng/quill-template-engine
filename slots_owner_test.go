@@ -11,8 +11,8 @@ import (
 // TestInnermostIncludeProvideFeedsShellYield pins the slot-owner routing
 // through a nested include chain: only the innermost partial contributes a
 // @provide, two interp levels below the shell that @yields the slot, so its
-// content must travel through the shared owner state -- including a slots map
-// the owner creates only when that innermost @provide runs -- and land in the
+// content must travel through the shared owner state (including a slots map
+// the owner creates only when that innermost @provide runs) and land in the
 // shell's deferred placeholder.
 func TestInnermostIncludeProvideFeedsShellYield(t *testing.T) {
 	tmpls := map[string]string{
@@ -43,8 +43,8 @@ func TestInnermostIncludeProvideFeedsShellYield(t *testing.T) {
 // TestEmbedOverrideOntoBlocklessTemplate pins the embed override layering when
 // the embedded template defines no blocks at all: the override is the
 // sub-render's first block definition, so it must create the lazily-built
-// block table rather than write into a nil map, and -- with no matching
-// @block site in the embedded body -- it renders nothing.
+// block table rather than write into a nil map, and (with no matching
+// @block site in the embedded body) it renders nothing.
 func TestEmbedOverrideOntoBlocklessTemplate(t *testing.T) {
 	tmpls := map[string]string{
 		"page.ql":  "top\n@embed \"plain.ql\" {\n@block extra {\nOVERRIDE\n@}\n@}\nbottom\n",

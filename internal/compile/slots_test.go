@@ -159,12 +159,12 @@ func TestSlotsBattery(t *testing.T) {
 
 // slotsErrorBattery pins the streaming-dispatch error path for compiled slots
 // units: each template uses a top-level @yield (so it compiles as a buffered
-// slots unit) and then errors mid-render -- before the placeholder is written,
+// slots unit) and then errors mid-render: before the placeholder is written,
 // after it, inside an escape region, inside a @provide body after a second
 // label's placeholder was already yielded, and through an array-as-text failure
 // rather than an undefined variable. The interpreter's RenderTo buffers a slots
 // render and writes nothing on error, so the compiled Environment.RenderTo must
-// withhold its partial, still-unresolved buffer too -- otherwise a raw yield
+// withhold its partial, still-unresolved buffer too; otherwise a raw yield
 // placeholder leaks to the caller's writer, regardless of which label is open or
 // what raised the error. The success-path battery renders only fully resolved
 // output, so it cannot observe this class; this battery drives each case through
@@ -186,7 +186,7 @@ var slotsErrorBattery = []slotCase{
 		"@yield a\n@yield b\n@provide a {\nAAA\n@}\n@provide b {\npre {{ missing }}\n@}\n",
 		"", false},
 	// The error is an array-as-text render failure, not an undefined variable, so
-	// the withholding cannot key off the undefined path -- any mid-render error on
+	// the withholding cannot key off the undefined path; any mid-render error on
 	// a slots unit must discard the partial buffer.
 	{"error_array_as_text_after_yield",
 		"@yield s\nrow\n@provide s {\nx\n@}\n{{ arr }}\n",

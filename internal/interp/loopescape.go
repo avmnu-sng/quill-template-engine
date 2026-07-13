@@ -17,8 +17,8 @@ import "github.com/avmnu-sng/quill-template-engine/pkg/ast"
 // only ever differ by interp being MORE conservative (a false positive costs a
 // missed pooling; a false negative would recycle a buffer a live snapshot still
 // reads, which is a correctness bug), so every construct the compiled analyzer
-// does not model -- includes, embeds, caches, macros, blocks, and every other
-// statement outside its subset -- escapes here by default.
+// does not model (includes, embeds, caches, macros, blocks, and every other
+// statement outside its subset) escapes here by default.
 //
 // Unlike the compiled analyzer this walk records no inline field reads: pooling
 // still materializes a full snapshot, so it needs only the yes/no escape
@@ -69,7 +69,7 @@ var escInlineFields = map[string]bool{
 }
 
 // loopEscapeAnalyzer walks a module with a scope model rich enough to resolve
-// the name loop -- which @for body a reference lands in, and whether anything
+// the name loop: which @for body a reference lands in, and whether anything
 // between the reference and that body (a with frame, an arrow, a user binding
 // of loop) makes the resolution unprovable. It accumulates the set of @for
 // nodes whose loop value may escape their iteration.
@@ -84,14 +84,14 @@ type loopEscapeAnalyzer struct {
 }
 
 // analyzeLoopEscapes walks a parsed module and returns the set of @for nodes
-// whose per-iteration loop value provably never escapes the loop -- the pool-
-// safe loops. A node absent from the returned map (including any @for the walk
+// whose per-iteration loop value provably never escapes the loop (the pool-
+// safe loops). A node absent from the returned map (including any @for the walk
 // never reached) is treated as escaping, the conservative default.
 //
 // A fused @for..if is never in the returned set. Pooling recycles the entry-time
 // pair snapshot execFor materializes into a shared buffer, but a fused loop
 // replaces that snapshot with a freshly allocated survivors slice (filterLoopPairs)
-// before iterating, so its loop values never read the pooled buffer -- execFor
+// before iterating, so its loop values never read the pooled buffer; execFor
 // gates pooling on filter == nil for exactly that reason. The escape walk cannot
 // even answer the pool-safety question correctly for a fused loop: the filter
 // condition is walked in its own frame BEFORE the loop's escLoop frame is pushed
@@ -294,8 +294,8 @@ func (a *loopEscapeAnalyzer) walkStmt(n *ast.Node) {
 // is therefore marked escaping before the body is walked. The body itself is
 // then analyzed under a scope-cut frame so a self-contained loop DEFINED inside
 // the block still qualifies for pooling (the common case: an override block that
-// simply loops over its own data), while a bare loop resolving PAST the block --
-// to the unknown dispatch site's loop -- cannot be proven safe. The override
+// simply loops over its own data), while a bare loop resolving PAST the block
+// (to the unknown dispatch site's loop) cannot be proven safe. The override
 // definition that actually runs is analyzed in ITS own template's Prepare, where
 // this same rule applies, so a capturing override never slips through: the loop
 // that dispatches the block (a block site inside a @for body) is marked escaping

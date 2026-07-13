@@ -161,7 +161,7 @@ func TestEscapeRegionCaptureIsSafe(t *testing.T) {
 // its filtered body as already-safe under an active strategy: the body is escaped
 // once during the capture render, so the final emit must NOT escape it a second
 // time (spec 04 Section 8.2). The byte-for-byte oracle is capture of the SAME
-// input under the same strategy -- apply through a metacharacter-preserving
+// input under the same strategy: apply through a metacharacter-preserving
 // filter must match it exactly. A regression (the old plain-Str path) re-escapes,
 // turning e.g. "&lt;" into "&amp;lt;".
 func TestEscapeRegionApplyNotDoubleEscaped(t *testing.T) {
@@ -202,7 +202,7 @@ func TestEscapeRegionApplyNotDoubleEscaped(t *testing.T) {
 // TestEscapeRegionCodePointInvalidUTF8 checks the spec 04 Section 8.2 guard end
 // to end: emitting an invalid-UTF-8 Str under a CODE-POINT strategy (js, css,
 // html_attr, html_attr_relaxed) is a clear render error naming the strategy and
-// byte offset, surfaced through emit -- NOT a silently substituted replacement
+// byte offset, surfaced through emit, NOT a silently substituted replacement
 // char. The BYTE-oriented strategies (html, url) accept the same bytes
 // losslessly. The invalid byte is injected as a host var because JSON data
 // cannot carry one (encoding/json normalizes it to U+FFFD).

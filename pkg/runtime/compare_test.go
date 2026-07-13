@@ -75,7 +75,7 @@ func TestEqualObjectHook(t *testing.T) {
 // operand's Equaler hook against the right Value as-is. A hook that matches a
 // different object type answers true left-to-right; the plain right operand has
 // no hook, so the reverse routes through identity and is false. Equal as a
-// whole is therefore only as symmetric as the host hooks make it -- the runtime
+// whole is therefore only as symmetric as the host hooks make it; the runtime
 // does not symmetrize a one-sided host hook (spec 04 Section 4.1).
 func TestEqualObjectHookAsymmetric(t *testing.T) {
 	tagged := newFieldObj("Tag", map[string]Value{"id": Int(5)})

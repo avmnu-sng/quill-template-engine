@@ -2,12 +2,12 @@
 
 This document describes how Quill's packages are layered, the load-bearing runtime
 boundary, the value layer, the gradual type checker, and the two execution
-backends -- the tree-walking interpreter and the shipped compile-to-Go backend.
+backends: the tree-walking interpreter and the shipped compile-to-Go backend.
 The language itself is specified in the [Language Reference](reference/language.md)
 and [Grammar](reference/grammar.md); the extension API is in
 [Extensions & Loaders](extensions.md).
 
-Quill is a front end -- lexer, parser, and gradual type checker -- over a
+Quill is a front end (lexer, parser, and gradual type checker) over a
 tree-walking runtime, with a compile-to-Go backend behind the same `Template`
 contract. The Go module is `github.com/avmnu-sng/quill-template-engine`, and the
 runtime depends on nothing outside the Go standard library.
@@ -16,14 +16,14 @@ runtime depends on nothing outside the Go standard library.
 
 Quill is a layered package set with dependencies flowing downward only. The
 critical boundary is that `runtime` imports nothing from AST evaluation or
-parsing, so the correctness budget -- the comparisons, attribute access,
-truthiness, string coercion, and escape -- is spent once in `runtime` and is
+parsing, so the correctness budget (the comparisons, attribute access,
+truthiness, string coercion, and escape) is spent once in `runtime` and is
 fixture-testable in isolation. The interpreter depends only on `runtime`, and the
 compile-to-Go backend is a pure addition behind the same `Template` contract.
 
 ```
 quill/           facade: Environment, options, the render entry points, engine callables
-  pkg/           the frozen public API -- semver-stable from v1.0.0:
+  pkg/           the frozen public API, semver-stable from v1.0.0:
     source/      Source value object; CRLF normalization
     ast/         AST node (uniform struct, ordered mixed-key children, Kind discriminator)
     parse/       the parser: LL statement parser + Pratt expression loop
@@ -40,14 +40,14 @@ quill/           facade: Environment, options, the render entry points, engine c
     errors/      the structured error family, carrying source context and TypeCheck diagnostics
     sandbox/     the sandbox Policy (the spec's SecurityPolicy) and host TYPE-GRAPH
     cover/       the coverage Collector, Report, and the text/LCOV/HTML writers
-  internal/      engine internals -- not importable, exempt from the API freeze:
+  internal/      engine internals, not importable, exempt from the API freeze:
     lex/         the two-mode TEXT/CODE lexer: sigil predicate, @-sigil statement lead
                  (default) and leading-keyword statement test (pragma bare), verbatim,
                  trim modifiers, line directive
     interp/      the tree-walking interpreter: for-loop scope, include/block/macro dispatch,
                  composition, escaping regions, sandbox gating, coverage hooks
     compile/     the compile-to-Go backend: lowers a template (or a multi-template unit)
-                 to Go source -- a render function plus a dispatch manifest
+                 to Go source (a render function plus a dispatch manifest)
     covercore/   the coverage instrumentation core (region map, Hit/Seed) the interpreter drives
     jsonval/     converts decoded JSON into runtime values for the CLI data path
   cmd/quill/     the command: render, the cover subcommand, and the compile subcommand
@@ -116,8 +116,8 @@ so coverage is zero-overhead when off and never changes rendered bytes.
 ### The compile-to-Go backend (shipped)
 
 The internal compile backend (`internal/compile`, driven by the `quill compile`
-command) generates Go source for the hot path -- a render function plus a dispatch
-manifest -- which a host installs with `WithCompiled`. The generated code emits
+command) generates Go source for the hot path: a render function plus a dispatch
+manifest that a host installs with `WithCompiled`. The generated code emits
 body literals as constants, inlines loop metadata, and skips
 the per-node dispatch, `Context`, and copy-on-write the interpreter pays, so it
 renders several times faster on loop-heavy workloads (see
@@ -144,7 +144,7 @@ backend from the command line.
 
 ## Next
 
-- [Performance](performance.md) -- benchmark methodology and the compiled-vs-
+- [Performance](performance.md): benchmark methodology and the compiled-vs-
   interpreter numbers.
-- [Types](types.md) -- the value model and the gradual type system.
-- [API](api.md) -- the exported Go surface, indexed to pkg.go.dev.
+- [Types](types.md): the value model and the gradual type system.
+- [API](api.md): the exported Go surface, indexed to pkg.go.dev.

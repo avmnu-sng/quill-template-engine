@@ -1,7 +1,7 @@
 # Whitespace Control
 
 Quill gives you byte-exact control over the whitespace around statements and
-interpolations, so the output is exactly the bytes you intend -- no spurious blank
+interpolations, so the output is exactly the bytes you intend: no spurious blank
 lines from control flow, no accidental indentation, and no fighting the engine
 when a line break matters. This is a featured differentiator: Quill applies
 Jinja-style block cleanup by default, offers three trim modes, and adds a
@@ -16,13 +16,13 @@ If you are coming from Jinja, Twig, or Go `text/template`, jump to the
 Two trim modifiers attach to either side of any sigil or statement brace, and a
 third attaches to the closing side only:
 
-- **`-` (hard trim)** -- strips all adjacent whitespace, including newlines.
+- **`-` (hard trim)**: strips all adjacent whitespace, including newlines.
   `{{- expr -}}`; on a statement, `@for ... {-` ... `-@}`.
-- **`~` (line trim)** -- strips adjacent spaces, tabs, NUL, and vertical tab but
+- **`~` (line trim)**: strips adjacent spaces, tabs, NUL, and vertical tab but
   **not** newlines. `{{~ expr ~}}`. As a trim modifier `~` sits immediately inside
   a delimiter; as the concat operator it sits between operands, and position
   disambiguates.
-- **`+` (keep, closing side only)** -- suppresses the default close-newline-eating
+- **`+` (keep, closing side only)**: suppresses the default close-newline-eating
   of a statement's closing `@}` (a lone `}` under bare mode) or a comment's `#}`.
   `@}+` closes a block without consuming the following newline. It is meaningful
   only on a closing delimiter.
@@ -57,7 +57,7 @@ per site with the trim modifiers above.
 ## When you need to keep a newline
 
 The same newline-eating that cleans up list output can be unwanted when the text
-around a block already carries meaningful line breaks -- for example when a loop
+around a block already carries meaningful line breaks, for example when a loop
 body's own last line must be followed by a newline before the next block:
 
 ```
@@ -160,7 +160,7 @@ of every tag.
 
 ## Next
 
-- [Standard Library](stdlib.md) -- `spaceless`, `trim`, `tab`, `indent`,
+- [Standard Library](stdlib.md): `spaceless`, `trim`, `tab`, `indent`,
   `space`, `break`.
-- [Templates](guide/templates.md) -- the lexical rules the trim modifiers attach
+- [Templates](guide/templates.md): the lexical rules the trim modifiers attach
   to.

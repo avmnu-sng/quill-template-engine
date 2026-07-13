@@ -192,8 +192,8 @@ func TestSecurityAtPosThroughWrappedError(t *testing.T) {
 
 // TestErrorAtPosNilReceiver covers the nil-receiver guard on the wrapped
 // *Error's position machinery that (*Security).At delegates through. AtPos on a
-// nil *Error must yield nil (rather than panic), and At -- which forwards to
-// AtPos with a zero column -- must too.
+// nil *Error must yield nil (rather than panic), and At, which forwards to
+// AtPos with a zero column, must too.
 func TestErrorAtPosNilReceiver(t *testing.T) {
 	src := source.New("policy.ql", "x\n")
 	var e *Error
@@ -207,8 +207,8 @@ func TestErrorAtPosNilReceiver(t *testing.T) {
 
 // TestSecurityErrorNoPositionForm asserts that a freshly constructed *Security
 // (no source attached) renders the bare "quill security error: <msg>" form with
-// no trailing location parenthetical -- the default branch of *Error.Error when
-// Src is nil and Line is 0.
+// no trailing location parenthetical (the default branch of *Error.Error when
+// Src is nil and Line is 0).
 func TestSecurityErrorNoPositionForm(t *testing.T) {
 	s := SecurityTag("for")
 	msg := s.Error()

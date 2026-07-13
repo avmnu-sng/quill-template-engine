@@ -100,7 +100,7 @@ type FingerprintParams struct {
 	// RandomSeedSet distinguishes a deliberate seed of zero from the unseeded
 	// engine default. Two unseeded sides fingerprint-match even though a
 	// template that actually draws randomness then compares distributionally,
-	// never byte-wise -- the same caveat the compile backend documents.
+	// never byte-wise. This is the same caveat the compile backend documents.
 	RandomSeedSet bool
 }
 

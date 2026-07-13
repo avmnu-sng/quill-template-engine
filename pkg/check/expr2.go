@@ -89,7 +89,7 @@ func (c *checker) arithType(n *ast.Node, op string, sc *scope) (*Type, error) {
 
 // checkOrder types both operands of an ordering operator (< > <= >= <=>) and,
 // when both types are statically known (non-any), rejects a cross-kind ordering:
-// the operands must be order-comparable -- both within the number tower or both
+// the operands must be order-comparable: both within the number tower or both
 // string (spec 04 Section 3.2; design/type-system.md Section 7.2). This mirrors
 // the runtime, which raises KindComparison "cannot order <kind> against <kind>"
 // for unlike kinds. Equality (== != ===) is deliberately NOT routed here: it is
@@ -225,7 +225,7 @@ func (c *checker) coalesceType(n *ast.Node, sc *scope) (*Type, error) {
 // check-time miss, because the runtime would yield the fallback, not an error.
 // It still surfaces a genuine type error (a non-renderable concat, a bad arith)
 // that is unrelated to absence, because those tools suppress ONLY the strict
-// undefined/member miss -- never an arithmetic or render coercion error, which
+// undefined/member miss, never an arithmetic or render coercion error, which
 // the runtime raises regardless of the surrounding ?? / default / is defined.
 // The (any, err) shape lets callers propagate a non-absence error verbatim.
 func (c *checker) exprTypeLenient(n *ast.Node, sc *scope) (*Type, error) {

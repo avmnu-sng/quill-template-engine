@@ -11,7 +11,7 @@ import (
 // This file is the typed-registration sugar: NewFilter/NewFunction/NewTest take
 // a natural Go func and wrap it in the []runtime.Value-based Fn the engine calls.
 // The signature inspection that picks the per-argument and result converters runs
-// ONCE, here, at registration time -- off the render hot path. The wrapper the
+// ONCE, here, at registration time (off the render hot path). The wrapper the
 // render loop invokes marshals values through those pre-resolved converters and
 // does no further signature inspection; the func's type is resolved exactly once.
 // The converters and the fnVal.Call invoke path still use reflect at call time,

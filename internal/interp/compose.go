@@ -223,7 +223,7 @@ func (in *interp) importSourceName(imp *ast.Node, ctx *runtime.Scope) (string, b
 
 // callMacro invokes a macro from the current namespace by name (spec 01 Section
 // 5.3). A macro sees ONLY its parameters, defaults, variadics, the macro
-// namespace, and globals -- never the caller's locals.
+// namespace, and globals; never the caller's locals.
 func (in *interp) callMacro(n *ast.Node, name string, ctx *runtime.Scope) (runtime.Value, error) {
 	entry, ok := in.macros[name]
 	if !ok {
@@ -364,7 +364,7 @@ func (in *interp) invokeMacro(n *ast.Node, entry *macroEntry, args []runtime.Val
 	// Coverage: the macro body is being invoked, so record its unit at the macro
 	// node (anchored under the home template's name via the node's own Src), and
 	// seed only the invoked macro's subtree in its home so an imported macro's home
-	// counts even when never rendered as a root -- WITHOUT seeding the home's
+	// counts even when never rendered as a root, but WITHOUT seeding the home's
 	// top-level body, which an import never renders and would otherwise report as an
 	// uncovered gap. Both are no-ops when coverage is off. A home that is also
 	// entered as a render root / @include / @extends target is fully seeded
@@ -618,8 +618,8 @@ func (in *interp) execEmbed(n *ast.Node, ctx *runtime.Scope) error {
 	// top-level resolveSlots (design/composition, named accumulating slots).
 	sub.shareSlotsFrom(in)
 	// Build the embedded template's chain and block table, then layer the embed's
-	// inline overrides on top (most-derived). This build is always fresh -- it
-	// calls the raw builders and never consults tmpl's static composition memo --
+	// inline overrides on top (most-derived). This build is always fresh (it
+	// calls the raw builders and never consults tmpl's static composition memo)
 	// because the override layering below MUTATES the table it builds (a chain
 	// prepend and a node overwrite per override), while the memoized tables are
 	// shared read-only across every render of tmpl. Routing an embed through the

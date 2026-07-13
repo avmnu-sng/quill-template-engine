@@ -1,7 +1,7 @@
 package quillbench
 
 // Phase 2a scenario benchmarks: five workloads that isolate a specific cost the
-// Tiny/Loop/Compose battery does not surface -- filter dispatch, nested-loop
+// Tiny/Loop/Compose battery does not surface: filter dispatch, nested-loop
 // scope/metadata, if/elseif/else branching, HTML autoescape, and the
 // streamed-vs-buffered render split. Each render benchmark follows the Phase 1
 // discipline: `for b.Loop()`, b.ReportAllocs(), b.SetBytes(len(output)) on
@@ -40,7 +40,7 @@ var scenarioSizes = []int{10, 100, 1000}
 const autoescapeN = 100
 
 // ============================================================================
-// Scenario 1: filter pipeline -- chain several stdlib filters on each value.
+// Scenario 1: filter pipeline that chains several stdlib filters on each value.
 // ============================================================================
 //
 // Each row runs name through upper|trim|replace|default and joins a per-row tag
@@ -50,7 +50,7 @@ const autoescapeN = 100
 //
 // Quill's `default` fills only a Null value (pkg/ext/core.go filterDefault), and
 // every row's name is present, so default is exercised as a pass-through on the
-// dispatch path -- its FuncMap twin has the same present-value semantics, keeping
+// dispatch path; its FuncMap twin has the same present-value semantics, keeping
 // the outputs identical.
 
 const quillFilter = `@for u in users {
@@ -170,7 +170,7 @@ func BenchmarkText_Filter_Render(b *testing.B) {
 }
 
 // ============================================================================
-// Scenario 2: nested loops -- a loop over groups, each with a loop over items.
+// Scenario 2: nested loops (a loop over groups, each with a loop over items).
 // ============================================================================
 //
 // The 2D data exercises the nested-scope and loop-metadata cost the flat Loop
@@ -291,7 +291,7 @@ func BenchmarkText_Nested_Render(b *testing.B) {
 }
 
 // ============================================================================
-// Scenario 3: conditionals -- several if/elseif/else branches per row.
+// Scenario 3: conditionals (several if/elseif/else branches per row).
 // ============================================================================
 //
 // Each row's score selects one of four arms (A/B/C/D), so every iteration walks
@@ -397,7 +397,7 @@ func BenchmarkText_Cond_Render(b *testing.B) {
 }
 
 // ============================================================================
-// Scenario 4: autoescape cost -- same template, escape OFF vs ON.
+// Scenario 4: autoescape cost (same template, escape OFF vs ON).
 // ============================================================================
 //
 // The input values carry HTML-special characters (<, >, &, ", ') so escaping
@@ -430,7 +430,7 @@ type comment struct {
 // engine transforms every field and a non-escaping engine leaves it verbatim.
 //
 // The raw double-quote '"' is deliberately excluded: Quill escapes it to
-// "&quot;" while html/template escapes it to "&#34;" -- both are valid,
+// "&quot;" while html/template escapes it to "&#34;". Both are valid,
 // semantically identical HTML escapes of the same character, but they are BYTE-
 // different, so including '"' would make the byte-identity assertion require a
 // normalization. Every other HTML-special character (<, >, &, ') escapes to
@@ -550,7 +550,7 @@ func BenchmarkHTML_Autoescape_Render(b *testing.B) {
 }
 
 // ============================================================================
-// Scenario 5: streaming vs buffered -- RenderTo(io.Writer) vs Render(string).
+// Scenario 5: streaming vs buffered (RenderTo(io.Writer) vs Render(string)).
 // ============================================================================
 //
 // The loop scenario is rendered two ways on the same Environment: env.Render,

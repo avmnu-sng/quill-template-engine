@@ -2,8 +2,8 @@
 // taxonomy, the ordered dual-view *Array, the Context variable scope, the host
 // Object interface, and the typed operations (Equal, Order, Truthy,
 // Empty, ToText, GetAttribute, iteration). It imports nothing from the lexer,
-// parser, or interpreter, so the engine's correctness budget -- comparison,
-// truthiness, coercion, attribute access -- is spent once here and is testable
+// parser, or interpreter, so the engine's correctness budget (comparison,
+// truthiness, coercion, attribute access) is spent once here and is testable
 // in isolation. See spec 04-types-and-semantics.md.
 package runtime
 
@@ -66,8 +66,8 @@ func (k Kind) String() string {
 //
 // Concurrency: a Value is not safe to share across concurrent renders. A Value
 // that wraps an *Array carries copy-on-write state that binding and even
-// outer-scope reads mutate in place -- ShareValue/Own, and Scope.Get and
-// Context.Clone, which share-mark arrays on read -- so the same Value, or the
+// outer-scope reads mutate in place (ShareValue/Own, and Scope.Get and
+// Context.Clone, which share-mark arrays on read), so the same Value, or the
 // *Array, Context, or Scope it reaches, races when reached from two goroutines
 // at once. Build or FromGo-marshal a fresh Value per render, or confine each
 // Value to a single goroutine.
@@ -182,7 +182,7 @@ func Int(i int64) Value { return Value{kind: KInt, i: i} }
 // float64 into a Float: the JSON/host data bridge and both the interpreter and
 // compiled-backend arithmetic operators call RejectNonFinite before constructing
 // the Float, so any Float that entered through those boundaries is finite. Float
-// itself performs no validation -- a caller that hand-constructs Float(NaN) or
+// itself performs no validation: a caller that hand-constructs Float(NaN) or
 // Float(Inf) bypasses that guard, and Equal/Order are not total over such
 // non-finite values (Equal(Float(NaN), Float(NaN)) is false). Route a raw host
 // float64 through RejectNonFinite before calling Float.

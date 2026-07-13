@@ -8,12 +8,12 @@ import (
 // This file holds the coverage instrumentation hooks the interpreter calls at
 // each coverable dispatch point. Every hook is guarded on in.cov being non-nil,
 // so when coverage is off (the default) each is a single nil comparison and adds
-// no per-node cost on the render hot path -- the zero-overhead-when-disabled
+// no per-node cost on the render hot path, honoring the zero-overhead-when-disabled
 // guarantee (docs/coverage.md Section 6). The hooks only read a node's position
 // and increment a counter; they never touch the value pipeline or the output
 // sink, so instrumentation cannot change rendered bytes (the binding invariant).
 //
-// in.cov is a *covercore.Core -- the engine-internal instrumentation core. The
+// in.cov is a *covercore.Core, the engine-internal instrumentation core. The
 // host attaches a *cover.Collector (via WithCoverage) that wraps a Core; the
 // interpreter unwraps it to the Core through covercore.CoreOf at construction
 // (see newInterp). Recording against the Core, not the Collector, keeps the

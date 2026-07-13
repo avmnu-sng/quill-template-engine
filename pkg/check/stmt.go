@@ -8,7 +8,7 @@ import (
 // @types block, then walks every top-level item. Composition heads (@extends,
 // @import, @block, @macro) are walked for their bodies; cross-template signature
 // checking is out of this slice's structural scope (the design's Section 10
-// cross-file handshake needs the loader, and is gradual -- an untyped includee
+// cross-file handshake needs the loader, and is gradual: an untyped includee
 // is all-`any`), so a block/macro body is checked against its own declared
 // signature here.
 func (c *checker) checkModule(mod *ast.Node) error {
@@ -322,7 +322,7 @@ func (c *checker) checkCapture(n *ast.Node, sc *scope) error {
 }
 
 // checkIf checks an @if: each clause condition is typed (any expression is a
-// valid condition -- truthiness is total) and each branch body is checked in a
+// valid condition: truthiness is total) and each branch body is checked in a
 // child scope refined by any narrowing the condition proves (Section 8.1).
 func (c *checker) checkIf(n *ast.Node, sc *scope) error {
 	for _, clause := range n.Children {
@@ -417,7 +417,7 @@ func (c *checker) checkFor(n *ast.Node, sc *scope) error {
 // bindLoopTarget binds a @for target to the inferred element/key type, checking
 // an annotation for agreement (Section 5.5). When the iterand is `any`, the
 // inferred type is `any` and an annotation is a claim backstopped at the
-// boundary -- so it is recorded as the declared type. The target is a
+// boundary, so it is recorded as the declared type. The target is a
 // KindTarget (name + optional type child).
 func (c *checker) bindLoopTarget(tg *ast.Node, inferred *Type, sc *scope) error {
 	if tg == nil || tg.Kind != ast.KindTarget {

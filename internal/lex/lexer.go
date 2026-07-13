@@ -53,7 +53,7 @@ func (l *lexer) run() {
 		// value: an interpolation, statement head, or block-close continuation that
 		// faults inside scanCode emits the ERROR token, yet the surrounding text
 		// loop still returns false. Enforce the single-fault contract (documented on
-		// TokenStream) uniformly here -- once any ERROR has been emitted the scan is
+		// TokenStream) uniformly here: once any ERROR has been emitted the scan is
 		// over, so the byte the fault stopped on is never re-scanned into a stray
 		// TEXT token after the ERROR.
 		if n := len(l.out); n > 0 && l.out[n-1].Kind == ERROR {

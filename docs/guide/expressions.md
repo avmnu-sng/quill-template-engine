@@ -2,8 +2,8 @@
 
 Quill expressions are Go-flavored: infix arithmetic, pipe filters, arrow
 functions, and null-safe access. The grammar is Pratt-parsed. An expression
-appears anywhere in code -- inside `{{ ... }}`, inside a statement head, inside
-`#{ ... }`, and nested in another expression -- and always evaluates to a single
+appears anywhere in code (inside `{{ ... }}`, inside a statement head, inside
+`#{ ... }`, and nested in another expression) and always evaluates to a single
 dynamic value ([Types](../types.md)). The runtime rules for equality, ordering,
 coercion, and arithmetic are in [Types](../types.md); this page names the
 operators and their surface.
@@ -70,7 +70,7 @@ prefix level, and unary minus wraps the power by AST shape. One rule
 - **Equality** `==`, `!=`: typed equality. `1 == "1"` is false. `===`/`!==` are
   accepted aliases; raw reference identity is the `same(a, b)` builtin.
 - **Ordering** `<` `>` `<=` `>=` `<=>`: total within the number tower and between
-  two strings (byte-lexicographic). Cross-kind ordering is an error -- never
+  two strings (byte-lexicographic). Cross-kind ordering is an error, never
   silent juggling. One comparator backs them all.
 - **Membership** `in` / `not in`: for a collection, true iff some element is `==`
   the needle (typed, so `"1" in [1]` is false); for a string haystack, substring
@@ -129,11 +129,11 @@ test calls share a single argument grammar: positional `e`, named `name: e`, and
 spread `...e`, in that order, with declared defaults filling any parameter not
 supplied. The short forms are special cases:
 
-- `name(args)` -- a function call.
-- `x | f` and `x | f(args)` -- a filter call. `x | f` is the zero-explicit-
+- `name(args)`: a function call.
+- `x | f` and `x | f(args)`: a filter call. `x | f` is the zero-explicit-
   argument case (the pipe supplies the first argument, defaults fill the rest);
   `x | f(a, key: c, ...rest)` is `f(x, a, key: c, ...rest)`.
-- `x is t`, `x is t arg`, and `x is t(args)` -- a test call. `x is t` is the
+- `x is t`, `x is t arg`, and `x is t(args)`: a test call. `x is t` is the
   zero-argument case; `x is t arg` is the one-positional short form; `x is t(args)`
   admits named and spread arguments.
 
@@ -143,8 +143,8 @@ methods, and tests.
 
 ## Next
 
-- [Control Flow](control-flow.md) -- `if`, `for`, `set`, and the region
+- [Control Flow](control-flow.md): `if`, `for`, `set`, and the region
   statements.
-- [Standard Library](../stdlib.md) -- the built-in filters, functions, and
+- [Standard Library](../stdlib.md): the built-in filters, functions, and
   tests.
-- [Types](../types.md) -- the value model and the rules these operators obey.
+- [Types](../types.md): the value model and the rules these operators obey.

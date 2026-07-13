@@ -32,7 +32,7 @@ func main() {
 
 // callables builds the host extension set. NewFilter and NewFunction inspect the
 // Go func's signature once, at registration, and marshal runtime.Value arguments
-// and results through it -- string<->Str, int64<->Int, and so on -- so the body
+// and results through it (string<->Str, int64<->Int, and so on), so the body
 // is plain Go.
 func callables() *ext.Set {
 	set := ext.NewSet()

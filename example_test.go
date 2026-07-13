@@ -27,7 +27,7 @@ func Example() {
 	// Output: Hello ADA!
 }
 
-// Pass ordinary Go values -- structs, slices, scalars -- with RenderValues,
+// Pass ordinary Go values (structs, slices, scalars) with RenderValues,
 // which marshals each binding through runtime.FromGo.
 func ExampleEnvironment_RenderValues() {
 	type User struct {

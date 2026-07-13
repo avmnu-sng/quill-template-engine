@@ -61,13 +61,13 @@ func (in *interp) renderTemplate(tmpl *Template, ctx *runtime.Scope) error {
 }
 
 // composeTemplate installs the render-ready composition of tmpl on this interp
-// -- the inheritance chain, the merged block table, the macro namespace, the
-// literal-regexp lookup, and the @import namespace scope binds -- and returns
+// (the inheritance chain, the merged block table, the macro namespace, the
+// literal-regexp lookup, and the @import namespace scope binds) and returns
 // the chain. A Template whose chain proved fully static serves all of that
 // from its one-time memo: the shared tables are read-only after build (no
 // renderer code writes a block or macro entry past this point, and @embed
 // layers its overrides onto a fresh table in a fresh sub-interp), so only the
-// @import scope binds -- composition's single per-render side effect -- are
+// @import scope binds (composition's single per-render side effect) are
 // replayed into ctx. The first render of a static chain builds fresh, then
 // publishes the tables it just built; the walk's 64-deep cycle check thus runs
 // during the memo build, and a memoized chain needs no re-check. A chain with
@@ -162,7 +162,7 @@ func (in *interp) resolveExtendsName(extends *ast.Node, ctx *runtime.Scope) (str
 // Section 2.5). For each template in the chain its OWN blocks merge before the
 // blocks it pulls in via @use, so a template's own definition wins over a trait's
 // and parent() reaches the trait version before the extends-parent version (spec
-// 01 Section 5.4) -- it returns an error if a @use target is missing or not
+// 01 Section 5.4). It returns an error if a @use target is missing or not
 // traitable, or an alias names a block the trait does not define. The table
 // itself materializes inside appendBlockDef on the first definition, so a
 // chain that defines no blocks renders against a nil table.
@@ -287,8 +287,8 @@ func (in *interp) useAliases(use *ast.Node) (map[string]string, error) {
 // any brought in by file-scope @import (namespace) and @from (selective). A
 // macro's lexical home (for its own visible namespace and globals) is recorded
 // (spec 01 Section 5.3). The namespace map materializes only when a macro
-// actually binds -- here for declared macros, sized for them, or inside
-// loadImport for a selective @from -- so a macro-free render keeps it nil. It
+// actually binds (here for declared macros, sized for them, or inside
+// loadImport for a selective @from), so a macro-free render keeps it nil. It
 // returns the @import namespace binds it applied, in source order, so a static
 // composition build can replay exactly those scope writes per render; @from
 // contributes no scope bind (it folds into the macro namespace map, which the
@@ -454,7 +454,7 @@ var nullLoopParent = runtime.Null()
 // returns the pointer every iteration's metadata object stores as its parent
 // (the pointer keeps runtime's loopInfo in the 64-byte size class). A hit is
 // boxed into a dedicated heap Value that stays unwritten for the loop's
-// lifetime -- a rebind would leak into already-captured snapshots -- and a
+// lifetime (a rebind would leak into already-captured snapshots), and a
 // miss shares nullLoopParent. The box is built by explicit new-and-copy on the
 // hit path only: taking the probe local's address would make escape analysis
 // heap-allocate it on every call, charging top-level loops too.
@@ -487,7 +487,7 @@ var reuseLoopInfo = true
 
 // pairBufPool recycles []Pair loop snapshot buffers across renders. It is a
 // sync.Pool, so it is goroutine-safe (each P holds its own shard, so concurrent
-// renders never contend) and it survives render boundaries -- which is where the
+// renders never contend) and it survives render boundaries, which is where the
 // win is: a template rendered repeatedly reuses one steady-state buffer instead
 // of allocating the O(rows) snapshot every render. A pointer to the header is
 // pooled so a Get/Put pair boxes nothing. GC may drain the pool under pressure,
@@ -571,8 +571,8 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 	// Materialize the entry-time pair snapshot. A plain (non-fused) KArray loop
 	// whose Prepare-time escape bit proved its loop value never outlives the
 	// iteration recycles a pooled buffer via PairsInto: the snapshot is fully
-	// materialized exactly as EnsureTraversable's Pairs() would be -- same
-	// entries, same order, so iteration and rendered bytes are identical -- but
+	// materialized exactly as EnsureTraversable's Pairs() would be (same
+	// entries, same order, so iteration and rendered bytes are identical) but
 	// in memory reused across renders and sibling loops. The deferred release
 	// returns the buffer on the normal and error returns, so a body error never
 	// leaks it; a genuine panic aborts the whole render and merely drops the
@@ -598,8 +598,8 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 	// loop ends, so the innermost loop answers changed(...) and a nested loop keeps
 	// its own prior-value memory (spec 01 Section 4.2). The frame is established
 	// before the fused filter runs, so a loop.changed(...) call in the filter
-	// condition resolves against this loop's own frame -- tracking each candidate
-	// element on this loop's own iteration -- rather than the enclosing loop's
+	// condition resolves against this loop's own frame (tracking each candidate
+	// element on this loop's own iteration) rather than the enclosing loop's
 	// frame. The filter's call site and any body call site are distinct AST nodes,
 	// so they track independently within the shared frame.
 	in.loopChanged = append(in.loopChanged, map[*ast.Node]runtime.Value{})
@@ -635,9 +635,9 @@ func (in *interp) execFor(n *ast.Node, ctx *runtime.Scope) error {
 	// metadata object per element (the dominant remaining per-iteration byte term
 	// once pair pooling removed the snapshot). This is sound precisely because the
 	// escape proof guarantees no earlier step's loop value is still reachable to
-	// observe the in-place index advance; a loop the analysis could not clear --
-	// one that may capture loop, pass it to a callable, or read it after the step
-	// -- keeps the fresh NewLoopValue path and its frozen-snapshot contract. The
+	// observe the in-place index advance; a loop the analysis could not clear
+	// (one that may capture loop, pass it to a callable, or read it after the step)
+	// keeps the fresh NewLoopValue path and its frozen-snapshot contract. The
 	// fused guard is redundant with forSafe (analyzeLoopEscapes never marks a fused
 	// loop safe) but kept explicit as the pair path keeps it.
 	var cursor *runtime.LoopCursor
@@ -867,7 +867,7 @@ func (in *interp) bindPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Scope
 // is neither optional nor a tail. The supplied count must cover at least the
 // required slots; without a tail it must also not exceed the fixed-slot count (a
 // generator should not silently drop trailing elements). Optional slots make the
-// fixed count an upper, not exact, bound -- the difference between required and
+// fixed count an upper, not exact, bound: the difference between required and
 // fixed is null-padded.
 func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.Scope) error {
 	if v.Kind() != runtime.KArray || v.AsArray() == nil {
@@ -922,7 +922,7 @@ func (in *interp) bindListPattern(pat *ast.Node, v runtime.Value, ctx *runtime.S
 		// for a required slot. This guard is defense in depth: the parser forbids a
 		// required/elided slot after an optional (so a short source can only fall here
 		// on an optional), but the binder must never index out of range on the grammar
-		// the parser accepts -- index-safety here keeps the engine uncrashable.
+		// the parser accepts. Index-safety here keeps the engine uncrashable.
 		if i >= len(ps) {
 			if optional {
 				// An optional name binds null; an optional nested pattern null-binds
@@ -1062,7 +1062,7 @@ func (in *interp) execCapture(n *ast.Node, ctx *runtime.Scope) error {
 // emitted. The ttl argument is accepted but is a documented no-op for the
 // engine-default in-memory cache. The key is namespaced by the rendering
 // template so identical keys in different templates do not collide. The body is
-// already-rendered output, so it is spliced verbatim with emitString -- under an
+// already-rendered output, so it is spliced verbatim with emitString. Under an
 // active escape strategy it was produced through the same escaper as a capture
 // and must not be escaped a second time.
 func (in *interp) execCache(n *ast.Node, ctx *runtime.Scope) error {
@@ -1179,7 +1179,7 @@ func (in *interp) captureItems(items []*ast.Node, ctx *runtime.Scope) (string, e
 	sub := &captureSink{}
 	saved := in.out
 	// A capture renders into its own sink, so the active @tab indentation must not
-	// be applied while filling the buffer -- it is applied once, later, when the
+	// be applied while filling the buffer. It is applied once, later, when the
 	// captured result is emitted at the outer position. Suspend the indent state
 	// for the duration of the capture and restore it afterward.
 	savedIndent, savedAtLineStart := in.indent, in.atLineStart
@@ -1265,7 +1265,7 @@ func (in *interp) execApply(n *ast.Node, ctx *runtime.Scope) error {
 	// Under an active escape strategy the body was already escaped during the
 	// capture render (every interpolation inside it flowed through emit), so the
 	// filtered result is finished output, not a raw value. Wrap it as Safe so the
-	// final emit does not escape it a SECOND time -- mirroring capture/macro/block,
+	// final emit does not escape it a SECOND time, mirroring capture/macro/block,
 	// which the slice's safeness model (spec 04 Section 8.2) wraps for the same
 	// reason. Without this, e.g. an already-escaped "&lt;" would re-escape its "&"
 	// to "&amp;". The off strategy (escape == "") leaves v untouched, byte-exact.

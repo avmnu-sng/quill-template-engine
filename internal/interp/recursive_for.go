@@ -18,7 +18,7 @@ type recursiveLoop struct {
 	twoTgt  bool
 	// filter is the fused "if" condition (the KindClause's child 0) when the loop
 	// was written "@for .. recursive if cond", else nil. It is applied at every
-	// descent level so a node whose condition is false -- and its whole subtree --
+	// descent level so a node whose condition is false (and its whole subtree)
 	// is pruned, matching the plain @for's fused-filter semantics.
 	filter *ast.Node
 }

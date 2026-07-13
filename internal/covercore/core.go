@@ -6,7 +6,7 @@
 // only pkg/cover.Collector, which wraps a *Core and exposes the report side.
 //
 // The split lets pkg/cover keep a small public REPORT API (Report, Summary,
-// per-template rollups) while the interpreter -- and only the interpreter --
+// per-template rollups) while the interpreter (and only the interpreter)
 // records hits into the Core. pkg/cover re-exports RegionKind and its constants
 // as type aliases so its public report types (Region.Kind) stay unchanged; the
 // Core itself never leaves internal/, so a host cannot reach Hit or Seed.
@@ -188,8 +188,8 @@ type macroSeedID struct {
 
 // Core is the instrumentation state behind one Collector: the mutable region map
 // unioned across every render, plus the per-template seed bookkeeping and source
-// capture. It is the record side of coverage -- the interpreter calls Hit and the
-// Seed methods on it -- and is kept internal so those entry points never reach a
+// capture. It is the record side of coverage (the interpreter calls Hit and the
+// Seed methods on it) and is kept internal so those entry points never reach a
 // host. pkg/cover.Collector wraps a *Core and exposes only the report side.
 //
 // A Core is safe for sequential renders on one Environment; concurrent renders
@@ -265,7 +265,7 @@ func (c *Core) seed(name string, n *ast.Node, kind RegionKind) {
 // render is cheap and never double-counts. A nil Core is a no-op.
 //
 // Boundary: SeedTemplate registers whole-template regions, but the engine only
-// calls it for a template that is actually ENTERED at render time -- the render
+// calls it for a template that is actually ENTERED at render time: the render
 // root and its inheritance chain, an executed @include/@embed target, and a
 // macro home at the point one of its macros is invoked. Consequently seeding is
 // reachability-gated at template granularity: a template that is merely
@@ -296,14 +296,14 @@ func (c *Core) SeedTemplate(name string, module *ast.Node) {
 // into template name: the invoked macro's own subtree. Unlike SeedTemplate it does
 // NOT seed the template's top-level statement body, because a template entered
 // solely as a MACRO HOME (its macros invoked via @import / @from) never renders
-// its top-level markup -- that text and those statements are unreachable in the
+// its top-level markup: that text and those statements are unreachable in the
 // import context, so seeding them would report unreachable code as an uncovered
 // gap and distort the percentage (docs/coverage.md 2.2).
 //
 // It is idempotent per macro: re-invoking the same macro across renders re-seeds
 // nothing. A template can be seeded by SeedMacro (for its imported macros) and,
 // separately, fully seeded by SeedTemplate if it is ALSO entered as a render root,
-// @include, @embed, or @extends target -- the two seed maps are independent so a
+// @include, @embed, or @extends target. The two seed maps are independent so a
 // macro-home seed never suppresses a later full seed, and a full seed already
 // covers every macro subtree so a subsequent SeedMacro is a harmless no-op.
 //

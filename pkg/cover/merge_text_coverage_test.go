@@ -79,7 +79,7 @@ func TestReportMergeMethodNilOperand(t *testing.T) {
 	if tc.Units != (Counts{Covered: 1, Total: 2}) {
 		t.Errorf("Merge(nil) units = %+v want {1 2}", tc.Units)
 	}
-	// Merge(nil) preserves the receiver's region set exactly -- no region is
+	// Merge(nil) preserves the receiver's region set exactly: no region is
 	// dropped and no phantom region is invented by unioning against nil.
 	if len(tc.Regions) != 2 {
 		t.Errorf("Merge(nil) region count = %d want 2", len(tc.Regions))

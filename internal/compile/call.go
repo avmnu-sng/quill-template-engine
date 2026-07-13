@@ -7,7 +7,7 @@ import (
 )
 
 // engineBoundFunctions names the registered functions whose behavior depends
-// on the live engine itself -- the loader and render surface behind
+// on the live engine itself: the loader and render surface behind
 // interp.EngineFromValue; a compiled render's qEnv handle carries only the
 // engine configuration, so calls to them are outside the compilable subset.
 var engineBoundFunctions = map[string]string{
@@ -86,8 +86,8 @@ func staticArgCount(n *ast.Node) (int, bool) {
 // emitInject applies the Needs* engine-value injection to the args local for
 // the resolved callable in cv, mirroring the interpreter's inject: the values
 // prepend in the fixed order environment, context, charset. The whole path
-// sits behind the ref's hoisted injection flag in inj -- true exactly when
-// any Needs* flag is set -- so an injection-free callable leaves args
+// sits behind the ref's hoisted injection flag in inj (true exactly when
+// any Needs* flag is set), so an injection-free callable leaves args
 // untouched on one bool, exactly what qinject would have returned. A
 // needs-environment callable receives the compiled render's qEnv handle,
 // which carries the Options' engine configuration (tab width, random seed)

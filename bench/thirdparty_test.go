@@ -74,7 +74,7 @@ const stickLoop = `{% for u in users %}{{ loop.index }}. {{ u.Name|upper }} <{{ 
 // pongo2 and jet default to HTML-autoescaping, but the loop's angle brackets are
 // TEMPLATE LITERALS (not interpolated data) and the interpolated values (name,
 // email) contain no HTML-special characters, so no escaping fires and the raw
-// output already matches byte for byte -- no normalization is needed.
+// output already matches byte for byte, so no normalization is needed.
 func TestVerifyThirdparty(t *testing.T) {
 	want := loopWant(loopN)
 

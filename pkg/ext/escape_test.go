@@ -8,7 +8,7 @@ import (
 // TestEscapeCodePointInvalidUTF8 verifies the spec 04 Section 8.2 guard: the
 // code-point strategies (js, css, html_attr, html_attr_relaxed) decode the input
 // as UTF-8 and, on an invalid byte, return a clear error naming the strategy and
-// the byte offset -- they do NOT silently substitute a replacement character,
+// the byte offset. They do NOT silently substitute a replacement character,
 // because a silent substitution in emitted code is a wrong byte.
 func TestEscapeCodePointInvalidUTF8(t *testing.T) {
 	// Valid prefix "a" then an invalid lead byte 0xff at offset 1.
@@ -38,7 +38,7 @@ func TestEscapeCodePointInvalidUTF8(t *testing.T) {
 
 // TestEscapeByteOrientedAcceptInvalidUTF8 verifies the complementary spec 04
 // Section 8.2 rule: html and url are BYTE-oriented and accept arbitrary bytes
-// losslessly -- they never error on invalid UTF-8. html passes the raw bytes
+// losslessly. They never error on invalid UTF-8, and html passes the raw bytes
 // through (only the five metacharacters change) and url percent-encodes each
 // byte.
 func TestEscapeByteOrientedAcceptInvalidUTF8(t *testing.T) {

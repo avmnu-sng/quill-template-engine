@@ -139,7 +139,7 @@ func (p *parser) parseInterpString(t lex.Token) *ast.Node {
 		// with an empty string when it is not itself a string literal. A
 		// double-quoted "#{x}" is contractually a string (it "compiles to a ~ concat
 		// chain", spec 01 Section 1.5 / design/expressions 10.3), so its static type
-		// must be string -- "" ~ x -- not the raw expression x.
+		// must be string ("" ~ x), not the raw expression x.
 		if parts[0].Kind == ast.KindString {
 			return parts[0]
 		}

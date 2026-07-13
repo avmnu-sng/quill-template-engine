@@ -1,7 +1,7 @@
 // Package cover measures which parts of a Quill template a set of renders
 // actually exercised: which statements and interpolations ran (units), and which
 // arms of each branch were taken (branches). It is branch-aware template
-// coverage -- the analogue of `go tool cover` for .ql templates -- aggregated
+// coverage (the analogue of `go tool cover` for .ql templates) aggregated
 // across many renders and reported as text, LCOV, or HTML (see docs/coverage.md).
 //
 // The central type is a Collector. An Environment built with the engine's
@@ -11,8 +11,8 @@
 // zero-overhead when disabled and never changes rendered bytes.
 //
 // A Collector is a thin host-facing wrapper: it exposes only the REPORT side
-// (Report and the writers it feeds). The instrumentation core -- the region map
-// and the record/seed logic the interpreter drives -- lives in the internal
+// (Report and the writers it feeds). The instrumentation core (the region map
+// and the record/seed logic the interpreter drives) lives in the internal
 // covercore package, so the record-side entry points (formerly Hit / SeedTemplate
 // / SeedMacro) are not part of any host-visible surface. The interpreter reaches
 // the core through an internal bridge (covercore.CoreOf); a host holding a
@@ -29,9 +29,9 @@
 // Seeding is reachability-gated at TEMPLATE granularity: a template is seeded
 // when it is actually entered by a render (the render root and its inheritance
 // chain, an executed @include/@embed target, or a macro home whose macro is
-// invoked). A template that is only referenced -- imported for macros that are
-// never called, or an @include whose statement never runs (e.g. inside a
-// never-taken @if arm) -- is never entered and so is ABSENT from the report
+// invoked). A template that is only referenced (imported for macros that are
+// never called, or an @include whose statement never runs, e.g. inside a
+// never-taken @if arm) is never entered and so is ABSENT from the report
 // rather than reported at 0%.
 //
 // The unit of seeding depends on WHY a template was entered. A template entered
@@ -110,7 +110,7 @@ const (
 // It is the report snapshot's map key and mirrors covercore.RegionID field for
 // field. The report domain keeps its OWN key type (rather than aliasing the
 // internal one) so this package's report/writer code and its tests key on a local,
-// unexported struct -- unkeyed composite literals of it stay vet-clean, and the
+// unexported struct: unkeyed composite literals of it stay vet-clean, and the
 // public surface never leaks the internal identity type. Report translates the
 // core's snapshot into this key in one place (Collector.Report).
 type regionID struct {
