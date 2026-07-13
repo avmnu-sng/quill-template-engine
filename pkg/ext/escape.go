@@ -32,7 +32,7 @@ var htmlEscaper = strings.NewReplacer(
 // url are BYTE-oriented and accept arbitrary bytes losslessly. js, css,
 // html_attr, and html_attr_relaxed are CODE-POINT-oriented: they decode the
 // input as UTF-8 and, on an invalid byte, return a clear error naming the
-// strategy and the byte offset -- they do NOT silently emit a replacement
+// strategy and the byte offset. They do NOT silently emit a replacement
 // character, because a silent substitution in emitted code is a wrong byte.
 func Escape(strategy, s string) (string, error) {
 	switch strategy {

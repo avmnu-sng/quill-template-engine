@@ -234,7 +234,7 @@ func runFixture(t *testing.T, dir string) {
 
 // TestConformanceCoverageInvariant is the binding-invariant variant of the
 // conformance suite: it renders every fixture twice through the same Environment
-// options -- once plain, once with a coverage Collector attached -- and asserts
+// options (once plain, once with a coverage Collector attached) and asserts
 // byte-identical output (and identical error behavior). This proves coverage
 // instrumentation only reads positions and increments counters, never touching
 // the value pipeline or the output sink (docs/coverage.md Section 6). It also

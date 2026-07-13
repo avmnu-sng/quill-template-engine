@@ -94,8 +94,8 @@ type Test struct {
 // needs-environment callable can read off its injected engine handle: the
 // knobs the width- and seed-aware stdlib overrides consume (WithTabWidth,
 // WithRandomSeed). Defining the interface here, at the consumption side, lets
-// any render path -- the interpreter's engine handle or a compiled render's
-// options handle -- satisfy it without this package importing either.
+// any render path (the interpreter's engine handle or a compiled render's
+// options handle) satisfy it without this package importing either.
 type EngineConfig interface {
 	// TabWidth returns the number of spaces one indent level expands to for
 	// the tab filter and the tab() function (default 4).

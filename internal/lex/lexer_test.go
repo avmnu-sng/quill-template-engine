@@ -334,7 +334,7 @@ func TestSetLineStatement(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestBlockCloseRequiresLoneLine(t *testing.T) {
-	// "x @}" -- '@}' is not at line start (preceded by non-whitespace), so the
+	// In "x @}", '@}' is not at line start (preceded by non-whitespace), so the
 	// whole thing is TEXT; '@}' with trailing junk also stays TEXT.
 	got := lexToks(t, "x @}\n")
 	if got[0].Kind != TEXT {
@@ -808,7 +808,7 @@ func TestBraceDenseSourceEmission(t *testing.T) {
 		"}\n"
 	got := lexToks(t, in)
 	// Every CODE region is an interpolation; there must be no STMT, BLOCK_OPEN,
-	// or BLOCK_CLOSE token at all -- all braces in the Java are literal TEXT.
+	// or BLOCK_CLOSE token at all: all braces in the Java are literal TEXT.
 	for _, tk := range got {
 		switch tk.Kind {
 		case STMT, BLOCK_OPEN, BLOCK_CLOSE, STMT_END:
@@ -899,7 +899,7 @@ func TestForElseContinuation(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestHeadMapLiteralVsBodyOpen(t *testing.T) {
-	// @with { x: 1 } { body } -- the first "{...}" is a map, the second is the body.
+	// In @with { x: 1 } { body }, the first "{...}" is a map, the second is the body.
 	assertToks(t, "@with { x: 1 } {\nbody\n@}\n", []tok{
 		{kind: STMT, text: "with"},
 		{kind: LBRACE}, {kind: NAME, text: "x"}, {kind: COLON}, {kind: INT, text: "1"}, {kind: RBRACE},
@@ -911,7 +911,7 @@ func TestHeadMapLiteralVsBodyOpen(t *testing.T) {
 }
 
 func TestHeadEmptyMapLiteral(t *testing.T) {
-	// @with {} only { body } -- "{}" is an empty map, not a body open.
+	// In @with {} only { body }, "{}" is an empty map, not a body open.
 	got := kinds(lexToks(t, "@with {} only {\nb\n@}\n"))
 	want := []Kind{STMT, LBRACE, RBRACE, NAME, BLOCK_OPEN, TEXT, BLOCK_CLOSE, EOF}
 	if len(got) != len(want) {
@@ -925,7 +925,7 @@ func TestHeadEmptyMapLiteral(t *testing.T) {
 }
 
 func TestHeadDestructuringTarget(t *testing.T) {
-	// @set {id, label} = rec -- the "{...}" is a destructuring target (followed by
+	// In @set {id, label} = rec, the "{...}" is a destructuring target (followed by
 	// "="), so it stays CODE rather than opening a body.
 	got := kinds(lexToks(t, "@set {id, label} = rec\n"))
 	want := []Kind{STMT, LBRACE, NAME, COMMA, NAME, RBRACE, ASSIGN, NAME, STMT_END, EOF}

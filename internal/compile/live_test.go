@@ -9,9 +9,9 @@ import (
 // liveIterationCases is the differential battery for the zero-copy loop
 // iteration (slice C3): every template renders through the compiled path and
 // must match the facade byte-for-byte (output or error text). It centers on
-// mutation-during-iteration shapes -- which must take the pair-snapshot path,
+// mutation-during-iteration shapes (which must take the pair-snapshot path,
 // so an in-place write stays invisible to the iteration exactly like the
-// interpreter's entry-time snapshot -- plus the live-path parity surfaces:
+// interpreter's entry-time snapshot) plus the live-path parity surfaces:
 // key reconstruction, prev/next boundaries, nesting, the empty else arm, the
 // runtime non-array fallback, and the on-demand loop-object materialization.
 var liveIterationCases = []compiledCase{

@@ -58,8 +58,8 @@ func TestContextCloneValueCopyBoundary(t *testing.T) {
 		t.Fatal("a shared array must be marked shared after Clone")
 	}
 	// Own privatizes the shared array before an in-place mutation, so the write
-	// does not leak to the parent -- the value semantics the interpreter's
-	// assignment path relies on (proper copy-on-write, spec 04 Section 6.3).
+	// does not leak to the parent. This preserves the value semantics the
+	// interpreter's assignment path relies on (proper copy-on-write, spec 04 Section 6.3).
 	owned, copied := Own(cv)
 	if !copied {
 		t.Fatal("Own must clone a shared array")

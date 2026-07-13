@@ -15,8 +15,8 @@ type-annotation grammar. The last section is the ambiguity-resolution catalogue.
 `{ }` is zero-or-more; `( )` groups; double-quoted `"..."` is a terminal literal
 (the literal `|` operator terminal is written `"\|"` to distinguish it from EBNF
 alternation). Lexical terminals produced by the scanner are UPPER_CASE (`NAME`,
-`STRING`, `INT`, `FLOAT`, `TEXT_RUN`, `NL`). A production the scanner -- not the
-parser -- recognizes is marked `(* lexical *)`.
+`STRING`, `INT`, `FLOAT`, `TEXT_RUN`, `NL`). A production the scanner (not the
+parser) recognizes is marked `(* lexical *)`.
 
 ## Two grammars, one design
 
@@ -24,21 +24,21 @@ Quill has two grammars because the input is two languages interleaved: literal
 TEXT (emitted verbatim) and Quill CODE (parsed). The scanner runs the lexical
 grammar to split bytes into TEXT spans and CODE tokens; the parser runs the
 structural and expression grammars over the CODE tokens. The single boundary rule
--- a bare `{`/`}` is never a delimiter; only `{{`, `{#`, an `@`-sigil statement
-lead, and `verbatim` open CODE -- is what makes the split decidable with zero
+(a bare `{`/`}` is never a delimiter; only `{{`, `{#`, an `@`-sigil statement
+lead, and `verbatim` open CODE) is what makes the split decidable with zero
 heuristic lookahead.
 
 The default statement form is the **explicit-close `@`-sigil mode**: a statement
 head is led by an `@` immediately before its keyword (`@for`, `@if`, `@block`,
 ...) and a block is closed by the explicit `@}` token. Under this default a bare
-`{` or `}` anywhere in template TEXT -- including a lone `}` line at column 0 -- is
+`{` or `}` anywhere in template TEXT (including a lone `}` line at column 0) is
 unconditionally literal output: no escaping, no grammar-shape rejection, no lone-`}`
 collision, no line-leading-keyword diagnostic. This makes brace-dense TEXT correct
 by default at the cost of one `@` per statement. Interpolation `{{ }}`, comments
 `{# #}`, and string interpolation `#{ }` are unchanged.
 
-The **bare keyword-led mode** -- no `@`, with a lone `}` line closing the innermost
-block -- remains valid Quill as an explicit per-template opt-in (`pragma bare`, also
+The **bare keyword-led mode** (no `@`, with a lone `}` line closing the innermost
+block) remains valid Quill as an explicit per-template opt-in (`pragma bare`, also
 spelled `pragma sigil off`). It suits markup and other templates where literal
 braces are rare. Under bare mode the lone-`}` escapes below (leading-pipe text
 marker, `verbatim`, interpolation) apply to any literal `}` line; under the
@@ -259,27 +259,27 @@ Annotation sites: `types { ... }` declarations, `macro f(p: T = d) -> T`,
 
 Every ambiguity an implementer hits, with the exact rule that resolves it.
 
-**R1 -- TEXT vs CODE at a brace.** A `{` opens CODE only when the next byte is `{`
+**R1: TEXT vs CODE at a brace.** A `{` opens CODE only when the next byte is `{`
 or `#` (the `atSigil` predicate). Otherwise it is a TEXT byte. Under the
 `@`-default, statement heads are led by `@` and blocks close at `@}`, so neither a
-bare `{` nor a bare `}` -- including a lone `}` line at column 0 -- is ever a
+bare `{` nor a bare `}` (including a lone `}` line at column 0) is ever a
 delimiter; both are literal output with no escaping. This needs no lookahead beyond
 one byte.
 
-**R2 -- word-operator vs identifier.** A word-operator spelling (`and`, `or`,
+**R2: word-operator vs identifier.** A word-operator spelling (`and`, `or`,
 `not`, `in`, `is`, `matches`, `xor`, `starts`, `ends`, `has`) is lexed as a
 `NAME`. The parser reclassifies it to an operator only in infix/prefix position.
 In primary position and immediately after `.` or `|`, it stays a `NAME`, so
 `u.in`, `data | matches_count`, and a context variable named `and` all resolve as
 identifiers.
 
-**R3 -- interpolation close vs literal `}` inside CODE.** Inside `{{ ... }}` the
+**R3: interpolation close vs literal `}` inside CODE.** Inside `{{ ... }}` the
 lexer balances `()`, `[]`, `{}`; the close `}}` is recognized only at brace-depth
 zero relative to the opener. A mapping literal `{a: 1}` inside an interpolation is
 at depth 1 and does not close it. A bare `}}` in TEXT with no open `{{` is two
 literal `}` bytes.
 
-**R4 -- statement head vs literal output line.** Under the `@`-default, a line is a
+**R4: statement head vs literal output line.** Under the `@`-default, a line is a
 statement only when its first non-whitespace token is `@` immediately followed by a
 keyword from the closed set and a word boundary; an unprefixed line beginning with
 a keyword spelling (a C `for (int i...)`, a Java `if (x) {`) is unconditionally
@@ -290,18 +290,18 @@ word boundary AND the line parses as a complete statement head; there a C
 and the leading-pipe `| ` marker or a `verbatim` region forces TEXT for a line that
 would otherwise parse as a head.
 
-**R5 -- newline-eating asymmetry.** A block close (`@}` under the default, a lone
+**R5: newline-eating asymmetry.** A block close (`@}` under the default, a lone
 `}` line under bare mode) and a comment's `#}` consume one immediately-following
 newline; an interpolation's `}}` consumes none. This is the default, overridden
 per-site by the `-`/`~` trim modifiers and suppressed by the `+` keep modifier
 (`@}+`, `#}+`, R14) or by a per-template `pragma keep-close-newline`.
 
-**R4a -- which close pops a block.** Under the `@`-default, the closer of a
+**R4a: which close pops a block.** Under the `@`-default, the closer of a
 TEXT-bodied statement is the explicit `@}` token (optionally with a trim/keep
 modifier). A line whose only non-whitespace content is a bare `}` is ordinary TEXT
 and pops nothing. Only `@}` closes, so a bare `}` can never collide with block
 structure. An `@}` with an empty open-block stack, or an open block unclosed at end
-of file, is a hard `unbalanced-block` error -- never silently absorbed.
+of file, is a hard `unbalanced-block` error that is never silently absorbed.
 
 Under the bare opt-in (`pragma bare`), the closer is instead a line whose only
 non-whitespace content is `}`. Literal `{`/`}` in a TEXT body are not brace-counted
@@ -310,50 +310,50 @@ open Quill block. In bare mode a literal lone-`}` line emitted inside a Quill bl
 must be disambiguated by the leading-pipe marker (`| }`), a `verbatim` region, or
 interpolation (`{{ "}" }}`); indentation alone does not exempt it.
 
-**R6 -- power vs unary minus.** `**` is right-associative and binds tighter than
+**R6: power vs unary minus.** `**` is right-associative and binds tighter than
 unary minus, but the unary prefix wraps the power node by AST shape:
 `Unary -> ("-") Unary | Postfix` and `Power -> Unary [ "**" Power ]` together yield
 `-1 ** 0 = -(1 ** 0) = -1` and `(-1) ** 2 = 1` from one consistent rule.
 
-**R7 -- two-word test names.** After `is`/`is not`, the parser greedily consumes up
+**R7: two-word test names.** After `is`/`is not`, the parser greedily consumes up
 to two `NAME` tokens to form the test name (`same as`, `divisible by`), then
 optionally an argument. Single-token tests take one `NAME`. A following `(` begins
 a parenthesized argument list rather than a third name word.
 
-**R8 -- the pipe `|` vs union `|` vs bitwise-or.** The bare `|` is exclusively the
+**R8: the pipe `|` vs union `|` vs bitwise-or.** The bare `|` is exclusively the
 filter pipe in expression position. Bitwise OR is the word `b_or` (alias `|||`).
 Type union `|` appears only in a type context. The three uses never overlap because
 each is confined to a distinct syntactic position.
 
-**R9 -- arrow param list vs grouping.** `( ... )` is an arrow param list only when
+**R9: arrow param list vs grouping.** `( ... )` is an arrow param list only when
 immediately followed by `=>`; otherwise it is a grouped expression. A single bare
 `NAME =>` is also an arrow. An arrow `ParamList` is positional-only; a `** NAME`
 kwargs tail is a `MacroParamList` feature and is rejected on an arrow. Within a
 `MacroParamList` the two tail captures obey a fixed terminal order: an optional
 `... NAME` positional variadic, then an optional `** NAME` kwargs, each last.
 
-**R10 -- assignment target vs expression.** The LHS of `=` is parsed as an `Expr`,
+**R10: assignment target vs expression.** The LHS of `=` is parsed as an `Expr`,
 then reinterpreted as a `Target_` when `=` follows. A sequence literal `[a, b]` on
 the left of `=` is a destructuring target; the same `[a, b]` without a following
 `=` is a sequence value.
 
-**R11 -- special names vs context identifiers.** `_self`, `_context`, and
+**R11: special names vs context identifiers.** `_self`, `_context`, and
 `_charset` are reserved `SpecialName` primaries, resolved by the engine and exempt
 from the strict-undefined rule. They are recognized in primary position and as an
 `ImportSrc`; a context variable of the same name is shadowed. After `.` or `|` they
 are ordinary `NAME`s.
 
-**R12 -- `capture` is a set-tail, not an expression.** `capture { ... @}` is
+**R12: `capture` is a set-tail, not an expression.** `capture { ... @}` is
 grammatical only in the `Capture` production. It is not a free `Stmt` and not an
 `Expr` `Primary`, so a line statement's `NL` terminator can never fall inside its
 body. A bare `capture { ... @}` outside a `@set` tail is a parse error.
 
-**R13 -- the `matches` operand and the bare `/`.** `matches` takes an ordinary
+**R13: the `matches` operand and the bare `/`.** `matches` takes an ordinary
 `Expr` whose value is a string RE2 pattern; there is no regex-literal token. A `/`
 is always the division or floor-division operator, never a pattern delimiter.
 Inline flags ride inside the pattern string as RE2 `(?flags)`.
 
-**R14 -- the `+` close modifier.** On a block close or `#}` only, a `+` (`@}+` under
+**R14: the `+` close modifier.** On a block close or `#}` only, a `+` (`@}+` under
 the default, `}+` under bare mode, and `#}+`) suppresses the one-newline-eating of
 R5, preserving the following newline. `+` is a close-side trim modifier
 exclusively; the additive `+` appears only inside an `Expr`, never adjacent to a
@@ -363,7 +363,7 @@ closing delimiter.
 
 The productions above compose into one grammar. The entry point is `SourceFile`;
 `Template` is the top-level production the parser drives once the scanner has
-classified spans. The two grammars meet at exactly one seam -- the `atSigil`
-predicate (R1) and the statement-head test (R4: the `@`-sigil lead under the
-default, the leading-keyword test under `pragma bare`) -- and nowhere else, which
-is why the whole language is decidable byte-by-byte without heuristic lookahead.
+classified spans. The two grammars meet at exactly one seam, and nowhere else:
+the `atSigil` predicate (R1) and the statement-head test (R4: the `@`-sigil lead
+under the default, the leading-keyword test under `pragma bare`). This is why
+the whole language is decidable byte-by-byte without heuristic lookahead.

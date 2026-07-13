@@ -71,7 +71,7 @@ func (in *interp) checkMethodAllowed(recv runtime.Value, method string) error {
 // checkPropertyAllowed gates a host property/field read when the sandbox is
 // active (B11). When a name a.b could be either a property or a method and
 // neither is allowed, the PROPERTY error is reported (property is checked at the
-// read site, the method path is the fallback) -- the documented property-then-
+// read site, the method path is the fallback), matching the documented property-then-
 // method precedence. Trusted shims bypass (B14).
 func (in *interp) checkPropertyAllowed(recv runtime.Value, prop string) error {
 	if !in.sandboxOn || recv.Kind() != runtime.KObject {
@@ -92,8 +92,8 @@ func (in *interp) checkPropertyAllowed(recv runtime.Value, prop string) error {
 }
 
 // checkStringifyAllowed is the string-coercion gate (B12): before a host Object
-// is coerced to text -- at an interpolation, in ~ concat, or as a join/replace/
-// split argument -- the object's stringify member must be permitted. The gated
+// is coerced to text (at an interpolation, in ~ concat, or as a join/replace/
+// split argument), the object's stringify member must be permitted. The gated
 // member name is the conventional "Stringify" hook, matched against the policy's
 // method allowlist through the type-graph. A Safe
 // value, a non-object, and a trusted shim are not gated (B14).
@@ -129,8 +129,8 @@ var coercingFilters = map[string]bool{
 // checkStringifyArgs gates the host-object string-coercion the coercing filters
 // (join/replace/split) perform on their arguments. ext cannot reach the interp's
 // policy, so the interp validates here before invoking the filter: any host
-// Object reachable in an argument -- a scalar arg, a sequence element, or a map
-// key/value -- must have its Stringify member allowed, mirroring the
+// Object reachable in an argument (a scalar arg, a sequence element, or a map
+// key/value) must have its Stringify member allowed, mirroring the
 // interpolation and ~ concat gates (B12). Filters not in coercingFilters are
 // untouched, so an arrow argument to map/filter/etc. is not mistaken for a
 // coercion (that path is gated by checkArrowArgs instead).
@@ -149,7 +149,7 @@ func (in *interp) checkStringifyArgs(filter string, args []runtime.Value) error 
 // checkStringifyArg applies the string-coercion gate (B12) to one argument
 // value under the same filter-name key as checkStringifyArgs. The filter fast
 // call runs it on the piped value, so a host filter that shadows a coercing
-// name AND publishes Fn1 still has its one reachable argument gated -- the
+// name AND publishes Fn1 still has its one reachable argument gated: the
 // fast call cannot open a coercion path the general path would have gated.
 func (in *interp) checkStringifyArg(filter string, a runtime.Value) error {
 	if !in.sandboxOn || !coercingFilters[filter] {
@@ -159,8 +159,8 @@ func (in *interp) checkStringifyArg(filter string, a runtime.Value) error {
 }
 
 // checkStringifyDeep applies the Stringify gate to v and, when v is a collection,
-// to each element and map key/value -- the elements the coercing filters render
-// through ToText. A callable Object is skipped: it is not a coercion target and
+// to each element and map key/value (the elements the coercing filters render
+// through ToText). A callable Object is skipped: it is not a coercion target and
 // is governed by the arrow-gating rule, not the stringify gate.
 func (in *interp) checkStringifyDeep(v runtime.Value) error {
 	switch v.Kind() {
@@ -211,7 +211,7 @@ func isTrustedShim(o runtime.Object) bool {
 
 // execSandbox renders an @sandbox region: it forces the sandbox on over the
 // body and for any templates included within it, then restores the prior gate
-// on exit -- never turning the sandbox off for an already-sandboxed enclosing
+// on exit, never turning the sandbox off for an already-sandboxed enclosing
 // render (B7, B16). When the region (not a global toggle) is what activates the
 // sandbox, the Phase-1 check is scoped to the region body's used callables so
 // only what the region actually references is validated. If the sandbox was
@@ -248,7 +248,7 @@ func (in *interp) checkArrowArgs(n *ast.Node, args []runtime.Value) error {
 
 // checkArrowArg applies the arrow-gating rule (B13) to one argument value. It
 // is the per-value form checkArrowArgs loops over, and the filter fast call
-// runs it directly on the piped value -- the only value that exists there --
+// runs it directly on the piped value (the only value that exists there),
 // so both dispatch routes enforce the rule through the same code.
 func (in *interp) checkArrowArg(n *ast.Node, a runtime.Value) error {
 	if !in.sandboxOn {

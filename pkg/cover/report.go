@@ -69,7 +69,7 @@ type Report struct {
 // buildReport turns a flat region->hits snapshot into a Report with per-template
 // rollups computed. Templates are sorted by name; regions within a template are
 // sorted by (line, col, kind). Lines are derived: a line is covered iff any unit
-// on it is covered (branch arms do not create their own line entries -- their
+// on it is covered (branch arms do not create their own line entries; their
 // clause line is already a unit line via the enclosing @if/@for unit).
 func buildReport(snap map[regionID]int64, sources map[string]string) *Report {
 	byTmpl := map[string][]Region{}

@@ -5,7 +5,7 @@ package lex
 // line's first non-whitespace token is '@' immediately followed by one of these
 // at a word boundary. The lexer uses this set for the statement-head door out of
 // TEXT; it does NOT treat these spellings as keywords anywhere else (positional
-// keyword rule, spec 08/R2 -- inside CODE they are ordinary NAMEs).
+// keyword rule, spec 08/R2: inside CODE they are ordinary NAMEs).
 var statementKeywords = map[string]bool{
 	"extends":    true,
 	"block":      true,

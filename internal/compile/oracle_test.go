@@ -53,7 +53,7 @@ type oracleBucket struct {
 // plus a tab-width flip and a random-seed flip): under each combination the
 // manifest-installed Environment must render byte- and error-identical to a
 // manifest-free one, with the tracer served exactly at the matching
-// combination -- the CI leg that runs the corpus as mixed serve/fallback
+// combination. This is the CI leg that runs the corpus as mixed serve/fallback
 // traffic once per fingerprint combination.
 func TestConformanceOracle(t *testing.T) {
 	root := filepath.Join(repoRoot(t), "testdata", "conformance")

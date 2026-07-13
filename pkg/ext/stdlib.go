@@ -467,7 +467,7 @@ func filterColumn(ctx context.Context, args []runtime.Value) (runtime.Value, err
 
 // filterMap applies an arrow to each (value, key) and returns a key-preserving
 // collection of the results (spec 03 Section 2.2). When the argument is a dotted
-// path string rather than a callable -- the map(attribute:'path') form -- it
+// path string rather than a callable (the map(attribute:'path') form), it
 // plucks that path from each element instead, key-preserving.
 func filterMap(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	v := arg(args, 0)
@@ -604,7 +604,7 @@ func filterFind(ctx context.Context, args []runtime.Value) (runtime.Value, error
 }
 
 // filterSum adds a numeric sequence, optionally projecting a dotted path from
-// each element first -- the sum(attribute:'path') form (spec 03 Section 2.2).
+// each element first via the sum(attribute:'path') form (spec 03 Section 2.2).
 // An int sequence sums to an Int; any float participant promotes the total to a
 // Float. An empty collection sums to Int 0.
 func filterSum(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
@@ -1306,7 +1306,7 @@ func registerStdlibFunctions(s *Set) {
 }
 
 // fnAttribute reads member name of var at runtime, optionally calling it with an
-// argument list -- the dynamic form of a.b / a.b(args), spec 03 Section 3.2.
+// argument list: the dynamic form of a.b / a.b(args), spec 03 Section 3.2.
 func fnAttribute(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
 	recv := arg(args, 0)
 	name := arg(args, 1)

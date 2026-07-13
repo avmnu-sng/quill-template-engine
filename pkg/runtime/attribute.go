@@ -24,7 +24,7 @@ const (
 // Dotted a.b (spec 04 Section 7.2):
 //   - *Array: read string key "name"; no property/method fallthrough.
 //   - Object: public field name, then accessor get/is/has (in that precedence,
-//     no args), then a class constant -- via the host GetField hook.
+//     no args), then a class constant, via the host GetField hook.
 //   - any other kind: an attribute error (it has no .b member).
 //
 // Subscript a[k] (spec 04 Sections 6.2, 7.3):

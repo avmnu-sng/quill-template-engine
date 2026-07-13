@@ -60,7 +60,7 @@ func (s *separatorValue) Invoke([]runtime.Value) (runtime.Value, error) {
 	return runtime.Str(s.sep), nil
 }
 
-// fnSeparator constructs a separator whose glue is sep (default ",") -- separator()
+// fnSeparator constructs a separator whose glue is sep (default ","), invoked as separator()
 // or separator(", "). The returned value is callable: the first call yields "",
 // each later call yields the glue (spec 03 Section 3.2).
 func fnSeparator(ctx context.Context, args []runtime.Value) (runtime.Value, error) {
@@ -117,7 +117,7 @@ func (c *cellValue) Stringify() (string, error) {
 // ClassName reports the host type name of a cell value.
 func (c *cellValue) ClassName() string { return "Cell" }
 
-// fnCell constructs a mutable cell holding initial (default null) -- cell() or
+// fnCell constructs a mutable cell holding initial (default null), invoked as cell() or
 // cell(0). The returned value carries an assignable `value` member that survives
 // a loop body (spec 03 Section 3.2).
 func fnCell(ctx context.Context, args []runtime.Value) (runtime.Value, error) {

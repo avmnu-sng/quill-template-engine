@@ -1,6 +1,6 @@
 // Package errors is Quill's typed error family. Every failure the engine
-// reports -- a parse fault, a type-check diagnostic, an undefined read, an
-// arithmetic overflow, a render error -- is one *Error carrying a Kind, the
+// reports (a parse fault, a type-check diagnostic, an undefined read, an
+// arithmetic overflow, a render error) is one *Error carrying a Kind, the
 // *source.Source it occurred in, and a 1-based line number.
 //
 // The Kind partitions failures into the classes the spec names: syntax,
@@ -92,8 +92,8 @@ func (k Kind) String() string {
 // the rendered message omits it in that case.
 //
 // A constructed *Error is immutable and safe for concurrent use by multiple
-// goroutines -- At and AtPos return annotated copies rather than mutating the
-// receiver -- so long as callers treat the exported Kind, Msg, and Cause fields
+// goroutines (At and AtPos return annotated copies rather than mutating the
+// receiver) so long as callers treat the exported Kind, Msg, and Cause fields
 // as read-only after construction.
 type Error struct {
 	Kind Kind
@@ -241,8 +241,8 @@ func (c SecurityClass) String() string {
 }
 
 // Security is the typed sandbox-violation error. It wraps an *Error (always
-// KindSecurity) so it stays in the engine's error family -- KindOf and
-// errors.As(&Error{}) reach it via Unwrap -- while adding the offending Name,
+// KindSecurity) so it stays in the engine's error family (KindOf and
+// errors.As(&Error{}) reach it via Unwrap) while adding the offending Name,
 // the host Type name for member violations (empty for tag/filter/function), and
 // the violation Class so a host can catch with errors.As(&Security{}) and switch
 // on Class (spec 04 Section 8.3, design/escaping-safety Section 6.9). The wrapped
@@ -250,7 +250,7 @@ func (c SecurityClass) String() string {
 // Line, and Col methods.
 //
 // A constructed *Security is immutable and safe for concurrent use by multiple
-// goroutines -- At returns an annotated copy rather than mutating the receiver --
+// goroutines (At returns an annotated copy rather than mutating the receiver)
 // so long as callers treat the exported Class, Name, and Type fields (and the
 // wrapped *Error) as read-only after construction.
 type Security struct {
@@ -317,7 +317,7 @@ func SecurityProperty(typeName, prop string) *Security {
 }
 
 // SecurityUnknownType reports a member access on a host type the strict-mode
-// policy does not know at all -- it has no method or property allowlist entry
+// policy does not know at all: it has no method or property allowlist entry
 // and is absent from the type-graph (spec 04 Section 8.3 strict-vs-lenient mode,
 // B6). Lenient mode does not raise this; it falls through to the per-member deny.
 // The violation carries the dedicated SecUnknownType class so a host can

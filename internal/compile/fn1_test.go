@@ -9,10 +9,10 @@ import (
 // fn1Cases is the differential battery for the arity-known filter fast call:
 // each case renders through the compiled path and must match the facade
 // byte-for-byte (output or error text). It walks both arms of the generated
-// dispatch -- the bare pipe takes the hoisted Fn1 branch, while explicit
+// dispatch: the bare pipe takes the hoisted Fn1 branch, while explicit
 // arguments, spreads, injection-flagged filters, and filters without Fn1
-// stay on the general slice-building arm -- plus the observable-timing edges
-// (unknown filter mid-stream, error text and position off both arms).
+// stay on the general slice-building arm. It also walks the observable-timing
+// edges (unknown filter mid-stream, error text and position off both arms).
 var fn1Cases = []compiledCase{
 	// The fast arm over every audited filter, piped bare inside a loop.
 	{name: "fn1-upper-loop", template: "@for u in users {\n{{ loop.index }}. {{ u.name | upper }}\n@}\n", varsJSON: `{"users":[{"name":"ada"},{"name":"grace"}]}`},

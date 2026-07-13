@@ -10,7 +10,7 @@ import (
 // slotsIncludeBattery pins the cross-template slot-sharing contracts: a static
 // @include of a slot-using partial whose statements inline into the SAME
 // generated render, so the partial's @provide appends to the render-level slot
-// buffers and its @yield reaches the single post-render resolve pass -- the
+// buffers and its @yield reaches the single post-render resolve pass, the
 // compiled analog of interp shareSlotsFrom, where one Render means one slot map.
 //
 // The shapes are the two headline fixtures plus the plan's adversarial corners:
@@ -100,7 +100,7 @@ var slotsIncludeBattery = []includeCase{
 // both compiled lowerings (Unit and single-template Module), asserting each
 // output byte-equal to the facade's Render AND to the pinned contract, the
 // dispatch gate served the compiled unit under the fixture's configuration, and
-// that no raw yield placeholder survives -- the leak class a slot reached only
+// that no raw yield placeholder survives, the leak class a slot reached only
 // through an include would open if the render failed to buffer and resolve.
 func TestSlotsIncludeBattery(t *testing.T) {
 	var cases []compiledCase

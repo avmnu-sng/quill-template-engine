@@ -6,8 +6,8 @@ change must pass, and the conventions the codebase follows.
 ## Development environment
 
 The library's minimum is Go 1.23 (the `go` line in `go.mod`, kept conservative
-for broad compatibility). Development uses a newer Go -- the test and benchmark
-suites rely on `b.Loop` (Go 1.24+) -- so pin a recent toolchain locally (for
+for broad compatibility). Development uses a newer Go: the test and benchmark
+suites rely on `b.Loop` (Go 1.24+), so pin a recent toolchain locally (for
 example with `goenv`). The engine itself is standard-library only; the linters
 and scanners below are dev tooling.
 
@@ -58,7 +58,7 @@ The gates a change must keep green:
 - **Coverage.** Keep meaningful coverage on new code; `task test:unit` produces a
   profile you can inspect with `task test:cover`.
 - **Doc comments on exported API.** Every exported symbol carries a doc comment
-  that is a full sentence ending in a period -- `golangci-lint` (revive
+  that is a full sentence ending in a period; `golangci-lint` (revive
   `exported` + `godot`) enforces this. Package-level prose lives in `doc.go`, and
   runnable `ExampleXxx` functions double as tests and populate the Examples tab
   on pkg.go.dev.

@@ -122,8 +122,8 @@ type Policy struct {
 	properties map[string]map[string]bool
 	// strict selects strict-versus-lenient member-access reporting (spec 04
 	// Section 8.3). In strict mode, a member access on a host type the policy does
-	// not know at all -- no method or property allowlist entry and absent from the
-	// type-graph -- reports a distinct unknown-type error (the interp consults
+	// not know at all (no method or property allowlist entry and absent from the
+	// type-graph) reports a distinct unknown-type error (the interp consults
 	// Knows). In lenient mode that same access falls through to the ordinary
 	// per-member deny. The tag/filter/function floor is uniform in both modes, with
 	// no grandfathering (B6).
@@ -213,8 +213,8 @@ func AllowProperties(typeName string, props ...string) PolicyOption {
 }
 
 // Strict turns on strict member-access reporting (spec 04 Section 8.3). In strict
-// mode a member access on a host type the policy does not know at all -- no method
-// or property allowlist entry and absent from the type-graph, per Policy.Knows --
+// mode a member access on a host type the policy does not know at all (no method
+// or property allowlist entry and absent from the type-graph, per Policy.Knows)
 // reports a distinct unknown-type error; in the default lenient mode that same
 // access falls through to an ordinary per-member deny. The tag/filter/function
 // allowlist floor is unaffected either way.

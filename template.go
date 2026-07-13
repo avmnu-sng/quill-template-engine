@@ -4,8 +4,8 @@ import "github.com/avmnu-sng/quill-template-engine/internal/interp"
 
 // Template is the opaque, read-only handle a host receives from LoadTemplate and
 // CompileString. It wraps the interpreter's prepared template (an internal type)
-// and exposes only a curated inspection surface -- the template's name and its
-// block and macro membership -- so the render machinery, the AST, and every
+// and exposes only a curated inspection surface (the template's name and its
+// block and macro membership) so the render machinery, the AST, and every
 // other interpreter internal stay off the public API. A Template is immutable
 // once returned and safe to share across concurrent renders; hand it back to the
 // Environment (RenderPrepared) to render it without re-loading.

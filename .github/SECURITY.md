@@ -37,7 +37,7 @@ and you will be credited in the advisory unless you prefer to remain anonymous.
 
 Quill renders templates, including potentially untrusted ones. The sandbox
 (`sandbox.Policy`) is the mechanism for constraining what an untrusted template
-may do -- it restricts the permitted tags, filters, functions, per-type methods,
+may do. It restricts the permitted tags, filters, functions, per-type methods,
 and per-type properties, and each violation raises a catchable `*errors.Security`.
 Reports about sandbox escapes, denial-of-service through crafted templates, or
 incorrect escaping under an active strategy are in scope.

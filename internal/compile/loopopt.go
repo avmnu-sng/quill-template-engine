@@ -73,9 +73,9 @@ func (la *loopAnalysis) inlineFor(n *ast.Node) bool {
 // liveFor reports whether the @for at n may iterate a KArray iterand live off
 // the array's insertion-ordered keys (runtime.Array.PairAt) instead of the
 // materialized pair slice. The live path must be observationally equal to the
-// interpreter's entry-time snapshot -- runtime.EnsureTraversable copies each
+// interpreter's entry-time snapshot (runtime.EnsureTraversable copies each
 // element Value at loop entry, so an in-place mutation of the iterated array's
-// top-level slots mid-loop is invisible to the iteration -- which holds only
+// top-level slots mid-loop is invisible to the iteration), which holds only
 // when the compiler can prove the body cannot mutate ANY array in place:
 //
 //   - The loop must not be fused: the @for..if pre-pass materializes the
@@ -444,7 +444,7 @@ func (a *loopAnalyzer) walkStmt(n *ast.Node) {
 // with-map is evaluated in the enclosing scope, then the partial's own
 // statements are inlined under a with (or only-with) frame that models the
 // include child scope. Descending into the partial body is what makes a
-// caller-scope loop the body reads escape -- resolveChain resolves the bare
+// caller-scope loop the body reads escape: resolveChain resolves the bare
 // name loop cross-frame and emits ShareValue at render time, so the enclosing
 // loop must have materialized a live value to share, exactly as an @with body
 // or an inline @block body forces it. The descent gates on the same structural
@@ -485,9 +485,9 @@ func (a *loopAnalyzer) walkInclude(n *ast.Node) {
 }
 
 // walkEmbed walks a static @embed the way stmtEmbed flattens it: the with-map
-// is evaluated in the enclosing scope, then the embedded body -- the target's
+// is evaluated in the enclosing scope, then the embedded body (the target's
 // topmost module, the definition bodies of every block it and its composition
-// reach, and the inline override bodies -- is walked under a with (or only-with)
+// reach, and the inline override bodies) is walked under a with (or only-with)
 // frame that models the child scope. Descending the bodies is what makes a
 // caller-scope loop read passed through the with-map escape its enclosing loop,
 // exactly as an @with body or an inline @block body forces it. Block sites
@@ -947,10 +947,10 @@ func (a *loopAnalyzer) tryChain(n *ast.Node) bool {
 
 // bodyMutates reports whether a loop body's statement list could mutate an
 // array in place while the loop iterates. The scan is transitive over the
-// whole body subtree -- nested statements, nested loops (including their
+// whole body subtree: nested statements, nested loops (including their
 // iterands, filters, and else arms, all of which execute during the outer's
 // iteration), capture bodies, arrow bodies defined inside, and every argument
-// expression -- because a mutator anywhere under the body can run between two
+// expression, because a mutator anywhere under the body can run between two
 // iterations of THIS loop. The triggers are the only template-reachable
 // in-place array mutators: any member-assignment @set (whatever its root
 // name resolves to, since aliasing cannot be ruled out statically), any @do
@@ -967,7 +967,7 @@ func (a *loopAnalyzer) tryChain(n *ast.Node) bool {
 // bare-name call, so when the arrow was DEFINED outside the loop body its
 // body was never scanned as part of this loop, and a receiver-method call
 // hiding inside it goes unseen. Both holes are closed by contract, not by
-// analysis -- a host callable that mutates an argument array in place breaks
+// analysis: a host callable that mutates an argument array in place breaks
 // live-path loops whose entry-time snapshot used to mask the write.
 func bodyMutates(items []*ast.Node) bool {
 	for _, it := range items {
@@ -1080,7 +1080,7 @@ func (c *compiler) loopByFrame(f *frame) *loopInfo {
 // loop field read over the loop's counter and length, reporting false for the
 // non-Int fields (first/last/prev/next). The expressions are exactly what
 // runtime's loopInfo.GetField computes, so a print site may format one with
-// strconv.FormatInt -- the ToText Int spelling -- without materializing the
+// strconv.FormatInt (the ToText Int spelling) without materializing the
 // Value.
 func (c *compiler) inlineLoopInt(ir inlineLoopRead) (string, bool) {
 	li := c.loopForNode(ir.target)

@@ -81,8 +81,8 @@ func TestScopeFrameSpillSemantics(t *testing.T) {
 	}
 }
 
-// TestStrictUndefinedHintAcrossSpilledFrame pins the full error text -- the
-// "available:" list byte for byte -- when the frame holding the hint names has
+// TestStrictUndefinedHintAcrossSpilledFrame pins the full error text (the
+// "available:" list byte for byte) when the frame holding the hint names has
 // spilled to its map index: the entries slice stays the order record, so the
 // hint lists first-bind order exactly as the flat-map representation did.
 func TestStrictUndefinedHintAcrossSpilledFrame(t *testing.T) {
@@ -101,7 +101,7 @@ func TestStrictUndefinedHintAcrossSpilledFrame(t *testing.T) {
 }
 
 // TestWideRootFrameStress feeds the render entrypoints a root frame far past
-// the spill width -- the NewScopeSized pre-sizing path -- and checks every
+// the spill width (the NewScopeSized pre-sizing path) and checks every
 // binding reads back correctly and copy-on-write isolation still holds for a
 // host-provided array mutated inside a child frame.
 func TestWideRootFrameStress(t *testing.T) {

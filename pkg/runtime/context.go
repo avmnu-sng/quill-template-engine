@@ -30,7 +30,7 @@ func (c *Context) Set(name string, v Value) {
 }
 
 // SetOwned binds name to v WITHOUT marking its array shared, for a value the
-// caller exclusively owns -- the privatized root of a member assignment. Marking
+// caller exclusively owns: the privatized root of a member assignment. Marking
 // it shared would force a needless copy-on-write clone on the next mutation, which
 // would make a run of member writes to one array quadratic.
 func (c *Context) SetOwned(name string, v Value) {

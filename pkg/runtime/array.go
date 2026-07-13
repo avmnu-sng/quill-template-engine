@@ -79,8 +79,8 @@ func canonInt(k int64) string {
 
 // isCanonicalIntKey reports whether a stored key encoding is an integer key,
 // replacing the former parallel ints map: a key is an Int key exactly when it is
-// the canonical decimal spelling of an int64. It is allocation-free -- it never
-// calls ParseInt -- by pairing the looksCanonicalInt shape gate with a fits-int64
+// the canonical decimal spelling of an int64. It is allocation-free (it never
+// calls ParseInt) by pairing the looksCanonicalInt shape gate with a fits-int64
 // bound check (a canonical run of fewer digits than the int64 limit always fits;
 // at the limit width it compares lexically). A canonical-looking but overflowing
 // run such as "99999999999999999999" is therefore correctly a STRING key, exactly
@@ -125,7 +125,7 @@ func fastCanonInt(enc string) int64 {
 
 // canonicalizeStringKey decides whether a string subscript names an integer
 // slot. A canonical decimal-integer literal (matching strconv's round-trip)
-// becomes an Int key; everything else -- "01", "1.0", " 1", "+1", "1e3" --
+// becomes an Int key; everything else ("01", "1.0", " 1", "+1", "1e3")
 // stays a Str key (spec 04 Section 6.1).
 func canonicalizeStringKey(s string) (enc string, isInt bool) {
 	if i, ok := parseCanonicalInt(s); ok {
@@ -161,8 +161,8 @@ func parseCanonicalInt(s string) (int64, bool) {
 // looksCanonicalInt reports whether s has the exact shape of a canonical decimal
 // int64 spelling without allocating: an optional single leading '-', then either
 // "0" alone or a nonzero leading digit followed by digits. It rejects every
-// non-canonical spelling a subscript must keep as a string key -- "01", "+1",
-// "-0", " 1", "1.0", "1e3", "-", "" -- so the string "01" stays distinct from
+// non-canonical spelling a subscript must keep as a string key ("01", "+1",
+// "-0", " 1", "1.0", "1e3", "-", ""), so the string "01" stays distinct from
 // the integer 1 (spec 04 Section 6.1).
 func looksCanonicalInt(s string) bool {
 	if s == "" {
@@ -287,14 +287,14 @@ func (a *Array) Pairs() []Pair {
 // PairsInto materializes the entries as key/value Pairs in insertion order into
 // buf, reusing its backing storage instead of allocating a fresh slice. It
 // truncates buf to length zero and appends every entry, so the returned slice
-// holds exactly the same Pairs -- in the same order -- Pairs() would; the
+// holds exactly the same Pairs, in the same order, Pairs() would; the
 // append grows buf when it is too small and reuses it otherwise. It exists so a
 // loop can recycle one snapshot buffer across renders and iterations rather
 // than paying the O(n) Pairs() allocation each time.
 //
 // The returned slice aliases buf's backing array, so a caller recycling one
 // buffer across loops must have finished reading the prior loop's Pairs before
-// the next PairsInto overwrites them -- the same discipline a fresh Pairs()
+// the next PairsInto overwrites them, the same discipline a fresh Pairs()
 // slice per loop would enforce structurally. Each Pair is a value copy of the
 // entry, so a Pair already read out of the slice is unaffected by a later reuse.
 func (a *Array) PairsInto(buf []Pair) []Pair {
@@ -339,7 +339,7 @@ func (a *Array) Clone() *Array {
 
 // CopyValue value-copies a Value at a boundary. Scalars and Safe copy by value;
 // an *Array copies deeply; an Object is shared by reference (host objects are
-// reference identities, not value-copied -- spec 04 Section 6.3 covers *Array,
+// reference identities, not value-copied; spec 04 Section 6.3 covers *Array,
 // and Object equality is identity by Section 4.1). It is the eager deep copy,
 // retained for callers that need a fully independent tree up front; the render
 // path uses the lazy copy-on-write pair ShareValue / Own instead.
@@ -356,7 +356,7 @@ func CopyValue(v Value) Value {
 // a collection slot shares the array pointer in O(1) rather than deep-copying it,
 // and the first in-place mutation of a shared array privatizes it (Own). Sharing
 // each binding independently means two names that come to hold one array both mark
-// it shared, so mutating one privatizes and diverges from the other -- the value
+// it shared, so mutating one privatizes and diverges from the other: the value
 // semantics of spec 04 Section 6.3, paid lazily. An already-shared array is left
 // untouched rather than re-stored: cross-frame Scope.Get re-marks on every read,
 // and skipping the redundant store keeps those hot reads from dirtying the
@@ -384,7 +384,7 @@ func Own(v Value) (Value, bool) {
 // every nested *Array element shared, so a subsequent mutation one level deeper
 // privatizes that child in turn. It is O(len(a)), not O(deep data): the copy-on-
 // write cost is paid one path node at a time as writes descend, never as an eager
-// whole-tree copy. The returned array is unshared -- the caller owns it.
+// whole-tree copy. The returned array is unshared; the caller owns it.
 func (a *Array) cloneShallowCOW() *Array {
 	cp := &Array{
 		keys: append([]string(nil), a.keys...),

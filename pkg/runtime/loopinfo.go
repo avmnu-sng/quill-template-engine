@@ -2,9 +2,9 @@ package runtime
 
 import "github.com/avmnu-sng/quill-template-engine/pkg/errors"
 
-// loopInfo is the loop.* metadata for one iteration -- shared by the tree-walking
+// loopInfo is the loop.* metadata for one iteration, shared by the tree-walking
 // interpreter and the compiled backend so both spend the loop-metadata
-// correctness budget once -- computed on access instead
+// correctness budget once, computed on access instead
 // of stored in a per-iteration map. index / index0 / first / last / length /
 // revindex / revindex0 derive from the pair (i, n); prev / next read the
 // neighbouring element from the materialized pairs on demand; parent points at
@@ -16,7 +16,7 @@ import "github.com/avmnu-sng/quill-template-engine/pkg/errors"
 // loop (@set snap = loop) must be a frozen snapshot of that step, so reusing and
 // mutating one object across iterations is forbidden (spec 01 Section 4.2, and the
 // value-type contract of spec 04 Section 6.3). loopInfo is a host Object exposing
-// only field access, which is the entire observed contract for loop -- loop.field
+// only field access, which is the entire observed contract for loop: loop.field
 // plus the syntactically special-cased loop.changed(...). Indexable is provided so
 // loop["index"] resolves like loop.index, and it reports as a mapping.
 //
@@ -24,9 +24,9 @@ import "github.com/avmnu-sng/quill-template-engine/pkg/errors"
 // shares the same enclosing-loop value, probed exactly once at loop entry, so
 // pointing all of the loop's fresh iteration objects at that one probe result
 // keeps the struct in the 64-byte allocation size class instead of carrying a
-// 64-byte Value copy per iteration into the 128-byte class. The pointee -- a
+// 64-byte Value copy per iteration into the 128-byte class. The pointee (a
 // per-loop boxed probe result, or a shared read-only Null when no enclosing
-// loop exists -- stays unwritten after construction, and GetField("parent")
+// loop exists) stays unwritten after construction, and GetField("parent")
 // copies it out, so a captured snapshot still reads the exact bits the
 // entry-time probe produced.
 type loopInfo struct {
@@ -42,7 +42,7 @@ type loopInfo struct {
 // shared by every iteration of the loop and must stay unwritten while any
 // iteration's loop value is reachable, which callers get by probing the
 // enclosing value once into a dedicated local at loop entry. n is the pair
-// count, so every field -- including first/last/length/revindex and prev/next --
+// count, so every field, including first/last/length/revindex and prev/next,
 // reflects the sequence pairs actually holds (already the survivor subset when a
 // fused filter ran).
 func NewLoopValue(i int, pairs []Pair, parent *Value) Value {
@@ -75,7 +75,7 @@ type LoopCursor struct {
 // NewLoopCursor prepares a reusable loop value over pairs, with parent carrying
 // the same entry-time-probe pointer contract as NewLoopValue (Null at the top
 // level). n is fixed to the pair count for the loop's lifetime; At advances only
-// the current index. It is for the pool-safe path only -- a caller that cannot
+// the current index. It is for the pool-safe path only: a caller that cannot
 // prove the loop value stays within its iteration must use NewLoopValue instead.
 func NewLoopCursor(pairs []Pair, parent *Value) *LoopCursor {
 	c := &LoopCursor{li: loopInfo{n: len(pairs), pairs: pairs, parent: parent}}
@@ -96,8 +96,8 @@ func (c *LoopCursor) At(i int) Value {
 
 // GetField resolves a loop.* field on access. Every field is always defined for
 // the loop's kind: a plain loop resolves the ten common fields, a recursive loop
-// additionally resolves depth/depth0. An unknown name -- including "changed",
-// which is recognized syntactically as a method rather than a field -- reports ok
+// additionally resolves depth/depth0. An unknown name (including "changed",
+// which is recognized syntactically as a method rather than a field) reports ok
 // false, so a strict read raises undefined exactly as the former mapping did.
 func (li *loopInfo) GetField(name string) (Value, bool) {
 	switch name {

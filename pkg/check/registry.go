@@ -15,7 +15,7 @@ import (
 // treated as an opaque known type whose members are `any`, so a template that
 // annotates Object<...> still type-checks structurally (renderability, arity,
 // arithmetic) while member reads fall to the dynamic floor. This keeps the
-// gradual promise -- annotate as much or as little as you like -- at the host
+// gradual promise (annotate as much or as little as you like) at the host
 // boundary too.
 //
 // A Registry is immutable data the host builds before constructing the
@@ -165,7 +165,7 @@ func (r *Registry) objectType(name string) *ObjectType {
 // knowsType reports whether the host type name resolves: either it is
 // registered, or the registry is non-nominal (no host types at all), in which
 // case every Object<...> is accepted as opaque. A nominal registry that lacks
-// the name does NOT know it -- that is the unknown-host-type error site.
+// the name does NOT know it; that is the unknown-host-type error site.
 func (r *Registry) knowsType(name string) bool {
 	if r == nil || !r.nominal() {
 		return true
@@ -185,7 +185,7 @@ func (r *Registry) signature(name string) *Signature {
 
 // memberType resolves a.member's static type on a known Object type, walking the
 // declared supertypes so an inherited member is found. ok is false when the type
-// is registered but has no such member -- a check-time miss (the static shadow
+// is registered but has no such member: a check-time miss (the static shadow
 // of the strict-undefined runtime miss). When the registry is non-nominal the
 // caller never reaches here for an Object (it treats members as any).
 func (r *Registry) memberType(name, member string) (*Type, bool) {

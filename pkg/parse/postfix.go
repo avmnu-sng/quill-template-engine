@@ -65,7 +65,7 @@ func (p *parser) memberName() string {
 func (p *parser) parseSubscript(recv *ast.Node, nullSafe bool) *ast.Node {
 	t := p.advance() // '[' or '?['
 	if nullSafe {
-		// ?[ Expr ] -- index only.
+		// ?[ Expr ]: index only.
 		key := p.parseExpr()
 		p.expect(lex.RBRACKET, "']' to close index")
 		n := p.node(ast.KindIndex, t, recv, key)

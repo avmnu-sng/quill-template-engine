@@ -7,8 +7,8 @@ import (
 // stmtEmbed lowers a static "@embed src [with map] [only] [ignore missing] {
 // block overrides }" by flattening the embedded template into this render as an
 // anonymous derived member, mirroring interp execEmbed. The embed target is
-// linked exactly as a Unit entry -- its @extends chain, @use traits, and merged
-// block table -- and the inline @block definitions layer over that table
+// linked exactly as a Unit entry (its @extends chain, @use traits, and merged
+// block table) and the inline @block definitions layer over that table
 // most-derived first, the compile analog of execEmbed's chain prepend. The
 // linked topmost body then lowers with its block sites resolving through this
 // embed-local table, under a child frame that models the with/only child scope,
@@ -22,7 +22,7 @@ import (
 //
 // The embed writes into this render's stream directly, so a @provide inside the
 // embedded body appends to the render-level slot buffers and a @yield reaches
-// the single post-render resolve pass -- the compile analog of execEmbed's
+// the single post-render resolve pass, the compile analog of execEmbed's
 // shareSlotsFrom, where there is one slot map because there is one Render.
 // reachesSlots descends into the flattened body so an embed feeding a parent
 // @yield forces this render's buffered shape, and a self-contained embed's own
@@ -158,7 +158,7 @@ func (c *compiler) stmtEmbed(n *ast.Node) error {
 // The interpreter renders an embed through a sub-interp whose own indent starts
 // empty writing to the shared sink, so the embedded body is emitted raw even
 // inside a @tab region, and the parent's line-start cursor is untouched by the
-// sub's writes -- so the statement AFTER the embed indents exactly as it would
+// sub's writes, so the statement AFTER the embed indents exactly as it would
 // have without the embed. A tab-free unit has no indent layer, so the raw
 // io.WriteString already matches; otherwise the writer's indent and line-start
 // are saved, the indent blanked for the splice, and both restored, reproducing

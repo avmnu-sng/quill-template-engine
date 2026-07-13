@@ -18,8 +18,8 @@ func scanInterpClose(l *lexer) bool {
 // scanStmtHeadEnd stops a statement head at a depth-zero block-open '{', a
 // newline, or EOF. Most mapping-literal '{'s sit at depth >= 1 (they follow other
 // head tokens) and are never seen here. The one ambiguous case is a head whose
-// expression STARTS with a mapping literal -- "@with { x: 1 }", "@set {a} = e",
-// "@use 'x' with { b: a }" -- where the map '{' is at depth zero. mapAhead peeks
+// expression STARTS with a mapping literal ("@with { x: 1 }", "@set {a} = e",
+// "@use 'x' with { b: a }") where the map '{' is at depth zero. mapAhead peeks
 // the balanced "{ ... }" and reports whether it is a mapping literal (it contains
 // a depth-1 ':' or '...', or is empty) rather than a body open; the head scanner
 // then keeps the map in CODE and stops only at the true body '{' or the line end.

@@ -164,8 +164,8 @@ func TestRepeatRenderStabilityOnOneEnvironment(t *testing.T) {
 // the race detector this is the memo's concurrency proof; the byte comparison
 // additionally proves no cross-render state leaks through the shared pointers.
 // Each goroutine builds its own bindings because a *Array value is a per-render
-// COW cell: Scope share-marks it during the render, so bindings -- unlike the
-// Environment and its Templates, the shared state under test -- are not a
+// COW cell: Scope share-marks it during the render, so bindings (unlike the
+// Environment and its Templates, the shared state under test) are not a
 // cross-goroutine surface.
 func TestConcurrentRendersShareOneEnvironment(t *testing.T) {
 	env := New(loader.NewArrayLoader(preparedMemoFixtures()))
@@ -265,7 +265,7 @@ func TestLoadTemplatePrepareErrorIsNotMemoized(t *testing.T) {
 // interp.Template must be immutable once PrepareChecked returns, because one
 // Template pointer is now shared across all renders (and goroutines) on an
 // Environment. Adding a field to Template makes this test fail until the
-// field is classified here -- either immutable-post-Prepare, or explicitly
+// field is classified here: either immutable-post-Prepare, or explicitly
 // exempted with a rationale proving per-render safety (a sanctioned atomic,
 // for example), which forces the sharing question to be answered at the
 // moment the field is born.

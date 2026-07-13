@@ -9,7 +9,7 @@ import (
 
 // greetExt is a bundle that ships one function, one filter, one test, a
 // constant, and an enum, exercising every Bundle family through an embedded
-// BaseExtension (so it need not implement the families it does not add -- here
+// BaseExtension (so it need not implement the families it does not add; here
 // it happens to add all five, but the embed makes the pattern uniform).
 type greetExt struct{ BaseExtension }
 

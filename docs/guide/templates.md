@@ -24,7 +24,7 @@ Everything else in text is ordinary output. The load-bearing invariant:
 > A single `{` or `}` in template text is never a delimiter. A `{` is a delimiter
 > only when immediately followed by `{` or `#`, with no intervening character.
 > Under the default, a statement begins only at `@`, and a block closes only at
-> `@}`, so a bare `}` in text -- even a lone `}` at column 0 -- is always literal
+> `@}`, so a bare `}` in text (even a lone `}` at column 0) is always literal
 > output.
 
 The byte-level lexer copies text faithfully, including bytes that are not valid
@@ -43,7 +43,7 @@ recognized only when, after optional leading whitespace, a line's first
 non-whitespace character is `@` immediately followed by one of the fixed
 statement keywords at a word boundary, and the construct parses as a complete
 statement head. A brace block opened by an `@`-led statement closes only at
-`@}` -- a line whose only non-whitespace content is `@}`, optionally carrying a
+`@}`: a line whose only non-whitespace content is `@}`, optionally carrying a
 trim modifier.
 
 ```
@@ -58,7 +58,7 @@ trim modifier.
 
 Two consequences follow:
 
-- A bare `{` or `}` anywhere in text -- including a lone `}` at column 0 -- is
+- A bare `{` or `}` anywhere in text (including a lone `}` at column 0) is
   unconditionally literal output. Text that emits dense braces (a program-source
   fragment, a JSON body, a nested config block) needs no escaping.
 - A line that begins with the word `for`, `if`, or `block` (no `@`) is ordinary
@@ -92,7 +92,7 @@ block body {
 Both spellings denote the same template. In bare mode, where a literal line might
 begin with a keyword or a literal lone `}` might collide with a block close,
 Quill resolves the collision deterministically with grammar-shape rejection, a
-leading-pipe text marker (`| `), and the `verbatim` region -- never by heuristic.
+leading-pipe text marker (`| `), and the `verbatim` region, never by heuristic.
 The [Language Reference](../reference/language.md) specifies the bare-mode rules
 in full. The rest of this guide uses the `@`-default spelling.
 
@@ -123,7 +123,7 @@ adds no new evaluation rule.
 - **String literals.** Single-quoted `'...'` (no interpolation; escapes `\\`
   `\'` `\n` `\t` `\xHH`), double-quoted `"..."` (the full escape set plus
   embedded interpolation), and a backtick raw string `` `...` `` (no escape
-  processing -- useful for regex patterns and paths). Adjacent string literals do
+  processing, useful for regex patterns and paths). Adjacent string literals do
   not implicitly concatenate; use the `~` concat operator.
 - **String interpolation.** Inside a double-quoted string, `#{ expr }` embeds an
   expression, compiling to a `~` concatenation chain: `"Hello #{name | upper}!"`.
@@ -136,7 +136,7 @@ adds no new evaluation rule.
 ## The verbatim region
 
 `@verbatim { ... @}` copies its body byte for byte and does not scan it for any
-Quill syntax -- not `{{`, not `{#`, not statement keywords:
+Quill syntax, not `{{`, not `{#`, not statement keywords:
 
 ```
 @verbatim {
@@ -149,7 +149,7 @@ public static void main(String[] args) {
 ```
 
 It is the escape hatch for a bulk block that would otherwise trip the one text
-sequence that flips into code by sigil -- a literal `{{` adjacency (rare, since
+sequence that flips into code by sigil: a literal `{{` adjacency (rare, since
 no mainstream target uses `{{` as a token). Inner `{ }` are tracked by a
 raw-brace depth counter that never interprets `{{`. For a body that must contain
 an unbalanced brace or the literal close sequence, a fenced form takes an
@@ -165,9 +165,9 @@ The region ends at the first line equal to the fence token.
 
 ## Next
 
-- [Expressions](expressions.md) -- operators, filters, arrows, and the
+- [Expressions](expressions.md): operators, filters, arrows, and the
   precedence ladder.
-- [Control Flow](control-flow.md) -- `if`, `for`, `set`, and the region
+- [Control Flow](control-flow.md): `if`, `for`, `set`, and the region
   statements.
-- [Composition](composition.md) -- inheritance, blocks, macros, includes, and
+- [Composition](composition.md): inheritance, blocks, macros, includes, and
   slots.

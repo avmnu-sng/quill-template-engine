@@ -59,7 +59,7 @@ var seedTemplates = []string{
 // FuzzLex asserts that the lexer never panics and always emits a well-formed
 // token stream for arbitrary input: at least a trailing EOF sentinel, positions
 // that stay 1-based, and any lexical fault surfaced as a single ERROR token
-// sitting immediately before that EOF -- the contract documented on TokenStream.
+// sitting immediately before that EOF, matching the contract documented on TokenStream.
 func FuzzLex(f *testing.F) {
 	for _, s := range seedTemplates {
 		f.Add(s)

@@ -10,8 +10,8 @@ import (
 
 // TestErrNotFoundSentinel locks the v1 contract for a loader miss: it is
 // matchable with errors.Is(err, ErrNotFound), stays a KindRuntime *errors.Error,
-// keeps a name-bearing message, and -- unlike the old strings.Contains heuristic
-// -- no longer matches an unrelated error whose text merely contains "not found".
+// keeps a name-bearing message, and (unlike the old strings.Contains heuristic)
+// no longer matches an unrelated error whose text merely contains "not found".
 func TestErrNotFoundSentinel(t *testing.T) {
 	l := NewArrayLoader(nil)
 	_, err := l.Get("missing.ql")

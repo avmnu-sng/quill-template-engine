@@ -33,7 +33,7 @@ func newYieldToken() string {
 // parent render's slot state instead of its own: the same slot buffers and the
 // same render-unique yield token, reached through the shared slot owner. A
 // @provide in an included or embedded partial then appends to the owner's
-// buffer -- even one the owner creates lazily after this share -- and a @yield
+// buffer (even one the owner creates lazily after this share), and a @yield
 // writes a placeholder the parent's single top-level resolveSlots backfills.
 // This is what lets body partials feed a shell's @yield region and keeps a
 // self-contained partial correct in isolation (design/composition, named
@@ -134,8 +134,8 @@ func (in *interp) slotContent(label string) string {
 
 // callSlot backs the slot(label) function form: it returns a slot's accumulated
 // content AS OF THE CALL as a value so it can be piped or assigned. Unlike the
-// deferred @yield statement, the function form is immediate -- it captures
-// whatever the label holds when the expression evaluates -- so it suits a site
+// deferred @yield statement, the function form is immediate (it captures
+// whatever the label holds when the expression evaluates), so it suits a site
 // placed after its @provide contributions. Under an active escape strategy the
 // content is already-escaped and wrapped Safe so a downstream print does not
 // escape it twice.
@@ -208,7 +208,7 @@ func (in *interp) execCallBlock(n *ast.Node, ctx *runtime.Scope) error {
 // callCaller renders the innermost active @call block, backing the caller()
 // callable a macro body invokes. Positional arguments bind the block's declared
 // caller parameters in order (design/composition, call blocks), so a macro can
-// pass a value -- a section title, a row index -- back into the block. Extra
+// pass a value (a section title, a row index) back into the block. Extra
 // arguments beyond the declared parameters are ignored; a declared parameter with
 // no matching argument binds null. Outside any @call it is a runtime error.
 func (in *interp) callCaller(n *ast.Node, ctx *runtime.Scope) (runtime.Value, error) {

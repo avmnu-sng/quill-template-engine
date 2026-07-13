@@ -515,8 +515,8 @@ func (c *compiler) assemble() []byte {
 // unit that uses deferred slots. Output is buffered into an internal builder
 // (qout) rather than streamed to w so the yield placeholders can be resolved
 // over the finished buffer, mirroring interp renderBuffered plus resolveSlots.
-// The per-render slot state -- the accumulating buffers, the render-order label
-// list, and the unique placeholder token -- lives as function locals so
+// The per-render slot state (the accumulating buffers, the render-order label
+// list, and the unique placeholder token) lives as function locals so
 // concurrent renders of one compiled unit never share it. A deferred resolve
 // pass runs on the success return; on an error return it writes the partial,
 // unresolved buffer, matching renderBuffered's error shape (the partial buffer

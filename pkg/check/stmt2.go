@@ -7,8 +7,8 @@ import (
 // checkWith checks "@with map [only] { body }": the map expression is typed
 // (it merges new bindings into the body scope) and the body is checked in a
 // child scope. Because the merged bindings arrive as a runtime map whose member
-// names are dynamic, the body scope does not gain typed names from the map -- it
-// is a dynamic boundary -- so names introduced by the with-map type as any.
+// names are dynamic, the body scope does not gain typed names from the map (it
+// is a dynamic boundary), so names introduced by the with-map type as any.
 func (c *checker) checkWith(n *ast.Node, sc *scope) error {
 	if _, err := c.exprType(n.Child(0), sc); err != nil {
 		return err

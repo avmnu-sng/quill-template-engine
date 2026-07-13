@@ -134,6 +134,6 @@ bytes.
 
 ## Next
 
-- [Coverage](coverage.md) -- the coverage model behind `quill cover`.
-- [Performance](performance.md) -- the compile backend behind `quill compile`.
-- [API](api.md) -- the Go API the CLI is built on.
+- [Coverage](coverage.md): the coverage model behind `quill cover`.
+- [Performance](performance.md): the compile backend behind `quill compile`.
+- [API](api.md): the Go API the CLI is built on.

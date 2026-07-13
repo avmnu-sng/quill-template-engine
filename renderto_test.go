@@ -17,7 +17,7 @@ import (
 
 // slotPlaceholderMark is the stable fragment of every deferred @yield
 // placeholder token (interp.newYieldToken). A raw occurrence in RenderTo
-// output means a placeholder streamed without a resolveSlots pass -- an
+// output means a placeholder streamed without a resolveSlots pass: an
 // immediate correctness failure of the streaming gate.
 const slotPlaceholderMark = "QUILL_SLOT_"
 
@@ -347,7 +347,7 @@ func TestRenderToStreamingBattery(t *testing.T) {
 // TestRenderStringToSelfNameShadow pins the ad-hoc-name-collision hole: an
 // ad-hoc body rendered under a name that ALSO exists in the loader, whose body
 // statically includes that same name. The render-time include loads the
-// LOADER's version (which uses slots), so the closure walk must too -- seeding
+// LOADER's version (which uses slots), so the closure walk must too. Seeding
 // the walk's visited set with the root's own name would skip it, stream, and
 // leak a raw placeholder.
 func TestRenderStringToSelfNameShadow(t *testing.T) {

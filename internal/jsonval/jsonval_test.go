@@ -120,7 +120,7 @@ func TestObjectOrderPreserved(t *testing.T) {
 // JSON boundary: an object whose member names are canonical decimal integers
 // becomes Int slots (so the array is list-shaped), while non-canonical names
 // ("01", "name") stay Str keys. There is deliberately NO JSON-specific exception
-// preserving such keys as strings -- the one key model holds everywhere.
+// preserving such keys as strings: the one key model holds everywhere.
 func TestObjectNumericKeysCanonicalize(t *testing.T) {
 	v, err := Decode([]byte(`{"0":"a","1":"b"}`))
 	if err != nil {

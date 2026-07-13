@@ -8,37 +8,37 @@ site is the narrative layer.
 
 ## Where to look
 
-- **The facade** -- [`quill`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine):
+- **The facade** ([`quill`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine)):
   `Environment`, `New`, `NewFromMap`, the `Render`/`RenderTo`/`RenderValues`
   family (each taking a `context.Context` first), `LoadTemplate`/`CompileString`
   and `RenderPrepared` for the parse-once/render-many path, the opaque `Template`,
   and the `Option` values (`WithAutoescapeHTML`, `WithStrictVariables`,
   `WithCoverage`, `WithExtensions`, `WithExtension`, `WithSandboxPolicy`,
   `WithSandboxActive`, `WithTypes`, `WithTabWidth`, `WithCompiled`, `WithLogger`).
-- **The value model** -- [`runtime`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/runtime):
+- **The value model** ([`runtime`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/runtime)):
   the opaque `Value` with its `Kind()` and `AsBool`/`AsInt`/`AsFloat`/`AsStr`/
   `AsArray`/`AsObject` accessors, the constructors (`Str`, `Int`, `Float`, `Bool`,
   `Arr`, `Null`, `Safe`), the ordered `*Array`, the `Object` interface, and
   `FromGo`.
-- **Loaders** -- [`loader`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/loader):
+- **Loaders** ([`loader`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/loader)):
   `Loader`, `NewFilesystemLoader`, `NewArrayLoader`, `NewChainLoader`,
   `NewPrefixLoader`, `NewFSLoader`, `NewFuncLoader`.
-- **Extensions** -- [`ext`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/ext):
+- **Extensions** ([`ext`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/ext)):
   `Filter`, `Function`, `Test`, `Set`, `Bundle`, `BaseExtension`, and
   the typed helpers `NewFilter`, `NewFunction`, `NewTest`, `NewFilter1`.
-- **Coverage** -- [`cover`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/cover):
+- **Coverage** ([`cover`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/cover)):
   `Collector`, `Report`, the writers, and `MergeReports`.
-- **The sandbox** -- [`sandbox`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/sandbox):
+- **The sandbox** ([`sandbox`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/sandbox)):
   the opaque `Policy`, its `NewPolicy` builder and allow-options (`AllowTags`,
   `AllowFilters`, `AllowFunctions`, `AllowMethods`, `AllowProperties`, `Strict`,
   `WithTypeGraph`), and `NewTypeGraph`.
-- **The type checker** -- [`check`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/check):
+- **The type checker** ([`check`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/check)):
   `Registry`, `Signature`, `Type`.
-- **The compiled-render contract** -- [`compiled`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/compiled):
+- **The compiled-render contract** ([`compiled`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/compiled)):
   the `Manifest`/`Fingerprint` contract `WithCompiled` installs, built with
   `NewManifest`/`NewFingerprint`. The compile-to-Go backend itself is internal;
   generate a unit with the `quill compile` command (see the [CLI](cli.md)).
-- **Errors** -- [`errors`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/errors):
+- **Errors** ([`errors`](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine/pkg/errors)):
   the structured error family, including `*errors.Security` for sandbox
   violations.
 
@@ -49,17 +49,17 @@ pkg.go.dev and double as tests, so the snippets there compile and pass on every
 build. The guide pages here cross-link into the same API for the mechanism behind
 each feature:
 
-- [Getting Started](getting-started.md) -- the facade and the render options.
-- [Extensions & Loaders](extensions.md) -- the `ext` and `loader` packages in
+- [Getting Started](getting-started.md): the facade and the render options.
+- [Extensions & Loaders](extensions.md): the `ext` and `loader` packages in
   depth.
-- [Coverage](coverage.md) -- the `cover` API and the go-test integration pattern.
-- [Architecture](architecture.md) -- how the packages are layered.
+- [Coverage](coverage.md): the `cover` API and the go-test integration pattern.
+- [Architecture](architecture.md): how the packages are layered.
 
 ## Stability
 
 From v1.0.0, Quill follows semantic versioning: no exported symbol in the root
 package or the `pkg/` packages changes incompatibly within the v1 series. Error
-message strings are not part of that contract -- classify a failure by its
+message strings are not part of that contract. Classify a failure by its
 exported `Kind`, with `errors.As`/`errors.Is`, or against a sentinel such as
 `loader.ErrNotFound`, never by matching message text. The engine internals (the
 lexer, parser, interpreter, and compile-to-Go backend) live under `internal/` and

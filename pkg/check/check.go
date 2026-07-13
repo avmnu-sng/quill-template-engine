@@ -14,7 +14,7 @@ import (
 // reg is the host static-typing registry (Object<...> member shapes and host
 // callable signatures); a nil reg means the host registered no static types, so
 // Object<...> is opaque-but-known and host callables are dynamic. The checker
-// NEVER mutates the AST -- it reads annotations and reports errors only, so it
+// NEVER mutates the AST: it reads annotations and reports errors only, so it
 // cannot change what the interpreter renders (the binding invariant).
 //
 // Check deliberately takes no context.Context: type-checking is a bounded,
@@ -49,7 +49,7 @@ func newScope(parent *scope) *scope {
 }
 
 // lookup resolves a name's static type and whether it is declared anywhere in
-// the chain. An undeclared name is `any` with ok=false -- the dynamic floor: the
+// the chain. An undeclared name is `any` with ok=false, the dynamic floor where the
 // checker makes no claim and the strict runtime is the guard.
 func (s *scope) lookup(name string) (*Type, bool) {
 	for f := s; f != nil; f = f.parent {

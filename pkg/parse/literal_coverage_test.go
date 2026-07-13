@@ -87,7 +87,7 @@ func TestDecodeEscapeErrors(t *testing.T) {
 		// two-byte sequence that failed.
 		{"unknown escape double", `{{ "bad\q" }}`, `invalid escape sequence "\\q"`},
 		{"unknown escape single", `{{ 'bad\q' }}`, `invalid escape sequence "\\q"`},
-		// \U (capital) is not a supported escape at all -- there is no \UXXXXXXXX
+		// \U (capital) is not a supported escape at all. There is no \UXXXXXXXX
 		// form; only \u{...} exists. It must be rejected, not silently accepted.
 		{"capital U not supported", `{{ "\U00000041" }}`, `invalid escape sequence "\\U"`},
 		// \r is double-quoted only; in a single-quoted string it is an invalid escape.

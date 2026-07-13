@@ -13,7 +13,7 @@ import (
 // TestFn1SandboxArrowGateOnPipedValue covers B13 on the filter fast call: a
 // bare pipe of a smuggled host callable into an Fn1 filter is rejected exactly
 // like the general path rejects it, because the fast call runs the arrow gate
-// on the piped value -- the one value that exists there.
+// on the piped value, which is the one value that exists there.
 func TestFn1SandboxArrowGateOnPipedValue(t *testing.T) {
 	pol := sandbox.NewPolicy(sandbox.AllowFilters("upper"))
 	eng := sandboxStub(nil, pol)

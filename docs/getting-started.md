@@ -81,13 +81,13 @@ env := quill.New(loader.NewFilesystemLoader("templates"))
 Loaders compose, so you can assemble exactly the resolution strategy you need:
 
 - `loader.NewChainLoader(a, b, ...)` tries several loaders in order and serves
-  the first hit -- the base-plus-override pattern.
+  the first hit (the base-plus-override pattern).
 - `loader.NewPrefixLoader(routes)` routes a name by its leading prefix to a
   sub-loader.
 - `loader.NewFSLoader(fsys, root...)` serves an `fs.FS`, including an `embed.FS`
   baked into the binary so a program ships its templates with no filesystem at
   runtime.
-- `loader.NewFuncLoader(fn)` sources templates from a callback -- a database, a
+- `loader.NewFuncLoader(fn)` sources templates from a callback: a database, a
   config object, or any lookup the host already owns.
 
 The composable loaders are documented in full in
@@ -135,20 +135,20 @@ sandbox in [Escaping & Safety](safety.md).
 The `Environment` is configured with `Option` values passed to `New` /
 `NewFromMap`. The ones you meet first:
 
-- `quill.WithAutoescapeHTML(true)` -- turn on HTML escaping globally. Off by
+- `quill.WithAutoescapeHTML(true)`: turn on HTML escaping globally. Off by
   default; see [Escaping & Safety](safety.md).
-- `quill.WithStrictVariables(false)` -- switch from the strict-undefined default
+- `quill.WithStrictVariables(false)`: switch from the strict-undefined default
   to lenient mode, where a missing read becomes `Null`. Strict by default; see
   [Types](types.md).
-- `quill.WithCoverage(collector)` -- attach a coverage collector; see
+- `quill.WithCoverage(collector)`: attach a coverage collector; see
   [Coverage](coverage.md).
-- `quill.WithExtensions(set)` / `quill.WithExtension(bundle)` -- register custom
+- `quill.WithExtensions(set)` / `quill.WithExtension(bundle)`: register custom
   filters, functions, and tests; see [Extensions & Loaders](extensions.md).
-- `quill.WithTabWidth(n)` -- the spaces one indent level expands to (default 4).
+- `quill.WithTabWidth(n)`: the spaces one indent level expands to (default 4).
 
 ## Editor support
 
-The engine does not enforce a file extension -- a template name is any string --
+The engine does not enforce a file extension (a template name is any string),
 but the recommended convention for template files on disk is `.quill`. It sidesteps
 a clash with CodeQL, whose `.ql` extension GitHub Linguist claims by default. A VS
 Code extension with a Quill TextMate grammar lives under `editors/vscode/` in the

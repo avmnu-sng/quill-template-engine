@@ -1,6 +1,6 @@
 # Control Flow
 
-All block statements use brace bodies `{ ... }` -- no end-keywords. Under the
+All block statements use brace bodies `{ ... }` with no end-keywords. Under the
 `@`-default a body closes at `@}`; under `pragma bare` it closes at a lone `}`
 ([Templates](templates.md)). The examples below use the `@`-default spelling.
 Scoping is lexical and block-structured; the precise undefined-handling rules are
@@ -37,7 +37,7 @@ arbitrary expressions taken in the single truthiness rule ([Types](../types.md))
   only after the iterand resolved to a collection. It is reached for an
   iterable-but-empty value; it is not reached when the iterand is non-iterable,
   because the error preempts the loop.
-- **A non-iterable iterand is a runtime error**, not a silent empty loop -- a
+- **A non-iterable iterand is a runtime error**, not a silent empty loop. A
   silent skip would omit a whole section of output with no signal. The explicit
   "empty is fine" idiom is `for x in (coll ?? []) { ... }`. Where a static type
   proves non-iterability, the error is promoted to check time.
@@ -91,7 +91,7 @@ A `recursive` marker after the iterand turns the loop into a tree walk: the body
 may call `loop(children)` to render the same body over a subtree one level
 deeper, and the descent's rendered output is returned as a value the body prints.
 Two extra fields appear: `loop.depth` (1-based) and `loop.depth0` (0-based). It
-is the idiom for nested structures -- a directory tree, an AST, a menu:
+is the idiom for nested structures such as a directory tree, an AST, or a menu:
 
 ```
 @for node in tree recursive {
@@ -144,12 +144,12 @@ Under the default (escaping off) the capture is a plain `Str`; under an
 
 ## Effect, logging, and flush
 
-- `@do expr` -- evaluate for side effects, no output.
-- `@log expr` -- evaluate and write the text form to the host logger
+- `@do expr`: evaluate for side effects, no output.
+- `@log expr`: evaluate and write the text form to the host logger
   (`WithLogger`, default discarding). No rendered output, but it is a coverable
   unit.
-- `@flush` -- a documented no-op for a string/byte sink, kept for parity.
-- `@deprecated "message" [since "2.0"]` -- routes a deprecation diagnostic to the
+- `@flush`: a documented no-op for a string/byte sink, kept for parity.
+- `@deprecated "message" [since "2.0"]`: routes a deprecation diagnostic to the
   diagnostics sink, no output.
 
 ## Scoped regions
@@ -175,7 +175,7 @@ Under the default (escaping off) the capture is a plain `Str`; under an
 
 ## Next
 
-- [Composition](composition.md) -- inheritance, blocks, macros, includes, embeds,
+- [Composition](composition.md): inheritance, blocks, macros, includes, embeds,
   and slots.
-- [Whitespace Control](../whitespace.md) -- the trim modifiers and the block
+- [Whitespace Control](../whitespace.md): the trim modifiers and the block
   cleanup that keep control statements from leaking blank lines.

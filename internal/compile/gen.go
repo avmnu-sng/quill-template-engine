@@ -38,7 +38,7 @@ type compiler struct {
 	// @include/@embed sub-interp boundary and leaves untouched while inlining a
 	// parent's @block body or an @use trait. srcStack (the error-position stack)
 	// switches at those inline boundaries too, so it is the wrong handle for any
-	// lowering that must key under the render root -- notably @cache, whose store
+	// lowering that must key under the render root, notably @cache, whose store
 	// key the interpreter namespaces by in.root.Name. rootStack pushes only where
 	// the interpreter mints a fresh sub-interp (the @include inline), so it stays
 	// pinned to the entry through block and trait inlining.
@@ -301,7 +301,7 @@ func (c *compiler) pushSrc(s *source.Source) {
 // popSrc restores the enclosing body's error-position source.
 func (c *compiler) popSrc() { c.srcStack = c.srcStack[:len(c.srcStack)-1] }
 
-// rootRef names the qSrc variable of the render root at this point -- the
+// rootRef names the qSrc variable of the render root at this point: the
 // template that started the render reaching the current statement, the compile
 // analog of the interpreter's in.root. It is the handle a lowering keys under
 // when it must match render-root identity rather than the error-position source.
@@ -396,7 +396,7 @@ func (c *compiler) writer() string { return c.writers[len(c.writers)-1] }
 // the finished output can be slot-resolved before it reaches w: a tab-free
 // slots unit writes straight into that builder, any other slots unit through
 // the qWriter indent layer over it. A slot-free unit keeps the streaming
-// wiring -- straight to w when tab-free, else through the qWriter over w.
+// wiring: straight to w when tab-free, else through the qWriter over w.
 func (c *compiler) setTopWriter() {
 	switch {
 	case c.usesSlots && c.tabFree:

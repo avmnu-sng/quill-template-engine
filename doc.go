@@ -3,8 +3,8 @@
 //
 // Quill compiles and renders templates written in the Quill language: a
 // brace-delimited, keyword-led surface with pipe filters, arrow functions, and a
-// Pratt-parsed expression language. It pairs Twig-class composition -- template
-// inheritance, blocks, macros, includes, embeds, and traits -- with a gradual
+// Pratt-parsed expression language. It pairs Twig-class composition (template
+// inheritance, blocks, macros, includes, embeds, and traits) with a gradual
 // type system, a compile-to-Go backend for the hot path, native branch-aware
 // coverage, a policy sandbox, streaming output, and byte-exact whitespace
 // control. It renders HTML pages, configuration files, emails, program source,
@@ -19,7 +19,7 @@
 //
 // From v1.0.0 the exported API follows semantic versioning: no exported symbol in
 // the root package or the pkg/ packages changes incompatibly within the v1
-// series. Error MESSAGE strings are NOT part of that contract -- classify a
+// series. Error MESSAGE strings are NOT part of that contract. Classify a
 // failure by its exported Kind, with errors.As/errors.Is, or against a sentinel
 // such as loader.ErrNotFound, never by matching message text. The engine
 // internals (the lexer, parser, interpreter, and compile-to-Go backend) live
@@ -40,9 +40,9 @@
 // A template loads once and is memoized. Loading parses the source into an AST,
 // runs the gradual type checker (package check) between parse and interpret, and
 // prepares the module for the tree-walking interpreter. The
-// checker consumes the annotations the parser threads through the AST -- the
+// checker consumes the annotations the parser threads through the AST (the
 // @types block, @set/@for targets, @macro/@block params and returns, and arrow
-// params -- infers types where the spec defines it, and applies the gradual `any`
+// params), infers types where the spec defines it, and applies the gradual `any`
 // fallback everywhere a value is unannotated. It rejects an ill-typed template
 // with a positioned error before any byte is rendered, catching the runtime
 // errors a static reader can see: a string/number arithmetic mismatch, rendering
@@ -62,9 +62,9 @@
 //
 // # Composition and the standard library
 //
-// The engine renders the full composition surface -- @extends/@block with
+// The engine renders the full composition surface (@extends/@block with
 // parent(), @macro with defaults and variadics, @import/@from, @use trait reuse,
-// @embed, and the statement- and function-form @include -- and the complete
+// @embed, and the statement- and function-form @include) and the complete
 // standard-library catalogue of filters, functions, and tests, including arrow
 // functions through map/filter/sort/reduce/find, the `has some`/`has every`
 // quantifiers, the `matches` regex operator, and the whitespace-control trim
@@ -90,7 +90,7 @@
 // Output escaping is off by default. HTML escaping is available globally
 // (WithAutoescapeHTML) or as one of six strategies applied by the escape/e filter
 // and the @escape region. A host-supplied sandbox.Policy (installed with
-// WithSandboxPolicy -- the spec's SecurityPolicy) restricts the permitted tags,
+// WithSandboxPolicy, the spec's SecurityPolicy) restricts the permitted tags,
 // filters, functions, per-type methods, and per-type properties, enforced at
 // compile time for the tag/filter/function floor
 // and at each host member-access site for the type-graph. The sandbox activates

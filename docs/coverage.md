@@ -1,4 +1,4 @@
-# Quill -- Template Coverage
+# Quill: Template Coverage
 
 Quill measures which parts of a `.quill` template your tests actually exercised: which
 statements and interpolations ran, and which arms of each branch were taken. This is
@@ -12,7 +12,7 @@ records exactly that, per template node and aggregated across every render in a 
 Coverage is opt-in and zero-overhead when disabled: an Environment with no collector pays
 no per-node cost on the render hot path. The instrumentation records reachability only; it
 never changes rendered output. A template renders byte-identically with or without coverage
-enabled -- this is the binding invariant the conformance suite enforces.
+enabled. This is the binding invariant the conformance suite enforces.
 
 The companion documents are the [Language Reference](reference/language.md), the value
 and semantics rules in [Types](types.md), and the [Architecture](architecture.md)
@@ -32,8 +32,8 @@ A region is identified by a stable key:
 
 The `template-name` is the `Source` name (a path or logical id). `line:col` is the node's
 1-based start position. `kind` distinguishes the branch role at that position (see below), so
-two branch arms that begin at the same `line:col` -- which cannot happen in practice but is
-guarded against -- never collide. Line coverage is *derived*: a line is covered when any
+two branch arms that begin at the same `line:col` (which cannot happen in practice but is
+guarded against) never collide. Line coverage is *derived*: a line is covered when any
 region on it is covered.
 
 ### 1.1 Coverable units (statement and output coverage)
@@ -56,10 +56,10 @@ the interpreter dispatches it:
 | `@block` render site              | `KindBlock`                           | the block's resolved body is rendered |
 | `@macro` body                     | `KindMacro`                           | the macro is invoked at least once    |
 
-Declaration-only heads that emit nothing and take no branch -- `@extends`, `@import`,
-`@from`, `@use`, `@types`, `@line`, `@deprecated` -- are **not** counted as units. They have
+Declaration-only heads that emit nothing and take no branch (`@extends`, `@import`,
+`@from`, `@use`, `@types`, `@line`, `@deprecated`) are **not** counted as units. They have
 no runtime reachability to measure, so counting them would only dilute the percentage. `@do`
-is counted because it evaluates an expression for effect, and `@log` for the same reason -- it
+is counted because it evaluates an expression for effect, and `@log` for the same reason: it
 evaluates and logs its expression even though it emits no rendered output. A comment
 `{# ... #}` is NOT a coverable unit at all: the lexer consumes it and produces no node, so
 there is nothing for the Collector to seed or hit.
@@ -89,7 +89,7 @@ both arms. A `@for ... @else` makes the empty arm's body a unit as well.
 The parser desugars `{{ x if c }}` and `{{ x unless c }}` into a `KindTernary` at parse time
 (see the [Language Reference](reference/language.md)), so postfix conditionals are measured exactly like an inline
 ternary: two arms, `then` (condition truthy) and `else` (condition falsy). No separate model
-is needed -- the desugaring means one implementation covers both surface forms.
+is needed: the desugaring means one implementation covers both surface forms.
 
 **Ternary `c ? a : b`, elvis `a ?: b`, coalesce `a ?? b` (`ternary-*`, `elvis-*`, `coalesce-*`).**
 Each is a two-arm branch at its node position. For the ternary the arms are the **then**
@@ -153,7 +153,7 @@ Coverage lives in a new package `cover`. Its central type is a `Collector`:
 
 The internal interpreter (`internal/interp`) gains one nullable coverage field. When it
 is `nil`, coverage is off and every hook is a single nil-check that the compiler and branch
-predictor make free -- this is the zero-overhead-when-disabled guarantee. When it is set, the
+predictor make free: this is the zero-overhead-when-disabled guarantee. When it is set, the
 interpreter calls into it at each coverable point:
 
 - `execItem` records the **unit** for the dispatched node before doing its work.
@@ -170,7 +170,7 @@ Two-phase design keeps the model complete even for never-rendered code. Before a
 Collector is **seeded** by a static walk of each template's AST (the same walk shape as
 `collectUsed` in `internal/interp/template.go`): every coverable node is registered as a region with a
 zero hit count. Rendering then only *increments*. This is why a template line that no test
-ever reaches still appears in the report as `0` rather than being silently absent -- the
+ever reaches still appears in the report as `0` rather than being silently absent: the
 denominator is the whole template, not just what ran. Seeding is idempotent and keyed by
 region id, so re-seeding the same template across renders is a no-op.
 
@@ -178,20 +178,20 @@ region id, so re-seeding the same template across renders is a no-op.
 by a render, not on it being merely *referenced*. The engine seeds the render root and its
 inheritance chain, an `@include`/`@embed` target when its statement actually executes, and a
 macro home when one of its macros is invoked. A template that is only referenced but never
-entered -- imported for macros that are never called, or an `@include` whose statement never
-runs because it sits in a never-taken `@if` arm -- is never seeded, so it is **absent** from
+entered (imported for macros that are never called, or an `@include` whose statement never
+runs because it sits in a never-taken `@if` arm) is never seeded, so it is **absent** from
 the report rather than shown at `0%`.
 
 The *unit* of seeding depends on **why** a template was entered, because different entries
 make different regions reachable:
 
-- **Full entry** -- render root, inheritance target, or an executed `@include`/`@embed`. The
+- **Full entry**: render root, inheritance target, or an executed `@include`/`@embed`. The
   template's top-level body is rendered, so `Collector.SeedTemplate` seeds the **whole
   module**: an untaken branch or an unreached statement anywhere in it still reports `0`.
-- **Macro-home entry** -- the template is reached *only* because one of its macros is invoked
+- **Macro-home entry**: the template is reached *only* because one of its macros is invoked
   via `@import`/`@from`. An import never renders the home's top-level markup, so that markup
   is **unreachable** in this context. `Collector.SeedMacro` therefore seeds **only the invoked
-  macro's subtree**, and the top-level statements/text are *not* seeded -- they are absent
+  macro's subtree**, and the top-level statements/text are *not* seeded: they are absent
   rather than reported as an uncovered `0%` gap. Seeding a macro home's whole body would
   charge the denominator for code the import can never reach and distort the percentage for
   the common partial-that-also-exports-macros pattern.
@@ -358,7 +358,7 @@ counts, and `BRDA` branch records for every arm:
 proved reachable but never taken (distinct from a `0` hit count on a measured arm). The
 `block` id groups the arms of one branch point (one `@if` chain, one `@for`, one ternary);
 `branch` numbers the arms within it. `LF`/`LH` are line found/hit, `BRF`/`BRH` are branch
-found/hit -- the numbers a CI gate thresholds on.
+found/hit: the numbers a CI gate thresholds on.
 
 ### 4.3 HTML report
 
@@ -446,7 +446,7 @@ byte-identically with coverage on. This is asserted directly: a conformance vari
 every fixture twice, once with a Collector attached, and diffs the output.
 
 **Reachability, not correctness.** Coverage says an arm ran, not that it produced the right
-bytes -- that is what golden fixtures are for. High coverage with weak assertions is still
+bytes; that is what golden fixtures are for. High coverage with weak assertions is still
 weak; coverage tells you where assertions are *absent*, not where they are wrong.
 
 **Not a profiler.** Hit counts indicate hot regions but are not timed. Use them to find dead

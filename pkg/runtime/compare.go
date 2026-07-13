@@ -132,7 +132,7 @@ func Same(a, b Value) bool {
 // membership over strings, and sort/min/max. It returns -1, 0, or 1 plus a nil
 // error when the comparison is defined, and a KindComparison error otherwise.
 // It is total within the number tower and between two strings (byte-
-// lexicographic), and defined NOWHERE across unlike kinds -- never a silent
+// lexicographic), and defined NOWHERE across unlike kinds: never a silent
 // coercion. Safe orders as its wrapped Str.
 func Order(a, b Value) (int, error) {
 	a = normalizeSafe(a)

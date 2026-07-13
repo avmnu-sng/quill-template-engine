@@ -127,7 +127,7 @@ func TestApplyParityBattery(t *testing.T) {
 // rejects at type time; its non-error byte-parity is asserted against interp
 // directly. The trim row is the interp-errors half of the seam: @apply hands trim
 // one array as its strip set, and trim returns that array unchanged, so the print
-// site cannot render it -- both engines raise the array-as-text error at the same
+// site cannot render it; both engines raise the array-as-text error at the same
 // position, and a compiled @apply that expanded the spread would instead pass a
 // string strip set and render clean bytes. The lenient rows re-run the two
 // non-error shapes under strict-off, an axis the strict rows do not cover. The
@@ -140,11 +140,11 @@ var applySpreadCases = []compiledCase{
 	{name: "inline-spread-replace", template: "{{ \"banana\" | replace(...[\"a\", \"X\"]) }}\n"},
 	// A spread into default: @apply hands default one array as its fallback,
 	// ignored because the piped value is present, so both engines render the
-	// captured text -- the non-error spread half of the seam.
+	// captured text: the non-error spread half of the seam.
 	{name: "apply-spread-default", template: "@apply | default(...[\"fb one\", \"fb two\"]) {\nvalue here\n@}\n"},
 	// A spread into trim: @apply hands trim one array as its strip set, which
 	// trim returns unchanged, so the array reaches the print site and both
-	// engines raise "cannot render an array as text" at the filter's line -- the
+	// engines raise "cannot render an array as text" at the filter's line: the
 	// interp-errors half of the seam, error text and position compared to interp.
 	{name: "apply-spread-trim-error", template: "@apply | trim(...[\"x\"]) {\nxhix\n@}\n"},
 	// The two non-error shapes re-run under lenient variables: the non-expansion
@@ -229,8 +229,8 @@ func TestApplyDeterminism(t *testing.T) {
 // @apply region and byte-compares the compiled render against the interpreter
 // in the same process. The filter renders the injected _context mapping, so any
 // drift in the names, order, or values emitContext materializes for the @apply
-// filter chain -- built from the live scope at the point the region's body
-// finished capturing -- changes the output bytes. No built-in filter requests
+// filter chain (built from the live scope at the point the region's body
+// finished capturing) changes the output bytes. No built-in filter requests
 // context, so the host registration is the only way to exercise the injection
 // path in the compiled @apply lowering.
 func TestApplyNeedsContextFilterParity(t *testing.T) {

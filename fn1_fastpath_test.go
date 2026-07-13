@@ -134,8 +134,8 @@ func probeFilter(name string, calls *[]string) *ext.Filter {
 }
 
 // TestFn1SpreadArgKeepsGeneralPath asserts the zero-argument proof is
-// syntactic: a bare pipe dispatches fast, while ANY explicit argument --
-// including a spread that expands to zero values -- keeps the general path,
+// syntactic: a bare pipe dispatches fast, while ANY explicit argument
+// (including a spread that expands to zero values) keeps the general path,
 // because the fast call must never depend on runtime argument data.
 func TestFn1SpreadArgKeepsGeneralPath(t *testing.T) {
 	var calls []string
@@ -157,7 +157,7 @@ func TestFn1SpreadArgKeepsGeneralPath(t *testing.T) {
 }
 
 // TestFn1MemoResolvesAlternatingFilters exercises the one-entry registry memo
-// under its worst case -- alternating filter names -- and under repeats, so a
+// under its worst case (alternating filter names) and under repeats, so a
 // stale-memo bug would misroute a call to the wrong filter and change bytes.
 func TestFn1MemoResolvesAlternatingFilters(t *testing.T) {
 	e := NewFromMap(nil)
@@ -174,8 +174,8 @@ func TestFn1MemoResolvesAlternatingFilters(t *testing.T) {
 // TestFn1FastAndGeneralRoutesByteEqual is the in-engine differential for
 // every audited filter: the bare pipe (fast route) and the same pipe with an
 // empty spread argument (general route, identical argument vector) must
-// produce byte-identical output -- and byte-identical error text on values
-// the filter rejects -- across an adversarial value battery.
+// produce byte-identical output (and byte-identical error text on values
+// the filter rejects) across an adversarial value battery.
 func TestFn1FastAndGeneralRoutesByteEqual(t *testing.T) {
 	audited := []string{
 		"upper", "lower", "trim", "capitalize", "title",

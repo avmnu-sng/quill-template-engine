@@ -421,8 +421,8 @@ func TestLoopMutationSafetyAnalysis(t *testing.T) {
 // loop against the interpreter's execFor, which resolves pre.Get("loop") once
 // before iterating: the probe must be emitted exactly once, at loop entry,
 // with every on-demand materialization (here two dump() sites) consuming the
-// hoisted local. A consumption-time re-probe -- one per materialization site
-// -- could observe a scope entry named loop that changed mid-loop and hand
+// hoisted local. A consumption-time re-probe, one per materialization site,
+// could observe a scope entry named loop that changed mid-loop and hand
 // out a parent the interpreter never bound.
 func TestInlineLoopParentProbeHoisted(t *testing.T) {
 	src := "@for x in xs {\n{{ dump() }}{{ dump() }}\n@}"

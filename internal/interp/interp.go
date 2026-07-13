@@ -203,7 +203,7 @@ func RenderTo(rctx context.Context, eng Engine, tmpl *Template, vars map[string]
 // deferred-slot construct. A dynamic reference makes the closure unprovable
 // and the answer a conservative true, so RenderTo buffers; a false proves no
 // @yield placeholder can enter the stream. A referenced name that does not
-// exist is skipped -- the render cannot reach it either -- while a name that
+// exist is skipped (the render cannot reach it either), while a name that
 // exists but fails to load counts as unprovable. Every reference resolves
 // through eng.LoadTemplate, including one that matches tmpl's own name: an
 // ad-hoc template (RenderStringTo) can shadow a loader entry by name, and a
@@ -245,7 +245,7 @@ func renderClosureUsesSlots(rctx context.Context, eng Engine, tmpl *Template) bo
 type interp struct {
 	// ctx is the render's context, threaded from the Render/RenderTo entry and
 	// inherited by nested renders (includes, embeds). It is checked at strategic
-	// hot points -- each loop iteration boundary and each include/render entry --
+	// hot points (each loop iteration boundary and each include/render entry),
 	// so a cancelled or expired context aborts the render with a KindRuntime
 	// error wrapping ctx.Err(); it is also handed to every ext callable the
 	// dispatch invokes (Filter.Fn/Function.Fn/Test.Fn). It is never nil: the
@@ -297,9 +297,9 @@ type interp struct {
 
 	// sandboxOn is the active sandbox gate for this render (spec 04 Section 8.3,
 	// design/escaping-safety Section 6.2). It starts from the engine's global
-	// SandboxActive flag and is forced on -- and restored afterward, never off for
-	// an already-sandboxed enclosing render (B16) -- by an @sandbox region and by a
-	// sandboxed include. When on, the Phase-1 per-render callable check runs and
+	// SandboxActive flag; an @sandbox region and a sandboxed include force it on
+	// and restore it afterward, never off for an already-sandboxed enclosing
+	// render (B16). When on, the Phase-1 per-render callable check runs and
 	// the runtime member-access / string-coercion gates enforce the policy.
 	sandboxOn bool
 
@@ -343,7 +343,7 @@ type interp struct {
 	slots map[string]*strings.Builder
 
 	// yieldedLabels records every label a deferred @yield reserved, so resolveSlots
-	// can substitute each placeholder -- including a label no @provide ever fed,
+	// can substitute each placeholder, including a label no @provide ever fed,
 	// which resolves to the empty string.
 	yieldedLabels []string
 
@@ -351,7 +351,7 @@ type interp struct {
 	// yieldToken+label+yieldToken into the output stream immediately; after the whole
 	// render completes, resolveSlots replaces each placeholder with the label's final
 	// accumulated content. This DEFERRAL is what lets a file shell @yield a slot at
-	// the TOP and have partials feed it further down -- the collect-many-emit-once
+	// the TOP and have partials feed it further down: the collect-many-emit-once
 	// use case (design/composition). The token embeds a per-render counter so slot
 	// content, which is authored text, never collides with it. It lives on the
 	// slot owner and is minted by yieldTok on the first @yield, so a render that
@@ -381,8 +381,8 @@ type interp struct {
 	recursiveLoops []*recursiveLoop
 
 	// lastFilterName and lastFilter memoize the most recent filter-registry
-	// resolution so consecutive pipes through the same filter -- the loop-body
-	// pattern -- skip the registry map lookup. The pair caches resolution only,
+	// resolution so consecutive pipes through the same filter (the loop-body
+	// pattern) skip the registry map lookup. The pair caches resolution only,
 	// never dispatch state: the pointer is exactly what Extensions().Filter
 	// returned, so host shadowing (decided when the registry was built) is
 	// honored, and the registry is fixed for the render because its maps are
@@ -393,7 +393,7 @@ type interp struct {
 
 	// cov is the coverage core for this render, or nil when coverage is off. When
 	// nil every coverage hook (in cover.go) is a single nil comparison the branch
-	// predictor makes free -- the zero-overhead-when-disabled guarantee. It is the
+	// predictor makes free: the zero-overhead-when-disabled guarantee. It is the
 	// internal instrumentation core unwrapped from the engine's host-facing
 	// Collector (via covercore.CoreOf) at construction, and threaded into nested
 	// renders (includes, embeds) so a partial's coverage aggregates under its own
@@ -615,8 +615,8 @@ func (in *interp) writeIndented(s string) error {
 
 // checkCancelled reports the render context's cancellation or deadline as a
 // KindRuntime error wrapping ctx.Err(), or nil when the context is still live.
-// It is called at the strategic hot points -- the render/include entry and each
-// for-loop iteration boundary -- rather than per node, so an uncancelled render
+// It is called at the strategic hot points (the render/include entry and each
+// for-loop iteration boundary) rather than per node, so an uncancelled render
 // pays one cheap channel-free ctx.Err() check per loop step and produces
 // byte-identical output to before. Wrapping in a KindRuntime *errors.Error lets
 // a host classify the abort through errors.KindOf while errors.Is still reaches

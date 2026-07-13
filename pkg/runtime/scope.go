@@ -4,7 +4,7 @@ package runtime
 // frame stack: block, for, macro, with, and capture each push one child frame
 // (Child), reads fall through the parent chain, and writes land in the top
 // frame, shadowing any outer binding of the same name. Entering a scope is
-// O(1) -- no binding is copied -- and leaving one is discarding the child
+// O(1) (no binding is copied), and leaving one is discarding the child
 // frame. Array values bound through Set are marked copy-on-write exactly as
 // Context.Set does, so *Array keeps its value semantics (spec 04 Section 6.3)
 // across frames. Insertion order is preserved per frame and Names composes
@@ -17,8 +17,8 @@ package runtime
 // first, so a short scan beats a map's hashing and its minimum bucket
 // footprint, and the slice doubles as the order record that a separate order
 // slice used to carry. A frame that grows past scopeSpillWidth gains a
-// name-to-index side map (spill) so lookups in a wide frame -- a root frame
-// fed dozens of host vars, a large @with mapping -- stay O(1); the entries
+// name-to-index side map (spill) so lookups in a wide frame (a root frame
+// fed dozens of host vars, a large @with mapping) stay O(1); the entries
 // slice remains the single source of order and of the values themselves.
 //
 // Context remains beside Scope as the raw ordered-map primitive with an eager
@@ -44,7 +44,7 @@ type scopeEntry struct {
 // spill map. Measured on the engine's access mix (uniform hits, parent-chain
 // misses, hot-name rebinds), the linear scan and the map cross between 8 and
 // 10 entries; 8 keeps every typical template frame on the scan while a
-// 12-name frame -- the width where a scan-only frame measurably regressed --
+// 12-name frame (the width where a scan-only frame measurably regressed)
 // is already indexed.
 const scopeSpillWidth = 8
 
@@ -86,7 +86,7 @@ func (s *Scope) Set(name string, v Value) {
 }
 
 // SetOwned binds name in this frame WITHOUT marking its array shared, for a
-// value the caller exclusively owns -- the privatized root of a member
+// value the caller exclusively owns: the privatized root of a member
 // assignment. Marking it shared would force a needless copy-on-write clone on
 // the next mutation, making a run of member writes to one array quadratic.
 func (s *Scope) SetOwned(name string, v Value) {
@@ -148,7 +148,7 @@ func (s *Scope) lookup(name string) (Value, bool) {
 // A value found in a frame OTHER than the receiver is share-marked on the way
 // out: it has escaped its defining frame, so a member write in the reading
 // frame must privatize a copy (copy-on-write) rather than mutate the outer
-// binding in place -- otherwise a previously-privatized (unshared) array would
+// binding in place. Otherwise a previously-privatized (unshared) array would
 // be written through the live parent chain and the mutation would survive the
 // child frame's discard, breaking *Array value semantics (spec 04 Section
 // 6.3). This reproduces what the flat-map representation got from re-marking

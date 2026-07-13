@@ -9,8 +9,8 @@ import (
 // oracleScope is the flat-map Scope representation this package shipped before
 // the ordered-slice frames, kept verbatim as a live oracle: every randomized
 // operation in TestScopeMatchesMapOracle runs against both representations and
-// the full visible state -- per-frame binding order, values, and the shared
-// flag of every reachable *Array -- must match after each step. The slice
+// the full visible state (per-frame binding order, values, and the shared
+// flag of every reachable *Array) must match after each step. The slice
 // representation is a pure swap, so any divergence is a bug in it.
 type oracleScope struct {
 	parent *oracleScope
@@ -220,10 +220,10 @@ func checkScopePair(t *testing.T, g *twinGen, sn *Scope, so *oracleScope) {
 	}
 }
 
-// TestScopeMatchesMapOracle drives randomized operation sequences -- binds,
+// TestScopeMatchesMapOracle drives randomized operation sequences (binds,
 // owned binds, aliasing rebinds, reads, presence checks, Names snapshots,
-// frame pushes and pops, and the engine's privatize-then-member-write pattern
-// -- against the slice-frame Scope and the retired flat-map representation in
+// frame pushes and pops, and the engine's privatize-then-member-write pattern)
+// against the slice-frame Scope and the retired flat-map representation in
 // lockstep. After every operation the entire visible state must match: frame
 // count, per-frame insertion order, structural values, and the shared flag of
 // every array either side has ever allocated. Name pools wider than

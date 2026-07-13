@@ -99,7 +99,7 @@ func TestPrivatizedArrayIsolatesInChildScopes(t *testing.T) {
 				// Each descent level's member write copies on write into its own
 				// frame (a deeper level reads the shadowed value through the chain,
 				// so depth 2 sees n=1 and prints 2), and every frame discards on
-				// unwind: the outer agg.n stays 0 after the loop -- the same
+				// unwind: the outer agg.n stays 0 after the loop, the same
 				// isolation the flat-clone scope enforced.
 				tc.want = "1:1\n2:2\n\n\nend: 0\n"
 			}

@@ -10,7 +10,7 @@ import (
 
 // branchTemplate has one @if with an @else, an interpolation, and trailing text,
 // so a render that takes only one arm leaves an uncovered unit and an uncovered
-// branch arm -- enough to exercise every format and both gate outcomes.
+// branch arm. That is enough to exercise every format and both gate outcomes.
 const branchTemplate = "@if admin {\nADMIN\n@} @else {\nUSER\n@}\n{{ name }}\n"
 
 // coverEnv writes the branch template plus a data file into a temp dir and
@@ -48,7 +48,7 @@ func TestCoverCasesUnionCoversBothArms(t *testing.T) {
 			`{"template":"page.ql","data":{"admin":false,"name":"bob"}}]`)
 	var out, errOut bytes.Buffer
 	// Both arms taken across the two cases, so unit coverage is 100% and a strict
-	// gate passes -- proving the report unions across cases.
+	// gate passes, proving the report unions across cases.
 	err := dispatch([]string{"cover", "-root", dir, "-cases", filepath.Join(dir, "cases.json"),
 		"-fail-under", "100"}, &out, &errOut, nil)
 	if err != nil {

@@ -82,7 +82,7 @@ func staticChainFixtures() map[string]string {
 // composition memo: the first render of a pinned Template runs the fresh build
 // (the pre-memo path) and every later render serves the memoized tables, so
 // 1,000 repeat renders byte-equal to the first prove the memo replays the
-// exact composition the per-render build produced -- across @extends depth,
+// exact composition the per-render build produced, across @extends depth,
 // parent() hops, trait aliasing, and block() dispatch.
 func TestStaticCompositionMemoRepeatRenderStable(t *testing.T) {
 	eng := newCachingStub(staticChainFixtures())
@@ -308,9 +308,9 @@ func TestEmbedKeepsCachedTableIntact(t *testing.T) {
 // TestStaticCompositionMemoConcurrentRenders races cold-start renders of one
 // shared Template: the first finishers publish the memo while others still
 // build or already serve it, and every output must be identical. Both fixture
-// families run -- the extends/trait chain (shared block table, parent()
+// families run: the extends/trait chain (shared block table, parent()
 // dispatch) and the import chain (shared macro table read by swapMacroHome
-// merges, replayed nsBinds) -- so under -race this is the memo's
+// merges, replayed nsBinds). Under -race this is the memo's
 // publication-safety and shared-read-safety proof.
 func TestStaticCompositionMemoConcurrentRenders(t *testing.T) {
 	raceRenders := func(t *testing.T, fixtures map[string]string, main string,

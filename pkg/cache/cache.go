@@ -53,7 +53,7 @@ func (c *Cache) Clear() {
 // RenderCache memoizes rendered body fragments by key, backing the @cache region
 // statement (spec 01 Section 4.7). It is the engine-default, in-memory pluggable
 // cache: a key->string map guarded by a mutex with no eviction. It never expires
-// an entry on its own -- the @cache region's ttl is intentionally not honored by
+// an entry on its own. The @cache region's ttl is intentionally not honored by
 // this built-in cache; a host that needs ttl-driven expiry supplies its own
 // implementation. Tags are recorded per key so an invalidation by tag can drop
 // every keyed entry that carried it.

@@ -275,7 +275,7 @@ func TestSandboxedInclude(t *testing.T) {
 // concat site (B12, spec 04 Section 8.3): coercing a host object to text in a
 // concat consults the policy just like an interpolation does. Without the gate a
 // sandboxed template with an empty policy could read the object's Stringify
-// output via `{{ "" ~ u }}` -- a sandbox escape.
+// output via `{{ "" ~ u }}`, a sandbox escape.
 func TestSandboxStringifyGateConcat(t *testing.T) {
 	u := runtime.Obj(&hostEntity{name: "ada"})
 

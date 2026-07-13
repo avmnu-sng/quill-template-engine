@@ -76,8 +76,8 @@ func (c *checker) filterType(n *ast.Node, sc *scope) (*Type, error) {
 
 	// `default` is a whole-chain absence-suppression tool (spec 04 Section 6): a
 	// member miss or undefined name anywhere in the piped operand yields the
-	// fallback at runtime, never an error. So type its piped value leniently --
-	// mirroring `??` -- swallowing the absence miss while still surfacing a genuine
+	// fallback at runtime, never an error. So type its piped value leniently
+	// (mirroring `??`), swallowing the absence miss while still surfacing a genuine
 	// (non-absence) type error.
 	if name == "default" {
 		piped, err := c.exprTypeLenient(n.Child(0), sc)

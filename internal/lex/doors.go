@@ -262,7 +262,7 @@ func (l *lexer) eatOneNewline() bool {
 }
 
 // skipTrailingHorizontalWS consumes ' ', '\t', and '\r' between the cursor and the
-// next newline ONLY when that whitespace run reaches a newline or EOF -- i.e. when
+// next newline ONLY when that whitespace run reaches a newline or EOF, i.e. when
 // the rest of the physical line is whitespace-only. It is used by a lone-@} close so
 // the structural line's trailing whitespace is dropped rather than leaking into the
 // following TEXT (spec 02 R5 byte-exact layout). The newline/EOF guard makes it safe

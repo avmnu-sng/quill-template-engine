@@ -36,8 +36,8 @@ import (
 // Option values are applied only during New (or NewFromMap), and afterward every
 // render and load entry point reads immutable configuration or concurrency-safe
 // caches (the parse cache, the render cache, and the mutex-guarded prepared and
-// compiled-unit memos), so one Environment can back concurrent renders -- for
-// example a single Environment per process serving concurrent requests.
+// compiled-unit memos), so one Environment can back concurrent renders (for
+// example a single Environment per process serving concurrent requests).
 // Construction is not itself concurrent; build the Environment fully before
 // sharing it across goroutines.
 type Environment struct {
@@ -89,7 +89,7 @@ type Environment struct {
 	// time. A nil registry means the host registered no static types, so Object
 	// types are opaque-but-known and host callables are checked only dynamically;
 	// the checker still enforces every annotation the template itself carries. The
-	// checker NEVER changes runtime output -- it only rejects ill-typed templates
+	// checker NEVER changes runtime output; it only rejects ill-typed templates
 	// earlier, so an unannotated template renders byte-identically with or without
 	// a registry (the binding invariant).
 	typeRegistry *check.Registry
@@ -99,7 +99,7 @@ type Environment struct {
 	// template and records a hit at every coverable point, unioning across every
 	// Render on this Environment (package cover, docs/coverage.md). A nil Collector
 	// makes every interpreter coverage hook a single nil-check, so an Environment
-	// without WithCoverage renders exactly as it does today -- zero overhead when
+	// without WithCoverage renders exactly as it does today: zero overhead when
 	// disabled, and instrumentation never changes rendered bytes.
 	coverage *cover.Collector
 
@@ -147,7 +147,7 @@ type compiledUnit struct {
 }
 
 // preparedEntry is one memoized prepared template: the Template plus the parsed
-// module it was prepared from. The module pointer is the coherence witness --
+// module it was prepared from. The module pointer is the coherence witness:
 // LoadTemplate honors the entry only while the parse cache still serves the
 // identical *ast.Node, so the memo can never outlive the parse it derives from.
 type preparedEntry struct {
@@ -332,8 +332,8 @@ func WithCompiled(manifests ...*compiled.Manifest) Option {
 // unit: production traffic renders exactly as before while every would-be
 // compiled render is checked against the authoritative interpreter. Under
 // verification a dispatched RenderTo buffers the render instead of streaming,
-// since both outputs must exist to compare; the interpreter's bytes --
-// including the partial output of an errored render -- are then written to w,
+// since both outputs must exist to compare; the interpreter's bytes
+// (including the partial output of an errored render) are then written to w,
 // so the writer receives exactly what the streaming paths would have written.
 // WithCompiledVerify(nil) is the same as not passing it: direct dispatch
 // stays on.
@@ -734,7 +734,7 @@ func (e *Environment) RenderString(ctx context.Context, name, body string, vars 
 // streams to w exactly as the interpreter's slot-free path does, while a slots
 // unit (Manifest.UsesSlots) buffers into a scratch builder that reaches w only
 // on success, matching the interpreter's buffered-slots path which writes
-// nothing on error -- so a mid-render error never leaks an unresolved
+// nothing on error, so a mid-render error never leaks an unresolved
 // placeholder to the caller's writer. Under WithCompiledVerify the dispatched
 // render buffers both engines' outputs to compare them, then writes the
 // interpreter's bytes: for a slot-free unit that includes an errored render's

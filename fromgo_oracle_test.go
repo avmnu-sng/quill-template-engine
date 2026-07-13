@@ -3,7 +3,7 @@ package quill
 // The pre-plan FromGo marshaler, kept verbatim as a test-only oracle. The lean
 // marshaler in runtime/fromgo.go (type-gated passthrough probe, cached struct
 // plans, pre-sized arrays) must agree with this per-value reflect walk on every
-// marshaled tree AND on every error, byte for byte -- the differential suite in
+// marshaled tree AND on every error, byte for byte. The differential suite in
 // fromgo_differential_test.go drives both over a wide type matrix, randomized
 // shapes, and the conformance corpus's variables.
 //
@@ -45,7 +45,7 @@ func oracleFromGo(v any) (runtime.Value, error) {
 }
 
 // oracleFromReflect runs the unconditional boxing probe on every member, then
-// dispatches on kind -- the exact shape the lean marshaler replaces.
+// dispatches on kind. This is the exact shape the lean marshaler replaces.
 func oracleFromReflect(rv reflect.Value) (runtime.Value, error) {
 	if !rv.IsValid() {
 		return runtime.Null(), nil

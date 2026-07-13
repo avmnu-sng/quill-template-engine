@@ -185,8 +185,8 @@ func TestLoopCursorParentPointer(t *testing.T) {
 
 // TestLoopGetIndexMatchesGetField pins loop["field"] against loop.field: a
 // string subscript resolves the same field (present with ok true), an unknown
-// string is absent, and a non-string key (Int here) is always absent -- only
-// string subscripts name a loop field.
+// string is absent, and a non-string key (Int here) is always absent because
+// only string subscripts name a loop field.
 func TestLoopGetIndexMatchesGetField(t *testing.T) {
 	pairs := []Pair{
 		{Key: Int(0), Val: Str("a")},
@@ -222,7 +222,7 @@ func TestLoopCallMethodAlwaysErrors(t *testing.T) {
 
 	// Two distinct names, plus the no-arg call, so the assertions pin that the
 	// message interpolates the requested name (not a hardcoded "changed" literal)
-	// and that every name -- including one with no special syntax and no args --
+	// and that every name (including one with no special syntax and no args)
 	// routes to the same Attribute-kind error returning Null.
 	cases := []struct {
 		name string

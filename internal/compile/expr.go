@@ -184,8 +184,8 @@ func (c *compiler) exprMap(n *ast.Node) (string, error) {
 // exprAttr lowers a.b / a?.b: the null-safe form and whole-chain suppression
 // short-circuit a null receiver to null; otherwise the read routes through
 // runtime.GetAttribute exactly like evalAttr. The strict form opens with an
-// inline KArray fast path reading through Arr.GetStr -- the same canonicalizing
-// lookup getDot performs, so key semantics are inherited -- and any miss or
+// inline KArray fast path reading through Arr.GetStr (the same canonicalizing
+// lookup getDot performs, so key semantics are inherited), and any miss or
 // non-Array receiver re-enters the unchanged GetAttribute, which produces the
 // byte-identical value or error. The receiver skips the general spill through
 // spillAdjacent: every use sits in the adjacent statements emitted here, the

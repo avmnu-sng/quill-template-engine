@@ -2,7 +2,7 @@
 
 Quill offers Twig-class composition: single-parent inheritance, overridable
 blocks, parameterized macros, imports and traits, embeds, includes, and
-accumulating slots. This is real template inheritance and reuse -- not string
+accumulating slots. This is real template inheritance and reuse, not string
 concatenation. Composition is built on the `Template` contract; inheritance,
 embed, and trait reuse all reduce to building and merging block tables and
 walking a parent chain, while macros are a separate, isolated function namespace.
@@ -41,7 +41,7 @@ block, `parent()` renders the parent's version. `block("name")` and
 
 Declared params with constant defaults, optional type annotations, and a variadic
 capture `...rest`. A macro sees only its params, defaults, variadics, and host
-globals -- the caller's local context is invisible. A macro returns its captured
+globals; the caller's local context is invisible. A macro returns its captured
 output (a `Str`, or `Safe` under escaping).
 
 **Tail captures.** A macro may take two optional tail parameters in a fixed
@@ -61,8 +61,8 @@ is absorbed. Because `**opts` is an ordinary mapping, it forwards to a nested ca
 by spread: `inner(...opts)`.
 
 **The macro namespace.** A macro body sees the names of all macros visible to the
-template -- its own, sibling macros in the same template, and macros brought in by
-`import`/`from` -- so a macro may call itself or a sibling directly by name.
+template (its own, sibling macros in the same template, and macros brought in by
+`import`/`from`), so a macro may call itself or a sibling directly by name.
 Recursion and mutual recursion are reachable both by bare name and by the `_self`
 import path (`import _self as me; me.tree(...)`).
 
@@ -133,7 +133,7 @@ Function form, returning rendered output as an expression value:
 ## Accumulating content slots
 
 `@provide` and `@yield` collect rendered content from many sites into a named
-buffer and emit it once -- the complement of `@block`: where a block *overrides*,
+buffer and emit it once. This is the complement of `@block`: where a block *overrides*,
 a slot *accumulates*.
 
 ```
@@ -166,7 +166,7 @@ the assembled block once in a shell.
 
 ## Next
 
-- [Standard Library](../stdlib.md) -- the built-in filters, functions, and
+- [Standard Library](../stdlib.md): the built-in filters, functions, and
   tests.
-- [Language Reference](../reference/language.md) -- the exhaustive treatment of
+- [Language Reference](../reference/language.md): the exhaustive treatment of
   every construct on this page.

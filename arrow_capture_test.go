@@ -9,7 +9,7 @@ import (
 
 // TestArrowCapturesLexicalScopeLive pins the arrow-closure capture contract:
 // an arrow captures its DEFINITION SCOPE by reference, so applying it later
-// reads the current value of every captured name -- uniformly, whether the
+// reads the current value of every captured name uniformly, whether the
 // arrow was defined at top level or inside a scope-introducing construct.
 // Names rebound inside the defining scope read that frame; names that live in
 // an outer frame read through the live parent chain, so a rebind after the

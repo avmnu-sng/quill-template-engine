@@ -164,7 +164,7 @@ const canonicalCasesJSON = `[
 // coverArgsFor runs the cover subcommand for one format against the
 // representative template with a single inline case and returns stdout. The case
 // takes the @if then-arm so unit and line coverage are full and the @else branch
-// stays uncovered -- enough signal to pin every column and marker in each format.
+// stays uncovered, giving enough signal to pin every column and marker in each format.
 func coverStdout(t *testing.T, dir, format string) []byte {
 	t.Helper()
 	dataPath := filepath.Join(dir, "data.json")
@@ -356,7 +356,7 @@ func TestCLIGoldenErrors(t *testing.T) {
 
 // --- Exit-code contract -------------------------------------------------------
 
-// TestCLIGoldenExitCodes pins the CLI's exit-code model through exitStatus -- the
+// TestCLIGoldenExitCodes pins the CLI's exit-code model through exitStatus, the
 // exact reduction main performs (main itself cannot be called without exiting the
 // test process). The observable contract: success, including a PASSING coverage
 // gate, is 0; an UNMET coverage gate is 2, distinct so a CI job can tell "coverage

@@ -61,7 +61,7 @@ func TestCellValue(t *testing.T) {
 	}
 
 	// A copy of the Value shares the same pointee, so the mutation is visible
-	// through it -- the property that lets a cell survive a loop-scope clone.
+	// through it. That property lets a cell survive a loop-scope clone.
 	alias := runtime.CopyValue(c)
 	got, _ = runtime.GetAttribute(alias, runtime.Str("value"), runtime.AccessDot, false)
 	if got.AsInt() != 42 {

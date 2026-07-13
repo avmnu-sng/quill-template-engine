@@ -6,7 +6,7 @@ Quill is a template engine for Go that pairs Twig-class composition with things
 nothing else in the Go template space combines: a gradual type system, a
 compile-to-Go backend, native branch-aware coverage, a sandbox, streaming, and
 byte-exact whitespace control. Use it for HTML pages, config files, emails,
-program source, or any other text -- no use case is privileged.
+program source, or any other text. No use case is privileged.
 
 The canonical API reference is
 [pkg.go.dev](https://pkg.go.dev/github.com/avmnu-sng/quill-template-engine).
@@ -16,7 +16,7 @@ The canonical API reference is
 - **Gradual type system.** Annotate as much or as little as you like; the
   checker catches undefined names, bad calls, and type mismatches at load time,
   before a byte is rendered, and untyped values still just work. Removing every
-  annotation renders identical bytes -- types only move an error earlier in
+  annotation renders identical bytes; types only move an error earlier in
   time. See [Types](types.md).
 - **Compile-to-Go backend.** Templates compile to Go for the hot path, installed
   with `WithCompiled`, while the default path stays on the tree-walking
@@ -25,10 +25,10 @@ The canonical API reference is
   See [Performance](performance.md) for the methodology and numbers.
 - **Native branch-aware coverage.** `quill cover` reports unit and branch
   coverage of your templates with text, LCOV, and HTML output and a `FailUnder`
-  gate -- the analogue of `go tool cover`, for templates. See
+  gate (the analogue of `go tool cover`, for templates). See
   [Coverage](coverage.md).
 - **Twig-class composition.** `extends`, `block`, `use`, `embed`, macros,
-  includes, and slots -- real template inheritance and reuse, not string
+  includes, and slots: real template inheritance and reuse, not string
   concatenation. See [Composition](guide/composition.md).
 - **Whitespace control, byte-exact.** Three trim modes (hard, line, and a
   no-trim close), Jinja-style `trim_blocks`/`lstrip_blocks` cleanup applied by
@@ -110,8 +110,8 @@ region. The full model is in [Escaping & Safety](safety.md).
 ## Use cases
 
 Quill is general-purpose: no single output shape is privileged. It renders HTML
-pages, configuration files, emails, and program source with the same engine --
-pick escaping and whitespace settings per job.
+pages, configuration files, emails, and program source with the same engine.
+Pick escaping and whitespace settings per job.
 
 ## Coming from Jinja, Twig, or Go text/template
 
@@ -123,11 +123,11 @@ directly.
 
 ## Documentation
 
-- [Getting Started](getting-started.md) -- install, first render, loaders,
+- [Getting Started](getting-started.md): install, first render, loaders,
   passing Go data.
 - Guide: [Templates](guide/templates.md), [Expressions](guide/expressions.md),
   [Control Flow](guide/control-flow.md), [Composition](guide/composition.md).
-- [Types](types.md) -- the gradual type system.
+- [Types](types.md): the gradual type system.
 - [Whitespace Control](whitespace.md), [Escaping & Safety](safety.md),
   [Coverage](coverage.md), [Performance](performance.md),
   [Comparison](comparison.md).

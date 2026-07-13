@@ -17,7 +17,7 @@ import (
 // emitCases is the differential battery for typed emission and the tab-free
 // writer elision: each case renders through the compiled path and must match
 // the facade byte-for-byte (output or error text). It walks every emission
-// shape the print lowering distinguishes -- the static-Int direct write, the
+// shape the print lowering distinguishes: the static-Int direct write, the
 // Str/Safe guard, the emit-helper fallback for the remaining kind spellings
 // and their authoritative errors, prints under an active strategy, and all of
 // them on both sides of the whole-module tab-free split.

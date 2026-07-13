@@ -11,7 +11,7 @@ import (
 // interp renderInclude primitive for primitive. The partial renders into a
 // fresh builder with indentation suspended (the captureItems shape), under a
 // pushed compile frame that models the include child scope, and its captured
-// text is emitted raw through the active writer at the include site -- the
+// text is emitted raw through the active writer at the include site: the
 // analog of renderInclude's captureSink render followed by execInclude's
 // emitString. The child scope inherits the active escape strategy, so the
 // partial's interpolations escape under the caller's strategy and the spliced
@@ -26,7 +26,7 @@ import (
 //
 // A partial that defers a slot inlines like any other: because its statements
 // enter this same render, its @provide appends to the render-level slot buffers
-// and its @yield reaches the single post-render resolve pass -- the compiled
+// and its @yield reaches the single post-render resolve pass: the compiled
 // analog of interp shareSlotsFrom, where there is one slot map because there is
 // one Render. reachesSlots therefore forces this render's buffered shape whenever
 // an inlinable partial defers a slot, and the include capture stays transparent
@@ -160,7 +160,7 @@ func (c *compiler) stmtInclude(n *ast.Node) error {
 // composition head the interpreter's renderTemplate would resolve differently
 // from a straight body render: an @extends chain, a @block/@macro definition, an
 // @import/@from namespace, an @use trait, or a nested @embed. A nested @include
-// is not one of these -- it lowers through stmtInclude on its own terms. The
+// is not one of these; it lowers through stmtInclude on its own terms. The
 // walk descends the whole subtree so a head buried inside an @if or @for arm is
 // caught too.
 func partialHasComposition(n *ast.Node) bool {

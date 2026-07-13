@@ -66,14 +66,14 @@ var cacheBattery = []cacheCase{
 	// An escape region around the body: the body's interpolation escapes once
 	// under the active strategy while it fills the capture, and the spliced
 	// output is written raw on both the miss and the hit, never escaped a second
-	// time -- byte-exact to execCache's emitString.
+	// time, byte-exact to execCache's emitString.
 	{"escape_region_body_not_double_escaped",
 		"@escape html {\n@cache key=\"e\" {\n{{ raw }}\n@}\n@cache key=\"e\" {\n{{ raw }}\n@}\n@}\n",
 		"a&lt;b\na&lt;b\n", false, `{"raw":"a<b"}`, `{"raw":"a<b"}`},
 	// The COW corner: the cache body reads an outer array and writes a member.
 	// The read crosses the child frame, so the array is share-marked; the
 	// member-write must copy-on-write into a body-local copy, leaving the caller's
-	// array untouched -- exactly execCache's captureItems(ctx.Child()) over the
+	// array untouched, exactly execCache's captureItems(ctx.Child()) over the
 	// interpreter's Own/SetMember primitives. The caller's post-region read must
 	// show the original, and the cached body must show the mutated copy.
 	{"body_member_write_is_copy_on_write",
@@ -177,8 +177,8 @@ func TestCacheBattery(t *testing.T) {
 // stored body would replay a render-unique yield placeholder no later resolve
 // pass can substitute or silently lose a render-scoped @provide. The second
 // render varies the data; because the region is never stored, its bytes track
-// the fresh data on both engines -- the opposite of a stored region, which
-// would replay the first render's bytes. Each case is compared byte-exactly
+// the fresh data on both engines (the opposite of a stored region, which
+// would replay the first render's bytes). Each case is compared byte-exactly
 // against the interpreter across both renders.
 func TestCacheSlotGatingRefusesStore(t *testing.T) {
 	slotGated := []cacheCase{
@@ -257,7 +257,7 @@ var cacheErrorCases = []compiledCase{
 	// A tag whose element is an array fails ToText on the store path. execCache
 	// returns that error UNpositioned (evalCacheTags returns it raw and execCache
 	// does not posErr it), so the compiled path must not wrap it with the region
-	// location either -- the exact error-text corner where a stray qpos would add
+	// location either: the exact error-text corner where a stray qpos would add
 	// a source suffix the interpreter's text omits.
 	{name: "cache-tag-not-textual", template: "@cache key=\"k\" tags=[[1, 2]] {\nbody\n@}\n"},
 }
@@ -347,7 +347,7 @@ func TestCacheIncludeNamespacesUnderPartial(t *testing.T) {
 // TestCacheSlotGatingThroughInclude pins the slot-gating rule through an inlined
 // @include nested in the cache body: the @provide runs inside the included
 // partial, appending to the SAME render-level slot buffers, so the region's slot
-// stamp grows and the body must never be memoized -- the compiled analog of
+// stamp grows and the body must never be memoized, the compiled analog of
 // execCache's slotStamp catching provides from nested includes. The @yield sits
 // outside the region and reflects the current render's data on both renders,
 // proving no replay of the first render's provided content. This is the corner a
@@ -402,7 +402,7 @@ func TestCacheSlotGatingThroughInclude(t *testing.T) {
 // entry names, so the second child renders its own data fresh rather than
 // replaying the first child's stored body. Keying by the error-position source
 // (the base that DEFINES the block) collides both children under the base name
-// and serves the first child's bytes for the second -- a wrong-bytes-served
+// and serves the first child's bytes for the second, a wrong-bytes-served
 // outcome the interpreter never produces, since it leaves in.root pinned to the
 // entry while inlining a parent block. The two-manifest shared-Environment leg
 // drives this end to end through the generated code, and the generated-source

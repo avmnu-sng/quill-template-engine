@@ -198,7 +198,7 @@ func (p *parser) parseSetTarget() (node *ast.Node, name string, typ *ast.Node) {
 		return p.toTarget(p.parseMap()), "", nil
 	case lex.NAME:
 		nameTok := p.advance()
-		// A member target -- NAME.member or NAME[key], possibly chained -- assigns
+		// A member target (NAME.member or NAME[key], possibly chained) assigns
 		// through a receiver rather than binding a plain name (the mutable-cell
 		// form, @set c.value = expr). It is not a bindable name, so it reports an
 		// empty name to the capture-form lookahead.

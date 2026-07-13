@@ -388,7 +388,7 @@ func TestWithCompiledVerifyReportsErrorDivergence(t *testing.T) {
 // so the interpreter's RenderTo streams partial output before a mid-render
 // error and direct dispatch does too. Verification buffers the render to
 // compare both engines but must still leave those same bytes on w alongside
-// the identical error -- and a faithful unit must report zero divergences.
+// the identical error. A faithful unit must report zero divergences.
 func TestWithCompiledVerifyRenderToWritesErrorPartialOutput(t *testing.T) {
 	const src = "hi{{ nope }}"
 	tmpls := map[string]string{"t.ql": src}
@@ -525,7 +525,7 @@ func TestWithCompiledRenderToSlotsDiscardsErrorPartial(t *testing.T) {
 		t.Fatalf("compiled Render must keep its partial-buffer contract: got %q, %v", out, err)
 	}
 
-	// Verify mode: the same withholding applies -- a slots unit writes nothing
+	// Verify mode: the same withholding applies; a slots unit writes nothing
 	// on error, so w must end empty even though the shadow comparison buffered
 	// both engines' partials to compare them.
 	var divs int

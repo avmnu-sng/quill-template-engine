@@ -201,7 +201,7 @@ func (c *compiler) emitPlainValueLocal(v string, line int) {
 
 // stmtPrintPlain lowers a print with no active escape strategy, where the
 // emit helper reduces to ToText plus a write. A static-Int expression writes
-// its strconv.FormatInt rendering directly -- exactly ToText's Int spelling.
+// its strconv.FormatInt rendering directly, matching ToText's Int spelling.
 // Every other expression takes an inline Str/Safe kind guard writing v.AsStr()
 // verbatim (ToText returns those kinds' bytes unchanged and no escaping
 // applies), falling back to the emit helper for the remaining kinds'
@@ -224,8 +224,8 @@ func (c *compiler) stmtPrintPlain(val, pos *ast.Node) error {
 }
 
 // staticIntPrint reports whether the print operand at n is a static-Int
-// expression -- an Int literal or an approved inline loop field read of an
-// Int-valued field -- returning the int64 Go expression that computes it.
+// expression (an Int literal or an approved inline loop field read of an
+// Int-valued field), returning the int64 Go expression that computes it.
 // Such a value's ToText is exactly strconv.FormatInt over that int64, so the
 // print site formats the digits without materializing the Value.
 func (c *compiler) staticIntPrint(n *ast.Node) (string, bool) {
@@ -384,7 +384,7 @@ func (c *compiler) stmtCapture(n *ast.Node) error {
 }
 
 // captureBody renders body into a fresh strings.Builder with indentation
-// suspended -- the shared shape captureItems takes for @set...capture and
+// suspended, the shared shape captureItems takes for @set...capture and
 // @apply. A tab-free module writes into the builder directly; any other module
 // wraps it in a fresh qWriter starting at line-start with an empty indent, so
 // the captured text is unindented regardless of the enclosing @tab region. It
@@ -434,7 +434,7 @@ func (c *compiler) captureInto(body []*ast.Node, guarded bool) (string, error) {
 // active escape strategy (every interpolation inside the body was emitted, so
 // escaped), so under a live strategy a filtered result whose kind is not KSafe
 // is wrapped runtime.Safe to keep the final emit from escaping already-escaped
-// bytes a second time -- byte-exact to execApply's double-escape guard. The
+// bytes a second time, byte-exact to execApply's double-escape guard. The
 // sandbox arrow/stringify gates execApply runs are !sandboxOn no-ops on the
 // compiled path (the dispatch gate refuses any sandboxed unit), so they lower
 // to nothing.
@@ -469,8 +469,8 @@ func (c *compiler) stmtApply(n *ast.Node) error {
 }
 
 // applyFilter lowers one filter in an @apply chain, rebinding the running value
-// local v in place. It mirrors exprFilter's dispatch -- registry lookup, the
-// zero-explicit-arg Fn1 fast path, Needs* injection -- but the piped value is
+// local v in place. It mirrors exprFilter's dispatch (registry lookup, the
+// zero-explicit-arg Fn1 fast path, Needs* injection), but the piped value is
 // the running local rather than a lowered child expression, the argument slice
 // comes from execApply's own non-expanding loop through applyArgs (a spread
 // argument stays one array value, unlike the inline filter path), and the
@@ -562,7 +562,7 @@ func (c *compiler) applyArgs(f *ast.Node, piped string) (string, error) {
 //     position, and a missing key raises "@cache requires a key" at the region.
 //     Both are decidable from the static head, so they lower as unconditional
 //     raises like an unknown @escape strategy. The ttl expression is never
-//     evaluated -- a documented no-op for the non-expiring in-memory cache.
+//     evaluated, a documented no-op for the non-expiring in-memory cache.
 //   - The key evaluates in the CALLER scope, coerces to text, and is namespaced
 //     by the RENDER-ROOT template name (root.Name + NUL + user key), matching
 //     execCache's in.root.Name: the entry template for a @cache reached through
@@ -570,7 +570,7 @@ func (c *compiler) applyArgs(f *ast.Node, piped string) (string, error) {
 //     through an inlined @include, exactly as the interpreter's sub-interp keys
 //     under its own root there.
 //   - A hit (rc non-nil and the key present) splices the stored body raw through
-//     the active writer -- the analog of execCache's emitString on a hit -- and
+//     the active writer (the analog of execCache's emitString on a hit) and
 //     skips the body, so a body-local @set never runs and its side effect never
 //     surfaces, matching the interpreter's hit path.
 //   - A miss renders the body in a child scope (a frameWith over a null map, the
@@ -1280,7 +1280,7 @@ func (c *compiler) stmtForBody(n *ast.Node, target1, target2, body *ast.Node, it
 	inline := c.an.inlineFor(n)
 
 	// The parent loop value resolves in the enclosing chain before iteration,
-	// like pre.Get("loop") -- on both paths, because the probe's TIMING is
+	// like pre.Get("loop") on both paths, because the probe's TIMING is
 	// observable: a with-map or root entry named loop that changes mid-loop
 	// must not skew an on-demand materialization away from the parent the
 	// interpreter bound at entry. An inline loop cannot go through probeName
@@ -1355,7 +1355,7 @@ func (c *compiler) stmtForBody(n *ast.Node, target1, target2, body *ast.Node, it
 // emitLiveTargets lowers a live loop's per-iteration target loads: the entry
 // at position i comes from Array.PairAt on the array path and from the
 // fallback pair slice otherwise, then binds exactly what the pair-slice
-// lowering binds -- the value for a single target, key and value for two.
+// lowering binds: the value for a single target, key and value for two.
 func (c *compiler) emitLiveTargets(it iterVars, target1, target2 *ast.Node, i string) {
 	if target2 != nil {
 		kv := c.tmp("qt")

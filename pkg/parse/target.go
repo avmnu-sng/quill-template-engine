@@ -30,7 +30,7 @@ import (
 //
 // Optionals must be trailing: once an optional slot appears, only further optionals
 // and a final "...rest" may follow. A required or elided slot after an optional is a
-// syntax error -- it would make arity ambiguous (the count guard cannot tell which
+// syntax error: it would make arity ambiguous (the count guard cannot tell which
 // positions are mandatory) and, with positional binding, force the binder past a
 // short source. The spec's optional examples are all trailing ("[a, b?]",
 // "[head, opt?, ...rest]"), so this only rejects forms the grammar never intended.
@@ -71,8 +71,8 @@ func (p *parser) parseSeqPattern() *ast.Node {
 // parseSeqSlot parses one slot of a sequence-destructuring pattern. An empty
 // position (the cursor is at "," or "]") is an elided slot, returned as a nil
 // node so the interpreter advances past the source element without binding. A
-// "...name" is a tail capture (KindSpread). Otherwise the slot is a target -- a
-// nested "[" / "{" pattern or a (optionally typed) name -- which a trailing "?"
+// "...name" is a tail capture (KindSpread). Otherwise the slot is a target: a
+// nested "[" / "{" pattern or a (optionally typed) name, which a trailing "?"
 // wraps in a KindOptional to mark it null-paddable when the source is short.
 func (p *parser) parseSeqSlot() *ast.Node {
 	// Elided slot: an empty position between commas, or a leading "[, b]".
@@ -155,9 +155,9 @@ func (p *parser) toTarget(e *ast.Node) *ast.Node {
 // This is the expression-form path: a sequence literal "[a, b]" reinterpreted as a
 // target after the expression parser ran (e.g. "[a, b] = e" inside an
 // interpolation). It supports names, nested list/map patterns, and "...name". The
-// optional ("[a, b?]") and elided ("[, b]") slot forms are NOT reachable here --
+// optional ("[a, b?]") and elided ("[, b]") slot forms are NOT reachable here:
 // the expression parser reads a trailing "?" as a ternary and cannot express a
-// bare-comma elision -- so those forms are parsed instead by the dedicated
+// bare-comma elision, so those forms are parsed instead by the dedicated
 // parseSeqPattern target grammar at the @set LHS (spec 01 Section 2.1).
 func (p *parser) listToPattern(list *ast.Node) *ast.Node {
 	pat := ast.New(ast.KindListPattern, list.Line, list.Src)

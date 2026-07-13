@@ -16,7 +16,7 @@
 // pointer across cache keys and read concurrently by the interpreter, the
 // coverage collector (package cover), and the checker (package check) without
 // synchronization. Nothing downstream of the parser mutates a Node or its
-// Children -- a walk that needs to transform the tree must build new nodes.
+// Children; a walk that needs to transform the tree must build new nodes.
 package ast
 
 import (
@@ -25,8 +25,8 @@ import (
 	"github.com/avmnu-sng/quill-template-engine/pkg/source"
 )
 
-// Node is the single AST node type. Every Quill construct -- a module, a text
-// span, an interpolation, an expression operator, a statement, a clause -- is a
+// Node is the single AST node type. Every Quill construct (a module, a text
+// span, an interpolation, an expression operator, a statement, a clause) is a
 // Node distinguished by Kind. Children are ordered and their meaning is fixed per
 // Kind (see kind.go). Scalar payloads live in the typed fields so a consumer
 // never has to re-parse text:
@@ -97,7 +97,7 @@ func (n *Node) NumChildren() int {
 // IntCount reads the Int payload as a non-negative int count. Kinds that carry a
 // child count (a @set's targets, an @apply's filters, a @cache's tag args, and
 // so on) store it as int64(len(...)), so it always fits int; the bounds guard
-// makes that invariant explicit -- it is dead on a 64-bit platform and only
+// makes that invariant explicit: it is dead on a 64-bit platform and only
 // clamps the physically unrepresentable case where int is 32-bit.
 func (n *Node) IntCount() int {
 	if n.Int < 0 || n.Int > math.MaxInt {

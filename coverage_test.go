@@ -275,7 +275,7 @@ func TestCoverageGuardArms(t *testing.T) {
 // gated on a template being ENTERED at render time, not on it being merely
 // referenced. An @include whose statement never executes (here, inside a
 // never-taken @if arm) never enters its target, so the target is never seeded
-// and its regions are ABSENT from the report -- not reported as 0%. This is a
+// and its regions are ABSENT from the report, not reported as 0%. This is a
 // deliberate limitation documented on cover.Collector.SeedTemplate; the test
 // exists so the semantics cannot drift silently.
 func TestCoverageUnreachedIncludeIsAbsent(t *testing.T) {
@@ -318,7 +318,7 @@ func TestCoverageUnreachedIncludeIsAbsent(t *testing.T) {
 
 // TestCoverageMacroHomeTopLevelNotSeeded pins the macro-home seeding boundary: a
 // template entered ONLY as a macro home (its macro invoked via @import) never
-// renders its top-level markup, so that markup must NOT be seeded -- seeding it
+// renders its top-level markup, so that markup must NOT be seeded; seeding it
 // would report unreachable code as an uncovered gap and distort the percentage.
 // The invoked macro's own subtree is still seeded and covered. When the SAME
 // partial is also entered as a render root or executed @include, its top-level
@@ -447,7 +447,7 @@ func TestCoverageWriters(t *testing.T) {
 }
 
 // TestCoverageDoesNotChangeOutput renders a range of constructs with and without
-// a Collector and asserts byte-identical output -- the binding invariant, checked
+// a Collector and asserts byte-identical output: the binding invariant, checked
 // directly here in addition to the conformance variant.
 func TestCoverageDoesNotChangeOutput(t *testing.T) {
 	src := "@if a {\n{{ x }}\n@} else {\nno\n@}\n" +
