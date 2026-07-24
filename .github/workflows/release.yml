@@ -27,7 +27,7 @@ jobs:
           # GoReleaser derives the changelog and release notes from git history,
           # so the full history and tags must be present.
           fetch-depth: 0
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: stable
           check-latest: true
